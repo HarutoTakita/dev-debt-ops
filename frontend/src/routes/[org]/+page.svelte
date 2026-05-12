@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard · Stratum</title>
+  <title>Dashboard · Rosetta</title>
 </svelte:head>
 
 <div class="p-8">

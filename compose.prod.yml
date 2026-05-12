@@ -1,0 +1,71 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.prod
+    env_file: .env.prod
+    environment:
+      ENVIRONMENT: prod
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      replicas: 3
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.backend.rule: "PathPrefix(`/`)"
+      traefik.http.routers.backend.entrypoints: "web"
+      traefik.http.services.backend.loadbalancer.server.port: "8000"
+
+      # Edge rate limits (per source IP, token-bucket).
+      traefik.http.middlewares.auth-login-min.ratelimit.average: "5"
+      traefik.http.middlewares.auth-login-min.ratelimit.period: "1m"
+      traefik.http.middlewares.auth-login-min.ratelimit.burst: "5"
+      traefik.http.middlewares.auth-login-hour.ratelimit.average: "10"
+      traefik.http.middlewares.auth-login-hour.ratelimit.period: "1h"
+      traefik.http.middlewares.auth-login-hour.ratelimit.burst: "10"
+      traefik.http.middlewares.auth-refresh-min.ratelimit.average: "30"
+      traefik.http.middlewares.auth-refresh-min.ratelimit.period: "1m"
+      traefik.http.middlewares.auth-refresh-min.ratelimit.burst: "30"
+
+      traefik.http.routers.auth-login.rule: "Path(`/api/v1/auth/login`)"
+      traefik.http.routers.auth-login.entrypoints: "web"
+      traefik.http.routers.auth-login.service: "backend"
+      traefik.http.routers.auth-login.middlewares: "auth-login-min,auth-login-hour"
+      traefik.http.routers.auth-refresh.rule: "Path(`/api/v1/auth/refresh`)"
+      traefik.http.routers.auth-refresh.entrypoints: "web"
+      traefik.http.routers.auth-refresh.service: "backend"
+      traefik.http.routers.auth-refresh.middlewares: "auth-refresh-min"
+
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.insecure=true
+      - --api.dashboard=true
+    ports:
+      - "8080:80"
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - backend
+
+  db:
+    image: pgvector/pgvector:pg17
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-app}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata_prod:
