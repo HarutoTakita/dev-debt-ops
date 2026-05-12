@@ -1,0 +1,65 @@
+# ── Environment ──
+.env
+.env.*
+!.env.example
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+*.egg-info/
+dist/
+build/
+*.egg
+.mypy_cache/
+.ruff_cache/
+
+# ── Node ──
+node_modules/
+
+# ── Build outputs ──
+build/
+.svelte-kit/
+
+# ── IDE ──
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Terraform ──
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+!infra/*/environments/*.tfvars
+.terraform.lock.hcl
+crash.log
+
+# ── Docker ──
+pgdata/
+
+# ── Testing ──
+coverage/
+.coverage
+htmlcov/
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# ── Worktrees ──
+.worktrees/
+
+# ── Claude Code (machine-local) ──
+.claude/settings.local.json
+.claude/skills/owui-clone-via-computed-styles/
+
+# ── Misc ──
+*.log

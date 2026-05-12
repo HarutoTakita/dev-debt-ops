@@ -1,0 +1,15 @@
+**/__pycache__
+**/.venv
+**/node_modules
+**/build
+**/.git
+**/.svelte-kit
+**/.env*
+!**/.env.example
+*.pyc
+.DS_Store
+docs/
+infra/
+.github/
+lefthook.yml
+*.md

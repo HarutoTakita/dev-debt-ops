@@ -1,0 +1,15 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+.playwright-mcp/
+coverage/
+
+# Paraglide / inlang generated files (settings.json is the only tracked file)
+project.inlang/*
+!project.inlang/settings.json

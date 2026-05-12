@@ -1,0 +1,79 @@
+import logging
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
+
+from app.api.v1.router import api_router
+from app.core.config import settings
+from app.core.db import engine
+from app.core.exceptions import AppError
+
+logger = logging.getLogger(__name__)
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve SPA — fall back to index.html for client-side routes."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        """Serve the requested path, falling back to `index.html` on 404."""
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as ex:
+            if ex.status_code == 404:
+                return await super().get_response("index.html", scope)
+            raise
+
+
+_is_prod = settings.ENVIRONMENT == "prod"
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Dispose the DB engine on shutdown."""
+    logger.info("Starting backend replica: %s", os.environ.get("REPLICA_ID", "single"))
+    try:
+        yield
+    finally:
+        await engine.dispose()
+
+
+tags_metadata: list[dict[str, str]] = [
+    {"name": "Health", "description": "Liveness and readiness probes"},
+]
+
+app = FastAPI(
+    title="Stratum",
+    summary="Tech Debt Twin Agent — SvelteKit + FastAPI + PostgreSQL",
+    version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json" if not _is_prod else None,
+    openapi_tags=tags_metadata,
+    lifespan=lifespan,
+)
+
+
+@app.exception_handler(AppError)
+async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
+    """Translate any `AppError` subclass into a JSON response with its `status_code`."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+
+app.include_router(api_router)
+
+if not _is_prod:
+    from app.api.docs import router as docs_router
+
+    app.include_router(docs_router, prefix="/api")
+
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True), name="frontend")

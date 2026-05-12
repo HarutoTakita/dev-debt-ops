@@ -1,0 +1,25 @@
+# Install: ./frontend/node_modules/.bin/lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+    ruff-check:
+      root: backend/
+      glob: "**/*.py"
+      run: uv run ruff check {staged_files}
+    ruff-format:
+      root: backend/
+      glob: "**/*.py"
+      run: uv run ruff format --check {staged_files}
+    prettier:
+      root: frontend/
+      glob: "**/*.{ts,svelte,json,css}"
+      run: bunx prettier --check {staged_files}
+    eslint:
+      root: frontend/
+      glob: "**/*.{ts,svelte}"
+      run: bunx eslint {staged_files}
+    gitleaks:
+      # Auto-installs the binary on first run (Homebrew on macOS, `go install` on Linux).
+      # Scans the staged diff only — fast even on big commits.
+      run: ./scripts/gitleaks-precommit.sh
