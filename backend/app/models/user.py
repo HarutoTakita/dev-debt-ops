@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
 from sqlalchemy import BigInteger, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, sa_created_at, sa_deleted_at, sa_updated_at
+
+if TYPE_CHECKING:
+    from app.models.oauth_account import OAuthAccount
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -25,3 +31,4 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     updated_at: Mapped[datetime] = sa_updated_at()
     deleted_at: Mapped[datetime | None] = sa_deleted_at()
     token_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", back_populates="user", lazy="joined")

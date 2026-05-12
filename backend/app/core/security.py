@@ -9,6 +9,7 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.db import SQLAlchemyUserDatabase
+from app.services.github_oauth_client import RobustGitHubOAuth2
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,13 +88,21 @@ refresh_backend = AuthenticationBackend(
 )
 
 
+github_oauth_client = RobustGitHubOAuth2(
+    settings.GITHUB_CLIENT_ID,
+    settings.GITHUB_CLIENT_SECRET.get_secret_value(),
+)
+
+
 async def get_user_db(session: AsyncSession = Depends(get_sa_async_session)):
     """Yield a fastapi-users SQLAlchemy database adapter as a FastAPI dependency.
 
     Yields:
         A `SQLAlchemyUserDatabase` instance bound to the current session.
     """
-    yield SQLAlchemyUserDatabase(session, User)
+    from app.models.oauth_account import OAuthAccount
+
+    yield SQLAlchemyUserDatabase(session, User, OAuthAccount)
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
