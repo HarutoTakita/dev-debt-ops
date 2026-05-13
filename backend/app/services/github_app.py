@@ -7,7 +7,7 @@ import httpx
 import jwt
 
 API_BASE = "https://api.github.com"
-_EXPIRY_BUFFER_SECONDS = 300  # 期限5分前に再取得
+_EXPIRY_BUFFER_SECONDS = 300
 
 
 def _to_pem(key: str) -> str:
@@ -19,15 +19,16 @@ def _to_pem(key: str) -> str:
 
 
 class GitHubAppService:
-    """GitHub App の JWT 署名とインストールアクセストークン管理。"""
+    """GitHub App JWT signing and installation access token management."""
 
     def __init__(self, app_id: str, private_key: str) -> None:
+        """Initialize the service with the GitHub App ID and RSA private key."""
         self._app_id = app_id
         self._private_key = _to_pem(private_key)
         self._token_cache: dict[int, tuple[str, float]] = {}
 
     def _create_jwt(self) -> str:
-        """RS256 で署名した JWT を生成（10分有効）。"""
+        """Generate an RS256-signed JWT valid for 10 minutes."""
         now = int(time.time())
         payload = {
             "iat": now - 60,
@@ -46,7 +47,7 @@ class GitHubAppService:
         return token
 
     async def get_installation_token(self, installation_id: int) -> str:
-        """インストールアクセストークンを取得（キャッシュあり）。"""
+        """Return an installation access token, using the cache when available."""
         cached = self._get_cached_token(installation_id)
         if cached:
             return cached
@@ -70,11 +71,26 @@ class GitHubAppService:
         return token
 
     async def get_installation_for_repo(self, owner: str, repo: str) -> int:
-        """リポジトリに対応するインストール ID を取得。"""
+        """Return the installation ID for the GitHub App installed on the given repository."""
         app_jwt = self._create_jwt()
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{API_BASE}/repos/{owner}/{repo}/installation",
+                headers={
+                    "Authorization": f"Bearer {app_jwt}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()["id"]
+
+    async def get_installation_for_user(self, username: str) -> int:
+        """Return the installation ID for the GitHub App installed on a user account."""
+        app_jwt = self._create_jwt()
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{API_BASE}/users/{username}/installation",
                 headers={
                     "Authorization": f"Bearer {app_jwt}",
                     "Accept": "application/vnd.github+json",

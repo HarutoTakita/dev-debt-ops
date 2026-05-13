@@ -1,4 +1,4 @@
-"""GitHub REST API クライアント（インストールトークンで認証）。"""
+"""GitHub REST API client authenticated with an installation access token."""
 
 import base64
 from dataclasses import dataclass
@@ -10,7 +10,7 @@ API_BASE = "https://api.github.com"
 
 @dataclass
 class RepositoryInfo:
-    """リポジトリ基本情報。"""
+    """Repository base information."""
 
     owner: str
     name: str
@@ -23,8 +23,24 @@ class RepositoryInfo:
 
 
 @dataclass
+class RepositoryListResult:
+    """Return type for list_repositories."""
+
+    repositories: list["RepositoryInfo"]
+    total_count: int
+
+
+@dataclass
+class BranchInfo:
+    """Branch information."""
+
+    name: str
+    is_default: bool
+
+
+@dataclass
 class TreeItem:
-    """ファイルツリーの1エントリ。"""
+    """Single entry in a file tree."""
 
     path: str
     type: str  # "blob" | "tree"
@@ -33,7 +49,7 @@ class TreeItem:
 
 @dataclass
 class FileContent:
-    """ファイルの内容。"""
+    """File content retrieved from a repository."""
 
     path: str
     content: str | None
@@ -42,9 +58,10 @@ class FileContent:
 
 
 class GitHubGitClient:
-    """インストールアクセストークンで GitHub REST API を呼び出すクライアント。"""
+    """GitHub REST API client that authenticates with an installation access token."""
 
     def __init__(self, access_token: str) -> None:
+        """Initialize the client with the given GitHub installation access token."""
         self._client = httpx.AsyncClient(
             base_url=API_BASE,
             headers={
@@ -55,8 +72,8 @@ class GitHubGitClient:
             timeout=30.0,
         )
 
-    async def list_repositories(self, page: int = 1, per_page: int = 100) -> list[RepositoryInfo]:
-        """GitHub App がインストールされているリポジトリ一覧を返す。"""
+    async def list_repositories(self, page: int = 1, per_page: int = 30) -> RepositoryListResult:
+        """Return repositories accessible via the GitHub App installation."""
         per_page = min(per_page, 100)
         resp = await self._client.get(
             "/installation/repositories",
@@ -64,7 +81,7 @@ class GitHubGitClient:
         )
         resp.raise_for_status()
         data = resp.json()
-        return [
+        repositories = [
             RepositoryInfo(
                 owner=r["owner"]["login"],
                 name=r["name"],
@@ -77,11 +94,38 @@ class GitHubGitClient:
             )
             for r in data.get("repositories", [])
         ]
+        return RepositoryListResult(repositories=repositories, total_count=data.get("total_count", len(repositories)))
 
-    async def get_repository_tree(
-        self, owner: str, repo: str, branch: str = "main"
-    ) -> list[TreeItem]:
-        """ファイルツリーを再帰的に取得する。"""
+    async def list_branches(self, owner: str, repo: str) -> list[BranchInfo]:
+        """Return all branches for a repository, marking the default branch."""
+        branches: list[BranchInfo] = []
+        page = 1
+        while True:
+            resp = await self._client.get(
+                f"/repos/{owner}/{repo}/branches",
+                params={"per_page": 100, "page": page},
+            )
+            resp.raise_for_status()
+            items = resp.json()
+            if not items:
+                break
+            branches.extend(BranchInfo(name=b["name"], is_default=False) for b in items)
+            if len(items) < 100:
+                break
+            page += 1
+
+        repo_resp = await self._client.get(f"/repos/{owner}/{repo}")
+        if repo_resp.is_success:
+            default_branch = repo_resp.json().get("default_branch", "main")
+            for b in branches:
+                if b.name == default_branch:
+                    b.is_default = True
+                    break
+
+        return branches
+
+    async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
+        """Return the recursive file tree for a repository branch."""
         resp = await self._client.get(
             f"/repos/{owner}/{repo}/git/trees/{branch}",
             params={"recursive": "1"},
@@ -98,10 +142,8 @@ class GitHubGitClient:
             if item["type"] in ("blob", "tree")
         ]
 
-    async def get_file_content(
-        self, owner: str, repo: str, path: str, ref: str = "main"
-    ) -> FileContent:
-        """指定ファイルの内容を取得する。バイナリは content=None で返す。"""
+    async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
+        """Return the decoded file content; binary files are returned with content=None."""
         resp = await self._client.get(
             f"/repos/{owner}/{repo}/contents/{path}",
             params={"ref": ref},
@@ -114,7 +156,7 @@ class GitHubGitClient:
             try:
                 content = base64.b64decode(data["content"]).decode("utf-8")
             except (UnicodeDecodeError, ValueError):
-                content = None  # バイナリファイル
+                content = None
 
         return FileContent(
             path=data["path"],
@@ -124,4 +166,5 @@ class GitHubGitClient:
         )
 
     async def aclose(self) -> None:
+        """Close the underlying HTTP client."""
         await self._client.aclose()
