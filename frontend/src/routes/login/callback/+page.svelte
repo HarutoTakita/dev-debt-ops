@@ -55,11 +55,11 @@
   {#if error}
     <div class="text-center">
       <p class="text-destructive">{error}</p>
-      <a href={resolve("/login")} class="text-muted-foreground mt-4 block text-sm hover:underline">
+      <a href={resolve("/login")} class="mt-4 block text-sm text-muted-foreground hover:underline">
         ログイン画面に戻る
       </a>
     </div>
   {:else}
-    <p class="text-muted-foreground text-sm">サインイン中...</p>
+    <p class="text-sm text-muted-foreground">サインイン中...</p>
   {/if}
 </div>
