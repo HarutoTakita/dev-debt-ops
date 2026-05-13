@@ -4,6 +4,7 @@
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
+  import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
 
   let tree = $state<Tree | null>(null);
@@ -96,7 +97,8 @@
     </div>
 
     <div class="flex flex-1 overflow-hidden">
-      <aside class="w-64 shrink-0 overflow-y-auto border-r">
+      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r">
+        <TechStackPanel owner={repo.connected.owner} repo={repo.connected.name} />
         {#if treeLoading}
           <p class="p-4 text-sm text-muted-foreground">読み込み中...</p>
         {:else if tree}

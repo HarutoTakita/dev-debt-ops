@@ -5,6 +5,7 @@ import {
   orgMemberSchema,
   orgSchema,
   repositoryListSchema,
+  techStackSchema,
   treeSchema,
   type BranchList,
   type FileContent,
@@ -13,10 +14,11 @@ import {
   type OrgRole,
   type Repository,
   type RepositoryList,
+  type TechStack,
   type Tree,
 } from "./schemas";
 
-export type { BranchList, FileContent, Org, OrgMember, OrgRole, Repository, RepositoryList, Tree };
+export type { BranchList, FileContent, Org, OrgMember, OrgRole, Repository, RepositoryList, TechStack, Tree };
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
   if (!response.headers.get("content-type")?.includes("application/json")) return fallback;
@@ -141,4 +143,19 @@ export async function getFileContent(owner: string, repo: string, path: string, 
   const response = await apiFetch(`/api/v1/github/repositories/${owner}/${repo}/contents?${params}`);
   if (!response.ok) throw new Error(await errorDetail(response, "ファイルの取得に失敗しました"));
   return fileContentSchema.parse(await response.json());
+}
+
+export async function analyzeStack(owner: string, repo: string): Promise<TechStack> {
+  const response = await apiFetch(`/api/v1/github/repositories/${owner}/${repo}/analyze-stack`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの解析に失敗しました"));
+  return techStackSchema.parse(await response.json());
+}
+
+export async function getStack(owner: string, repo: string): Promise<TechStack | null> {
+  const response = await apiFetch(`/api/v1/github/repositories/${owner}/${repo}/stack`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの取得に失敗しました"));
+  return techStackSchema.parse(await response.json());
 }

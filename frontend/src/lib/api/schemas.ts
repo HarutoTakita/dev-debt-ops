@@ -95,3 +95,33 @@ export type BranchList = z.infer<typeof branchListSchema>;
 export type TreeItem = z.infer<typeof treeItemSchema>;
 export type Tree = z.infer<typeof treeSchema>;
 export type FileContent = z.infer<typeof fileContentSchema>;
+
+// Tech Stack
+export const techItemSchema = z.object({
+  name: z.string(),
+  confidence: z.enum(["high", "medium", "low"]),
+});
+
+export const techCategoriesSchema = z.object({
+  frameworks: z.array(techItemSchema),
+  databases: z.array(techItemSchema),
+  auth: z.array(techItemSchema),
+  container: z.array(techItemSchema),
+  infra: z.array(techItemSchema),
+  cicd: z.array(techItemSchema),
+  monitoring: z.array(techItemSchema),
+  testing: z.array(techItemSchema),
+  other: z.array(techItemSchema),
+});
+
+export const techStackSchema = z.object({
+  owner: z.string(),
+  repo: z.string(),
+  analyzed_at: z.iso.datetime({ offset: true }),
+  languages: z.array(techItemSchema),
+  categories: techCategoriesSchema,
+});
+
+export type TechItem = z.infer<typeof techItemSchema>;
+export type TechCategories = z.infer<typeof techCategoriesSchema>;
+export type TechStack = z.infer<typeof techStackSchema>;
