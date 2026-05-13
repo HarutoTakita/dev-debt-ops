@@ -13,9 +13,7 @@ class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
 
     __tablename__ = "oauth_accounts"
 
-    user_id: Mapped[GUID] = mapped_column(
-        GUID, ForeignKey("users.id", ondelete="cascade"), nullable=False
-    )
+    user_id: Mapped[GUID] = mapped_column(GUID, ForeignKey("users.id", ondelete="cascade"), nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="oauth_accounts")
 
