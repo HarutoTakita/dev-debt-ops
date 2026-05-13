@@ -76,7 +76,7 @@ _github_app_service: GitHubAppService | None = None
 
 
 def get_github_app_service() -> GitHubAppService:
-    """シングルトンの GitHubAppService を返す。"""
+    """Return the singleton GitHubAppService instance."""
     global _github_app_service
     if _github_app_service is None:
         _github_app_service = GitHubAppService(
@@ -89,9 +89,5 @@ def get_github_app_service() -> GitHubAppService:
 async def get_github_git_client(
     user: CurrentUser,
 ) -> GitHubGitClient:
-    """ログインユーザーの GitHub インストールトークンで GitHubGitClient を返す。"""
-    app_service = get_github_app_service()
-    # installation_id はリポジトリ選択時に取得するため、ここでは user access token を使う
-    # 現時点では App JWT で直接 user installation を取得
-    # TODO: ユーザー毎のインストール ID をDBに保存する方式に切り替える
-    raise NotImplementedError("Use get_git_client_for_repo instead")
+    """Not implemented — use resolve_github_client in the github router instead."""
+    raise NotImplementedError("Use resolve_github_client from app.api.v1.github instead")
