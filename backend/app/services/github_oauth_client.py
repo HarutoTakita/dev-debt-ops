@@ -1,4 +1,4 @@
-"""GitHub OAuth2 クライアント（メール未取得時のフォールバック付き）。"""
+"""GitHub OAuth2 client with fallback when email is unavailable."""
 
 from typing import cast
 
@@ -8,13 +8,13 @@ from httpx_oauth.exceptions import GetIdEmailError
 
 
 class RobustGitHubOAuth2(GitHubOAuth2):
-    """メールが取得できない場合に GitHub ログイン名をフォールバックとして使うクライアント。
+    """GitHub OAuth2 client that falls back to the login name when email is not accessible.
 
     GitHub App で Email addresses 権限が未設定の場合でも動作する。
     """
 
     async def get_id_email(self, token: str) -> tuple[str, str | None]:
-        """ユーザー ID とメールアドレスを返す。メール取得に失敗しても ID だけで続行する。"""
+        """Return the user ID and email; continues with only the ID if email retrieval fails."""
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 "https://api.github.com/user",

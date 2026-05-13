@@ -32,26 +32,20 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
 
     # AI (Google Gemini)
-    GOOGLE_API_KEY: SecretStr = Field(
-        default=SecretStr(""), description="API key for Google Generative AI (Gemini)."
-    )
+    GOOGLE_API_KEY: SecretStr = Field(default=SecretStr(""), description="API key for Google Generative AI (Gemini).")
 
-    # GitHub App（リポジトリアクセス用）
+    # GitHub App (リポジトリアクセス用)
     GITHUB_APP_ID: str = Field(default="", description="GitHub App の数値 ID")
-    GITHUB_APP_PRIVATE_KEY: SecretStr = Field(
-        default=SecretStr(""), description="GitHub App の RSA 秘密鍵（PEM 形式）"
-    )
-    GITHUB_APP_SLUG: str = Field(default="", description="GitHub App のスラッグ（URL に使われる名前）")
+    GITHUB_APP_PRIVATE_KEY: SecretStr = Field(default=SecretStr(""), description="GitHub App の RSA 秘密鍵(PEM 形式)")
+    GITHUB_APP_SLUG: str = Field(default="", description="GitHub App のスラッグ(URL に使われる名前)")
 
-    # GitHub OAuth（ユーザー認証用）
+    # GitHub OAuth(ユーザー認証用)
     GITHUB_CLIENT_ID: str = Field(default="", description="GitHub OAuth App の Client ID")
-    GITHUB_CLIENT_SECRET: SecretStr = Field(
-        default=SecretStr(""), description="GitHub OAuth App の Client Secret"
-    )
+    GITHUB_CLIENT_SECRET: SecretStr = Field(default=SecretStr(""), description="GitHub OAuth App の Client Secret")
 
     # Frontend
     FRONTEND_ORIGIN: str = Field(
-        default="http://localhost:5173", description="フロントエンドのオリジン（OAuth コールバック先）"
+        default="http://localhost:5173", description="フロントエンドのオリジン(OAuth コールバック先)"
     )
 
     # App

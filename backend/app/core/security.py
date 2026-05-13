@@ -9,7 +9,6 @@ from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.db import SQLAlchemyUserDatabase
-from app.services.github_oauth_client import RobustGitHubOAuth2
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +19,7 @@ from app.core.refresh_strategy import RefreshDatabaseStrategy
 from app.core.refresh_token_db import RefreshTokenDatabase
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.services.github_oauth_client import RobustGitHubOAuth2
 
 
 def _cookie_name(base: str, prefix: str) -> str:
