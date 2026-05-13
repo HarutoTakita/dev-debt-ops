@@ -16,15 +16,15 @@
   }
 </script>
 
-<div class="flex min-h-screen flex-col">
-  <header class="flex items-center justify-between border-b px-4 py-2">
+<div class="flex h-screen flex-col">
+  <header class="flex shrink-0 items-center justify-between border-b px-4 py-2">
     <span class="font-semibold">{orgSlug}</span>
     <div class="flex items-center gap-4 text-sm">
       <span class="text-muted-foreground">{auth.user?.email}</span>
       <button onclick={handleLogout} class="hover:underline">ログアウト</button>
     </div>
   </header>
-  <main class="flex-1">
+  <main class="flex-1 overflow-hidden">
     {@render children()}
   </main>
 </div>
