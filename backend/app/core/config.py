@@ -31,8 +31,9 @@ class Settings(BaseSettings):
     JWT_LIFETIME_SECONDS: int = Field(default=300, description="Access-token lifetime in seconds (5 min).")
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
 
-    # AI (Google Gemini)
-    GOOGLE_API_KEY: SecretStr = Field(default=SecretStr(""), description="API key for Google Generative AI (Gemini).")
+    # AI (Google Gemini via Vertex AI)
+    GOOGLE_CLOUD_PROJECT: str = Field(default="", description="Google Cloud project ID for Vertex AI.")
+    GOOGLE_CLOUD_LOCATION: str = Field(default="us-central1", description="Vertex AI region (e.g. us-central1).")
 
     # GitHub App (リポジトリアクセス用)
     GITHUB_APP_ID: str = Field(default="", description="GitHub App の数値 ID")
