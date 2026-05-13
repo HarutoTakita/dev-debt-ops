@@ -63,3 +63,7 @@ playwright-report/
 
 # ── Misc ──
 *.log
+
+# ── Secrets ──
+gcp-sa-key.json
+secrets/*.json

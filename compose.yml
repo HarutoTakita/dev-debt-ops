@@ -6,6 +6,10 @@ services:
     ports:
       - "8000:8000"
     env_file: .env.dev
+    volumes:
+      # Google Application Default Credentials: place your SA JSON at ./secrets/gsa.json
+      # and set GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/gsa.json in .env.dev
+      - ./secrets:/app/secrets:ro
     depends_on:
       db:
         condition: service_healthy
