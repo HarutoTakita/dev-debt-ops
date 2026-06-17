@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # AI (Google Gemini via Vertex AI)
     GOOGLE_CLOUD_PROJECT: str = Field(default="", description="Google Cloud project ID for Vertex AI.")
     GOOGLE_CLOUD_LOCATION: str = Field(default="us-central1", description="Vertex AI region (e.g. us-central1).")
+    GEMINI_MODEL: str = Field(default="gemini-2.5-flash", description="Gemini model ID used by agents.")
 
     # GitHub App (リポジトリアクセス用)
     GITHUB_APP_ID: str = Field(default="", description="GitHub App の数値 ID")
