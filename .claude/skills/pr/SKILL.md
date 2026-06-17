@@ -69,7 +69,6 @@ $ARGUMENTS
    - [ ] <検証手順 1>
    - [ ] <検証手順 2>
 
-   🤖 Generated with [Claude Code](https://claude.ai/code)
    EOF
    )"
    ```

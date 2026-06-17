@@ -55,9 +55,6 @@ $ARGUMENTS
    - <詳細 1>
    - <詳細 2>
 
-   🤖 Generated with [Claude Code](https://claude.ai/code)
-
-   Co-Authored-By: Claude <noreply@anthropic.com>
    EOF
    )"
    ```
