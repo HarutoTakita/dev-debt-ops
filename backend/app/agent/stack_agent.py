@@ -16,6 +16,22 @@ from app.models.tech_stack import TechStack
 from app.services.gemini_stack_service import analyze_tech_stack
 from app.services.github_git_client import GitHubGitClient
 
+
+def _vertex_model_name() -> str:
+    """Return the Vertex AI full resource path for the configured Gemini model.
+
+    ADK's Gemini.api_client sets vertexai=True when the model name starts with
+    'projects/', which triggers ADC-based auth instead of an API key.
+    """
+    if settings.GOOGLE_CLOUD_PROJECT:
+        return (
+            f"projects/{settings.GOOGLE_CLOUD_PROJECT}"
+            f"/locations/{settings.GOOGLE_CLOUD_LOCATION}"
+            f"/publishers/google/models/{settings.GEMINI_MODEL}"
+        )
+    return settings.GEMINI_MODEL
+
+
 logger = logging.getLogger(__name__)
 
 _KEY_FILENAMES: frozenset[str] = frozenset(
@@ -205,7 +221,7 @@ def create_stack_agent(
     list_key_files, read_file, classify_stack, save_stack = build_tools(github_client, session)
 
     agent = Agent(
-        model=settings.GEMINI_MODEL,
+        model=_vertex_model_name(),
         name="stack_analysis_agent",
         instruction="""\
 あなたはリポジトリのテックスタックを自律的に解析するエージェントです。
