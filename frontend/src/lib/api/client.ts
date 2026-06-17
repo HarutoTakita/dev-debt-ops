@@ -33,12 +33,33 @@ async function errorDetail(response: Response, fallback: string): Promise<string
   return fallback;
 }
 
+let _refreshing: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (_refreshing) return _refreshing;
+  _refreshing = fetch("/api/v1/auth/refresh", { method: "POST" })
+    .then((r) => r.ok)
+    .finally(() => {
+      _refreshing = null;
+    });
+  return _refreshing;
+}
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (typeof init?.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  return fetch(path, { ...init, headers });
+  let response = await fetch(path, { ...init, headers });
+  if (response.status === 401 && path !== "/api/v1/auth/refresh") {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      response = await fetch(path, { ...init, headers });
+    } else {
+      window.location.href = "/login";
+    }
+  }
+  return response;
 }
 
 export async function listOrgs(): Promise<Org[]> {
