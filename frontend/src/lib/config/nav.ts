@@ -8,6 +8,7 @@ import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
 import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
 import { galaxy } from "$lib/stores/galaxy-store.svelte";
+import { quiz } from "$lib/stores/quiz-store.svelte";
 import * as m from "$lib/paraglide/messages";
 
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
@@ -67,7 +68,8 @@ export const navSections: NavSection[] = [
         label: m.nav_quizzes,
         icon: HelpCircle,
         route: (c) => `/${c.orgSlug}/quizzes`,
-        comingSoon: true,
+        // 受験可能件数（モック）が 1 件以上のとき pill 表示
+        pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
       },
       { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/agents`, comingSoon: true },
       {

@@ -273,3 +273,60 @@ export type FileMastery = z.infer<typeof fileMasterySchema>;
 export type Wormhole = z.infer<typeof wormholeSchema>;
 export type StarSystem = z.infer<typeof starSystemSchema>;
 export type PersonalGalaxy = z.infer<typeof personalGalaxySchema>;
+
+// Quiz（返済体験 / §6.4・§7.1 QuizSession）。クイズ合格で KC が上がる Re:Pay の演出を担う。
+export const conceptSchema = z.object({ id: z.string(), label: z.string() });
+
+export const quizQuestionSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["multiple_choice", "free_text"]),
+  prompt: z.string(),
+  code_snippet: z.object({ language: z.string(), path: z.string(), content: z.string() }).nullable(),
+  choices: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
+  difficulty: z.enum(["L1", "L2", "L3", "L4", "L5"]),
+});
+
+export const quizAnswerSchema = z.object({
+  question_id: z.string(),
+  value: z.string(),
+  saved_at: z.iso.datetime({ offset: true }),
+});
+
+export const quizSessionSchema = z.object({
+  id: z.string(),
+  developer_id: z.string(),
+  file: z.object({ path: z.string(), repo_full_name: z.string() }),
+  questions: z.array(quizQuestionSchema),
+  answers: z.array(quizAnswerSchema),
+  status: z.enum(["not_started", "in_progress", "grading", "completed"]),
+  started_at: z.iso.datetime({ offset: true }).nullable(),
+  completed_at: z.iso.datetime({ offset: true }).nullable(),
+  score: z.number().nullable(),
+});
+
+export const quizResultSchema = z.object({
+  session_id: z.string(),
+  understood: z.array(conceptSchema), // あなたが理解していたこと
+  gap_concepts: z.array(conceptSchema), // 学ぶ余地
+  kc_before: z.number(), // 例: 0.23
+  kc_after: z.number(), // 例: 0.47
+  learning_plan_id: z.string().nullable(),
+});
+
+export const quizListItemSchema = z.object({
+  session_id: z.string(),
+  file_path: z.string(),
+  repo_full_name: z.string(),
+  reason: z.string(), // KC が低い理由（§5.1）
+  question_count: z.number(),
+  estimated_minutes: z.number(),
+});
+export const quizListSchema = z.object({ quizzes: z.array(quizListItemSchema) });
+
+export type Concept = z.infer<typeof conceptSchema>;
+export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
+export type QuizAnswer = z.infer<typeof quizAnswerSchema>;
+export type QuizSession = z.infer<typeof quizSessionSchema>;
+export type QuizResult = z.infer<typeof quizResultSchema>;
+export type QuizListItem = z.infer<typeof quizListItemSchema>;
+export type QuizList = z.infer<typeof quizListSchema>;

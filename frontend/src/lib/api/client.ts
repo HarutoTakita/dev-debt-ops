@@ -6,6 +6,10 @@ import {
   fileContentSchema,
   orgMemberSchema,
   orgSchema,
+  quizAnswerSchema,
+  quizListSchema,
+  quizResultSchema,
+  quizSessionSchema,
   repositoryListSchema,
   techStackSchema,
   treeSchema,
@@ -16,6 +20,10 @@ import {
   type Org,
   type OrgMember,
   type OrgRole,
+  type QuizAnswer,
+  type QuizList,
+  type QuizResult,
+  type QuizSession,
   type Repository,
   type RepositoryList,
   type Severity,
@@ -23,6 +31,7 @@ import {
   type Tree,
 } from "./schemas";
 import { MOCK_DEBTS } from "./mock/debts";
+import { QUIZ_LIST, mockQuizResult, mockQuizSession } from "./quiz-mock";
 
 export type { BranchList, FileContent, Org, OrgMember, OrgRole, Repository, RepositoryList, TechStack, Tree };
 
@@ -255,4 +264,27 @@ export async function assignDebt(orgSlug: string, debtId: string, handle: string
   void debtId;
   void handle;
   throw new ComingSoonError();
+}
+
+// Quiz（返済体験）— 取得系はモック返却。シグネチャは本実装と互換にしておく。
+
+export async function listQuizzes(orgSlug: string): Promise<QuizList> {
+  void orgSlug; // TODO: 実 API 接続は後続 issue
+  return quizListSchema.parse(QUIZ_LIST);
+}
+
+export async function getQuizSession(sessionId: string): Promise<QuizSession> {
+  const session = mockQuizSession(sessionId);
+  if (!session) throw new Error("クイズが見つかりません");
+  return quizSessionSchema.parse(session);
+}
+
+export async function saveQuizAnswer(sessionId: string, answer: QuizAnswer): Promise<QuizAnswer> {
+  void sessionId; // TODO: PATCH 実 API は後続 issue。今は楽観的に保存済みを返す
+  return quizAnswerSchema.parse(answer);
+}
+
+export async function submitQuiz(sessionId: string): Promise<QuizResult> {
+  // TODO: 実採点は後続 issue。今はモック結果（KC 0.23 → 0.47）を返す
+  return quizResultSchema.parse(mockQuizResult(sessionId));
 }
