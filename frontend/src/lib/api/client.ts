@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   branchListSchema,
+  debtItemSchema,
+  debtListSchema,
   fileContentSchema,
   orgMemberSchema,
   orgSchema,
@@ -8,15 +10,19 @@ import {
   techStackSchema,
   treeSchema,
   type BranchList,
+  type DebtItem,
+  type DebtList,
   type FileContent,
   type Org,
   type OrgMember,
   type OrgRole,
   type Repository,
   type RepositoryList,
+  type Severity,
   type TechStack,
   type Tree,
 } from "./schemas";
+import { MOCK_DEBTS } from "./mock/debts";
 
 export type { BranchList, FileContent, Org, OrgMember, OrgRole, Repository, RepositoryList, TechStack, Tree };
 
@@ -179,4 +185,74 @@ export async function getStack(owner: string, repo: string): Promise<TechStack |
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの取得に失敗しました"));
   return techStackSchema.parse(await response.json());
+}
+
+// Debt registry（Matrix）— 取得系はモック返却。シグネチャは本実装と互換にしておき、
+// 後で GET /api/v1/orgs/{slug}/debts に差し替える。アクション系は Coming Soon スタブ。
+
+export type DebtFilter = {
+  kind?: ("code" | "knowledge")[];
+  severity?: Severity[];
+  agent?: string[];
+  status?: string[];
+};
+export type DebtSort = { key: "severity" | "detected_at" | "estimated_repay_hours"; dir: "asc" | "desc" };
+
+const SEVERITY_RANK: Record<Severity, number> = { critical: 3, high: 2, medium: 1, low: 0 };
+
+function applyFilterSort(debts: DebtItem[], filter: DebtFilter, sort: DebtSort): DebtItem[] {
+  const filtered = debts.filter((d) => {
+    if (filter.kind?.length && !filter.kind.includes(d.kind)) return false;
+    if (filter.severity?.length && !filter.severity.includes(d.severity)) return false;
+    if (filter.agent?.length && !filter.agent.includes(d.assigned_agent)) return false;
+    if (filter.status?.length && !filter.status.includes(d.status)) return false;
+    return true;
+  });
+  const dir = sort.dir === "asc" ? 1 : -1;
+  return filtered.sort((a, b) => {
+    const cmp =
+      sort.key === "severity"
+        ? SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
+        : sort.key === "detected_at"
+          ? a.detected_at.localeCompare(b.detected_at)
+          : a.estimated_repay_hours - b.estimated_repay_hours;
+    return cmp * dir;
+  });
+}
+
+export async function listDebts(orgSlug: string, filter: DebtFilter, sort: DebtSort): Promise<DebtList> {
+  void orgSlug; // TODO: GET /api/v1/orgs/${orgSlug}/debts に差し替え。現状はモックをフィルタ/ソート。
+  const debts = applyFilterSort(MOCK_DEBTS, filter, sort);
+  return debtListSchema.parse({ debts, total: debts.length });
+}
+
+export async function getDebt(orgSlug: string, debtId: string): Promise<DebtItem> {
+  void orgSlug;
+  const found = MOCK_DEBTS.find((d) => d.id === debtId);
+  if (!found) throw new Error("負債が見つかりません");
+  return debtItemSchema.parse(found);
+}
+
+// --- Coming Soon（場所だけ用意・本体は未実装） ---
+export class ComingSoonError extends Error {
+  constructor() {
+    super("coming_soon");
+    this.name = "ComingSoonError";
+  }
+}
+export async function createRepaymentPr(orgSlug: string, debtId: string): Promise<never> {
+  void orgSlug;
+  void debtId;
+  throw new ComingSoonError();
+}
+export async function dismissDebt(orgSlug: string, debtId: string): Promise<never> {
+  void orgSlug;
+  void debtId;
+  throw new ComingSoonError();
+}
+export async function assignDebt(orgSlug: string, debtId: string, handle: string): Promise<never> {
+  void orgSlug;
+  void debtId;
+  void handle;
+  throw new ComingSoonError();
 }
