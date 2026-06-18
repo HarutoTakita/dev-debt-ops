@@ -7,10 +7,15 @@
     feature,
     description,
     roadmapHref = "https://github.com/HarutoTakita/mind-odyssey/issues",
+    primaryHref,
+    primaryLabel,
   }: {
     feature: string;
     description?: string;
     roadmapHref?: string;
+    /** 任意の主導線（例: Overview から Repos へ）。指定時にロードマップより前に表示する。 */
+    primaryHref?: string;
+    primaryLabel?: string;
   } = $props();
 </script>
 
@@ -28,8 +33,13 @@
     </svg>
   {/snippet}
   {#snippet action()}
-    <Button variant="outline" href={roadmapHref} target="_blank" rel="noreferrer">
-      {m.shell_roadmap_cta()}
-    </Button>
+    <div class="flex flex-wrap items-center justify-center gap-2">
+      {#if primaryHref && primaryLabel}
+        <Button href={primaryHref}>{primaryLabel}</Button>
+      {/if}
+      <Button variant="outline" href={roadmapHref} target="_blank" rel="noreferrer">
+        {m.shell_roadmap_cta()}
+      </Button>
+    </div>
   {/snippet}
 </EmptyState>
