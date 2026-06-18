@@ -1,0 +1,48 @@
+<script lang="ts">
+  import type { DebtItem } from "$lib/api/schemas";
+  import * as m from "$lib/paraglide/messages";
+  import DeveloperAvatar from "./developer-avatar.svelte";
+  import { agentLabel, categoryLabel, kindLabel, severityLabel } from "./labels";
+
+  // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。
+  type Props = { debt: DebtItem };
+  const { debt }: Props = $props();
+
+  const rows = $derived([
+    { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
+    { label: m.debt_meta_kind(), value: `${kindLabel(debt.kind)} · ${categoryLabel(debt)}` },
+    { label: m.debt_meta_agent(), value: agentLabel(debt.assigned_agent) },
+    { label: m.debt_meta_adr(), value: debt.related_adr ?? m.debt_meta_none() },
+    { label: m.debt_meta_cost(), value: m.list_estimated({ hours: debt.estimated_repay_hours }) },
+    { label: m.debt_meta_kc(), value: debt.knowledge_coverage.toFixed(2) },
+    { label: m.debt_meta_ai_prob(), value: `${Math.round(debt.ai_generation_prob * 100)}%` },
+  ]);
+</script>
+
+<div class="divide-y rounded-lg border bg-card px-4">
+  {#each rows as r (r.label)}
+    <div class="flex items-start justify-between gap-3 py-1.5 text-sm">
+      <span class="shrink-0 text-muted-foreground">{r.label}</span>
+      <span class="text-right">{r.value}</span>
+    </div>
+  {/each}
+
+  <div class="py-2">
+    <div class="text-sm text-muted-foreground">{m.debt_meta_assigned()}</div>
+    {#if debt.assigned_developers.length}
+      <ul class="mt-2 space-y-1.5">
+        {#each debt.assigned_developers as dev (dev.github_handle)}
+          <li class="flex items-center gap-2 text-xs">
+            <DeveloperAvatar {dev} />
+            <span class="font-mono">@{dev.github_handle}</span>
+            <span class="ml-auto text-muted-foreground tabular-nums"
+              >KC {dev.coverage.toFixed(2)} · {dev.certified_via}</span
+            >
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="mt-1 text-xs text-muted-foreground">{m.debt_meta_none()}</p>
+    {/if}
+  </div>
+</div>

@@ -59,8 +59,7 @@ export const navSections: NavSection[] = [
         label: m.nav_matrix,
         icon: Grid3x3,
         route: (c) => `/${c.orgSlug}/matrix`,
-        comingSoon: true,
-        pill: () => "14",
+        pill: () => "8",
       },
       {
         id: "quizzes",

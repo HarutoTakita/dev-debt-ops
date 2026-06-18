@@ -166,3 +166,72 @@ export type FileDebt = z.infer<typeof fileDebtSchema>;
 export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
 export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
 export type Overview = z.infer<typeof overviewSchema>;
+
+// 負債レジストリ（Matrix の二次ビュー）。§7.1 の CodeDebt / KnowledgeDebt の UI 投影スキーマ。
+// 意図的な変形: severity を float→enum に量子化 / file_id を file_path+repo に平坦化 /
+// assigned_developers を CodeDebt にも拡張（理解者/形式レビューの視覚区別のため）。
+// code_snippet は詳細ビューの該当コード表示用（file-viewer 再利用）に UI 投影として追加。
+export const severitySchema = z.enum(["critical", "high", "medium", "low"]);
+export const debtKindSchema = z.enum(["code", "knowledge"]);
+export const certifiedViaSchema = z.enum(["quiz", "authorship", "review"]);
+
+export const assignedDeveloperSchema = z.object({
+  github_handle: z.string(),
+  coverage: z.number().min(0).max(1), // KC(file, dev)
+  certified_via: certifiedViaSchema, // quiz/authorship=理解者 / review=形式レビューのみ
+});
+
+export const codeDebtSchema = z.object({
+  id: z.string(),
+  kind: z.literal("code"),
+  file_path: z.string(),
+  repo: z.string(),
+  type: z.enum(["duplicate", "dead", "complexity", "other"]),
+  severity: severitySchema,
+  status: z.enum(["open", "in_pr", "resolved", "dismissed"]),
+  detected_at: z.iso.datetime({ offset: true }),
+  related_pr: z.string().nullable(),
+  related_adr: z.string().nullable(),
+  archaeology_notes: z.string(),
+  code_snippet: z.string(),
+  code_debt_score: z.number().min(0).max(1),
+  knowledge_coverage: z.number().min(0).max(1), // KC(file)
+  ai_generation_prob: z.number().min(0).max(1),
+  estimated_repay_hours: z.number(),
+  assigned_agent: z.literal("code_debt"),
+  assigned_developers: z.array(assignedDeveloperSchema),
+});
+
+export const knowledgeDebtSchema = z.object({
+  id: z.string(),
+  kind: z.literal("knowledge"),
+  file_path: z.string(),
+  repo: z.string(),
+  reason: z.enum(["ai_generated", "author_left", "no_review", "other"]),
+  severity: severitySchema,
+  status: z.enum(["open", "in_progress", "resolved"]),
+  detected_at: z.iso.datetime({ offset: true }),
+  related_adr: z.string().nullable(),
+  code_snippet: z.string(),
+  code_debt_score: z.number().min(0).max(1),
+  knowledge_coverage: z.number().min(0).max(1),
+  ai_generation_prob: z.number().min(0).max(1),
+  estimated_repay_hours: z.number(),
+  assigned_agent: z.literal("knowledge_debt"),
+  assigned_developers: z.array(assignedDeveloperSchema),
+});
+
+export const debtItemSchema = z.discriminatedUnion("kind", [codeDebtSchema, knowledgeDebtSchema]);
+export const debtListSchema = z.object({
+  debts: z.array(debtItemSchema),
+  total: z.number(),
+});
+
+export type Severity = z.infer<typeof severitySchema>;
+export type DebtKind = z.infer<typeof debtKindSchema>;
+export type CertifiedVia = z.infer<typeof certifiedViaSchema>;
+export type AssignedDeveloper = z.infer<typeof assignedDeveloperSchema>;
+export type CodeDebt = z.infer<typeof codeDebtSchema>;
+export type KnowledgeDebt = z.infer<typeof knowledgeDebtSchema>;
+export type DebtItem = z.infer<typeof debtItemSchema>;
+export type DebtList = z.infer<typeof debtListSchema>;
