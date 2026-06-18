@@ -1,6 +1,8 @@
 <script lang="ts">
   import { analyzeStack, getStack } from "$lib/api/client";
   import type { TechItem, TechStack } from "$lib/api/schemas";
+  import { cn } from "$lib/utils";
+  import { confidenceBadge } from "./badge-variant";
 
   type Props = { owner: string; repo: string };
   const { owner, repo }: Props = $props();
@@ -83,7 +85,7 @@
               <span class="text-xs text-muted-foreground">言語</span>
               <div class="mt-1 flex flex-wrap gap-1">
                 {#each highItems(stack.languages).length > 0 ? highItems(stack.languages) : stack.languages as lang (lang.name)}
-                  <span class="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  <span class={cn("rounded px-1.5 py-0.5 text-xs", confidenceBadge[lang.confidence])}>
                     {lang.name}
                   </span>
                 {/each}
@@ -96,11 +98,7 @@
               <span class="text-xs text-muted-foreground">{label}</span>
               <div class="mt-1 flex flex-wrap gap-1">
                 {#each items as item (item.name)}
-                  <span
-                    class="rounded px-1.5 py-0.5 text-xs {item.confidence === 'high'
-                      ? 'bg-muted font-medium'
-                      : 'bg-muted/50 text-muted-foreground'}"
-                  >
+                  <span class={cn("rounded px-1.5 py-0.5 text-xs", confidenceBadge[item.confidence])}>
                     {item.name}
                   </span>
                 {/each}

@@ -3,6 +3,7 @@
   import type { Branch, FileContent, Tree } from "$lib/api/schemas";
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
+  import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
@@ -52,8 +53,7 @@
     }
   }
 
-  async function onBranchChange(e: Event) {
-    const branch = (e.target as HTMLSelectElement).value;
+  async function onBranchChange(branch: string) {
     repo.selectedBranch = branch;
     await loadTree(branch);
   }
@@ -72,7 +72,7 @@
 </script>
 
 <svelte:head>
-  <title>リポジトリ · Rosetta</title>
+  <title>Repos · Rosetta</title>
 </svelte:head>
 
 {#if !repo.connected}
@@ -81,20 +81,13 @@
   </div>
 {:else}
   <div class="flex h-full flex-col">
-    <div class="flex items-center gap-3 border-b px-4 py-2">
-      <span class="text-sm font-medium">{repo.connected.full_name}</span>
-      <select onchange={onBranchChange} value={repo.selectedBranch} class="rounded border px-2 py-1 text-sm">
-        {#each branches as b (b.name)}
-          <option value={b.name}>{b.name}{b.is_default ? " (default)" : ""}</option>
-        {/each}
-        {#if branches.length === 0}
-          <option value={repo.selectedBranch}>{repo.selectedBranch}</option>
-        {/if}
-      </select>
-      <button onclick={() => repo.disconnect()} class="ml-auto text-sm text-muted-foreground hover:text-foreground">
-        切断
-      </button>
-    </div>
+    <RepoHeader
+      {branches}
+      selectedBranch={repo.selectedBranch}
+      {selectedPath}
+      onbranchchange={onBranchChange}
+      ondisconnect={() => repo.disconnect()}
+    />
 
     <div class="flex flex-1 overflow-hidden">
       <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r">

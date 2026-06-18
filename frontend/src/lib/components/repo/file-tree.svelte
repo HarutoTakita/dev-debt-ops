@@ -1,5 +1,9 @@
 <script lang="ts">
+  import Folder from "@lucide/svelte/icons/folder";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import FileText from "@lucide/svelte/icons/file-text";
   import type { TreeItem } from "$lib/api/schemas";
+  import { cn } from "$lib/utils";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   type Props = {
@@ -65,19 +69,31 @@
       openDirs.add(path);
     }
   }
+
+  const rowClass = "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-sm hover:bg-accent";
 </script>
+
+<!--
+  負債密度バッジ枠。GitLab ツリーの LOC / CI バッジ枠を Rosetta では「負債密度」に転用する。
+  本 issue では空（"—"）。後続 issue が二軸負債マトリクス(§2.3) / KC(§5.1) の密度をここへ流し込む。
+-->
+{#snippet debtSlot(path: string)}
+  <span data-path={path} class="ml-auto shrink-0 text-xs text-muted-foreground/40 tabular-nums">—</span>
+{/snippet}
 
 {#snippet nodeList(nodes: TreeNode[])}
   <ul class="pl-3">
     {#each nodes as node (node.path)}
       <li>
         {#if node.type === "tree"}
-          <button
-            onclick={() => toggle(node.path)}
-            class="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-sm hover:bg-accent"
-          >
-            <span class="w-3 text-xs text-muted-foreground">{openDirs.has(node.path) ? "▼" : "▶"}</span>
-            <span>{node.name}/</span>
+          <button onclick={() => toggle(node.path)} class={rowClass}>
+            {#if openDirs.has(node.path)}
+              <FolderOpen class="size-4 shrink-0 text-debt-code" />
+            {:else}
+              <Folder class="size-4 shrink-0 text-debt-code" />
+            {/if}
+            <span class="flex-1 truncate">{node.name}</span>
+            {@render debtSlot(node.path)}
           </button>
           {#if openDirs.has(node.path)}
             {@render nodeList(node.children)}
@@ -85,13 +101,11 @@
         {:else}
           <button
             onclick={() => onfileselect(node.path)}
-            class="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-sm hover:bg-accent {selectedPath ===
-            node.path
-              ? 'bg-accent font-medium'
-              : ''}"
+            class={cn(rowClass, selectedPath === node.path && "bg-accent font-medium")}
           >
-            <span class="w-3"></span>
-            <span>{node.name}</span>
+            <FileText class="size-4 shrink-0 text-muted-foreground" />
+            <span class="flex-1 truncate">{node.name}</span>
+            {@render debtSlot(node.path)}
           </button>
         {/if}
       </li>
