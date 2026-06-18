@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_overview()} · Rosetta</title>
+  <title>{m.nav_settings()} · Rosetta</title>
 </svelte:head>
 
-<ComingSoonPlaceholder feature={m.nav_overview()} description={m.coming_overview_desc()} />
+<ComingSoonPlaceholder feature={m.nav_settings()} description={m.coming_settings_desc()} />

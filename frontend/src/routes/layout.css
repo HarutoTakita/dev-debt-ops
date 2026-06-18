@@ -6,6 +6,7 @@
 @import "@fontsource/archivo/500.css";
 @import "@fontsource/archivo/600.css";
 @import "@fontsource/archivo/700.css";
+@import "@fontsource-variable/fraunces";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "highlight.js/styles/github-dark.css";
@@ -52,6 +53,8 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Rosetta: シェル（サイドバー / topbar）用の沈んだ面。本文より一段控えめに */
+  --surface-sunken: oklch(0.97 0 0);
 }
 
 .dark {
@@ -86,11 +89,17 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Rosetta: near-black 本文（0.185）より一段暗い沈んだ面 */
+  --surface-sunken: oklch(0.16 0 0);
 }
 
 @theme inline {
   --font-sans: "Inter Variable", sans-serif;
-  --font-display: "Archivo", "Vazirmatn", sans-serif;
+  /* Rosetta: 見出しは Fraunces セリフ（地層 × 天文台の世界観）。Archivo から差し替え */
+  --font-display: "Fraunces Variable", "Vazirmatn", serif;
+  /* Rosetta: コード / kbd など等幅は JetBrains Mono を明示バインド（既定の ui-monospace から差し替え） */
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  --color-surface-sunken: var(--surface-sunken);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -159,6 +168,16 @@ body {
   --color-gray-900: oklch(0.2 0 0);
   --color-gray-950: oklch(0.16 0 0); /* #141414 — OWUI gray-950 (distinct from body) */
   --color-background-dark: oklch(0.185 0 0); /* #171717 — OWUI dark body */
+}
+
+/* Rosetta Twin パレット — additive。地層（アンバー）× 天文台（ティール）の双対。
+   shadcn 意味トークンは温存し、負債 / 理解度の意味色だけを追加する */
+@theme {
+  --color-success: oklch(0.72 0.15 165); /* ティール寄りグリーン: 返済 / 改善 */
+  --color-danger: oklch(0.63 0.21 25); /* 危険 / 最危険ゾーン */
+  --color-subtle: oklch(0.62 0 0); /* 控えめなテキスト / illustration */
+  --color-debt-code: oklch(0.78 0.15 70); /* アンバー = コード負債 / 地層 */
+  --color-debt-knowledge: oklch(0.72 0.11 195); /* ティール = ナレッジ負債 / 星 */
 }
 
 .dark body {
