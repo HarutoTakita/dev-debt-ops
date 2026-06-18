@@ -235,3 +235,41 @@ export type CodeDebt = z.infer<typeof codeDebtSchema>;
 export type KnowledgeDebt = z.infer<typeof knowledgeDebtSchema>;
 export type DebtItem = z.infer<typeof debtItemSchema>;
 export type DebtList = z.infer<typeof debtListSchema>;
+
+// Knowledge Galaxy（個人理解度マップ / §6.2）。3D は Future、本フェーズは 2D。
+// 星=マスター / 薄星=部分理解 / ブラックホール=触ったが未理解 / 未踏星域=未接触。
+export const masteryStatusSchema = z.enum(["star", "dim_star", "black_hole", "unexplored"]);
+
+export const fileMasterySchema = z.object({
+  path: z.string(), // ファイルパス（= 星）
+  module: z.string(), // モジュール / ディレクトリ（= 星系）
+  kc: z.number().min(0).max(1), // Knowledge Coverage ∈ [0,1]（§5.1）
+  mastery: masteryStatusSchema,
+  // §5.5 個人認定の簡易版: クイズ未連携のため mastery==="star" を「マスター済み」表示
+  mastered: z.boolean().default(false),
+});
+
+export const wormholeSchema = z.object({
+  from: z.string(), // 依存元ファイルパス
+  to: z.string(), // 依存先ファイルパス
+});
+
+export const starSystemSchema = z.object({
+  module: z.string(),
+  kc: z.number().min(0).max(1), // 星系（モジュール）集計 KC = §5.1 の KC(file) 平均
+  files: z.array(fileMasterySchema),
+});
+
+export const personalGalaxySchema = z.object({
+  developer: z.string(),
+  org_kc: z.number().min(0).max(1), // サイドバー pill 用の自分の KC%
+  observed: z.boolean(), // false の場合は ComingSoonPlaceholder を出す
+  systems: z.array(starSystemSchema),
+  wormholes: z.array(wormholeSchema),
+});
+
+export type MasteryStatus = z.infer<typeof masteryStatusSchema>;
+export type FileMastery = z.infer<typeof fileMasterySchema>;
+export type Wormhole = z.infer<typeof wormholeSchema>;
+export type StarSystem = z.infer<typeof starSystemSchema>;
+export type PersonalGalaxy = z.infer<typeof personalGalaxySchema>;
