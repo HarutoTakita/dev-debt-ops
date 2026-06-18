@@ -71,7 +71,7 @@ export const navSections: NavSection[] = [
         // 受験可能件数（モック）が 1 件以上のとき pill 表示
         pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
       },
-      { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/agents`, comingSoon: true },
+      { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/agents` },
       {
         id: "learning",
         label: m.nav_learning,
