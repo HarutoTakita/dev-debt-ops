@@ -222,5 +222,20 @@
   "quiz_result_title": "返済完了 — Knowledge Coverage を更新しました",
   "quiz_result_understood": "あなたが理解していたこと",
   "quiz_result_gap": "学ぶ余地",
-  "quiz_result_cta": "学習プランへ進む"
+  "quiz_result_cta": "学習プランへ進む",
+  "agents_kind_code": "Code Debt Agent",
+  "agents_kind_knowledge": "Knowledge Debt Agent",
+  "agents_preview_label": "プレビュー（モックデータ）",
+  "agents_stream_title": "ナラティブ思考ストリーム",
+  "agents_pipeline_title": "実行パイプライン",
+  "agents_evidence_toggle": "根拠",
+  "agents_evidence_first_commit": "初出コミット",
+  "agents_evidence_ai_generated": "AI 生成痕跡",
+  "agents_evidence_adr": "ADR 参照",
+  "agents_evidence_pr_review": "PR レビュー",
+  "agents_retry": "リトライ",
+  "agents_tick": "ライブ更新を進める",
+  "agents_coming_badge": "Coming Soon",
+  "agents_coming_learning_title": "学習ループの可視化",
+  "agents_coming_learning_desc": "エージェントが承認 / 却下から学ぶ過程をここに描きます。"
 }

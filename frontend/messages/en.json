@@ -222,5 +222,20 @@
   "quiz_result_title": "Repaid — your Knowledge Coverage is updated",
   "quiz_result_understood": "What you understood",
   "quiz_result_gap": "Room to learn",
-  "quiz_result_cta": "Go to learning plan"
+  "quiz_result_cta": "Go to learning plan",
+  "agents_kind_code": "Code Debt Agent",
+  "agents_kind_knowledge": "Knowledge Debt Agent",
+  "agents_preview_label": "Preview (mock data)",
+  "agents_stream_title": "Narrative stream",
+  "agents_pipeline_title": "Execution pipeline",
+  "agents_evidence_toggle": "Evidence",
+  "agents_evidence_first_commit": "First commit",
+  "agents_evidence_ai_generated": "AI-generated",
+  "agents_evidence_adr": "ADR",
+  "agents_evidence_pr_review": "PR review",
+  "agents_retry": "Retry",
+  "agents_tick": "Advance",
+  "agents_coming_badge": "Coming soon",
+  "agents_coming_learning_title": "Learning loop visualization",
+  "agents_coming_learning_desc": "How the agents learn from approvals / rejections will be drawn here."
 }
