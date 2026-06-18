@@ -7,6 +7,7 @@ import GraduationCap from "@lucide/svelte/icons/graduation-cap";
 import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
 import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
+import { galaxy } from "$lib/stores/galaxy-store.svelte";
 import * as m from "$lib/paraglide/messages";
 
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
@@ -51,8 +52,8 @@ export const navSections: NavSection[] = [
         label: m.nav_galaxy,
         icon: Sparkles,
         route: (c) => `/${c.orgSlug}/galaxy`,
-        comingSoon: true,
-        pill: () => "62%",
+        // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
+        pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
       },
       {
         id: "matrix",
