@@ -9,7 +9,7 @@
   let { children } = $props();
 </script>
 
-<ModeWatcher />
+<ModeWatcher defaultMode="dark" />
 <Toaster />
 {@render children()}
 
