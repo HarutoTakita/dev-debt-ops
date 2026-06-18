@@ -125,3 +125,44 @@ export const techStackSchema = z.object({
 export type TechItem = z.infer<typeof techItemSchema>;
 export type TechCategories = z.infer<typeof techCategoriesSchema>;
 export type TechStack = z.infer<typeof techStackSchema>;
+
+// Overview（観測台）— 二軸負債ダッシュボード。集計バックエンドは未実装のため、
+// ここではフロントが期待する型だけを先に確定させる（後続 issue の集計 API がこの形に合わせる）。
+export const debtPrioritySchema = z.enum(["P0", "P1", "P2", "P3"]);
+
+// 二軸プレーンの 1 点 = 1 ファイル
+export const fileDebtSchema = z.object({
+  path: z.string(),
+  language: z.string(),
+  code_debt_score: z.number(), // 0..1 高いほど汚い
+  knowledge_coverage: z.number(), // 0..1 高いほど皆理解（= KC）
+  business_impact: z.number(), // 0..1
+  priority: debtPrioritySchema, // §2.3 priority = code_debt × knowledge_debt × business_impact
+});
+
+export const debtTrendPointSchema = z.object({
+  week: z.string(), // ISO 週 or ラベル
+  code_debt_score: z.number(),
+  knowledge_coverage: z.number(),
+});
+
+export const weeklyActivitySchema = z.object({
+  code_agent_prs: z.number(),
+  code_agent_merged: z.number(),
+  knowledge_agent_quizzes: z.number(),
+  knowledge_agent_passed: z.number(),
+});
+
+export const overviewSchema = z.object({
+  org: z.string(),
+  generated_at: z.iso.datetime({ offset: true }),
+  files: z.array(fileDebtSchema), // 散布図の点
+  trend: z.array(debtTrendPointSchema), // 地層グラフ
+  activity: weeklyActivitySchema, // 今週の活動
+});
+
+export type DebtPriority = z.infer<typeof debtPrioritySchema>;
+export type FileDebt = z.infer<typeof fileDebtSchema>;
+export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
+export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
+export type Overview = z.infer<typeof overviewSchema>;
