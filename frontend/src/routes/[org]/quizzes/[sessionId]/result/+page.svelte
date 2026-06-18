@@ -4,7 +4,10 @@
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
-  const learningHref = $derived(resolve(`/${data.orgSlug}/learning`));
+  // 学習プランへ。クイズ結果由来であることを ?from=quiz&attemptId=... で仮配線（§5.4 遷移）。
+  const learningHref = $derived(
+    `${resolve(`/${data.orgSlug}/learning`)}?from=quiz&attemptId=${data.result.session_id}`,
+  );
 </script>
 
 <svelte:head>

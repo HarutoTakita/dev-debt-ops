@@ -72,13 +72,7 @@ export const navSections: NavSection[] = [
         pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
       },
       { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/agents` },
-      {
-        id: "learning",
-        label: m.nav_learning,
-        icon: GraduationCap,
-        route: (c) => `/${c.orgSlug}/learning`,
-        comingSoon: true,
-      },
+      { id: "learning", label: m.nav_learning, icon: GraduationCap, route: (c) => `/${c.orgSlug}/learning` },
     ],
   },
   {

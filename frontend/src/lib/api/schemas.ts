@@ -408,3 +408,41 @@ export type AgentActivity = z.infer<typeof agentActivitySchema>;
 export type PipelineNode = z.infer<typeof pipelineNodeSchema>;
 export type PipelineStage = z.infer<typeof pipelineStageSchema>;
 export type AgentPipeline = z.infer<typeof agentPipelineSchema>;
+
+// Learning Plan（§5.4）。origin で「チーム資産(team)」を外部資源(external)より上に浮上させる。
+export const resourceOriginSchema = z.enum(["team", "external"]);
+export const resourceKindSchema = z.enum(["adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"]);
+export const resourcePrioritySchema = z.enum(["required", "recommended", "supplementary", "hands_on"]);
+
+export const learningResourceSchema = z.object({
+  id: z.string(),
+  origin: resourceOriginSchema, // "team" を最優先で上に表示
+  kind: resourceKindSchema,
+  title: z.string(),
+  source_ref: z.string().nullable(), // ADR-0012 / PR #4523 / @alice 勉強会 等
+  url: z.string().nullable(),
+  estimated_minutes: z.number().nullable(),
+  priority: resourcePrioritySchema,
+  // 死蔵バッジ: 最後に閲覧されてからの経過（チーム資産の再活性化を可視化）
+  dormant_days: z.number().nullable().optional(),
+});
+
+export const learningStepSchema = z.object({
+  order: z.number(),
+  resource: learningResourceSchema,
+  completed: z.boolean(),
+});
+
+export const learningPlanSchema = z.object({
+  id: z.string(),
+  gap_concepts: z.array(z.string()), // ["distributed_caching", "ADR-0012", "RedisClient"]
+  steps: z.array(learningStepSchema),
+  estimated_total_minutes: z.number(),
+});
+
+export type ResourceOrigin = z.infer<typeof resourceOriginSchema>;
+export type ResourceKind = z.infer<typeof resourceKindSchema>;
+export type ResourcePriority = z.infer<typeof resourcePrioritySchema>;
+export type LearningResource = z.infer<typeof learningResourceSchema>;
+export type LearningStep = z.infer<typeof learningStepSchema>;
+export type LearningPlan = z.infer<typeof learningPlanSchema>;
