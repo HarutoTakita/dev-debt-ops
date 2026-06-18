@@ -237,5 +237,22 @@
   "agents_tick": "ライブ更新を進める",
   "agents_coming_badge": "Coming Soon",
   "agents_coming_learning_title": "学習ループの可視化",
-  "agents_coming_learning_desc": "エージェントが承認 / 却下から学ぶ過程をここに描きます。"
+  "agents_coming_learning_desc": "エージェントが承認 / 却下から学ぶ過程をここに描きます。",
+  "coming_soon_badge": "Coming Soon",
+  "coming_soon_eta": "公開予定: {eta}",
+  "learning_coming_title": "Coming Soon — 学習プラン",
+  "learning_coming_body": "組織知が初めて読まれる瞬間を、ここで祝う準備をしています。チーム資産優先 → 外部資源候補。",
+  "learning_preview": "（開発用）モックでプレビュー",
+  "learning_from_quiz": "クイズ結果に基づくプラン",
+  "learning_gap": "ギャップ",
+  "learning_team_heading": "段階 1: チーム内資産（最優先）",
+  "learning_external_heading": "段階 2: 外部資源候補（二次）",
+  "learning_progress": "進捗",
+  "learning_progress_steps": "{done}/{total} ステップ",
+  "learning_progress_remaining": "残り約 {min} 分",
+  "learning_priority_required": "必須",
+  "learning_priority_recommended": "推奨",
+  "learning_priority_supplementary": "補助",
+  "learning_priority_hands_on": "ハンズオン",
+  "learning_dormant": "{months} か月読まれていない（死蔵）"
 }
