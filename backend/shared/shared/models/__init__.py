@@ -8,6 +8,9 @@ from shared.models.dependency import Dependency
 from shared.models.file_kc import FileKc
 from shared.models.job import Job
 from shared.models.knowledge_debt import KnowledgeDebt
+from shared.models.quiz_answer import QuizAnswer
+from shared.models.quiz_result import QuizResult
+from shared.models.quiz_session import QuizSession
 from shared.models.repo_file import RepoFile
 from shared.models.tech_stack import TechStack
 
@@ -20,6 +23,9 @@ __all__ = [
     "FileKc",
     "Job",
     "KnowledgeDebt",
+    "QuizAnswer",
+    "QuizResult",
+    "QuizSession",
     "RepoFile",
     "TechStack",
 ]

@@ -24,6 +24,8 @@ class JobType(StrEnum):
     KC_ANALYSIS = "kc_analysis"  # Knowledge Coverage 算出 (authorship/blame + 依存) (issue 029)
     KNOWLEDGE_DEBT_DETECTION = "knowledge_debt_detection"  # AI生成/著者離脱/未レビュー検知 (issue 030)
     REPAYMENT_PR_GENERATION = "repayment_pr_generation"  # Gemini リファクタ案 + GitHub 返済 PR (issue 033)
+    QUIZ_GENERATION = "quiz_generation"  # 低 KC ファイルから L1-L5 クイズ生成 (issue 034)
+    QUIZ_GRADING = "quiz_grading"  # クイズ意味採点 + KC 反映フック (issue 034)
 
 
 class JobStatus(StrEnum):

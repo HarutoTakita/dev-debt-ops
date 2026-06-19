@@ -41,7 +41,6 @@ import {
   type TechStack,
   type Tree,
 } from "./schemas";
-import { QUIZ_LIST, mockQuizResult, mockQuizSession } from "./quiz-mock";
 
 export type {
   AnalyzeStackJob,
@@ -399,25 +398,54 @@ export async function assignDebt(
   return patchDebt(orgSlug, projectSlug, debtId, { assignee_github_handle: handle });
 }
 
-// Quiz（返済体験）— 取得系はモック返却。シグネチャは本実装と互換にしておく。
-
-export async function listQuizzes(orgSlug: string): Promise<QuizList> {
-  void orgSlug; // TODO: 実 API 接続は後続 issue
-  return quizListSchema.parse(QUIZ_LIST);
+// Quiz（返済体験、issue 034）— 実 API。生成/採点は 202 enqueue + getJob ポーリング。
+export async function listQuizzes(orgSlug: string, projectSlug: string): Promise<QuizList> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes`);
+  if (!response.ok) throw new Error(await errorDetail(response, "クイズ一覧の取得に失敗しました"));
+  return quizListSchema.parse(await response.json());
 }
 
-export async function getQuizSession(sessionId: string): Promise<QuizSession> {
-  const session = mockQuizSession(sessionId);
-  if (!session) throw new Error("クイズが見つかりません");
-  return quizSessionSchema.parse(session);
+export async function generateQuiz(orgSlug: string, projectSlug: string, filePath: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/generate`, {
+    method: "POST",
+    body: JSON.stringify({ file_path: filePath }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "クイズ生成の開始に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
 }
 
-export async function saveQuizAnswer(sessionId: string, answer: QuizAnswer): Promise<QuizAnswer> {
-  void sessionId; // TODO: PATCH 実 API は後続 issue。今は楽観的に保存済みを返す
-  return quizAnswerSchema.parse(answer);
+export async function getQuizSession(orgSlug: string, projectSlug: string, sessionId: string): Promise<QuizSession> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}`);
+  if (response.status === 404) throw new Error("クイズが見つかりません");
+  if (!response.ok) throw new Error(await errorDetail(response, "クイズの取得に失敗しました"));
+  return quizSessionSchema.parse(await response.json());
 }
 
-export async function submitQuiz(sessionId: string): Promise<QuizResult> {
-  // TODO: 実採点は後続 issue。今はモック結果（KC 0.23 → 0.47）を返す
-  return quizResultSchema.parse(mockQuizResult(sessionId));
+export async function saveQuizAnswer(
+  orgSlug: string,
+  projectSlug: string,
+  sessionId: string,
+  answer: QuizAnswer,
+): Promise<QuizAnswer> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/answers`, {
+    method: "PATCH",
+    body: JSON.stringify({ question_id: answer.question_id, value: answer.value }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "回答の保存に失敗しました"));
+  return quizAnswerSchema.parse(await response.json());
+}
+
+// submit は 202 化（issue 034）: job を返し、getJob ポーリング後に getQuizResult で結果を取得する。
+export async function submitQuiz(orgSlug: string, projectSlug: string, sessionId: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/submit`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "採点の開始に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
+export async function getQuizResult(orgSlug: string, projectSlug: string, sessionId: string): Promise<QuizResult> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/result`);
+  if (!response.ok) throw new Error(await errorDetail(response, "採点結果の取得に失敗しました"));
+  return quizResultSchema.parse(await response.json());
 }
