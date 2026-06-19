@@ -13,7 +13,10 @@
   import { project } from "$lib/stores/project-store.svelte";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
   import type { Project } from "$lib/api/schemas";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  const skeletonRows = Array.from({ length: 5 }, (_v, i) => i);
 
   const orgSlug = $derived(page.params.org ?? "");
   const current = $derived(project.current);
@@ -102,25 +105,49 @@
     </div>
 
     <div class="max-h-80 overflow-y-auto p-1.5">
-      {#if recent.length > 0}
-        <div class="px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-          {m.project_switcher_recent()}
+      {#if project.loading}
+        <!-- 読込中: リスト形スケルトン（確定空と区別する） -->
+        <div class="flex flex-col gap-1 p-1" aria-busy="true">
+          {#each skeletonRows as i (i)}
+            <div class="flex items-center gap-2 px-1.5 py-1.5">
+              <Skeleton class="size-4 rounded" />
+              <Skeleton class="h-4 flex-1" />
+            </div>
+          {/each}
         </div>
-        {#each recent as p (p.id)}
-          {@render row(p)}
-        {/each}
-        <div class="my-1 border-t border-sidebar-border"></div>
-      {/if}
-
-      <div class="px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-        {m.project_switcher_all()}
-      </div>
-      {#if all.length === 0}
-        <p class="px-2 py-3 text-center text-sm text-muted-foreground">{m.project_switcher_empty()}</p>
+      {:else if project.error !== null}
+        <!-- 失敗: 再試行（Popover を開いた状態で loadList を再実行） -->
+        <div class="flex flex-col items-center gap-2 px-2 py-6 text-center">
+          <p class="text-sm text-destructive">{m.project_switcher_error()}</p>
+          <button
+            type="button"
+            onclick={() => project.loadList(orgSlug)}
+            class="rounded-md border px-3 py-1 text-xs hover:bg-accent/50"
+          >
+            {m.common_retry()}
+          </button>
+        </div>
       {:else}
-        {#each all as p (p.id)}
-          {@render row(p)}
-        {/each}
+        {#if recent.length > 0}
+          <div class="px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+            {m.project_switcher_recent()}
+          </div>
+          {#each recent as p (p.id)}
+            {@render row(p)}
+          {/each}
+          <div class="my-1 border-t border-sidebar-border"></div>
+        {/if}
+
+        <div class="px-2 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+          {m.project_switcher_all()}
+        </div>
+        {#if all.length === 0}
+          <p class="px-2 py-3 text-center text-sm text-muted-foreground">{m.project_switcher_empty()}</p>
+        {:else}
+          {#each all as p (p.id)}
+            {@render row(p)}
+          {/each}
+        {/if}
       {/if}
     </div>
 
