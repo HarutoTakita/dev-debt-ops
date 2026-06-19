@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/quiz/coming-soon-placeholder.svelte";
   import QuizList from "$lib/components/quiz/quiz-list.svelte";
   import { quiz } from "$lib/stores/quiz-store.svelte";
@@ -16,13 +17,7 @@
 {#if quiz.availableCount === 0}
   <ComingSoonPlaceholder eyebrow="Re:Pay" title={m.quiz_coming_title()} description={m.quiz_coming_desc()}>
     {#snippet action()}
-      <button
-        type="button"
-        onclick={() => quiz.loadAvailable(orgSlug)}
-        class="text-xs text-muted-foreground underline hover:text-foreground"
-      >
-        {m.quiz_coming_preview()}
-      </button>
+      <Button onclick={() => quiz.loadAvailable(orgSlug)}>{m.quiz_coming_demo()}</Button>
     {/snippet}
   </ComingSoonPlaceholder>
 {:else}
