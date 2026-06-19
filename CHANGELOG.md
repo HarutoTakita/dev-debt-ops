@@ -8,6 +8,7 @@
 
 ### Added
 
+- git 履歴アクセス基盤（issue-027）: 解析パイプライン（028/029/030）が共有する service の道具立てを新設（新テーブル・JobType・API なし）。`GitHubGitClient` に commit 履歴（`list_commits`）/ blame（GraphQL `get_blame`）/ PR レビュー（`list_pull_requests` / `get_pull_request_reviews`）取得と対応 dataclass を追加、authorship 突合ユーティリティ（`services/authorship.py` — `oauth_accounts` の `account_id` 主・`account_email` 従で `users.id` へ突合、不一致は `None`、`ctx.session` 上の raw SQL）、依存抽出ヘルパ（`services/dependency_extraction.py` — Python/TS-JS の import からリポジトリ内 `(from_path, to_path)` エッジ＝ワームホールを生成する純粋関数、外部パッケージは除外）。取得方式（REST/GraphQL 拡張 vs clone）と authorship/依存の正規化を ADR（`docs/adr/0002-git-history-access-and-authorship.md`）に明文化。全取得は方式 B（service が Secret Manager から token mint）を踏襲。
 - 二軸負債の視覚言語統一（issue-021）: 軸凡例コンポーネント（`axis-legend`、Overview マトリクスタイトル横と Galaxy KC 表示隣の info アイコンから「コード負債（amber）/ 知識被覆 KC（teal）」を提示）、`--color-warning` トークン（P1 / in_pr / in_progress を `--color-debt-code` 軸色から分離）、共通 KC フォーマッタ（`$lib/format/kc.ts` の `formatKc` / `formatKcPct`）、wormhole の from→to 方向矢印・ホバーハイライト、アバターの緑/破線インラインキー（`developer-key`）を追加。
 - スタック解析の非同期パイプライン（issue-018）: ADK スタック解析を api 同期実行から service の非同期ジョブへ移設。
   - shared: `stack_analysis` の request/result スキーマ（`StackAnalysisRequest` / `StackAnalysisResult` / `TechItem` / `TechCategories` / `GitHubRef`）を追加、`TechStack` ORM モデルを `shared.models` へ昇格（api・service 双方が参照）、`PipelineContext` に `session` を追加（パイプラインが同一 DB セッションで永続化）。
