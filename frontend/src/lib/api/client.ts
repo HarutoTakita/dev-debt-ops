@@ -375,10 +375,17 @@ export class ComingSoonError extends Error {
     this.name = "ComingSoonError";
   }
 }
-export async function createRepaymentPr(orgSlug: string, debtId: string): Promise<never> {
-  void orgSlug;
-  void debtId;
-  throw new ComingSoonError();
+// 返済 PR 生成（issue 033）: POST .../debts/{id}/repayment-pr → 202 {job_id}、getJob でポーリング。
+export async function createRepaymentPr(
+  orgSlug: string,
+  projectSlug: string,
+  debtId: string,
+): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}/repayment-pr`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "返済 PR の作成に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
 }
 export async function dismissDebt(orgSlug: string, projectSlug: string, debtId: string): Promise<DebtItem> {
   return patchDebt(orgSlug, projectSlug, debtId, { status: "dismissed" });
