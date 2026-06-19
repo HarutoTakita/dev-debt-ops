@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/state";
   import * as Tabs from "$lib/components/ui/tabs";
   import * as Tooltip from "$lib/components/ui/tooltip";
   import ComingSoonPlaceholder from "$lib/components/galaxy/coming-soon-placeholder.svelte";
@@ -10,10 +11,15 @@
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+
   // 狭幅（<768px）では密なマップではなく list タブを既定にする（rank30）。
   let tab = $state("map");
   onMount(() => {
     if (window.matchMedia("(max-width: 767px)").matches) tab = "list";
+    // 実 API から個人 KC マップを取得（未観測なら observed=false で ComingSoonPlaceholder が出る）。
+    if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => galaxy.reset());
   });
 </script>
 
