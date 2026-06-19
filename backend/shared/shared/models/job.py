@@ -7,9 +7,9 @@ the schema (and add the migration that creates this table).
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Column, DateTime, func
+from sqlalchemy import JSON, Column, DateTime, String, func
 from sqlmodel import Field, SQLModel
 
 from shared.enums import JobStatus, JobType
@@ -26,13 +26,17 @@ class Job(SQLModel, table=True):
     __tablename__ = "jobs"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    job_type: JobType = Field(index=True)
-    status: JobStatus = Field(default=JobStatus.QUEUED, index=True)
+    # Enums are stored as String (project convention, cf. OrgRole) — no native PG enum types.
+    job_type: JobType = Field(sa_type=String, index=True)
+    status: JobStatus = Field(default=JobStatus.QUEUED, sa_type=String, index=True)
     payload: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     result_data: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     error: str | None = Field(default=None)
     created_by: uuid.UUID | None = Field(default=None, index=True)
     project_id: uuid.UUID | None = Field(default=None, index=True)
-    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+    )
     started_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     completed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
