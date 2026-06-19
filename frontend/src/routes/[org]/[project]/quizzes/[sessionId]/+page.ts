@@ -5,5 +5,5 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ params }) => {
   const session = await getQuizSession(params.sessionId);
-  return { orgSlug: params.org, session };
+  return { orgSlug: params.org, projectSlug: params.project, session };
 };

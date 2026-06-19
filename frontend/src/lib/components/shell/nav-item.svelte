@@ -14,7 +14,7 @@
 
   const route = $derived(item.route(ctx));
   const enabled = $derived(item.enabled ? item.enabled(ctx) : true);
-  const active = $derived(isActiveRoute(route, page.url.pathname));
+  const active = $derived(isActiveRoute(route, page.url.pathname, item.exact));
   const pillText = $derived(item.pill?.(ctx) ?? null);
   const pinned = $derived(sidebar.isPinned(item.id));
   const Icon = $derived(item.icon);

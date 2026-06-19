@@ -12,6 +12,7 @@
 
   let { data } = $props();
   const orgSlug = $derived(data.orgSlug);
+  const projectSlug = $derived(data.projectSlug);
 
   // URL クエリ由来の初期フィルタを一度だけ seed する（以降は state を直接更新）。
   let filter = $state<DebtFilter>(untrack(() => data.initialFilter ?? {}));
@@ -86,7 +87,7 @@
     <Tooltip.Provider delayDuration={150}>
       <ul class="flex flex-col gap-2">
         {#each debts as debt (debt.id)}
-          <li><DebtListRow {orgSlug} {debt} /></li>
+          <li><DebtListRow {orgSlug} {projectSlug} {debt} /></li>
         {/each}
       </ul>
     </Tooltip.Provider>

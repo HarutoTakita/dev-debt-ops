@@ -14,15 +14,18 @@ import * as m from "$lib/paraglide/messages";
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
 export type IconComponent = typeof Activity;
 
-export type NavContext = { orgSlug: string; repoConnected: boolean };
+// メニューはプロジェクト（= 観測対象リポジトリ）単位にスコープされる。
+export type NavContext = { orgSlug: string; projectSlug: string; projectSelected: boolean };
 
 export interface NavItem {
   id: string;
   /** i18n ラベル（Paraglide メッセージ関数）。呼び出し時に現在ロケールで解決される。 */
   label: () => string;
-  /** org 相対パス（resolve() に渡せる Pathname） */
+  /** プロジェクト相対パス（resolve() に渡せる Pathname） */
   route: (ctx: NavContext) => Pathname;
   icon: IconComponent;
+  /** プロジェクトルート（Overview）など完全一致でアクティブ判定する項目 */
+  exact?: boolean;
   /** 未実装機能: ナビ枠だけ用意し、ルートは Coming Soon プレースホルダへ向ける */
   comingSoon?: boolean;
   /** 有効条件（例: Repos は接続済みのみ活性） */
@@ -40,19 +43,25 @@ export interface NavSection {
   items: NavItem[];
 }
 
-// GitLab の panel.rb における add_menu 順 = 表示順 / render? を、Rosetta では宣言的配列で表現する。
-// understand 系（理解する / 返済する）を上位に、Repos（コード閲覧）は参照として末尾へ格下げする。
+// add_menu 順 = 表示順。understand 系（理解する / 返済する）を上位に、Repos（コード閲覧）は参照として末尾へ。
+// 各ルートは /[org]/[project]/... のプロジェクト相対パス。プロジェクト切替でメニューの主語が切り替わる。
 export const navSections: NavSection[] = [
   {
     id: "understand",
     label: m.nav_section_understand,
     items: [
-      { id: "overview", label: m.nav_overview, icon: Activity, route: (c) => `/${c.orgSlug}` },
+      {
+        id: "overview",
+        label: m.nav_overview,
+        icon: Activity,
+        exact: true,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
+      },
       {
         id: "galaxy",
         label: m.nav_galaxy,
         icon: Sparkles,
-        route: (c) => `/${c.orgSlug}/galaxy`,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
         // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
         pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
       },
@@ -60,19 +69,24 @@ export const navSections: NavSection[] = [
         id: "matrix",
         label: m.nav_matrix,
         icon: Grid3x3,
-        route: (c) => `/${c.orgSlug}/matrix`,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
         pill: () => "8",
       },
       {
         id: "quizzes",
         label: m.nav_quizzes,
         icon: HelpCircle,
-        route: (c) => `/${c.orgSlug}/quizzes`,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/quizzes`,
         // 受験可能件数（モック）が 1 件以上のとき pill 表示
         pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
       },
-      { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/agents` },
-      { id: "learning", label: m.nav_learning, icon: GraduationCap, route: (c) => `/${c.orgSlug}/learning` },
+      { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/${c.projectSlug}/agents` },
+      {
+        id: "learning",
+        label: m.nav_learning,
+        icon: GraduationCap,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+      },
     ],
   },
   {
@@ -80,20 +94,24 @@ export const navSections: NavSection[] = [
     label: m.nav_section_reference,
     items: [
       {
-        // Repos は実装済み唯一の機能。リポジトリ接続の RepoPicker 自体が /repos に在るため、
-        // 常に到達可能にする（enabled でゲートすると接続導線が辿れなくなる）。
-        // enabled ゲート機構は NavItem 型 / nav-item.svelte に残し、将来のリポジトリスコープ項目で活用する。
         id: "repos",
         label: m.nav_repos,
         icon: FolderGit2,
-        route: (c) => `/${c.orgSlug}/repos`,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
       },
     ],
   },
   {
     id: "system",
     label: null,
-    items: [{ id: "settings", label: m.nav_settings, icon: Settings, route: (c) => `/${c.orgSlug}/settings/members` }],
+    items: [
+      {
+        id: "settings",
+        label: m.nav_settings,
+        icon: Settings,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
+      },
+    ],
   },
 ];
 
@@ -101,10 +119,10 @@ export const navSections: NavSection[] = [
 export const allNavItems: NavItem[] = navSections.flatMap((s) => s.items);
 
 /**
- * ルートのアクティブ判定。Overview（/[org]）は完全一致、それ以外は前方一致。
+ * ルートのアクティブ判定。`exact`（Overview = プロジェクトルート）は完全一致、それ以外は前方一致。
  * 前方一致は境界（次が "/" または終端）で区切り、/foo が /foobar に誤マッチしないようにする。
  */
-export function isActiveRoute(route: string, pathname: string): boolean {
-  if (route.split("/").length === 2) return pathname === route;
+export function isActiveRoute(route: string, pathname: string, exact = false): boolean {
+  if (exact) return pathname === route;
   return pathname === route || pathname.startsWith(`${route}/`);
 }

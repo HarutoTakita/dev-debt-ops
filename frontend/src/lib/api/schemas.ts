@@ -96,6 +96,29 @@ export type TreeItem = z.infer<typeof treeItemSchema>;
 export type Tree = z.infer<typeof treeSchema>;
 export type FileContent = z.infer<typeof fileContentSchema>;
 
+// Project — observed git repository within an org (1 project == 1 repository)
+export const projectSchema = z.object({
+  id: z.uuid(),
+  org_id: z.uuid(),
+  name: z.string(),
+  slug: z.string(),
+  repo_owner: z.string(),
+  repo_name: z.string(),
+  repo_full_name: z.string(),
+  default_branch: z.string(),
+  repo_private: z.boolean(),
+  github_repo_id: z.number().nullable().optional(),
+  created_by: z.uuid(),
+  created_at: z.iso.datetime({ offset: true }),
+});
+
+export const projectListSchema = z.object({
+  projects: z.array(projectSchema),
+});
+
+export type Project = z.infer<typeof projectSchema>;
+export type ProjectList = z.infer<typeof projectListSchema>;
+
 // Tech Stack
 export const techItemSchema = z.object({
   name: z.string(),

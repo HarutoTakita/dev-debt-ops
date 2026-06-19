@@ -6,6 +6,8 @@ import {
   fileContentSchema,
   orgMemberSchema,
   orgSchema,
+  projectListSchema,
+  projectSchema,
   quizAnswerSchema,
   quizListSchema,
   quizResultSchema,
@@ -20,6 +22,7 @@ import {
   type Org,
   type OrgMember,
   type OrgRole,
+  type Project,
   type QuizAnswer,
   type QuizList,
   type QuizResult,
@@ -33,7 +36,7 @@ import {
 import { MOCK_DEBTS } from "./mock/debts";
 import { QUIZ_LIST, mockQuizResult, mockQuizSession } from "./quiz-mock";
 
-export type { BranchList, FileContent, Org, OrgMember, OrgRole, Repository, RepositoryList, TechStack, Tree };
+export type { BranchList, FileContent, Org, OrgMember, OrgRole, Project, Repository, RepositoryList, TechStack, Tree };
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
   if (!response.headers.get("content-type")?.includes("application/json")) return fallback;
@@ -127,6 +130,58 @@ export async function removeMember(orgSlug: string, userId: string): Promise<voi
     method: "DELETE",
   });
   if (!response.ok) throw new Error(await errorDetail(response, "Failed to remove member"));
+}
+
+// Projects — リポジトリ単位の観測対象（1 プロジェクト = 1 リポジトリ）
+
+export async function listProjects(orgSlug: string): Promise<Project[]> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects`);
+  if (!response.ok) throw new Error(await errorDetail(response, "プロジェクトの取得に失敗しました"));
+  return projectListSchema.parse(await response.json()).projects;
+}
+
+export async function getProject(orgSlug: string, projectSlug: string): Promise<Project | null> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(await errorDetail(response, "プロジェクトの取得に失敗しました"));
+  return projectSchema.parse(await response.json());
+}
+
+export async function createProject(orgSlug: string, name: string, repo: Repository, slug?: string): Promise<Project> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects`, {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      slug,
+      repo_owner: repo.owner,
+      repo_name: repo.name,
+      repo_full_name: repo.full_name,
+      default_branch: repo.default_branch,
+      repo_private: repo.private,
+    }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "プロジェクトの作成に失敗しました"));
+  return projectSchema.parse(await response.json());
+}
+
+export async function patchProject(
+  orgSlug: string,
+  projectSlug: string,
+  patch: { name?: string; slug?: string; default_branch?: string },
+): Promise<Project> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "プロジェクトの更新に失敗しました"));
+  return projectSchema.parse(await response.json());
+}
+
+export async function deleteProject(orgSlug: string, projectSlug: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "プロジェクトの削除に失敗しました"));
 }
 
 // GitHub

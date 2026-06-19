@@ -20,6 +20,7 @@ class RepositoryInfo:
     default_branch: str
     private: bool
     updated_at: str
+    repo_id: int | None = None
 
 
 @dataclass
@@ -91,10 +92,28 @@ class GitHubGitClient:
                 default_branch=r.get("default_branch", "main"),
                 private=r["private"],
                 updated_at=r.get("pushed_at") or r.get("updated_at", ""),
+                repo_id=r.get("id"),
             )
             for r in data.get("repositories", [])
         ]
         return RepositoryListResult(repositories=repositories, total_count=data.get("total_count", len(repositories)))
+
+    async def get_repository(self, owner: str, repo: str) -> RepositoryInfo:
+        """Return base information for a single repository, raising on inaccessible/missing repos."""
+        resp = await self._client.get(f"/repos/{owner}/{repo}")
+        resp.raise_for_status()
+        r = resp.json()
+        return RepositoryInfo(
+            owner=r["owner"]["login"],
+            name=r["name"],
+            full_name=r["full_name"],
+            description=r.get("description") or "",
+            url=r["html_url"],
+            default_branch=r.get("default_branch", "main"),
+            private=r["private"],
+            updated_at=r.get("pushed_at") or r.get("updated_at", ""),
+            repo_id=r.get("id"),
+        )
 
     async def list_branches(self, owner: str, repo: str) -> list[BranchInfo]:
         """Return all branches for a repository, marking the default branch."""
