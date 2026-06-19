@@ -5,31 +5,53 @@
   import { page } from "$app/state";
   import { listOrgs } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
+  import Logo from "$lib/components/logo.svelte";
+  import * as m from "$lib/paraglide/messages";
 
-  let error = $state("");
+  // 失敗を分類して、それぞれ異なる文言と復旧導線を出す（握りつぶさず console.error も残す）。
+  type ErrorKind = "oauth_denied" | "session" | "no_org" | "dashboard";
+  let errorKind = $state<ErrorKind | null>(null);
 
-  onMount(async () => {
+  const errorText = $derived(
+    errorKind === "oauth_denied"
+      ? m.auth_error_oauth_denied()
+      : errorKind === "no_org"
+        ? m.auth_error_no_org()
+        : errorKind === "dashboard"
+          ? m.auth_error_dashboard()
+          : m.auth_error_session(),
+  );
+
+  async function run() {
+    errorKind = null;
+
+    // GitHub からの認可拒否（access_denied 等）を最優先で検出する。
+    const oauthError = page.url.searchParams.get("error");
+    if (oauthError) {
+      console.error("github oauth error:", oauthError, page.url.searchParams.get("error_description"));
+      errorKind = "oauth_denied";
+      return;
+    }
+
     const code = page.url.searchParams.get("code");
     const state = page.url.searchParams.get("state");
 
     if (code && state) {
-      // バックエンドの callback を fetch で叩く（204 + Set-Cookie が返る）
       const res = await fetch(
         `/api/v1/auth/github/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
         { credentials: "include" },
       );
       if (!res.ok) {
-        error = "サインインに失敗しました。もう一度お試しください。";
+        console.error("github callback failed:", res.status);
+        errorKind = "session";
         return;
       }
-      // Cookie がセットされた状態で続行
     }
 
-    // 認証確認 → org ダッシュボードへ
     await auth.init();
-
     if (!auth.isAuthenticated) {
-      error = "サインインに失敗しました。もう一度お試しください。";
+      console.error("session not established after callback");
+      errorKind = "session";
       return;
     }
 
@@ -39,27 +61,38 @@
       if (defaultOrg) {
         goto(resolve(`/${defaultOrg.slug}`));
       } else {
-        error = "組織が見つかりませんでした。";
+        errorKind = "no_org";
       }
-    } catch {
-      error = "ダッシュボードへの遷移に失敗しました。";
+    } catch (err) {
+      console.error("listOrgs failed:", err);
+      errorKind = "dashboard";
     }
-  });
+  }
+
+  onMount(run);
 </script>
 
 <svelte:head>
-  <title>サインイン中... · Rosetta</title>
+  <title>{m.auth_signing_in()} · Rosetta</title>
 </svelte:head>
 
-<div class="flex min-h-screen items-center justify-center">
-  {#if error}
-    <div class="text-center">
-      <p class="text-destructive">{error}</p>
-      <a href={resolve("/login")} class="mt-4 block text-sm text-muted-foreground hover:underline">
-        ログイン画面に戻る
-      </a>
+<div class="flex min-h-screen items-center justify-center p-6">
+  {#if errorKind}
+    <div class="flex max-w-sm flex-col items-center gap-3 rounded-lg border bg-card p-6 text-center shadow-sm">
+      <Logo class="size-8 text-debt-knowledge" />
+      <p class="text-sm font-medium text-destructive">{errorText}</p>
+      <div class="mt-1 flex items-center gap-2">
+        {#if errorKind === "dashboard"}
+          <button onclick={run} class="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+            {m.common_retry()}
+          </button>
+        {/if}
+        <a href={resolve("/login")} class="rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+          {m.auth_back_to_login()}
+        </a>
+      </div>
     </div>
   {:else}
-    <p class="text-sm text-muted-foreground">サインイン中...</p>
+    <p class="text-sm text-muted-foreground">{m.auth_signing_in()}</p>
   {/if}
 </div>

@@ -6,7 +6,20 @@
   import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
+
+  // ゴーストツリー（インデント付き行）の幅・字下げプリセット。
+  const ghostTree = [
+    "w-32 ml-0",
+    "w-40 ml-3",
+    "w-28 ml-3",
+    "w-44 ml-6",
+    "w-36 ml-6",
+    "w-24 ml-3",
+    "w-40 ml-0",
+    "w-32 ml-3",
+  ];
 
   let tree = $state<Tree | null>(null);
   let branches = $state<Branch[]>([]);
@@ -93,7 +106,11 @@
       <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r">
         <TechStackPanel owner={repo.connected.owner} repo={repo.connected.name} />
         {#if treeLoading}
-          <p class="p-4 text-sm text-muted-foreground">読み込み中...</p>
+          <div class="flex flex-col gap-2 p-3" aria-busy="true">
+            {#each ghostTree as w (w)}
+              <Skeleton class={`h-4 ${w}`} />
+            {/each}
+          </div>
         {:else if tree}
           <FileTreeComponent tree={tree.tree} {selectedPath} onfileselect={onFileSelect} />
         {/if}

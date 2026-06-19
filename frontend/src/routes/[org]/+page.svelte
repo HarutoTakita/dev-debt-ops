@@ -8,7 +8,10 @@
   import { Button } from "$lib/components/ui/button";
   import { project } from "$lib/stores/project-store.svelte";
   import type { Project } from "$lib/api/schemas";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  const skeletonCards = Array.from({ length: 6 }, (_v, i) => i);
 
   const orgSlug = $derived(page.params.org ?? "");
 
@@ -65,7 +68,17 @@
   </div>
 
   {#if project.loading && projects.length === 0}
-    <p class="py-16 text-center text-sm text-muted-foreground">…</p>
+    <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+      {#each skeletonCards as i (i)}
+        <div class="flex flex-col gap-2 rounded-lg border border-sidebar-border bg-surface-sunken p-4">
+          <div class="flex items-center gap-2">
+            <Skeleton class="size-8 rounded" />
+            <Skeleton class="h-4 flex-1" />
+          </div>
+          <Skeleton class="h-3 w-2/3" />
+        </div>
+      {/each}
+    </div>
   {:else if projects.length === 0}
     <div
       class="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-lg border border-dashed border-sidebar-border py-16 text-center"
