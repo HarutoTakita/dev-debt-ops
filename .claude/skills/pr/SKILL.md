@@ -33,7 +33,6 @@ $ARGUMENTS
 ## Test plan
 <検証手順のチェックリスト>
 
-🤖 Generated with [Claude Code](https://claude.ai/code)
 ```
 
 ## 実行手順
