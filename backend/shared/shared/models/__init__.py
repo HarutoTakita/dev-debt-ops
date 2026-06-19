@@ -3,6 +3,7 @@
 from shared.models.analysis_run import AnalysisRun
 from shared.models.assigned_developer import AssignedDeveloper
 from shared.models.code_debt import CodeDebt
+from shared.models.debt_trend_point import DebtTrendPoint
 from shared.models.dependency import Dependency
 from shared.models.file_kc import FileKc
 from shared.models.job import Job
@@ -14,6 +15,7 @@ __all__ = [
     "AnalysisRun",
     "AssignedDeveloper",
     "CodeDebt",
+    "DebtTrendPoint",
     "Dependency",
     "FileKc",
     "Job",

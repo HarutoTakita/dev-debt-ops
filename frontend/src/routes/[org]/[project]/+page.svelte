@@ -2,6 +2,8 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { overviewMock } from "$lib/mock/overview-mock";
+  import { getOverview } from "$lib/api/client";
+  import type { Overview } from "$lib/api/schemas";
   import { repo } from "$lib/stores/repo-store.svelte";
   import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/overview/coming-soon-placeholder.svelte";
@@ -19,6 +21,16 @@
     if (repo.connected && repo.scanState === "scanning") {
       const timer = setTimeout(() => repo.finishScan(), 2000);
       return () => clearTimeout(timer);
+    }
+  });
+
+  // 接続済み・スキャン完了後に実データ（issue 031 の集計 API）を取得。失敗/空ならサンプルにフォールバック。
+  let overview = $state<Overview | null>(null);
+  $effect(() => {
+    if (repo.connected && repo.scanState !== "scanning" && orgSlug && projectSlug) {
+      getOverview(orgSlug, projectSlug)
+        .then((o) => (overview = o))
+        .catch(() => (overview = null));
     }
   });
 </script>
@@ -54,7 +66,11 @@
   <div class="mx-auto max-w-5xl px-4 pt-4">
     <GettingStarted />
   </div>
-  <OverviewDashboard overview={overviewMock} isSample />
+  {#if overview && overview.files.length > 0}
+    <OverviewDashboard {overview} />
+  {:else}
+    <OverviewDashboard overview={overviewMock} isSample />
+  {/if}
 {/if}
 
 <style>
