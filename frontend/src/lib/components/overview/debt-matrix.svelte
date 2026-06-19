@@ -67,22 +67,36 @@
           {m.overview_quadrant_refactor()}
         </span>
 
-        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下）。危険点→/matrix?cell=danger、他→/matrix。 -->
+        <!-- プロット件数チップ -->
+        <span
+          class="pointer-events-none absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-background/70 px-1.5 text-[10px] text-muted-foreground tabular-nums"
+        >
+          {m.overview_scatter_count({ count: files.length })}
+        </span>
+
+        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下）。危険点→/matrix?cell=danger、他→/matrix。
+             大きさ + 塗り濃度（code_debt_score）+ 危険の '!' グリフで色のみ依存を避ける（rank10/20）。 -->
         {#each files as f (f.path)}
           <a
             href={isDanger(f) ? dangerHref : matrixHref}
             class={cn(
-              "absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:z-10 hover:scale-150",
-              isDanger(f) ? "size-2.5 bg-destructive ring-2 ring-destructive/25" : "size-2 bg-debt-knowledge/70",
+              "absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-transform before:absolute before:-inset-2 before:rounded-full before:content-['']",
+              "hover:z-10 hover:scale-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:scale-100",
+              isDanger(f) ? "size-4 bg-destructive ring-2 ring-destructive/25" : "size-3 bg-debt-knowledge",
             )}
             style="left: {f.knowledge_coverage * 100}%; top: {f.code_debt_score * 100}%;"
+            style:opacity={isDanger(f) ? 1 : 0.45 + f.code_debt_score * 0.55}
             onmouseenter={() => (hovered = f)}
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = f)}
             onblur={() => (hovered = null)}
             title={isDanger(f) ? m.overview_open_danger_matrix() : f.path}
             aria-label={f.path}
-          ></a>
+          >
+            {#if isDanger(f)}
+              <span class="text-destructive-foreground pointer-events-none text-[9px] leading-none font-bold">!</span>
+            {/if}
+          </a>
         {/each}
 
         <!-- ホバーツールチップ -->

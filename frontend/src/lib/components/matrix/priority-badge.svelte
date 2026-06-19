@@ -23,8 +23,13 @@
   title={m.matrix_priority_title({ code: Math.round(code * 100), know: Math.round(know * 100) })}
 >
   <span>{priority}</span>
-  <!-- 2 本ミニゲージ。P0 ほど両方が満ちる（最危険ゾーン）。色は currentColor を継承 -->
-  <span class="flex h-3 items-end gap-0.5" aria-hidden="true">
+  <!-- 2 本ミニゲージ。P0 ほど両方が満ちる（最危険ゾーン）。色は currentColor を継承。
+       色のみ符号化を避けるため、優先度 + 2 軸値を SR 向けに読み上げる（rank10）。 -->
+  <span
+    class="flex h-3 items-end gap-0.5"
+    role="img"
+    aria-label={m.matrix_priority_aria({ priority, code: Math.round(code * 100), know: Math.round(know * 100) })}
+  >
     <span class="relative inline-block h-3 w-1 rounded-xs bg-current/20">
       <span class="absolute bottom-0 left-0 w-full rounded-xs bg-current" style="height: {Math.round(code * 100)}%"
       ></span>
