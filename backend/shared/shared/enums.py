@@ -23,6 +23,7 @@ class JobType(StrEnum):
     CODE_DEBT_DETECTION = "code_debt_detection"  # 重複/dead/複雑度 + AI 生成痕跡検知 (issue 028)
     KC_ANALYSIS = "kc_analysis"  # Knowledge Coverage 算出 (authorship/blame + 依存) (issue 029)
     KNOWLEDGE_DEBT_DETECTION = "knowledge_debt_detection"  # AI生成/著者離脱/未レビュー検知 (issue 030)
+    REPAYMENT_PR_GENERATION = "repayment_pr_generation"  # Gemini リファクタ案 + GitHub 返済 PR (issue 033)
 
 
 class JobStatus(StrEnum):

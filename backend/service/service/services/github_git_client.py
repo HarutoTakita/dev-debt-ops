@@ -369,6 +369,48 @@ class GitHubGitClient:
         resp.raise_for_status()
         return [pr["number"] for pr in resp.json() if "number" in pr]
 
+    # --- write methods (issue 033; requires contents:write + pull_requests:write) ---------
+
+    async def get_branch_sha(self, owner: str, repo: str, branch: str) -> str:
+        """Return the head commit SHA of a branch."""
+        resp = await self._client.get(f"/repos/{owner}/{repo}/git/ref/heads/{branch}")
+        resp.raise_for_status()
+        return resp.json()["object"]["sha"]
+
+    async def create_branch(self, owner: str, repo: str, new_branch: str, from_sha: str) -> None:
+        """Create ``refs/heads/{new_branch}`` pointing at ``from_sha``."""
+        resp = await self._client.post(
+            f"/repos/{owner}/{repo}/git/refs",
+            json={"ref": f"refs/heads/{new_branch}", "sha": from_sha},
+        )
+        resp.raise_for_status()
+
+    async def create_or_update_file(
+        self, owner: str, repo: str, path: str, *, message: str, content: str, branch: str, sha: str | None = None
+    ) -> None:
+        """Create or update a file on ``branch`` (pass ``sha`` of the existing blob to update)."""
+        body: dict[str, str] = {
+            "message": message,
+            "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+            "branch": branch,
+        }
+        if sha is not None:
+            body["sha"] = sha
+        resp = await self._client.put(f"/repos/{owner}/{repo}/contents/{path}", json=body)
+        resp.raise_for_status()
+
+    async def create_pull_request(
+        self, owner: str, repo: str, *, title: str, head: str, base: str, body: str
+    ) -> tuple[int, str]:
+        """Open a pull request and return ``(number, html_url)``."""
+        resp = await self._client.post(
+            f"/repos/{owner}/{repo}/pulls",
+            json={"title": title, "head": head, "base": base, "body": body},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["number"], data["html_url"]
+
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
         await self._client.aclose()
