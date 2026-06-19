@@ -3,20 +3,12 @@
   import { toast } from "svelte-sonner";
   import * as m from "$lib/paraglide/messages";
 
-  // パレット本体は別 issue。ここでは見た目と ⌘K ショートカット枠だけを提供する。
+  // コマンドパレット本体は別 issue（対象外・保留）。誤った "⌘K" ヒントは出さず（ショートカットが
+  // 効くと錯覚させない）、coming soon であることを明示する。⌘K keydown の横取りもしない。
   function open() {
     toast.info(m.shell_coming_soon({ feature: m.shell_command_palette() }));
   }
-
-  function onKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      open();
-    }
-  }
 </script>
-
-<svelte:window onkeydown={onKeydown} />
 
 <button
   type="button"
@@ -25,7 +17,7 @@
 >
   <Search class="size-4 shrink-0" />
   <span class="flex-1 truncate text-left">{m.shell_command_palette()}</span>
-  <kbd class="hidden items-center gap-0.5 rounded border border-border px-1 font-mono text-[10px] sm:inline-flex"
-    >⌘K</kbd
-  >
+  <span class="hidden rounded border border-border px-1 text-[10px] tracking-wide uppercase sm:inline-flex">
+    {m.shell_soon()}
+  </span>
 </button>

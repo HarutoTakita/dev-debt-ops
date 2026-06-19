@@ -9,6 +9,7 @@ import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
 import { galaxy } from "$lib/stores/galaxy-store.svelte";
 import { quiz } from "$lib/stores/quiz-store.svelte";
+import { MOCK_DEBTS } from "$lib/api/mock/debts";
 import * as m from "$lib/paraglide/messages";
 
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
@@ -62,6 +63,7 @@ export const navSections: NavSection[] = [
         label: m.nav_galaxy,
         icon: Sparkles,
         route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
+        comingSoon: true,
         // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
         pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
       },
@@ -70,22 +72,31 @@ export const navSections: NavSection[] = [
         label: m.nav_matrix,
         icon: Grid3x3,
         route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
-        pill: () => "8",
+        // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
+        pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
       },
       {
         id: "quizzes",
         label: m.nav_quizzes,
         icon: HelpCircle,
         route: (c) => `/${c.orgSlug}/${c.projectSlug}/quizzes`,
+        comingSoon: true,
         // 受験可能件数（モック）が 1 件以上のとき pill 表示
         pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
       },
-      { id: "agents", label: m.nav_agents, icon: Bot, route: (c) => `/${c.orgSlug}/${c.projectSlug}/agents` },
+      {
+        id: "agents",
+        label: m.nav_agents,
+        icon: Bot,
+        route: (c) => `/${c.orgSlug}/${c.projectSlug}/agents`,
+        comingSoon: true,
+      },
       {
         id: "learning",
         label: m.nav_learning,
         icon: GraduationCap,
         route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+        comingSoon: true,
       },
     ],
   },
@@ -110,6 +121,7 @@ export const navSections: NavSection[] = [
         label: m.nav_settings,
         icon: Settings,
         route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
+        comingSoon: true,
       },
     ],
   },
