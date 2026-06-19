@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import lazyload
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -126,6 +127,9 @@ class OrgService:
                 col(OrgMember.deleted_at).is_(None),
                 col(User.deleted_at).is_(None),
             )
+            # User.oauth_accounts is a one-to-many joined eager load we do not need here.
+            # Disabling it avoids duplicate rows (which would otherwise require Result.unique()).
+            .options(lazyload("*"))
         )
         return list(result.all())
 
@@ -140,7 +144,7 @@ class OrgService:
         if org.is_personal:
             raise PermissionDeniedError("Cannot invite members to personal organization")
 
-        result = await self.session.exec(select(User).where(User.email == email))
+        result = await self.session.exec(select(User).where(User.email == email).options(lazyload("*")))
         user = result.first()
         if not user:
             raise NotFoundError("User not found")
@@ -205,6 +209,7 @@ class OrgService:
                 OrgMember.user_id == user_id,
                 col(OrgMember.deleted_at).is_(None),
             )
+            .options(lazyload("*"))  # 不要な oauth_accounts eager join を外す
         )
         row = result.first()
         if not row:
