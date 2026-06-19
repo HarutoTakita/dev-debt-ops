@@ -7,6 +7,7 @@
   import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
   import { project } from "$lib/stores/project-store.svelte";
+  import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -17,7 +18,27 @@
   });
 
   const projects = $derived(project.list);
+  // 最近開いたプロジェクト（[org]/[project] レイアウトの touch() で記録、新しい順）。
+  const recent = $derived(project.recentProjects(orgSlug));
 </script>
+
+{#snippet projectCard(p: Project)}
+  <a
+    href={resolve(`/${orgSlug}/${p.slug}`)}
+    class="group flex flex-col gap-2 rounded-lg border border-sidebar-border bg-surface-sunken p-4 transition-colors hover:border-debt-knowledge/50 hover:bg-accent/40"
+  >
+    <div class="flex items-center gap-2">
+      <span class="flex size-8 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge">
+        <FolderGit2 class="size-4" />
+      </span>
+      <span class="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+      {#if p.repo_private}
+        <Lock class="size-3.5 shrink-0 text-muted-foreground" />
+      {/if}
+    </div>
+    <span class="truncate font-mono text-xs text-muted-foreground">{p.repo_full_name}</span>
+  </a>
+{/snippet}
 
 <svelte:head>
   <title>{m.project_home_title()} · Rosetta</title>
@@ -60,25 +81,21 @@
       </Button>
     </div>
   {:else}
+    {#if recent.length > 0}
+      <section class="mt-8">
+        <h2 class="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {m.project_home_recent()}
+        </h2>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {#each recent as p (p.id)}
+            {@render projectCard(p)}
+          {/each}
+        </div>
+      </section>
+    {/if}
     <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {#each projects as p (p.id)}
-        <a
-          href={resolve(`/${orgSlug}/${p.slug}`)}
-          class="group flex flex-col gap-2 rounded-lg border border-sidebar-border bg-surface-sunken p-4 transition-colors hover:border-debt-knowledge/50 hover:bg-accent/40"
-        >
-          <div class="flex items-center gap-2">
-            <span
-              class="flex size-8 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge"
-            >
-              <FolderGit2 class="size-4" />
-            </span>
-            <span class="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-            {#if p.repo_private}
-              <Lock class="size-3.5 shrink-0 text-muted-foreground" />
-            {/if}
-          </div>
-          <span class="truncate font-mono text-xs text-muted-foreground">{p.repo_full_name}</span>
-        </a>
+        {@render projectCard(p)}
       {/each}
     </div>
   {/if}

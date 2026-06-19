@@ -306,5 +306,7 @@
   "galaxy_repay_with_quiz": "クイズで返済",
   "gap_concept_learn": "{concept} を学ぶ",
   "matrix_view_agent_reasoning": "このエージェントの活動を見る",
-  "agents_evidence_view_debt": "この負債の詳細を見る"
+  "agents_evidence_view_debt": "この負債の詳細を見る",
+  "shell_breadcrumb_detail": "詳細",
+  "project_home_recent": "最近開いたプロジェクト"
 }
