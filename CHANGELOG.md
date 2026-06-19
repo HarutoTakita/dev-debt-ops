@@ -8,6 +8,7 @@
 
 ### Added
 
+- 二軸負債の視覚言語統一（issue-021）: 軸凡例コンポーネント（`axis-legend`、Overview マトリクスタイトル横と Galaxy KC 表示隣の info アイコンから「コード負債（amber）/ 知識被覆 KC（teal）」を提示）、`--color-warning` トークン（P1 / in_pr / in_progress を `--color-debt-code` 軸色から分離）、共通 KC フォーマッタ（`$lib/format/kc.ts` の `formatKc` / `formatKcPct`）、wormhole の from→to 方向矢印・ホバーハイライト、アバターの緑/破線インラインキー（`developer-key`）を追加。
 - スタック解析の非同期パイプライン（issue-018）: ADK スタック解析を api 同期実行から service の非同期ジョブへ移設。
   - shared: `stack_analysis` の request/result スキーマ（`StackAnalysisRequest` / `StackAnalysisResult` / `TechItem` / `TechCategories` / `GitHubRef`）を追加、`TechStack` ORM モデルを `shared.models` へ昇格（api・service 双方が参照）、`PipelineContext` に `session` を追加（パイプラインが同一 DB セッションで永続化）。
   - service: `stack_analysis` パイプライン（ADK Runner + Vertex AI 分類 + GitHub クライアントを移設）と `services/`（`github_app` / `github_git_client` / `gemini_stack_service`）、`POST /tasks/stack_analysis` への登録。GitHub トークンは**方式 B**（service が Secret Manager の App 秘密鍵から installation token を都度 mint。キュー/GCS に平文の秘密を残さない）。
@@ -28,5 +29,6 @@
 
 ### Changed
 
+- 二軸負債の KC 表記とカラー言語を統一（issue-021）: KC を表示する全箇所（`kc-gauge` / `debt-meta-panel` / `star-node` / `star-system` / `mastery-list` / `kc-meter` / 散布図ツールチップ / `developer-avatar`）を共通 `formatKc` / `formatKcPct` 経由に揃え（生 `toFixed(2)` を排除）、Galaxy の星・`masteryDot` を `--color-debt-knowledge` 由来の teal 明度ランプに統一（`cyan-300` / `teal-400` / 素の `red-500` を撤去、`black_hole` は `destructive` に）。散布図ツールチップと優先度バッジ title の生日本語を Paraglide 化。象限ラベル 4 つのコントラストを改善。
 - `POST /api/v1/github/repositories/{owner}/{repo}/analyze-stack` を非同期化（issue-018）: 同期実行（`200 TechStackOut`）から **`202 {job_id}`** + Cloud Tasks enqueue へ変更。重いエージェント実行は service コンテナへ移り、api ワーカーを塞がない。フロントは同期レスポンスから enqueue + ポーリングへ切り替え。`GET .../stack`（永続化済み `TechStack` の読み出し）はインターフェース不変。api から `google-adk` / `google-genai` 依存と ADK エージェント実装を削除。
 - 機能メニュー（Galaxy / Matrix / Quizzes / Agents / Learning / Repos）を `/[org]/[project]/...` 配下へ再スコープし、プロジェクト単位に切り替わるようにした。パンくずを Org > Project > 機能に拡張。

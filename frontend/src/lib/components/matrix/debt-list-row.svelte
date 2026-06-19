@@ -5,6 +5,7 @@
   import PriorityBadge from "./priority-badge.svelte";
   import KcGauge from "./kc-gauge.svelte";
   import DeveloperAvatar from "./developer-avatar.svelte";
+  import DeveloperKey from "./developer-key.svelte";
   import { categoryLabel, severityLabel } from "./labels";
 
   type Props = { orgSlug: string; projectSlug: string; debt: DebtItem };
@@ -28,8 +29,11 @@
       >{m.list_ai({ pct: Math.round(debt.ai_generation_prob * 100) })}</span
     >
     {#if debt.assigned_developers.length}
-      <span class="flex items-center -space-x-1">
-        {#each debt.assigned_developers as dev (dev.github_handle)}<DeveloperAvatar {dev} />{/each}
+      <span class="flex items-center gap-1.5">
+        <span class="flex items-center -space-x-1">
+          {#each debt.assigned_developers as dev (dev.github_handle)}<DeveloperAvatar {dev} />{/each}
+        </span>
+        <DeveloperKey />
       </span>
     {/if}
     <span class="ml-auto flex items-center gap-1.5 text-muted-foreground">

@@ -5,6 +5,7 @@
   import type { PersonalGalaxy } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
+  import { formatKcPct } from "$lib/format/kc";
   import { masteryDot, masteryLabel } from "./galaxy-labels";
 
   // §5.5 個人認定の簡易版。KC 昇順（ブラックホール=危険を上位）に並べる。
@@ -43,7 +44,7 @@
                 aria-label={m.galaxy_list_mastered()}
               />{/if}
           </td>
-          <td class="py-1.5 pr-3 text-right tabular-nums">{Math.round(f.kc * 100)}%</td>
+          <td class="py-1.5 pr-3 text-right tabular-nums">{formatKcPct(f.kc)}</td>
           <td class="py-1.5 pr-3 text-xs text-muted-foreground">{f.module}</td>
           <td class="py-1.5 text-right">
             {#if f.mastery === "black_hole" || f.mastery === "dim_star"}

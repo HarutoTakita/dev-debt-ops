@@ -176,8 +176,9 @@ body {
   --color-success: oklch(0.72 0.15 165); /* ティール寄りグリーン: 返済 / 改善 */
   --color-danger: oklch(0.63 0.21 25); /* 危険 / 最危険ゾーン */
   --color-subtle: oklch(0.62 0 0); /* 控えめなテキスト / illustration */
-  --color-debt-code: oklch(0.78 0.15 70); /* アンバー = コード負債 / 地層 */
+  --color-debt-code: oklch(0.78 0.15 70); /* アンバー = コード負債軸（散布図 / 地層 / weekly-activity 専用） */
   --color-debt-knowledge: oklch(0.72 0.11 195); /* ティール = ナレッジ負債 / 星 */
+  --color-warning: oklch(0.8 0.13 85); /* 警告トーン（P1 / in_pr / in_progress）。debt-code 軸色とは別物 */
 }
 
 .dark body {

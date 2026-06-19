@@ -22,7 +22,7 @@
 
   const badge: Record<DebtPriority, string> = {
     P0: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
-    P1: "bg-debt-code/15 text-debt-code",
+    P1: "bg-warning/15 text-warning",
     P2: "bg-muted text-muted-foreground",
     P3: "bg-muted/60 text-muted-foreground",
   };

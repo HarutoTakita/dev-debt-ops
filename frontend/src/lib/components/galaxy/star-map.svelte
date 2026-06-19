@@ -48,17 +48,27 @@
     class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle,rgba(103,232,249,0.12)_1px,transparent_1px)] [background-size:34px_34px]"
   ></div>
 
-  <!-- ワームホール（依存） -->
+  <!-- ワームホール（依存）。from→to を矢印で示し、線ごとにホバーで強調する。 -->
   <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <defs>
+      <marker id="wormhole-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
+      </marker>
+    </defs>
     {#each lines as l, i (i)}
+      <!-- 透明な太い当たり判定線（ホバー領域を確保） -->
+      <line class="wormhole-hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="transparent" stroke-width="2.5" />
+      <!-- 可視線（隣接の当たり判定線がホバーされると強調） -->
       <line
+        class="wormhole"
         x1={l.x1}
         y1={l.y1}
         x2={l.x2}
         y2={l.y2}
-        stroke="rgba(103,232,249,0.25)"
-        stroke-width="0.25"
+        stroke="rgba(103,232,249,0.28)"
+        stroke-width="0.28"
         stroke-dasharray="1 1.2"
+        marker-end="url(#wormhole-arrow)"
       />
     {/each}
   </svg>
@@ -70,3 +80,19 @@
     </div>
   {/each}
 </div>
+
+<style>
+  /* 当たり判定線のみホバー可能にし、隣接する可視線を強調（他線はミュートのまま）。 */
+  .wormhole-hit {
+    pointer-events: stroke;
+  }
+  .wormhole {
+    transition:
+      opacity 0.15s,
+      stroke-width 0.15s;
+  }
+  .wormhole-hit:hover + .wormhole {
+    opacity: 1;
+    stroke-width: 0.55;
+  }
+</style>

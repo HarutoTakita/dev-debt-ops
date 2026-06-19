@@ -4,7 +4,9 @@
   import type { DebtItem } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import { agents } from "$lib/stores/agent-store.svelte";
+  import { formatKc, formatKcPct } from "$lib/format/kc";
   import DeveloperAvatar from "./developer-avatar.svelte";
+  import DeveloperKey from "./developer-key.svelte";
   import { agentLabel, categoryLabel, kindLabel, severityLabel } from "./labels";
 
   // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。
@@ -25,7 +27,7 @@
     { label: m.debt_meta_kind(), value: `${kindLabel(debt.kind)} · ${categoryLabel(debt)}` },
     { label: m.debt_meta_adr(), value: debt.related_adr ?? m.debt_meta_none() },
     { label: m.debt_meta_cost(), value: m.list_estimated({ hours: debt.estimated_repay_hours }) },
-    { label: m.debt_meta_kc(), value: debt.knowledge_coverage.toFixed(2) },
+    { label: m.debt_meta_kc(), value: formatKcPct(debt.knowledge_coverage) },
     { label: m.debt_meta_ai_prob(), value: `${Math.round(debt.ai_generation_prob * 100)}%` },
   ]);
 </script>
@@ -51,7 +53,10 @@
   {/each}
 
   <div class="py-2">
-    <div class="text-sm text-muted-foreground">{m.debt_meta_assigned()}</div>
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-sm text-muted-foreground">{m.debt_meta_assigned()}</span>
+      {#if debt.assigned_developers.length}<DeveloperKey />{/if}
+    </div>
     {#if debt.assigned_developers.length}
       <ul class="mt-2 space-y-1.5">
         {#each debt.assigned_developers as dev (dev.github_handle)}
@@ -59,7 +64,7 @@
             <DeveloperAvatar {dev} />
             <span class="font-mono">@{dev.github_handle}</span>
             <span class="ml-auto text-muted-foreground tabular-nums"
-              >KC {dev.coverage.toFixed(2)} · {dev.certified_via}</span
+              >{formatKc(dev.coverage)} · {dev.certified_via}</span
             >
           </li>
         {/each}
