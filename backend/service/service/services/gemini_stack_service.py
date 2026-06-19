@@ -47,6 +47,18 @@ Rules:
 
 _MAX_FILE_CHARS = 5_000
 
+_AI_GENERATION_PROMPT = """\
+You are auditing source files for signs of AI/LLM generation (boilerplate-heavy structure, \
+uniform overly-verbose comments, generic naming, lack of project-specific idiom).
+
+{file_section}
+
+Return ONLY a valid JSON object — no markdown, no explanation — mapping each file path to a \
+probability in [0,1] that the file was substantially AI-generated:
+{{"path/to/file.py": 0.0, ...}}
+Use 0.0 when there is no evidence. Do NOT include files not listed above.
+"""
+
 
 def _build_file_section(file_map: dict[str, str]) -> str:
     parts: list[str] = []
@@ -123,3 +135,39 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
         return json.loads(response.text)  # ty: ignore[invalid-argument-type]
     except (json.JSONDecodeError, AttributeError):
         return _empty_result()
+
+
+async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
+    """Return a per-file AI-generation probability (0..1) estimated by Gemini via Vertex AI.
+
+    Files absent from the model's reply (or an unparseable reply) default to ``0.0`` at the
+    call site. Raises ValueError if GOOGLE_CLOUD_PROJECT or credentials are not configured.
+    """
+    if not file_map:
+        return {}
+
+    client = _build_client()
+    prompt = _AI_GENERATION_PROMPT.format(file_section=_build_file_section(file_map))
+
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+        ),
+    )
+
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return {}
+
+    probs: dict[str, float] = {}
+    if isinstance(raw, dict):
+        for path, value in raw.items():
+            try:
+                probs[path] = max(0.0, min(1.0, float(value)))
+            except (TypeError, ValueError):
+                continue
+    return probs
