@@ -4,6 +4,6 @@ import type { PageLoad } from "./$types";
 export const ssr = false;
 
 export const load: PageLoad = async ({ params }) => {
-  const session = await getQuizSession(params.sessionId);
+  const session = await getQuizSession(params.org, params.project, params.sessionId);
   return { orgSlug: params.org, projectSlug: params.project, session };
 };
