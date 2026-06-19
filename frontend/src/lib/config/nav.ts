@@ -93,15 +93,7 @@ export const navSections: NavSection[] = [
   {
     id: "system",
     label: null,
-    items: [
-      {
-        id: "settings",
-        label: m.nav_settings,
-        icon: Settings,
-        route: (c) => `/${c.orgSlug}/settings`,
-        comingSoon: true,
-      },
-    ],
+    items: [{ id: "settings", label: m.nav_settings, icon: Settings, route: (c) => `/${c.orgSlug}/settings/members` }],
   },
 ];
 

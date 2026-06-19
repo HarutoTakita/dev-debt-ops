@@ -254,5 +254,6 @@
   "learning_priority_recommended": "Recommended",
   "learning_priority_supplementary": "Supplementary",
   "learning_priority_hands_on": "Hands-on",
-  "learning_dormant": "Unread for {months} months (dormant)"
+  "learning_dormant": "Unread for {months} months (dormant)",
+  "members_kc_tooltip": "Org KC contribution (Knowledge Coverage) — coming soon"
 }
