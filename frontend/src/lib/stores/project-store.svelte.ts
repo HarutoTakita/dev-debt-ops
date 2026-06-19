@@ -17,6 +17,8 @@ class ProjectStore {
   /** スイッチャー用の org 内プロジェクト一覧 */
   list = $state<Project[]>([]);
   loading = $state(false);
+  /** loadList が失敗 / タイムアウトしたか（確定空と区別する） */
+  error = $state<string | null>(null);
   /** org slug → 最近開いたプロジェクト id（新しい順） */
   private recentByOrg = $state<Record<string, string[]>>({});
   /** "orgSlug/projectSlug" → getting-started を閉じたか */
@@ -56,17 +58,36 @@ class ProjectStore {
     this.current = project;
   }
 
-  /** org のプロジェクト一覧をロードしてスイッチャー用に保持する。 */
+  /** org のプロジェクト一覧をロードしてスイッチャー用に保持する。失敗/タイムアウトは error に記録する。 */
   async loadList(orgSlug: string): Promise<Project[]> {
     this.loading = true;
+    this.error = null;
     try {
-      this.list = await listProjects(orgSlug);
-    } catch {
+      this.list = await this.#withTimeout(listProjects(orgSlug), 10_000);
+    } catch (e) {
       this.list = [];
+      this.error = e instanceof Error ? e.message : "load failed";
     } finally {
       this.loading = false;
     }
     return this.list;
+  }
+
+  /** 一定時間で打ち切るタイムアウト付きラッパ（失敗分岐へ合流させる）。 */
+  #withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("timeout")), ms);
+      p.then(
+        (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(timer);
+          reject(e);
+        },
+      );
+    });
   }
 
   /** 「最近開いた順」を更新して永続化する。 */

@@ -8,6 +8,7 @@
   import DebtListRow from "$lib/components/matrix/debt-list-row.svelte";
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import Logo from "$lib/components/logo.svelte";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -19,6 +20,8 @@
   let sort = $state<DebtSort>({ key: "severity", dir: "desc" });
   let debts = $state<DebtItem[]>([]);
   let loading = $state(true);
+
+  const skeletonRows = Array.from({ length: 6 }, (_v, i) => i);
 
   $effect(() => {
     recentSearches.load(orgSlug);
@@ -76,7 +79,22 @@
   </div>
 
   {#if loading}
-    <p class="py-10 text-center text-sm text-muted-foreground">{m.common_loading()}</p>
+    <!-- レイアウト準拠スケルトン: DebtListRow の形（rounded-lg border bg-card）に合わせたゴースト行 -->
+    <ul class="flex flex-col gap-2" aria-busy="true">
+      {#each skeletonRows as i (i)}
+        <li class="rounded-lg border bg-card p-3">
+          <div class="flex items-center gap-3">
+            <Skeleton class="h-5 w-12" />
+            <Skeleton class="h-4 flex-1" />
+            <Skeleton class="h-4 w-16" />
+          </div>
+          <div class="mt-2 flex items-center gap-4">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-3 w-16" />
+          </div>
+        </li>
+      {/each}
+    </ul>
   {:else if debts.length === 0}
     <div class="flex flex-col items-center gap-3 py-16 text-center">
       <Logo class="size-10 text-debt-code/70" />
