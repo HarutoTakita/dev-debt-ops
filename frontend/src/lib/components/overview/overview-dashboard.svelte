@@ -13,8 +13,9 @@
   import PriorityList from "./priority-list.svelte";
 
   // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と将来の実データ表示で共用する。
-  type Props = { overview: Overview };
-  const { overview }: Props = $props();
+  // isSample: 表示中のデータがモック由来である間「Sample / デモデータ」バッジを出す（誠実表示）。
+  type Props = { overview: Overview; isSample?: boolean };
+  const { overview, isSample = false }: Props = $props();
 
   // 遷移先生成用の slug。ルートからではなく $app/state 経由で取得（mastery-list / constructive-result と同流儀）。
   const orgSlug = $derived(page.params.org ?? "");
@@ -31,6 +32,14 @@
 </script>
 
 <div class="mx-auto flex max-w-5xl flex-col gap-4 p-4">
+  {#if isSample}
+    <div class="flex items-center gap-2">
+      <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
+        {m.overview_sample_badge()}
+      </span>
+    </div>
+  {/if}
+
   <!-- 一次ビュー: 二軸負債マトリクス + 4 象限凡例 -->
   <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
     <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
