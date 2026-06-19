@@ -346,5 +346,8 @@
   "repo_install_cta": "GitHub App をインストール",
   "repo_install_browse": "GitHub Apps を開く",
   "repo_install_ask_admin": "Org 管理者にインストールを依頼してください。",
-  "project_switcher_error": "プロジェクトの読み込みに失敗しました"
+  "project_switcher_error": "プロジェクトの読み込みに失敗しました",
+  "matrix_priority_aria": "優先度 {priority}・コード負債 {code}・理解欠落 {know}",
+  "overview_scatter_count": "{count} 件",
+  "shell_toggle_theme": "テーマを切り替え"
 }

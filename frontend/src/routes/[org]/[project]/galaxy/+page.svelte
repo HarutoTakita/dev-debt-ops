@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import * as Tabs from "$lib/components/ui/tabs";
   import * as Tooltip from "$lib/components/ui/tooltip";
   import ComingSoonPlaceholder from "$lib/components/galaxy/coming-soon-placeholder.svelte";
@@ -8,6 +9,12 @@
   import AxisLegend from "$lib/components/overview/axis-legend.svelte";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  // 狭幅（<768px）では密なマップではなく list タブを既定にする（rank30）。
+  let tab = $state("map");
+  onMount(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) tab = "list";
+  });
 </script>
 
 <svelte:head>
@@ -18,7 +25,7 @@
   <ComingSoonPlaceholder />
 {:else}
   <div class="mx-auto flex h-full max-w-5xl flex-col gap-3 p-4">
-    <Tabs.Root value="map" class="flex min-h-0 flex-1 flex-col">
+    <Tabs.Root bind:value={tab} class="flex min-h-0 flex-1 flex-col">
       <div class="flex items-center justify-between gap-2">
         <Tabs.List>
           <Tabs.Trigger value="map">{m.galaxy_tab_map()}</Tabs.Trigger>

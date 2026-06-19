@@ -25,13 +25,24 @@
 </script>
 
 {#if !enabled}
-  <div
-    class={cn(baseRow, "cursor-not-allowed text-muted-foreground/40", sidebar.collapsed && "justify-center")}
+  <!-- 無効項目もキーボードで発見できるよう、フォーカス可能な aria-disabled リンク + Soon バッジにする（rank33）。 -->
+  <span
+    role="link"
+    aria-disabled="true"
+    tabindex="0"
+    class={cn(
+      baseRow,
+      "cursor-not-allowed text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+      sidebar.collapsed && "justify-center",
+    )}
     title={item.label()}
   >
     <Icon class="size-4 shrink-0" />
-    {#if !sidebar.collapsed}<span class="flex-1 truncate">{item.label()}</span>{/if}
-  </div>
+    {#if !sidebar.collapsed}
+      <span class="flex-1 truncate">{item.label()}</span>
+      <Badge variant="outline" class="h-5 px-1.5 text-[10px] text-muted-foreground">{m.shell_soon()}</Badge>
+    {/if}
+  </span>
 {:else if sidebar.collapsed}
   <Tooltip.Root>
     <Tooltip.Trigger>

@@ -8,8 +8,10 @@
   type Props = { before: number; after: number };
   const { before, after }: Props = $props();
 
+  // reduced-motion 設定時は補間を即時化する（+Xpt の最終表示は維持する）。
+  const reduceMotion = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   // 初期値は before を一度だけキャプチャ（以降は after へ補間）。
-  const pct = new Tween(untrack(() => before) * 100, { duration: 1200, easing: cubicOut });
+  const pct = new Tween(untrack(() => before) * 100, { duration: reduceMotion ? 0 : 1200, easing: cubicOut });
   $effect(() => {
     pct.target = after * 100;
   });
