@@ -1,0 +1,23 @@
+project_name   = "fullstack-app"
+environment    = "stg"
+gcp_project_id = "your-gcp-project-id"
+region         = "asia-northeast1"
+
+# Container images — the deploy workflow injects the real Artifact Registry URIs.
+# Defaults are gcr.io/cloudrun/hello placeholders so `terraform plan` works pre-build.
+# container_image_api     = "asia-northeast1-docker.pkg.dev/<proj>/fullstack-app-stg/api:latest"
+# container_image_service = "asia-northeast1-docker.pkg.dev/<proj>/fullstack-app-stg/service:latest"
+
+# Optional custom domain for the external HTTPS load balancer (managed cert).
+# Leave empty to skip the cert/proxy/forwarding-rule (plan still passes).
+# domain = "api.example.com"
+
+# --- Secrets: DO NOT put real values here. Inject from CI via TF_VAR_* / -var.
+#   db_password            = "CHANGE_ME"
+#   secret_key             = "CHANGE_ME"
+#   github_app_private_key = "CHANGE_ME"
+#   github_client_secret   = "CHANGE_ME"
+#   github_webhook_secret  = "CHANGE_ME"
+#
+# There is intentionally NO google_api_key — AI uses Vertex AI via ADC (runtime SAs get
+# roles/aiplatform.user), unlike infra/azure and infra/aws.

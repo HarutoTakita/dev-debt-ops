@@ -1,0 +1,11 @@
+repo_owner     = "your-github-org-or-user"
+repo_name      = "your-repo"
+gcp_project_id = "your-gcp-project-id"
+region         = "asia-northeast1"
+project_name   = "fullstack-app"
+
+# GitHub environments to pin WIF to (one binding each; production is gated by required reviewers).
+# environments = ["staging", "production"]
+
+# tfstate bucket name (must be globally unique; shared by app + bootstrap under different prefixes).
+# state_bucket = "fullstack-app-tfstate"
