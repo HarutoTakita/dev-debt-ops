@@ -1,0 +1,12 @@
+# gitleaks config — extends the built-in default rules and allowlists known
+# test fixtures that match secret patterns but contain no real key material.
+# Auto-loaded by `gitleaks detect` from the repo root.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dummy RSA PEM markers in unit tests for _to_pem() — placeholder bodies (e.g. \"ABC\"), not real keys. Path matches the file before and after the issue-015 monorepo move (backend/tests/... -> backend/api/tests/...)."
+paths = [
+  '''(^|/)test_github_app\.py$''',
+]
