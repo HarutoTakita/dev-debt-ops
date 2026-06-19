@@ -216,3 +216,76 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
         "pr_title": str(raw.get("pr_title") or f"Repay code debt in {path}"),
         "pr_body": str(raw.get("pr_body") or "Automated repayment refactor."),
     }
+
+
+_QUIZ_GEN_PROMPT = """\
+Generate a 5-question comprehension quiz (difficulties L1..L5) for this file.
+
+=== {path} ===
+{content}
+
+Return ONLY a valid JSON object — no markdown — with this exact schema:
+{{
+  "questions": [
+    {{"id": "q1", "kind": "multiple_choice|free_text", "prompt": "...",
+      "code_snippet": {{"language": "...", "path": "{path}", "content": "..."}} or null,
+      "choices": [{{"id": "a", "label": "..."}}] (only for multiple_choice),
+      "difficulty": "L1|L2|L3|L4|L5"}}
+  ],
+  "answer_key": {{"q1": {{"answer": "correct choice id or model answer", "rubric": "grading criteria"}}}}
+}}
+Provide exactly 5 questions with ids q1..q5 spanning L1..L5.
+"""
+
+_QUIZ_GRADE_PROMPT = """\
+Grade this quiz semantically. For each question you have the prompt, the answer key, and the learner's answer.
+
+{payload}
+
+Return ONLY a valid JSON object — no markdown — with this exact schema:
+{{
+  "score": 0.0,                  // fraction correct in [0,1]
+  "understood": [{{"id": "c1", "label": "concept the learner understood"}}],
+  "gap_concepts": [{{"id": "c2", "label": "concept to learn next"}}]
+}}
+"""
+
+
+async def generate_quiz(path: str, content: str) -> dict:
+    """Return ``{questions, answer_key}`` for a file (Gemini via Vertex AI). Empty on parse failure."""
+    client = _build_client()
+    prompt = _QUIZ_GEN_PROMPT.format(path=path, content=content[:_MAX_FILE_CHARS])
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return {"questions": [], "answer_key": {}}
+    if not isinstance(raw, dict):
+        return {"questions": [], "answer_key": {}}
+    return {"questions": raw.get("questions") or [], "answer_key": raw.get("answer_key") or {}}
+
+
+async def grade_quiz(payload: str) -> dict:
+    """Return ``{score, understood, gap_concepts}`` from a serialized grading payload (Gemini)."""
+    client = _build_client()
+    prompt = _QUIZ_GRADE_PROMPT.format(payload=payload)
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return {"score": 0.0, "understood": [], "gap_concepts": []}
+    if not isinstance(raw, dict):
+        return {"score": 0.0, "understood": [], "gap_concepts": []}
+    try:
+        score = max(0.0, min(1.0, float(raw.get("score", 0.0))))
+    except (TypeError, ValueError):
+        score = 0.0
+    return {"score": score, "understood": raw.get("understood") or [], "gap_concepts": raw.get("gap_concepts") or []}
