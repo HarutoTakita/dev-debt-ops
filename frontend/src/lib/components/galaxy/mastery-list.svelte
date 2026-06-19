@@ -1,5 +1,7 @@
 <script lang="ts">
   import Check from "@lucide/svelte/icons/check";
+  import { resolve } from "$app/paths";
+  import { page } from "$app/state";
   import type { PersonalGalaxy } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
@@ -8,6 +10,10 @@
   // §5.5 個人認定の簡易版。KC 昇順（ブラックホール=危険を上位）に並べる。
   const { galaxy }: { galaxy: PersonalGalaxy } = $props();
   const files = $derived(galaxy.systems.flatMap((s) => s.files).sort((a, b) => a.kc - b.kc));
+
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/quizzes`));
 </script>
 
 <div class="overflow-x-auto p-1">
@@ -17,7 +23,8 @@
         <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_status()}</th>
         <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_file()}</th>
         <th class="py-1.5 pr-3 text-right font-normal">{m.galaxy_list_kc()}</th>
-        <th class="py-1.5 font-normal">{m.galaxy_list_module()}</th>
+        <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_module()}</th>
+        <th class="py-1.5 font-normal"><span class="sr-only">{m.galaxy_repay_with_quiz()}</span></th>
       </tr>
     </thead>
     <tbody>
@@ -37,7 +44,17 @@
               />{/if}
           </td>
           <td class="py-1.5 pr-3 text-right tabular-nums">{Math.round(f.kc * 100)}%</td>
-          <td class="py-1.5 text-xs text-muted-foreground">{f.module}</td>
+          <td class="py-1.5 pr-3 text-xs text-muted-foreground">{f.module}</td>
+          <td class="py-1.5 text-right">
+            {#if f.mastery === "black_hole" || f.mastery === "dim_star"}
+              <a
+                href={quizzesHref}
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium text-primary hover:underline"
+              >
+                {m.galaxy_repay_with_quiz()}
+              </a>
+            {/if}
+          </td>
         </tr>
       {/each}
     </tbody>

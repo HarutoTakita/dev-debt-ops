@@ -1,6 +1,8 @@
 <script lang="ts">
   import Check from "@lucide/svelte/icons/check";
   import Sprout from "@lucide/svelte/icons/sprout";
+  import { resolve } from "$app/paths";
+  import { page } from "$app/state";
   import type { QuizResult } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import KcMeter from "./kc-meter.svelte";
@@ -9,6 +11,10 @@
   // 「正解/不正解」を出さない建設的フレーミング。理解していたこと / 学ぶ余地 + KC カウントアップ。
   type Props = { result: QuizResult; learningHref: string };
   const { result, learningHref }: Props = $props();
+
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+  const galaxyHref = $derived(resolve(`/${orgSlug}/${projectSlug}/galaxy`));
 </script>
 
 <div class="mx-auto max-w-2xl space-y-5 p-4">
@@ -34,9 +40,18 @@
         <Sprout class="size-4" />
         {m.quiz_result_gap()}
       </div>
-      <ul class="mt-2 space-y-1 text-sm text-muted-foreground">
-        {#each result.gap_concepts as c (c.id)}<li>・{c.label}</li>{/each}
-      </ul>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        {#each result.gap_concepts as c (c.id)}
+          <a
+            href={galaxyHref}
+            title={m.gap_concept_learn({ concept: c.label })}
+            aria-label={m.gap_concept_learn({ concept: c.label })}
+            class="inline-flex items-center rounded-full border bg-card px-2 py-0.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/40"
+          >
+            {c.label}
+          </a>
+        {/each}
+      </div>
     </div>
   </div>
 

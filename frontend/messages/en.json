@@ -299,5 +299,12 @@
   "stack_step_classifying": "Classifying the tech stack…",
   "stack_step_saving": "Saving results…",
   "stack_failed": "Tech-stack analysis failed",
-  "stack_languages": "Languages"
+  "stack_languages": "Languages",
+  "overview_view_all_danger": "View all {count} danger files",
+  "overview_raise_kc": "Raise team KC",
+  "overview_open_danger_matrix": "Open danger zone in Matrix",
+  "galaxy_repay_with_quiz": "Repay with a quiz",
+  "gap_concept_learn": "Learn {concept}",
+  "matrix_view_agent_reasoning": "View this agent's activity",
+  "agents_evidence_view_debt": "View this debt's detail"
 }
