@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.debts import router as debts_router
 from app.api.v1.github import router as github_router
 from app.api.v1.health import router as health_router
 from app.api.v1.jobs import router as jobs_router
@@ -15,6 +16,7 @@ api_router.include_router(auth_router)
 api_router.include_router(users_router)
 api_router.include_router(orgs_router)
 api_router.include_router(projects_router)
+api_router.include_router(debts_router)
 api_router.include_router(github_router)
 api_router.include_router(stack_router)
 api_router.include_router(jobs_router)
