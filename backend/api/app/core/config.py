@@ -31,10 +31,28 @@ class Settings(BaseSettings):
     JWT_LIFETIME_SECONDS: int = Field(default=300, description="Access-token lifetime in seconds (5 min).")
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
 
-    # AI (Google Gemini via Vertex AI)
-    GOOGLE_CLOUD_PROJECT: str = Field(default="", description="Google Cloud project ID for Vertex AI.")
-    GOOGLE_CLOUD_LOCATION: str = Field(default="us-central1", description="Vertex AI region (e.g. us-central1).")
+    # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
+    # (issue 016/017) — default aligned to issue-017's region to avoid splitting regions.
+    GOOGLE_CLOUD_PROJECT: str = Field(default="", description="GCP project ID (Vertex AI / Cloud Tasks / GCS).")
+    GOOGLE_CLOUD_LOCATION: str = Field(
+        default="asia-northeast1", description="GCP region for Vertex AI / Cloud Tasks / GCS."
+    )
     GEMINI_MODEL: str = Field(default="gemini-2.5-flash", description="Gemini model ID used by agents.")
+
+    # Async task queue (issue 016). Defaults run a fully in-memory pipeline (no GCP needed).
+    USE_MOCK_QUEUE: bool = Field(default=True, description="Use the in-memory TaskDispatcher instead of Cloud Tasks.")
+    USE_MOCK_WORKER: bool = Field(
+        default=True, description="Run an in-process mock-worker standing in for the service container."
+    )
+    USE_MOCK_BLOB: bool = Field(default=True, description="Use the in-memory BlobClient instead of GCS.")
+    SERVICE_TASKS_URL: str = Field(
+        default="http://localhost:8001", description="Cloud Tasks HTTP target — the service container base URL."
+    )
+    TASKS_INVOKER_SA: str = Field(
+        default="", description="Service account email for the Cloud Tasks → service OIDC token."
+    )
+    TASKS_QUEUE: str = Field(default="job-requests", description="Cloud Tasks request queue name (issue 017).")
+    JOB_PAYLOAD_BUCKET: str = Field(default="", description="GCS bucket for spilled large job payloads (issue 017).")
 
     # GitHub App (リポジトリアクセス用)
     GITHUB_APP_ID: str = Field(default="", description="GitHub App の数値 ID")
@@ -56,6 +74,18 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    def use_mock_queue(self) -> bool:
+        """Whether to dispatch via the in-memory mock instead of Cloud Tasks."""
+        return self.USE_MOCK_QUEUE
+
+    def use_mock_worker(self) -> bool:
+        """Whether to run the in-process mock-worker (stands in for the service container)."""
+        return self.USE_MOCK_WORKER
+
+    def use_mock_blob(self) -> bool:
+        """Whether to spill payloads to the in-memory mock blob instead of GCS."""
+        return self.USE_MOCK_BLOB
 
     @model_validator(mode="after")
     def _validate_production_settings(self) -> Self:

@@ -8,6 +8,8 @@ dependencies = [
     "fastapi[standard-no-fastapi-cloud-cli]>=0.136.1",
     "sqlalchemy[asyncio]>=2.0.49",                     # Cloud SQL に Job 結果を直書き
     "asyncpg>=0.31.0",                                 # マイグレーションは api が所有
+    "google-cloud-storage>=3.12.0",
+    "google-auth>=2.52.0",
 ]
 
 # Run from source (uvicorn service.main:app); deps installed, project not built as a wheel.

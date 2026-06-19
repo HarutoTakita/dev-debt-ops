@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from collections.abc import AsyncIterator
@@ -37,11 +38,22 @@ _is_prod = settings.ENVIRONMENT == "prod"
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Dispose the DB engine on shutdown."""
+    """Start the in-process mock-worker (mock mode only); dispose the DB engine on shutdown.
+
+    In production (``USE_MOCK_WORKER=false``) no background loop runs — Cloud Tasks pushes
+    to the separate ``service`` container, keeping api request-driven / zero-scalable.
+    """
     logger.info("Starting backend replica: %s", os.environ.get("REPLICA_ID", "single"))
+    mock_worker_task: asyncio.Task[None] | None = None
+    if settings.use_mock_worker():
+        from app.services.mock_worker import run_mock_worker
+
+        mock_worker_task = asyncio.create_task(run_mock_worker())
     try:
         yield
     finally:
+        if mock_worker_task is not None:
+            mock_worker_task.cancel()
         await engine.dispose()
 
 

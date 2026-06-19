@@ -19,3 +19,12 @@ class PipelineError(SharedBaseModel):
 
     code: str
     message: str
+    retryable: bool = False
+
+
+class PipelineTiming(SharedBaseModel):
+    """Optional timing markers for a pipeline run (ISO-8601 strings)."""
+
+    queued_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None

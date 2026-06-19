@@ -21,6 +21,8 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.49",
     "sqlmodel>=0.0.38",
     "uuid-utils>=0.14.1",
+    "google-cloud-tasks>=2.22.0",
+    "google-cloud-storage>=3.12.0",
 ]
 
 # Run from source (uvicorn app.main:app); deps installed, project not built as a wheel.

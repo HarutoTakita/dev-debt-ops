@@ -1,30 +1,47 @@
-"""Queue / blob-store client Protocols (interface placeholders).
+"""Queue / blob-store client Protocols.
 
-These define the contract that api uses to dispatch work to service and to spill
-large payloads. Concrete implementations (Cloud Tasks, Cloud Storage) are added in
-issue 016; this module only fixes the shapes so both containers agree on them.
+These define the contract ``api`` uses to dispatch work to ``service`` (Cloud Tasks)
+and to spill large payloads (Cloud Storage). Concrete implementations live in the
+members (``api`` / ``service``) and the in-memory mock lives in ``shared.blob``;
+this module fixes the shapes so both containers agree on them.
+
+Ported from ``app_ref/services/api/app/services/interfaces.py`` (``QueueClient`` /
+``BlobClient``). The Azure ``send/receive/delete`` queue verbs collapse to a single
+``dispatch`` because Cloud Tasks is push-based (point-to-point HTTP), so ``service``
+never polls. result is not a queue at all — ``service`` writes the ``Job`` row directly.
 """
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
-class TaskQueue(Protocol):
-    """Dispatch a unit of work to the service container (Cloud Tasks in issue 016)."""
+class TaskDispatcher(Protocol):
+    """Dispatch a unit of work to the ``service`` container's ``/tasks/{pipeline}``."""
 
-    async def enqueue(self, pipeline: str, payload: bytes, *, dedup_key: str | None = None) -> None:
-        """Enqueue ``payload`` for ``pipeline``; ``dedup_key`` de-duplicates retries."""
+    async def dispatch(self, pipeline: str, payload: dict[str, Any], *, dedup_key: str | None = None) -> None:
+        """Create a Cloud Tasks HTTP task targeting ``service``'s ``/tasks/{pipeline}``.
+
+        ``dedup_key`` names the task so at-least-once retries collapse to one task.
+        """
         ...
 
 
 @runtime_checkable
-class BlobStore(Protocol):
-    """Spill / fetch large payloads that exceed the queue message size (GCS in issue 016)."""
+class BlobClient(Protocol):
+    """Spill / fetch payloads that exceed the queue message size (GCS in production)."""
 
-    async def put(self, key: str, data: bytes) -> str:
-        """Store ``data`` under ``key`` and return a reference (e.g. ``gs://...``)."""
+    async def upload(self, bucket: str, object_path: str, data: bytes, content_type: str = "application/json") -> str:
+        """Upload ``data`` to ``gs://bucket/object_path`` and return that ``gs://`` URL."""
         ...
 
-    async def get(self, ref: str) -> bytes:
-        """Fetch the bytes previously stored under reference ``ref``."""
+    async def download_from_url(self, gcs_url: str) -> bytes:
+        """Resolve a ``gs://`` URL and return its bytes."""
+        ...
+
+    async def exists(self, bucket: str, object_path: str) -> bool:
+        """Return whether ``gs://bucket/object_path`` exists."""
+        ...
+
+    async def delete(self, bucket: str, object_path: str) -> None:
+        """Delete ``gs://bucket/object_path`` (no error if absent)."""
         ...
