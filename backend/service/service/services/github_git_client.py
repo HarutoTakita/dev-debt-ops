@@ -58,6 +58,74 @@ class FileContent:
     size: int
 
 
+@dataclass
+class CommitInfo:
+    """A single commit with git-author and (when linked) GitHub-account identity.
+
+    ``author_login`` / ``author_id`` come from the GitHub user node (null for commits
+    whose author is not a GitHub user); ``author_email`` / ``authored_at`` come from the
+    git author metadata which is always present.
+    """
+
+    sha: str
+    author_login: str | None
+    author_email: str | None
+    author_id: int | None
+    authored_at: str
+    message: str
+
+
+@dataclass
+class BlameRange:
+    """A contiguous line range attributed to a single commit/author (GraphQL blame)."""
+
+    start_line: int
+    end_line: int
+    commit_sha: str
+    author_login: str | None
+    author_email: str | None
+    author_id: int | None
+
+
+@dataclass
+class PullRequestInfo:
+    """Pull request merge metadata (for review/auto-approve analysis)."""
+
+    number: int
+    merged_at: str | None
+    merged_by_login: str | None
+
+
+@dataclass
+class ReviewInfo:
+    """A single pull request review (state + reviewer login)."""
+
+    state: str
+    author_login: str | None
+    submitted_at: str | None
+
+
+# GraphQL blame query — REST exposes no blame endpoint, so history attribution at the
+# line level must go through the GraphQL ``object(expression).blame(path)`` field.
+_BLAME_QUERY = """
+query($owner: String!, $repo: String!, $ref: String!, $path: String!) {
+  repository(owner: $owner, name: $repo) {
+    object(expression: $ref) {
+      ... on Commit {
+        blame(path: $path) {
+          ranges {
+            startingLine
+            endingLine
+            commit { oid author { email user { login databaseId } } }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+
 class GitHubGitClient:
     """GitHub REST API client that authenticates with an installation access token."""
 
@@ -183,6 +251,113 @@ class GitHubGitClient:
             sha=data["sha"],
             size=data.get("size", 0),
         )
+
+    async def list_commits(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        path: str | None = None,
+        sha: str | None = None,
+        since: str | None = None,
+        per_page: int = 100,
+        page: int = 1,
+    ) -> list[CommitInfo]:
+        """Return one page of commits (newest first); pass ``path`` for per-file history.
+
+        Callers paginate by incrementing ``page`` until a short page is returned, mirroring
+        the per-page cap convention used by :meth:`list_branches`.
+        """
+        params: dict[str, str | int] = {"per_page": min(per_page, 100), "page": page}
+        if path is not None:
+            params["path"] = path
+        if sha is not None:
+            params["sha"] = sha
+        if since is not None:
+            params["since"] = since
+        resp = await self._client.get(f"/repos/{owner}/{repo}/commits", params=params)
+        resp.raise_for_status()
+        commits: list[CommitInfo] = []
+        for item in resp.json():
+            commit = item.get("commit") or {}
+            git_author = commit.get("author") or {}
+            gh_author = item.get("author") or {}
+            commits.append(
+                CommitInfo(
+                    sha=item["sha"],
+                    author_login=gh_author.get("login"),
+                    author_email=git_author.get("email"),
+                    author_id=gh_author.get("id"),
+                    authored_at=git_author.get("date", ""),
+                    message=commit.get("message", ""),
+                )
+            )
+        return commits
+
+    async def get_blame(self, owner: str, repo: str, path: str, ref: str = "main") -> list[BlameRange]:
+        """Return blame line-ranges via GraphQL (REST has no blame endpoint)."""
+        resp = await self._client.post(
+            "/graphql",
+            json={"query": _BLAME_QUERY, "variables": {"owner": owner, "repo": repo, "ref": ref, "path": path}},
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data") or {}
+        repository = data.get("repository") or {}
+        obj = repository.get("object") or {}
+        blame = obj.get("blame") or {}
+        ranges: list[BlameRange] = []
+        for r in blame.get("ranges", []):
+            commit = r.get("commit") or {}
+            author = commit.get("author") or {}
+            user = author.get("user") or {}
+            ranges.append(
+                BlameRange(
+                    start_line=r["startingLine"],
+                    end_line=r["endingLine"],
+                    commit_sha=commit.get("oid", ""),
+                    author_login=user.get("login"),
+                    author_email=author.get("email"),
+                    author_id=user.get("databaseId"),
+                )
+            )
+        return ranges
+
+    async def list_pull_requests(
+        self, owner: str, repo: str, *, state: str = "all", per_page: int = 100, page: int = 1
+    ) -> list[PullRequestInfo]:
+        """Return one page of pull requests with merge metadata."""
+        resp = await self._client.get(
+            f"/repos/{owner}/{repo}/pulls",
+            params={"state": state, "per_page": min(per_page, 100), "page": page},
+        )
+        resp.raise_for_status()
+        pulls: list[PullRequestInfo] = []
+        for pr in resp.json():
+            merged_by = pr.get("merged_by") or {}
+            pulls.append(
+                PullRequestInfo(
+                    number=pr["number"],
+                    merged_at=pr.get("merged_at"),
+                    merged_by_login=merged_by.get("login"),
+                )
+            )
+        return pulls
+
+    async def get_pull_request_reviews(self, owner: str, repo: str, number: int) -> list[ReviewInfo]:
+        """Return the reviews on a pull request (state + reviewer login)."""
+        resp = await self._client.get(f"/repos/{owner}/{repo}/pulls/{number}/reviews")
+        resp.raise_for_status()
+        reviews: list[ReviewInfo] = []
+        for rv in resp.json():
+            user = rv.get("user") or {}
+            reviews.append(
+                ReviewInfo(
+                    state=rv.get("state", ""),
+                    author_login=user.get("login"),
+                    submitted_at=rv.get("submitted_at"),
+                )
+            )
+        return reviews
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
