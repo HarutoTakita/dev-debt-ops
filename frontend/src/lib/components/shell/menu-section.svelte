@@ -9,7 +9,7 @@
 
   let { section, ctx }: { section: NavSection; ctx: NavContext } = $props();
 
-  const hasActive = $derived(section.items.some((i) => isActiveRoute(i.route(ctx), page.url.pathname)));
+  const hasActive = $derived(section.items.some((i) => isActiveRoute(i.route(ctx), page.url.pathname, i.exact)));
   let open = $state(true);
   // 現在ルートを含むセクションは自動展開（GitLab menu_section.vue の is_active 初期展開に相当）
   $effect(() => {

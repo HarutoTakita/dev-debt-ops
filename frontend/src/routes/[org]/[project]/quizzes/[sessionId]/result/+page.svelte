@@ -6,7 +6,7 @@
   let { data } = $props();
   // 学習プランへ。クイズ結果由来であることを ?from=quiz&attemptId=... で仮配線（§5.4 遷移）。
   const learningHref = $derived(
-    `${resolve(`/${data.orgSlug}/learning`)}?from=quiz&attemptId=${data.result.session_id}`,
+    `${resolve(`/${data.orgSlug}/${data.projectSlug}/learning`)}?from=quiz&attemptId=${data.result.session_id}`,
   );
 </script>
 

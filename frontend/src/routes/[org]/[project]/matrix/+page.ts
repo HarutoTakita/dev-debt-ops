@@ -26,6 +26,7 @@ function parseFilter(url: URL): DebtFilter {
 export const load: PageLoad = ({ params, url }) => {
   return {
     orgSlug: params.org,
+    projectSlug: params.project,
     initialFilter: parseFilter(url),
     cell: url.searchParams.get("cell"),
   };

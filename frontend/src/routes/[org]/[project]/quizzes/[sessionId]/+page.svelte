@@ -13,10 +13,10 @@
   });
 
   function exit() {
-    goto(resolve(`/${data.orgSlug}/quizzes`));
+    goto(resolve(`/${data.orgSlug}/${data.projectSlug}/quizzes`));
   }
   function submit() {
-    goto(resolve(`/${data.orgSlug}/quizzes/${data.session.id}/result`));
+    goto(resolve(`/${data.orgSlug}/${data.projectSlug}/quizzes/${data.session.id}/result`));
   }
 </script>
 

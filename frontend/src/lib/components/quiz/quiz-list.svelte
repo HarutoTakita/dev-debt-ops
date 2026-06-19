@@ -5,15 +5,15 @@
   import * as m from "$lib/paraglide/messages";
 
   // 受験可能クイズ一覧（カード: ファイルパス・KC 低下理由・問題数・推定分）。
-  type Props = { quizzes: QuizListItem[]; orgSlug: string };
-  const { quizzes, orgSlug }: Props = $props();
+  type Props = { quizzes: QuizListItem[]; orgSlug: string; projectSlug: string };
+  const { quizzes, orgSlug, projectSlug }: Props = $props();
 </script>
 
 <ul class="flex flex-col gap-3">
   {#each quizzes as q (q.session_id)}
     <li>
       <a
-        href={resolve(`/${orgSlug}/quizzes/${q.session_id}`)}
+        href={resolve(`/${orgSlug}/${projectSlug}/quizzes/${q.session_id}`)}
         class="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent/40"
       >
         <div class="flex items-center justify-between gap-2">

@@ -7,12 +7,12 @@
   import DeveloperAvatar from "./developer-avatar.svelte";
   import { categoryLabel, severityLabel } from "./labels";
 
-  type Props = { orgSlug: string; debt: DebtItem };
-  const { orgSlug, debt }: Props = $props();
+  type Props = { orgSlug: string; projectSlug: string; debt: DebtItem };
+  const { orgSlug, projectSlug, debt }: Props = $props();
 </script>
 
 <a
-  href={resolve(`/${orgSlug}/matrix/${debt.id}`)}
+  href={resolve(`/${orgSlug}/${projectSlug}/matrix/${debt.id}`)}
   class="block rounded-lg border bg-card p-3 transition-colors hover:bg-accent/40"
 >
   <div class="flex items-center gap-3">

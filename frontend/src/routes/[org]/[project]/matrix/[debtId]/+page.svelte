@@ -11,6 +11,7 @@
   let { data } = $props();
   const debt = $derived(data.debt);
   const orgSlug = $derived(data.orgSlug);
+  const projectSlug = $derived(data.projectSlug);
 </script>
 
 <svelte:head>
@@ -22,7 +23,7 @@
     <!-- 上部: 戻る + パス + ステータス -->
     <div class="flex flex-wrap items-center gap-2">
       <a
-        href={resolve(`/${orgSlug}/matrix`)}
+        href={resolve(`/${orgSlug}/${projectSlug}/matrix`)}
         class="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft class="size-4" />

@@ -10,7 +10,7 @@ from app.core import db as app_db
 from app.core.config import settings
 from app.core.db import get_async_session, get_sa_async_session
 from app.main import app
-from app.models import Org, OrgMember, User  # noqa: F401
+from app.models import Org, OrgMember, Project, User  # noqa: F401
 
 TEST_DATABASE_URL = settings.DATABASE_URL.replace("/app", "/test")
 
@@ -20,6 +20,14 @@ _EXTRA_DDL = [
     (
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_org_members_user_org_active"
         " ON org_members (user_id, org_id) WHERE deleted_at IS NULL"
+    ),
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_org_slug_active"
+        " ON projects (org_id, slug) WHERE deleted_at IS NULL"
+    ),
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_projects_org_repo_active"
+        " ON projects (org_id, repo_full_name) WHERE deleted_at IS NULL"
     ),
 ]
 

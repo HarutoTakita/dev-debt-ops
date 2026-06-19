@@ -6,6 +6,7 @@
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
 </script>
 
 <svelte:head>
@@ -30,6 +31,6 @@
       <h1 class="font-display text-xl font-semibold">{m.nav_quizzes()}</h1>
       <span class="text-xs text-muted-foreground">{m.quiz_list_subtitle()}</span>
     </div>
-    <QuizList quizzes={quiz.quizzes} {orgSlug} />
+    <QuizList quizzes={quiz.quizzes} {orgSlug} {projectSlug} />
   </div>
 {/if}
