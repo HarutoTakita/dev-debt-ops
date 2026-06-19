@@ -1,20 +1,44 @@
-"""ADK Stack Analysis Agent for autonomous repository tech-stack detection."""
+"""``stack-analysis`` pipeline — ADK agent that scans a repo and persists its tech stack.
+
+Moved from api's ``app.agent.stack_agent`` (issue 018). The heavy work — GitHub round-trips,
+Vertex AI classification, ADK ``Runner`` orchestration — now runs inside the ``service``
+container, off the api request path. ``shared.worker.run_task`` calls ``process(request, ctx)``
+(idempotency + ``Job`` lifecycle are handled there); ``process`` mints a GitHub token
+(method B), runs the agent on ``ctx.session``, and returns a ``StackAnalysisResult`` that the
+worker writes into ``Job.result_data``.
+
+The key-file heuristics (``_KEY_FILENAMES`` / ``_MAX_TOOL_FILES`` …) are carried over verbatim
+so analysis quality is unchanged.
+"""
 
 import logging
+import uuid
 from datetime import UTC, datetime
 
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.models.base import generate_uuid7
-from app.models.tech_stack import TechStack
-from app.services.gemini_stack_service import analyze_tech_stack
-from app.services.github_git_client import GitHubGitClient
+from service import config
+from service.services.gemini_stack_service import analyze_tech_stack
+from service.services.github_app import GitHubAppService
+from service.services.github_git_client import GitHubGitClient
+from shared.enums import JobType, ResultStatus
+from shared.models import TechStack
+from shared.pipelines.context import PipelineContext
+from shared.schemas.stack_analysis import (
+    GitHubRef,
+    StackAnalysisRequest,
+    StackAnalysisResult,
+    TechCategories,
+    TechItem,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _vertex_model_name() -> str:
@@ -23,16 +47,15 @@ def _vertex_model_name() -> str:
     ADK's Gemini.api_client sets vertexai=True when the model name starts with
     'projects/', which triggers ADC-based auth instead of an API key.
     """
-    if settings.GOOGLE_CLOUD_PROJECT:
+    project = config.google_cloud_project()
+    if project:
         return (
-            f"projects/{settings.GOOGLE_CLOUD_PROJECT}"
-            f"/locations/{settings.GOOGLE_CLOUD_LOCATION}"
-            f"/publishers/google/models/{settings.GEMINI_MODEL}"
+            f"projects/{project}"
+            f"/locations/{config.google_cloud_location()}"
+            f"/publishers/google/models/{config.gemini_model()}"
         )
-    return settings.GEMINI_MODEL
+    return config.gemini_model()
 
-
-logger = logging.getLogger(__name__)
 
 _KEY_FILENAMES: frozenset[str] = frozenset(
     {
@@ -188,9 +211,8 @@ def build_tools(github_client: GitHubGitClient, session: AsyncSession):
             Confirmation message indicating the result was saved successfully.
         """
         now = datetime.now(UTC)
-        new_id = generate_uuid7()
         stmt = pg_insert(TechStack).values(
-            id=new_id,
+            id=uuid.uuid4(),
             owner=owner,
             repo=repo,
             analyzed_at=now,
@@ -305,3 +327,63 @@ async def run_stack_analysis(
                 trace.append(f"[summary] {part.text[:500]}")
 
     return trace
+
+
+async def _mint_installation_token(github: GitHubRef) -> str:
+    """Resolve a GitHub installation token (method B: mint from Secret Manager key).
+
+    If the request carries an explicit ``access_token`` (method A), it is used as-is;
+    otherwise the service mints a short-lived token from the GitHub App private key so no
+    secret ever travels over the queue / GCS.
+    """
+    if github.access_token is not None:
+        return github.access_token.get_secret_value()
+    app_service = GitHubAppService(app_id=config.github_app_id(), private_key=config.github_app_private_key())
+    return await app_service.get_installation_token(github.installation_id)
+
+
+async def _read_persisted(session: AsyncSession, owner: str, repo: str) -> tuple[list[TechItem], TechCategories]:
+    """Read the just-saved ``TechStack`` row back into result schema objects."""
+    result = await session.execute(
+        select(TechStack).where(
+            TechStack.owner == owner,  # ty: ignore[invalid-argument-type]
+            TechStack.repo == repo,  # ty: ignore[invalid-argument-type]
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return [], TechCategories()
+    languages = [TechItem.model_validate(item) for item in (row.languages or [])]
+    categories = TechCategories.model_validate(row.categories or {})
+    return languages, categories
+
+
+async def process(request: StackAnalysisRequest, ctx: PipelineContext) -> StackAnalysisResult:
+    """Run the ADK agent, persist the ``TechStack``, and return the result schema.
+
+    ``shared.worker.run_task`` owns the ``Job`` lifecycle (PROCESSING → COMPLETED/FAILED,
+    idempotency) and writes the returned result into ``Job.result_data``. This function runs
+    on ``ctx.session`` so the ``TechStack`` upsert lands in the same DB as the Job update.
+    """
+    if ctx.session is None:
+        raise RuntimeError("stack_analysis pipeline requires a DB session in the pipeline context")
+
+    token = await _mint_installation_token(request.github)
+    client = GitHubGitClient(access_token=token)
+    try:
+        trace = await run_stack_analysis(client, ctx.session, request.owner, request.repo, request.branch)
+    finally:
+        await client.aclose()
+
+    languages, categories = await _read_persisted(ctx.session, request.owner, request.repo)
+    return StackAnalysisResult(
+        job_id=request.job_id,
+        job_type=JobType.STACK_ANALYSIS,
+        status=ResultStatus.COMPLETED,
+        owner=request.owner,
+        repo=request.repo,
+        branch=request.branch,
+        languages=languages,
+        categories=categories,
+        agent_trace=trace,
+    )

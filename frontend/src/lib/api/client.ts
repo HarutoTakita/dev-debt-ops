@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
+  analyzeStackJobSchema,
   branchListSchema,
   debtItemSchema,
   debtListSchema,
   fileContentSchema,
+  jobStatusSchema,
   orgMemberSchema,
   orgSchema,
   projectListSchema,
@@ -15,10 +17,12 @@ import {
   repositoryListSchema,
   techStackSchema,
   treeSchema,
+  type AnalyzeStackJob,
   type BranchList,
   type DebtItem,
   type DebtList,
   type FileContent,
+  type JobStatusResponse,
   type Org,
   type OrgMember,
   type OrgRole,
@@ -36,7 +40,20 @@ import {
 import { MOCK_DEBTS } from "./mock/debts";
 import { QUIZ_LIST, mockQuizResult, mockQuizSession } from "./quiz-mock";
 
-export type { BranchList, FileContent, Org, OrgMember, OrgRole, Project, Repository, RepositoryList, TechStack, Tree };
+export type {
+  AnalyzeStackJob,
+  BranchList,
+  FileContent,
+  JobStatusResponse,
+  Org,
+  OrgMember,
+  OrgRole,
+  Project,
+  Repository,
+  RepositoryList,
+  TechStack,
+  Tree,
+};
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
   if (!response.headers.get("content-type")?.includes("application/json")) return fallback;
@@ -236,12 +253,19 @@ export async function getFileContent(owner: string, repo: string, path: string, 
   return fileContentSchema.parse(await response.json());
 }
 
-export async function analyzeStack(owner: string, repo: string): Promise<TechStack> {
+// analyze-stack は非同期化（issue 018）: 202 {job_id} を返し、getJob でポーリングする。
+export async function analyzeStack(owner: string, repo: string): Promise<AnalyzeStackJob> {
   const response = await apiFetch(`/api/v1/github/repositories/${owner}/${repo}/analyze-stack`, {
     method: "POST",
   });
   if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの解析に失敗しました"));
-  return techStackSchema.parse(await response.json());
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
+export async function getJob(jobId: string): Promise<JobStatusResponse> {
+  const response = await apiFetch(`/api/v1/jobs/${jobId}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "ジョブの取得に失敗しました"));
+  return jobStatusSchema.parse(await response.json());
 }
 
 export async function getStack(owner: string, repo: string): Promise<TechStack | null> {

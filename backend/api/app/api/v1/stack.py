@@ -1,16 +1,27 @@
-"""Tech-stack analysis API: ADK agent scans a repo and classifies its technologies."""
+"""Tech-stack analysis API.
+
+``POST .../analyze-stack`` is async (issue 018): it resolves the caller's GitHub App
+installation id, enqueues a ``stack_analysis`` Job via Cloud Tasks, and returns ``202``
+immediately — the ADK agent runs in the ``service`` container, off the api request path.
+The frontend polls ``GET /jobs/{id}``. ``GET .../stack`` is unchanged: it reads the
+persisted ``TechStack`` (404 = not yet analysed).
+"""
 
 import logging
+from typing import Annotated
 
-import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select as sa_select
 
-from app.agent.stack_agent import run_stack_analysis
-from app.api.deps import SASessionDep
-from app.api.v1.github import GitHubClientDep
-from app.models.tech_stack import TechStack
+from app.api.deps import CurrentUser, SASessionDep, SessionDep
+from app.api.v1.github import InstallationIdDep
+from app.schemas.job import JobEnqueuedOut
+from app.services.dependencies import get_blob_client, get_task_dispatcher
+from app.services.job_orchestrator import enqueue_job
+from shared.enums import JobType
+from shared.models import TechStack
+from shared.queue import BlobClient, TaskDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +29,7 @@ router = APIRouter(prefix="/github", tags=["Stack"])
 
 
 # ---------------------------------------------------------------------------
-# Response models
+# Response models (GET .../stack — interface unchanged)
 # ---------------------------------------------------------------------------
 
 
@@ -93,42 +104,43 @@ def _row_to_out(row: TechStack, agent_trace: list[str] | None = None) -> TechSta
 
 @router.post(
     "/repositories/{owner}/{repo}/analyze-stack",
-    response_model=TechStackOut,
-    summary="ADK エージェントでリポジトリのテックスタックを解析・保存する",
+    response_model=JobEnqueuedOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="テックスタック解析を非同期ジョブとして enqueue する",
 )
 async def analyze_stack(
     owner: str,
     repo: str,
-    client: GitHubClientDep,
-    session: SASessionDep,
+    installation_id: InstallationIdDep,
+    current_user: CurrentUser,
+    session: SessionDep,
+    dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
+    blob: Annotated[BlobClient, Depends(get_blob_client)],
     branch: str = "main",
-) -> TechStackOut:
-    """Run the ADK Stack Analysis Agent to autonomously fetch, classify, and persist the tech stack.
+) -> JobEnqueuedOut:
+    """Enqueue a ``stack_analysis`` job and return ``202`` with the job id.
 
-    The agent calls list_key_files -> read_file (xN) -> classify_stack -> save_stack in sequence.
-    The agent_trace field in the response records each tool call for observability.
+    The heavy ADK agent (list_key_files → read_file → classify_stack → save_stack) runs in
+    the ``service`` container off the request path; method B keeps the GitHub secret off the
+    queue (only ``installation_id`` is carried, the service mints the token). The frontend
+    polls ``GET /jobs/{job_id}`` for progress (``agent_trace``) and the final ``tech_stack``.
     """
-    try:
-        trace = await run_stack_analysis(client, session, owner, repo, branch)
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail="GitHub API error") from e
-    except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
-    except Exception as e:
-        logger.exception("Stack analysis agent failed: %s", e)
-        raise HTTPException(status_code=502, detail=f"Agent error: {e}") from e
-
-    # Agent should have called save_stack; read the persisted result
-    result = await session.execute(
-        sa_select(TechStack).where(
-            TechStack.owner == owner,  # ty: ignore[invalid-argument-type]
-            TechStack.repo == repo,  # ty: ignore[invalid-argument-type]
-        )
+    payload = {
+        "owner": owner,
+        "repo": repo,
+        "branch": branch,
+        "requested_by": str(current_user.id),  # audit only (service reads created_by from the Job)
+        "github": {"installation_id": installation_id},
+    }
+    job = await enqueue_job(
+        session=session,
+        dispatcher=dispatcher,
+        blob_client=blob,
+        job_type=JobType.STACK_ANALYSIS,
+        payload=payload,
+        created_by=current_user.id,
     )
-    tech_stack = result.scalar_one_or_none()
-    if not tech_stack:
-        raise HTTPException(status_code=502, detail="Agent did not save the tech stack result.")
-    return _row_to_out(tech_stack, trace)
+    return JobEnqueuedOut(job_id=job.id, status=job.status)
 
 
 @router.get(

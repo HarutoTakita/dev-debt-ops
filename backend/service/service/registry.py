@@ -1,12 +1,18 @@
 """Service pipeline registry.
 
-The trivial ``echo`` / ``ping`` pipelines live in ``shared`` (so api's mock-worker can
-run the same code). The service exposes them here and is where heavy, service-only
-pipelines (e.g. ``stack_analysis``, issue-018) get registered alongside the shared ones.
+The trivial ``echo`` / ``ping`` pipelines live in ``shared`` (so api's mock-worker can run
+the same code). Heavy, service-only pipelines (``stack_analysis``, issue 018) are registered
+here on top of the shared ones — they pull in ADK / Vertex AI / GitHub, which must not leak
+into ``shared`` or ``api``. ``shared.worker.run_task`` resolves the active pipeline through
+``service.registry.PIPELINES`` (the service ``/tasks/{pipeline}`` handler imports it).
 """
 
-from shared.registry import PIPELINES as PIPELINES
+from service.pipelines import stack_analysis
+from shared.enums import JobType
+from shared.registry import PIPELINES as _SHARED_PIPELINES
+from shared.schemas.stack_analysis import StackAnalysisRequest, StackAnalysisResult
 
-# issue-018 will extend with service-local heavy pipelines, e.g.:
-#   from service.pipelines import stack_analysis
-#   PIPELINES = {**PIPELINES, JobType.STACK_ANALYSIS.value: (..., ..., stack_analysis.process)}
+PIPELINES = {
+    **_SHARED_PIPELINES,
+    JobType.STACK_ANALYSIS.value: (StackAnalysisRequest, StackAnalysisResult, stack_analysis.process),
+}

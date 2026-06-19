@@ -1,4 +1,10 @@
-"""Gemini-powered repository tech-stack analyser (google-genai SDK, Vertex AI)."""
+"""Gemini-powered repository tech-stack analyser (google-genai SDK, Vertex AI).
+
+Moved from api's ``app.services.gemini_stack_service`` (issue 018): the heavy Vertex AI
+call now runs inside the ``service`` container. Project / region come from ``service.config``
+(env-based) instead of api's pydantic ``Settings``; auth is ADC only (no API key), and the
+service runtime SA must hold ``roles/aiplatform.user``.
+"""
 
 import json
 
@@ -7,7 +13,7 @@ import google.auth.exceptions
 from google import genai
 from google.genai import types
 
-from app.core.config import settings
+from service import config
 
 _PROMPT_TEMPLATE = """\
 You are analysing a software repository. Based on the configuration files below, \
@@ -71,11 +77,11 @@ def _empty_result() -> dict:
 
 def _build_client() -> genai.Client:
     """Return a Gemini client using Vertex AI + ADC, or raise ValueError."""
-    project = settings.GOOGLE_CLOUD_PROJECT
-    location = settings.GOOGLE_CLOUD_LOCATION
+    project = config.google_cloud_project()
+    location = config.google_cloud_location()
 
     if not project:
-        raise ValueError("GOOGLE_CLOUD_PROJECT is not configured. Set it in .env.dev.")
+        raise ValueError("GOOGLE_CLOUD_PROJECT is not configured.")
 
     try:
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
@@ -105,7 +111,7 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
     prompt = _PROMPT_TEMPLATE.format(file_section=_build_file_section(file_map))
 
     response = await client.aio.models.generate_content(
-        model="gemini-2.5-flash",
+        model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

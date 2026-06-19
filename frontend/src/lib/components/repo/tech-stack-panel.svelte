@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { analyzeStack, getStack } from "$lib/api/client";
+  import { getStack } from "$lib/api/client";
   import type { TechItem, TechStack } from "$lib/api/schemas";
+  import * as m from "$lib/paraglide/messages";
+  import { StackAnalysisStore } from "$lib/stores/stack-analysis-store.svelte";
+  import type { StackStep } from "./stack-trace-steps";
   import { cn } from "$lib/utils";
   import { confidenceBadge } from "./badge-variant";
 
   type Props = { owner: string; repo: string };
   const { owner, repo }: Props = $props();
 
-  type PanelState = "idle" | "loading" | "done" | "error";
-  let panelState: PanelState = $state("idle");
-  let stack = $state<TechStack | null>(null);
-  let errorMsg = $state("");
+  // パネルごとに独立した解析ストア（enqueue + ポーリング）。
+  const analysis = new StackAnalysisStore();
+
+  let loadingCache = $state(false);
   let open = $state(true);
 
   const CATEGORY_LABELS: Record<string, string> = {
@@ -25,6 +28,14 @@
     other: "Other",
   };
 
+  const STEP_LABELS: Record<StackStep, () => string> = {
+    analyzing: m.stack_analyzing,
+    listing: m.stack_step_listing,
+    reading: m.stack_step_reading,
+    classifying: m.stack_step_classifying,
+    saving: m.stack_step_saving,
+  };
+
   function highItems(items: TechItem[]): TechItem[] {
     return items.filter((i) => i.confidence === "high");
   }
@@ -35,30 +46,25 @@
       .filter(({ items }) => items.length > 0);
   }
 
-  async function load() {
-    panelState = "loading";
+  // マウント時は永続化済み結果を読むだけ（解析は実行しない）。
+  async function loadCached() {
+    loadingCache = true;
     try {
-      stack = await getStack(owner, repo);
-      panelState = stack ? "done" : "idle";
+      const cached = await getStack(owner, repo);
+      if (cached) analysis.stack = cached;
     } catch {
-      panelState = "idle";
-    }
-  }
-
-  async function analyze() {
-    panelState = "loading";
-    try {
-      stack = await analyzeStack(owner, repo);
-      panelState = "done";
-    } catch (err) {
-      errorMsg = err instanceof Error ? err.message : "エラーが発生しました";
-      panelState = "error";
+      /* 未解析なら 404 → null。無視。 */
+    } finally {
+      loadingCache = false;
     }
   }
 
   $effect(() => {
-    if (owner && repo) load();
+    if (owner && repo) void loadCached();
+    return () => analysis.cancel();
   });
+
+  const showProgress = $derived(analysis.state === "queued" || analysis.state === "processing");
 </script>
 
 <div class="border-b">
@@ -66,25 +72,37 @@
     onclick={() => (open = !open)}
     class="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-accent"
   >
-    <span>テックスタック</span>
+    <span>{m.stack_title()}</span>
     <span>{open ? "▲" : "▼"}</span>
   </button>
 
   {#if open}
     <div class="px-3 pt-1 pb-3">
-      {#if panelState === "loading"}
-        <p class="text-xs text-muted-foreground">解析中...</p>
-      {:else if panelState === "error"}
-        <p class="mb-2 text-xs text-destructive">{errorMsg}</p>
-        <button onclick={analyze} class="rounded border px-2 py-1 text-xs hover:bg-accent">再試行</button>
-      {:else if panelState === "done" && stack}
+      {#if loadingCache && !analysis.stack}
+        <p class="text-xs text-muted-foreground">{m.common_loading()}</p>
+      {:else if showProgress}
+        <!-- 進捗（agent_trace の最新ステップ） -->
+        <p class="text-xs text-muted-foreground">
+          {analysis.state === "queued" ? m.stack_queued() : STEP_LABELS[analysis.currentStep]()}
+        </p>
+        {#if analysis.trace.length > 0}
+          <p class="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">
+            {analysis.trace.at(-1)}
+          </p>
+        {/if}
+      {:else if analysis.state === "error"}
+        <p class="mb-2 text-xs text-destructive">{analysis.errorMsg || m.stack_failed()}</p>
+        <button onclick={() => analysis.analyze(owner, repo)} class="rounded border px-2 py-1 text-xs hover:bg-accent">
+          {m.stack_retry()}
+        </button>
+      {:else if analysis.stack}
         <div class="space-y-2">
           <!-- 言語 -->
-          {#if stack.languages.length > 0}
+          {#if analysis.stack.languages.length > 0}
             <div>
-              <span class="text-xs text-muted-foreground">言語</span>
+              <span class="text-xs text-muted-foreground">{m.stack_languages()}</span>
               <div class="mt-1 flex flex-wrap gap-1">
-                {#each highItems(stack.languages).length > 0 ? highItems(stack.languages) : stack.languages as lang (lang.name)}
+                {#each highItems(analysis.stack.languages).length > 0 ? highItems(analysis.stack.languages) : analysis.stack.languages as lang (lang.name)}
                   <span class={cn("rounded px-1.5 py-0.5 text-xs", confidenceBadge[lang.confidence])}>
                     {lang.name}
                   </span>
@@ -93,7 +111,7 @@
             </div>
           {/if}
           <!-- カテゴリ別 -->
-          {#each allItems(stack.categories) as { label, items } (label)}
+          {#each allItems(analysis.stack.categories) as { label, items } (label)}
             <div>
               <span class="text-xs text-muted-foreground">{label}</span>
               <div class="mt-1 flex flex-wrap gap-1">
@@ -108,15 +126,23 @@
           <!-- フッター -->
           <div class="flex items-center justify-between pt-1">
             <span class="text-xs text-muted-foreground">
-              {new Date(stack.analyzed_at).toLocaleDateString("ja-JP")}
+              {new Date(analysis.stack.analyzed_at).toLocaleDateString("ja-JP")}
             </span>
-            <button onclick={analyze} class="text-xs text-muted-foreground underline hover:text-foreground">
-              再解析
+            <button
+              onclick={() => analysis.analyze(owner, repo)}
+              class="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              {m.stack_reanalyze()}
             </button>
           </div>
         </div>
       {:else}
-        <button onclick={analyze} class="w-full rounded border px-2 py-1.5 text-xs hover:bg-accent"> 解析する </button>
+        <button
+          onclick={() => analysis.analyze(owner, repo)}
+          class="w-full rounded border px-2 py-1.5 text-xs hover:bg-accent"
+        >
+          {m.stack_analyze()}
+        </button>
       {/if}
     </div>
   {/if}

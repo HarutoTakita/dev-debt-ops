@@ -9,10 +9,18 @@ from shared.schemas.job import (
     PingRequest,
     PingResult,
 )
+from shared.schemas.stack_analysis import (
+    GitHubRef,
+    StackAnalysisRequest,
+    StackAnalysisResult,
+    TechCategories,
+    TechItem,
+)
 
 __all__ = [
     "EchoRequest",
     "EchoResult",
+    "GitHubRef",
     "JobRequestBase",
     "JobResultBase",
     "PingRequest",
@@ -20,4 +28,8 @@ __all__ = [
     "PipelineError",
     "PipelineTiming",
     "SharedBaseModel",
+    "StackAnalysisRequest",
+    "StackAnalysisResult",
+    "TechCategories",
+    "TechItem",
 ]

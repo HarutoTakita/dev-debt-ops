@@ -8,6 +8,11 @@
 
 ### Added
 
+- スタック解析の非同期パイプライン（issue-018）: ADK スタック解析を api 同期実行から service の非同期ジョブへ移設。
+  - shared: `stack_analysis` の request/result スキーマ（`StackAnalysisRequest` / `StackAnalysisResult` / `TechItem` / `TechCategories` / `GitHubRef`）を追加、`TechStack` ORM モデルを `shared.models` へ昇格（api・service 双方が参照）、`PipelineContext` に `session` を追加（パイプラインが同一 DB セッションで永続化）。
+  - service: `stack_analysis` パイプライン（ADK Runner + Vertex AI 分類 + GitHub クライアントを移設）と `services/`（`github_app` / `github_git_client` / `gemini_stack_service`）、`POST /tasks/stack_analysis` への登録。GitHub トークンは**方式 B**（service が Secret Manager の App 秘密鍵から installation token を都度 mint。キュー/GCS に平文の秘密を残さない）。
+  - api: `GET /jobs/{id}` が stack-analysis ジョブの `agent_trace`（`result_data` 由来）と完了時 `tech_stack`（永続化済み `TechStack`）を返す。
+  - frontend: enqueue + `GET /jobs/{id}` ポーリングのストア（`stack-analysis-store`）と進捗 UI、`agent_trace` を人間可読ステップへ写像するヘルパ、進捗文言（Paraglide ja/en）。
 - GCP 版 Terraform（issue-017）: `infra/gcp/`（アプリスタック）と `infra/bootstrap/gcp/`（CI 用 WIF + tfstate）を新設。
   - `infra/gcp`: Cloud Run 2 サービス（api=internal-LB / service=internal-only、両者 Cloud SQL 接続 + Secret Manager 参照、env を 016 の `Settings` 名と 1:1）、Cloud Tasks キュー（rate/retry）+ tasks_invoker SA への `roles/run.invoker`、Cloud SQL PG17（prod=private IP / stg=public）、Artifact Registry、Secret Manager（`google-api-key` なし＝Vertex AI + ADC）、GCS payload バケット、VPC + Serverless VPC connector、外部 HTTPS LB + Cloud Armor（Traefik 等価のレート制限）、監視（log-based metric / uptime / alert）。
   - `infra/bootstrap/gcp`: WIF pool/provider（GitHub OIDC、environment ピン留め）+ deploy SA + concern 別 project ロール（`iam.serviceAccountUser` actAs 含む）、tfstate バケット（versioning/UBLA、鶏卵対処の注記）。tfstate prefix は `gcp/` と `gcp/bootstrap/` で分離。
@@ -23,4 +28,5 @@
 
 ### Changed
 
+- `POST /api/v1/github/repositories/{owner}/{repo}/analyze-stack` を非同期化（issue-018）: 同期実行（`200 TechStackOut`）から **`202 {job_id}`** + Cloud Tasks enqueue へ変更。重いエージェント実行は service コンテナへ移り、api ワーカーを塞がない。フロントは同期レスポンスから enqueue + ポーリングへ切り替え。`GET .../stack`（永続化済み `TechStack` の読み出し）はインターフェース不変。api から `google-adk` / `google-genai` 依存と ADK エージェント実装を削除。
 - 機能メニュー（Galaxy / Matrix / Quizzes / Agents / Learning / Repos）を `/[org]/[project]/...` 配下へ再スコープし、プロジェクト単位に切り替わるようにした。パンくずを Org > Project > 機能に拡張。

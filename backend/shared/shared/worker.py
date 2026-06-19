@@ -12,6 +12,7 @@ single direct-DB-write path (no result queue, no api callback).
 
 import json
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,7 +22,7 @@ from shared.enums import JobStatus
 from shared.models import Job
 from shared.pipelines.context import PipelineContext
 from shared.queue import BlobClient
-from shared.registry import PIPELINES
+from shared.registry import PIPELINES, Pipeline
 
 
 class TransientTaskError(Exception):
@@ -34,6 +35,7 @@ async def run_task(
     pipeline: str,
     request_body: dict[str, Any],
     blob_client: BlobClient | None = None,
+    pipelines: Mapping[str, Pipeline] | None = None,
 ) -> Job:
     """Process one task and persist its Job row. Returns the (updated) Job.
 
@@ -42,9 +44,14 @@ async def run_task(
     caller acks it. Infra failures (unknown pipeline, missing Job, blob/DB errors) raise
     so the caller can surface a retryable error.
 
+    ``pipelines`` selects the registry to resolve ``pipeline`` against; it defaults to the
+    ``shared`` registry (echo / ping) used by api's mock-worker, while the ``service``
+    container passes its own registry that adds heavy pipelines (e.g. ``stack-analysis``).
+
     Raises:
         TransientTaskError: If the Job id is missing/unknown or the pipeline is unknown.
     """
+    registry = pipelines if pipelines is not None else PIPELINES
     job_id_raw = request_body.get("jobId")
     if not job_id_raw:
         raise TransientTaskError("request missing jobId")
@@ -56,9 +63,9 @@ async def run_task(
     if job.status == JobStatus.COMPLETED:
         return job
 
-    if pipeline not in PIPELINES:
+    if pipeline not in registry:
         raise TransientTaskError(f"unknown pipeline: {pipeline}")
-    request_model, _result_model, process_fn = PIPELINES[pipeline]
+    request_model, _result_model, process_fn = registry[pipeline]
 
     # Resolve a spilled request before marking PROCESSING (a download failure is transient).
     body = request_body
@@ -74,7 +81,7 @@ async def run_task(
 
     try:
         request = request_model.model_validate(body)
-        ctx = PipelineContext(blob=blob_client)
+        ctx = PipelineContext(blob=blob_client, session=session)
         result = await process_fn(request, ctx)
     except Exception as exc:
         job.status = JobStatus.FAILED
