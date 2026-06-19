@@ -254,5 +254,6 @@
   "learning_priority_recommended": "推奨",
   "learning_priority_supplementary": "補助",
   "learning_priority_hands_on": "ハンズオン",
-  "learning_dormant": "{months} か月読まれていない（死蔵）"
+  "learning_dormant": "{months} か月読まれていない（死蔵）",
+  "members_kc_tooltip": "org KC 寄与（Knowledge Coverage）— Coming Soon"
 }
