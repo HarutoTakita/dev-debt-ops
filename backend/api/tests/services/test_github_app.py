@@ -133,9 +133,7 @@ class TestGetCachedToken:
 
 
 class TestGetInstallationToken:
-    async def test_calls_github_api_and_returns_token(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_calls_github_api_and_returns_token(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"})
         mock_client = _mock_http_client(resp, method="post")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)
@@ -145,9 +143,7 @@ class TestGetInstallationToken:
         assert token == "ghs_test"
         mock_client.post.assert_called_once()
 
-    async def test_result_is_stored_in_cache(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_result_is_stored_in_cache(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"token": "ghs_cached", "expires_at": "2099-01-01T00:00:00Z"})
         mock_client = _mock_http_client(resp, method="post")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)
@@ -157,9 +153,7 @@ class TestGetInstallationToken:
         assert 42 in service._token_cache
         assert service._token_cache[42][0] == "ghs_cached"
 
-    async def test_second_call_uses_cache_not_api(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_second_call_uses_cache_not_api(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"token": "ghs_once", "expires_at": "2099-01-01T00:00:00Z"})
         mock_client = _mock_http_client(resp, method="post")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)
@@ -170,9 +164,7 @@ class TestGetInstallationToken:
 
         assert mock_client.post.call_count == 1
 
-    async def test_authorization_header_starts_with_bearer(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_authorization_header_starts_with_bearer(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"token": "tok", "expires_at": "2099-01-01T00:00:00Z"})
         mock_client = _mock_http_client(resp, method="post")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)
@@ -190,9 +182,7 @@ class TestGetInstallationToken:
 
 
 class TestGetInstallationForRepo:
-    async def test_returns_installation_id(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_returns_installation_id(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"id": 9876})
         mock_client = _mock_http_client(resp, method="get")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)
@@ -201,9 +191,7 @@ class TestGetInstallationForRepo:
 
         assert result == 9876
 
-    async def test_calls_correct_endpoint(
-        self, service: GitHubAppService, mocker: MockerFixture
-    ):
+    async def test_calls_correct_endpoint(self, service: GitHubAppService, mocker: MockerFixture):
         resp = _mock_response({"id": 1})
         mock_client = _mock_http_client(resp, method="get")
         mocker.patch("app.services.github_app.httpx.AsyncClient", return_value=mock_client)

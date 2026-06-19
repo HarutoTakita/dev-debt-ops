@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 @pytest.fixture(autouse=True)
 def setup_db():
     """DB 接続不要なユニットテスト用に setup_db を無効化する。"""
-    yield
+    return
 
 
 @pytest.fixture(scope="module")

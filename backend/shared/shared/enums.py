@@ -1,0 +1,34 @@
+"""Enums shared across api and service (job lifecycle, pipeline kinds).
+
+`JobStatus` / `ResultStatus` values are intentionally UPPERCASE (see issue 016);
+`JobType` values are lowercase snake_case identifiers that map to queue / task path
+names via `_` -> `-` (e.g. ``stack_analysis`` -> ``stack-analysis``).
+"""
+
+from enum import StrEnum
+
+
+class JobType(StrEnum):
+    """Kind of pipeline a Job runs. Value maps to the queue / task path name."""
+
+    ECHO = "echo"  # end-to-end plumbing probe (issue 016)
+    PING = "ping"  # minimal health pipeline (issue 016)
+    STACK_ANALYSIS = "stack_analysis"  # ADK stack analysis (issue 018)
+
+
+class JobStatus(StrEnum):
+    """Lifecycle state of a Job row. Values are UPPERCASE (issue 016)."""
+
+    QUEUED = "QUEUED"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class ResultStatus(StrEnum):
+    """Terminal status a pipeline reports for its result. Values are UPPERCASE."""
+
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    PARTIAL = "PARTIAL"

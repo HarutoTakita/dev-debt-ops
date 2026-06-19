@@ -114,6 +114,6 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
     )
 
     try:
-        return json.loads(response.text)
+        return json.loads(response.text)  # ty: ignore[invalid-argument-type]
     except (json.JSONDecodeError, AttributeError):
         return _empty_result()

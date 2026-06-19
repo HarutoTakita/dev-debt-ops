@@ -6,8 +6,6 @@ httpx クライアントをモック化し、HTTP 通信なしでレスポンス
 import base64
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from app.services.github_git_client import FileContent, GitHubGitClient, RepositoryInfo, TreeItem
 
 
@@ -48,11 +46,9 @@ def _repo_json(**overrides) -> dict:
 class TestListRepositories:
     async def test_returns_repository_info_list(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response(
-            {"repositories": [_repo_json()], "total_count": 1}
-        )
+        client._client.get.return_value = _mock_response({"repositories": [_repo_json()], "total_count": 1})
 
-        repos = await client.list_repositories()
+        repos = (await client.list_repositories()).repositories
 
         assert len(repos) == 1
         repo = repos[0]
@@ -66,19 +62,15 @@ class TestListRepositories:
 
     async def test_empty_repositories_returns_empty_list(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response(
-            {"repositories": [], "total_count": 0}
-        )
+        client._client.get.return_value = _mock_response({"repositories": [], "total_count": 0})
 
-        repos = await client.list_repositories()
+        repos = (await client.list_repositories()).repositories
 
         assert repos == []
 
     async def test_per_page_is_capped_at_100(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response(
-            {"repositories": [], "total_count": 0}
-        )
+        client._client.get.return_value = _mock_response({"repositories": [], "total_count": 0})
 
         await client.list_repositories(per_page=200)
 
@@ -87,9 +79,7 @@ class TestListRepositories:
 
     async def test_page_parameter_is_forwarded(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response(
-            {"repositories": [], "total_count": 0}
-        )
+        client._client.get.return_value = _mock_response({"repositories": [], "total_count": 0})
 
         await client.list_repositories(page=3)
 
@@ -102,7 +92,7 @@ class TestListRepositories:
             {"repositories": [_repo_json(description=None)], "total_count": 1}
         )
 
-        repos = await client.list_repositories()
+        repos = (await client.list_repositories()).repositories
 
         assert repos[0].description == ""
 
@@ -111,11 +101,9 @@ class TestListRepositories:
         data = _repo_json()
         del data["pushed_at"]
         data["updated_at"] = "2025-06-01T00:00:00Z"
-        client._client.get.return_value = _mock_response(
-            {"repositories": [data], "total_count": 1}
-        )
+        client._client.get.return_value = _mock_response({"repositories": [data], "total_count": 1})
 
-        repos = await client.list_repositories()
+        repos = (await client.list_repositories()).repositories
 
         assert repos[0].updated_at == "2025-06-01T00:00:00Z"
 
@@ -128,13 +116,15 @@ class TestListRepositories:
 class TestGetRepositoryTree:
     async def test_returns_tree_items(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response({
-            "tree": [
-                {"path": "src/index.ts", "type": "blob", "size": 100},
-                {"path": "src", "type": "tree", "size": None},
-            ],
-            "truncated": False,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "tree": [
+                    {"path": "src/index.ts", "type": "blob", "size": 100},
+                    {"path": "src", "type": "tree", "size": None},
+                ],
+                "truncated": False,
+            }
+        )
 
         items = await client.get_repository_tree("org", "repo")
 
@@ -148,14 +138,16 @@ class TestGetRepositoryTree:
 
     async def test_filters_out_non_blob_and_non_tree_types(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response({
-            "tree": [
-                {"path": "file.ts", "type": "blob", "size": 10},
-                {"path": "tag_ref", "type": "tag", "size": None},
-                {"path": "commit_ref", "type": "commit", "size": None},
-            ],
-            "truncated": False,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "tree": [
+                    {"path": "file.ts", "type": "blob", "size": 10},
+                    {"path": "tag_ref", "type": "tag", "size": None},
+                    {"path": "commit_ref", "type": "commit", "size": None},
+                ],
+                "truncated": False,
+            }
+        )
 
         items = await client.get_repository_tree("org", "repo")
 
@@ -189,13 +181,15 @@ class TestGetFileContent:
     async def test_base64_text_file_decoded(self):
         client = _make_client()
         encoded = base64.b64encode(b"hello world\n").decode()
-        client._client.get.return_value = _mock_response({
-            "path": "README.md",
-            "content": encoded,
-            "encoding": "base64",
-            "sha": "abc123",
-            "size": 12,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "path": "README.md",
+                "content": encoded,
+                "encoding": "base64",
+                "sha": "abc123",
+                "size": 12,
+            }
+        )
 
         result = await client.get_file_content("org", "repo", "README.md")
 
@@ -209,13 +203,15 @@ class TestGetFileContent:
         client = _make_client()
         # PNG マジックバイト（UTF-8 デコード不可）
         encoded = base64.b64encode(bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A])).decode()
-        client._client.get.return_value = _mock_response({
-            "path": "image.png",
-            "content": encoded,
-            "encoding": "base64",
-            "sha": "def456",
-            "size": 6,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "path": "image.png",
+                "content": encoded,
+                "encoding": "base64",
+                "sha": "def456",
+                "size": 6,
+            }
+        )
 
         result = await client.get_file_content("org", "repo", "image.png")
 
@@ -224,13 +220,15 @@ class TestGetFileContent:
 
     async def test_no_encoding_returns_none_content(self):
         client = _make_client()
-        client._client.get.return_value = _mock_response({
-            "path": "file.bin",
-            "content": None,
-            "encoding": None,
-            "sha": "ghi789",
-            "size": 0,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "path": "file.bin",
+                "content": None,
+                "encoding": None,
+                "sha": "ghi789",
+                "size": 0,
+            }
+        )
 
         result = await client.get_file_content("org", "repo", "file.bin")
 
@@ -239,13 +237,15 @@ class TestGetFileContent:
     async def test_ref_parameter_is_forwarded(self):
         client = _make_client()
         encoded = base64.b64encode(b"content").decode()
-        client._client.get.return_value = _mock_response({
-            "path": "main.py",
-            "content": encoded,
-            "encoding": "base64",
-            "sha": "xyz",
-            "size": 7,
-        })
+        client._client.get.return_value = _mock_response(
+            {
+                "path": "main.py",
+                "content": encoded,
+                "encoding": "base64",
+                "sha": "xyz",
+                "size": 7,
+            }
+        )
 
         await client.get_file_content("org", "repo", "main.py", ref="v1.0.0")
 

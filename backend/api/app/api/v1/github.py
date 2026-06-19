@@ -98,7 +98,7 @@ async def resolve_github_client(
     result = await session.execute(
         sa_select(OAuthAccount).where(
             OAuthAccount.user_id == current_user.id,
-            OAuthAccount.oauth_name == "github",
+            OAuthAccount.oauth_name == "github",  # ty: ignore[invalid-argument-type]
         )
     )
     oauth_account = result.scalar_one_or_none()
