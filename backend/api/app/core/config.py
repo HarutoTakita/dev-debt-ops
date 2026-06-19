@@ -45,6 +45,14 @@ class Settings(BaseSettings):
         default=True, description="Run an in-process mock-worker standing in for the service container."
     )
     USE_MOCK_BLOB: bool = Field(default=True, description="Use the in-memory BlobClient instead of GCS.")
+    USE_LOCAL_SERVICE: bool = Field(
+        default=False,
+        description=(
+            "Local dev: dispatch tasks over HTTP to a running `service` container "
+            "(docker compose) instead of the in-process mock-worker or Cloud Tasks. "
+            "Lets service-only pipelines (e.g. stack_analysis) run end-to-end locally."
+        ),
+    )
     SERVICE_TASKS_URL: str = Field(
         default="http://localhost:8001", description="Cloud Tasks HTTP target — the service container base URL."
     )
@@ -75,13 +83,21 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    def use_local_service(self) -> bool:
+        """Whether to dispatch over HTTP to a running `service` container (local dev)."""
+        return self.USE_LOCAL_SERVICE
+
     def use_mock_queue(self) -> bool:
         """Whether to dispatch via the in-memory mock instead of Cloud Tasks."""
-        return self.USE_MOCK_QUEUE
+        return self.USE_MOCK_QUEUE and not self.USE_LOCAL_SERVICE
 
     def use_mock_worker(self) -> bool:
-        """Whether to run the in-process mock-worker (stands in for the service container)."""
-        return self.USE_MOCK_WORKER
+        """Whether to run the in-process mock-worker (stands in for the service container).
+
+        Disabled in local-service mode — the real `service` container processes tasks, so the
+        in-process worker (which can only run `shared` pipelines) must not also drain the queue.
+        """
+        return self.USE_MOCK_WORKER and not self.USE_LOCAL_SERVICE
 
     def use_mock_blob(self) -> bool:
         """Whether to spill payloads to the in-memory mock blob instead of GCS."""
