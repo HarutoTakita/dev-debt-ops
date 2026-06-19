@@ -11,9 +11,10 @@ services:
       # Google Application Default Credentials: place your SA JSON at ./secrets/gsa.json
       # and set GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/gsa.json in .env.dev
       - ./secrets:/app/secrets:ro
+    # 起動順のみ依存（health ゲートにしない）。rootless podman / WSL2 では compose の
+    # healthcheck タイマーが発火せず service_healthy が永久に成立しないため、それを避ける。
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     develop:
       watch:
         - action: sync
@@ -39,9 +40,13 @@ services:
       dockerfile: docker/service.Dockerfile
       target: dev
     env_file: .env.dev
+    volumes:
+      # service も Vertex AI（stack_analysis の classify）に ADC が要るため secrets をマウント。
+      # ./secrets/gsa.json に roles/aiplatform.user を持つ SA 鍵を置く（GOOGLE_APPLICATION_CREDENTIALS）。
+      - ./secrets:/app/secrets:ro
+    # 起動順のみ依存（health ゲートにしない）。理由は api と同じ（podman の healthcheck 未発火対策）。
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     develop:
       watch:
         - action: sync+restart
@@ -64,7 +69,9 @@ services:
   db:
     image: pgvector/pgvector:pg17
     ports:
-      - "5432:5432"
+      # 左=ホスト側 5433（ホストの 5432 が埋まっている場合の回避）、右=コンテナ側 5432（Postgres の listen ポート）。
+      # api/service は内部ネットワークの db:5432 で接続するため DATABASE_URL は不変。
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
@@ -77,17 +84,17 @@ services:
       timeout: 3s
       retries: 5
 
-  pgadmin:
-    image: dpage/pgadmin4
-    profiles: [tools]
-    ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-    depends_on:
-      db:
-        condition: service_healthy
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   profiles: [tools]
+  #   ports:
+  #     - "5050:80"
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
 
 volumes:
   pgdata:

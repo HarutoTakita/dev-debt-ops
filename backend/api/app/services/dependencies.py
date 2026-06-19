@@ -16,8 +16,12 @@ _mock_blob: MockBlobClient | None = None
 
 
 def get_task_dispatcher() -> TaskDispatcher:
-    """Return the in-memory dispatcher (mock mode) or a Cloud Tasks dispatcher."""
+    """Return the local-HTTP, in-memory mock, or Cloud Tasks dispatcher per settings."""
     global _mock_dispatcher
+    if settings.use_local_service():
+        from app.services.local_http_dispatcher import LocalHttpDispatcher
+
+        return LocalHttpDispatcher.from_settings()
     if settings.use_mock_queue():
         if _mock_dispatcher is None:
             _mock_dispatcher = MockTaskDispatcher()
