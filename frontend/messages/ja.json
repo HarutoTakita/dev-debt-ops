@@ -299,5 +299,12 @@
   "stack_step_classifying": "技術スタックを分類中…",
   "stack_step_saving": "結果を保存中…",
   "stack_failed": "テックスタックの解析に失敗しました",
-  "stack_languages": "言語"
+  "stack_languages": "言語",
+  "overview_view_all_danger": "危険ファイル {count} 件をすべて見る",
+  "overview_raise_kc": "チーム KC を上げる",
+  "overview_open_danger_matrix": "危険ゾーンを Matrix で開く",
+  "galaxy_repay_with_quiz": "クイズで返済",
+  "gap_concept_learn": "{concept} を学ぶ",
+  "matrix_view_agent_reasoning": "このエージェントの活動を見る",
+  "agents_evidence_view_debt": "この負債の詳細を見る"
 }

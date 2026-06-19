@@ -1,14 +1,19 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
+  import type { ResolvedPathname } from "$app/types";
   import type { FileDebt } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
   // 一次ビュー: ファイルを「コード品質 × チーム理解度(KC)」の平面に置いた散布図。
   // 縦軸 = コード品質（上 = クリーン = code_debt_score 小）/ 横軸 = KC（右 = 皆理解）。§2.3 準拠。
-  type Props = { files: FileDebt[] };
-  const { files }: Props = $props();
+  type Props = { orgSlug: string; projectSlug: string; files: FileDebt[] };
+  const { orgSlug, projectSlug, files }: Props = $props();
 
   let hovered = $state<FileDebt | null>(null);
+
+  const matrixHref = $derived(resolve(`/${orgSlug}/${projectSlug}/matrix`));
+  const dangerHref = $derived(`${matrixHref}?cell=danger` as ResolvedPathname);
 
   // 最危険ゾーン（左下）: 汚い × 誰も理解していない。
   function isDanger(f: FileDebt): boolean {
@@ -33,7 +38,12 @@
         <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
           <div class="border-r border-b border-border/40 bg-debt-knowledge/5"></div>
           <div class="border-b border-border/40 bg-success/5"></div>
-          <div class="border-r border-border/40 bg-destructive/15"></div>
+          <a
+            href={dangerHref}
+            title={m.overview_open_danger_matrix()}
+            aria-label={m.overview_open_danger_matrix()}
+            class="border-r border-border/40 bg-destructive/15 transition-colors hover:bg-destructive/25"
+          ></a>
           <div class="bg-debt-code/5"></div>
         </div>
 
@@ -53,10 +63,10 @@
           {m.overview_quadrant_refactor()}
         </span>
 
-        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下） -->
+        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下）。危険点→/matrix?cell=danger、他→/matrix。 -->
         {#each files as f (f.path)}
-          <button
-            type="button"
+          <a
+            href={isDanger(f) ? dangerHref : matrixHref}
             class={cn(
               "absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:z-10 hover:scale-150",
               isDanger(f) ? "size-2.5 bg-destructive ring-2 ring-destructive/25" : "size-2 bg-debt-knowledge/70",
@@ -66,8 +76,9 @@
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = f)}
             onblur={() => (hovered = null)}
+            title={isDanger(f) ? m.overview_open_danger_matrix() : f.path}
             aria-label={f.path}
-          ></button>
+          ></a>
         {/each}
 
         <!-- ホバーツールチップ -->

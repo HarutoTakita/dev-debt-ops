@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
+  import type { ResolvedPathname } from "$app/types";
   import type { Overview } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import DebtMatrix from "./debt-matrix.svelte";
@@ -13,6 +16,12 @@
   type Props = { overview: Overview };
   const { overview }: Props = $props();
 
+  // 遷移先生成用の slug。ルートからではなく $app/state 経由で取得（mastery-list / constructive-result と同流儀）。
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+  const dangerHref = $derived(`${resolve(`/${orgSlug}/${projectSlug}/matrix`)}?cell=danger` as ResolvedPathname);
+  const galaxyHref = $derived(resolve(`/${orgSlug}/${projectSlug}/galaxy`));
+
   const dangerCount = $derived(
     overview.files.filter((f) => f.code_debt_score > 0.5 && f.knowledge_coverage < 0.5).length,
   );
@@ -24,17 +33,22 @@
 <div class="mx-auto flex max-w-5xl flex-col gap-4 p-4">
   <!-- 一次ビュー: 二軸負債マトリクス + 4 象限凡例 -->
   <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-    <DebtMatrix files={overview.files} />
-    <QuadrantLegend />
+    <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
+    <QuadrantLegend {orgSlug} {projectSlug} />
   </div>
 
   <!-- stat-card（負債系は減少=緑に反転） -->
   <div class="grid gap-3 sm:grid-cols-3">
-    <StatCard label={m.overview_stat_kc()} value={`${latestKc}%`}>
-      {#snippet trend()}
-        <TrendIndicator change={kcChange} trendStyle="asc" suffix="pt" />
-      {/snippet}
-    </StatCard>
+    <div class="relative">
+      <StatCard label={m.overview_stat_kc()} value={`${latestKc}%`}>
+        {#snippet trend()}
+          <TrendIndicator change={kcChange} trendStyle="asc" suffix="pt" />
+        {/snippet}
+      </StatCard>
+      <a href={galaxyHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
+        >{m.overview_raise_kc()} →</a
+      >
+    </div>
     <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`}>
       {#snippet trend()}
         <TrendIndicator change={-4} trendStyle="desc" suffix="件" />
@@ -55,6 +69,13 @@
   <!-- 二次ビュー: 今週の活動 + 優先対応リスト -->
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="rounded-lg border bg-card p-4"><WeeklyActivity activity={overview.activity} /></div>
-    <div class="rounded-lg border bg-card p-4"><PriorityList files={overview.files} /></div>
+    <div class="rounded-lg border bg-card p-4">
+      <PriorityList {orgSlug} {projectSlug} files={overview.files} />
+      {#if dangerCount > 0}
+        <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+          >{m.overview_view_all_danger({ count: dangerCount })} →</a
+        >
+      {/if}
+    </div>
   </div>
 </div>

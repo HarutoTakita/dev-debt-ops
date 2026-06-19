@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { resolve } from "$app/paths";
+  import { page } from "$app/state";
   import ComingSoonPlaceholder from "$lib/components/common/coming-soon-placeholder.svelte";
   import PlanProgress from "$lib/components/learning/plan-progress.svelte";
   import ResourceList from "$lib/components/learning/resource-list.svelte";
@@ -6,7 +9,12 @@
 
   let { data } = $props();
   // 機能本体は未実装。既定は Coming Soon、開発用リンクでモックレイアウトをプレビュー。
-  let preview = $state(false);
+  // ただしクイズ結果 CTA 経由（?from=quiz）の場合は本体を直接表示してハンドオフを完結させる。
+  // 初期値のみを使う意図的なスナップショット（以降は preview をユーザー操作で切替）。
+  let preview = $state(untrack(() => data.from === "quiz"));
+
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
 </script>
 
 <svelte:head>
@@ -35,7 +43,19 @@
       {#if data.from === "quiz"}
         <p class="mt-0.5 text-xs text-debt-knowledge">{m.learning_from_quiz()}</p>
       {/if}
-      <p class="mt-1 text-xs text-muted-foreground">{m.learning_gap()}: {data.plan.gap_concepts.join(" / ")}</p>
+      <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <span>{m.learning_gap()}:</span>
+        {#each data.plan.gap_concepts as concept (concept)}
+          <a
+            href={resolve(`/${orgSlug}/${projectSlug}/galaxy`)}
+            title={m.gap_concept_learn({ concept })}
+            aria-label={m.gap_concept_learn({ concept })}
+            class="inline-flex items-center rounded-full border bg-card px-2 py-0.5 font-medium text-foreground transition-colors hover:bg-accent/40"
+          >
+            {concept}
+          </a>
+        {/each}
+      </div>
     </div>
     <PlanProgress plan={data.plan} />
     <ResourceList steps={data.plan.steps} />
