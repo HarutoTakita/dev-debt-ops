@@ -53,9 +53,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "backend/uv.lock"
       - run: cd backend && uv sync --frozen --all-packages
-      # shared / service have no DB dependency.
+      # shared has no DB dependency.
       - run: cd backend && uv run --directory shared pytest -q
+      # service tests are DB-backed (issue-018: the task handler writes Job rows);
+      # conftest derives the `test` DB from DATABASE_URL (replacing /app -> /test).
       - run: cd backend && uv run --directory service pytest -q
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app
       # api needs Postgres. `--cov` reports coverage to logs but never fails the build —
       # measure-only per docs/reference/prod-readiness.md §7 (target 100%, no gate).
       - run: cd backend && uv run --directory api pytest -v --cov=app --cov-report=term-missing
