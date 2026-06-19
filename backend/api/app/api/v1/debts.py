@@ -9,20 +9,30 @@ The debt **listing / detail** delivery (``GET .../debts``) is owned by issue 031
 only owns the detection trigger.
 """
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from sqlalchemy import select
+from sqlmodel import col
 
-from app.api.deps import CurrentUser, OrgScope, SessionDep
+from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import InstallationIdDep
+from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate
 from app.schemas.job import JobEnqueuedOut
+from app.services.debt_query import get_debt, list_debts
 from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
 from shared.enums import JobType
+from shared.models import AssignedDeveloper, CodeDebt, KnowledgeDebt
 from shared.queue import BlobClient, TaskDispatcher
 
 router = APIRouter(tags=["debts"])
+
+_CODE_STATUSES = {"open", "in_pr", "resolved", "dismissed"}
+_KNOWLEDGE_STATUSES = {"open", "in_progress", "resolved"}
+_AGENT_TO_KIND = {"code_debt": "code", "knowledge_debt": "knowledge"}
 
 
 @router.post(
@@ -67,3 +77,130 @@ async def detect_debts(
         project_id=project.id,
     )
     return JobEnqueuedOut(job_id=job.id, status=job.status)
+
+
+@router.get(
+    "/orgs/{slug}/projects/{project_slug}/debts",
+    response_model=DebtListOut,
+    summary="負債レジストリ（code + knowledge）をフィルタ/ソートして返す",
+)
+async def list_project_debts(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+    kind: Annotated[list[str] | None, Query()] = None,
+    severity: Annotated[list[str] | None, Query()] = None,
+    debt_status: Annotated[list[str] | None, Query(alias="status")] = None,
+    agent: Annotated[list[str] | None, Query()] = None,
+    sort_key: Annotated[str, Query()] = "severity",
+    sort_dir: Annotated[str, Query()] = "desc",
+) -> DebtListOut:
+    """Return the latest code + knowledge debts with filter/sort applied (``debtListSchema``)."""
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    # ``agent`` (code_debt/knowledge_debt) is 1:1 with kind; fold it into the kind filter.
+    kinds = list(kind) if kind else None
+    if agent:
+        agent_kinds = [_AGENT_TO_KIND[a] for a in agent if a in _AGENT_TO_KIND]
+        kinds = agent_kinds if kinds is None else [k for k in kinds if k in agent_kinds]
+    return await list_debts(
+        session,
+        project,
+        kinds=kinds,
+        severities=severity,
+        statuses=debt_status,
+        sort_key=sort_key,
+        sort_dir=sort_dir,
+    )
+
+
+@router.get(
+    "/orgs/{slug}/projects/{project_slug}/debts/{debt_id}",
+    response_model=DebtItemOut,
+    summary="単一の負債を返す（assigned_developers join 込み）",
+)
+async def get_project_debt(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    debt_id: uuid.UUID,
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> DebtItemOut:
+    """Return a single debt (code or knowledge) by id. 404 if not found in this project."""
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    debt = await get_debt(session, project, debt_id)
+    if debt is None:
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+    return debt
+
+
+@router.patch(
+    "/orgs/{slug}/projects/{project_slug}/debts/{debt_id}",
+    response_model=DebtItemOut,
+    summary="負債を部分更新する（status / 担当割当）",
+)
+async def patch_project_debt(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    debt_id: uuid.UUID,
+    body: DebtUpdate,
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> DebtItemOut:
+    """Patch a debt's status and/or assigned developer (PATCH 部分更新; kind 別 status 検証)."""
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+
+    code = await session.get(CodeDebt, debt_id)
+    code = code if code is not None and code.project_id == project.id else None
+    kn = None
+    if code is None:
+        kn = await session.get(KnowledgeDebt, debt_id)
+        kn = kn if kn is not None and kn.project_id == project.id else None
+    if code is None and kn is None:
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+
+    kind = "code" if code is not None else "knowledge"
+    if body.status is not None:
+        valid = _CODE_STATUSES if kind == "code" else _KNOWLEDGE_STATUSES
+        if body.status not in valid:
+            raise HTTPException(status_code=422, detail=f"{kind} 負債に status={body.status} は指定できません")
+        if code is not None:
+            code.status = body.status
+            session.add(code)
+        elif kn is not None:
+            kn.status = body.status
+            session.add(kn)
+
+    if body.assignee_github_handle:
+        existing = (
+            await session.execute(
+                select(AssignedDeveloper).where(
+                    col(AssignedDeveloper.debt_kind) == kind,
+                    col(AssignedDeveloper.debt_id) == debt_id,
+                    col(AssignedDeveloper.github_handle) == body.assignee_github_handle,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            existing.coverage = body.assignee_coverage if body.assignee_coverage is not None else existing.coverage
+            existing.certified_via = body.assignee_certified_via or existing.certified_via
+            session.add(existing)
+        else:
+            session.add(
+                AssignedDeveloper(
+                    debt_kind=kind,
+                    debt_id=debt_id,
+                    github_handle=body.assignee_github_handle,
+                    coverage=body.assignee_coverage or 0.0,
+                    certified_via=body.assignee_certified_via,
+                )
+            )
+
+    await session.commit()
+    debt = await get_debt(session, project, debt_id)
+    if debt is None:  # pragma: no cover - just updated
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+    return debt
