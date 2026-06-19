@@ -8,6 +8,7 @@
 
 ### Added
 
+- 解析データ基盤（issue-026）: 全解析ドメイン（028 以降）が共有する `analysis_run`（リポジトリスナップショット軸）/ `repo_file`（File 同一性アンカー）共有 ORM を `shared.models` に新設、Alembic `0006` でテーブル作成 + `CREATE EXTENSION vector`（pgvector 有効化のみ、vector 列は将来）、`JobType` 命名規約（lowercase snake_case → task path）の正式化、File 同一性・dev 識別子・run スコープ・pgvector 方針の ADR（`docs/adr/0001-analysis-data-model-and-identity.md`）。配信 API・解析ロジックは含まず土台のみ。
 - 二軸負債の視覚言語統一（issue-021）: 軸凡例コンポーネント（`axis-legend`、Overview マトリクスタイトル横と Galaxy KC 表示隣の info アイコンから「コード負債（amber）/ 知識被覆 KC（teal）」を提示）、`--color-warning` トークン（P1 / in_pr / in_progress を `--color-debt-code` 軸色から分離）、共通 KC フォーマッタ（`$lib/format/kc.ts` の `formatKc` / `formatKcPct`）、wormhole の from→to 方向矢印・ホバーハイライト、アバターの緑/破線インラインキー（`developer-key`）を追加。
 - スタック解析の非同期パイプライン（issue-018）: ADK スタック解析を api 同期実行から service の非同期ジョブへ移設。
   - shared: `stack_analysis` の request/result スキーマ（`StackAnalysisRequest` / `StackAnalysisResult` / `TechItem` / `TechCategories` / `GitHubRef`）を追加、`TechStack` ORM モデルを `shared.models` へ昇格（api・service 双方が参照）、`PipelineContext` に `session` を追加（パイプラインが同一 DB セッションで永続化）。
