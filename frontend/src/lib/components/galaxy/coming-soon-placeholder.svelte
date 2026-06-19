@@ -22,13 +22,9 @@
     <p class="text-5xl">🌌</p>
     <h2 class="font-display text-xl font-semibold text-cyan-100">{m.galaxy_coming_title()}</h2>
     <p class="text-sm leading-relaxed text-slate-400">{m.galaxy_coming_desc()}</p>
-    <Button onclick={startScan} class="bg-cyan-600 text-white hover:bg-cyan-500">{m.galaxy_coming_cta()}</Button>
-    <button
-      type="button"
-      onclick={() => galaxy.loadMock()}
-      class="block w-full text-xs text-slate-500 underline hover:text-slate-300"
-    >
-      {m.galaxy_coming_preview()}
-    </button>
+    <div class="flex items-center justify-center gap-2">
+      <Button onclick={startScan} class="bg-cyan-600 text-white hover:bg-cyan-500">{m.galaxy_coming_cta()}</Button>
+      <Button variant="outline" onclick={() => galaxy.loadMock()}>{m.galaxy_coming_demo()}</Button>
+    </div>
   </div>
 </div>

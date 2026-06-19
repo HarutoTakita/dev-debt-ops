@@ -315,5 +315,17 @@
   "axis_legend_code": "コード負債（amber）",
   "axis_legend_knowledge": "知識被覆 KC（teal）",
   "matrix_avatar_understood": "理解者",
-  "matrix_avatar_review": "レビューのみ"
+  "matrix_avatar_review": "レビューのみ",
+  "quiz_coming_demo": "デモを見る",
+  "galaxy_coming_demo": "デモを見る",
+  "getting_started_title": "はじめに",
+  "getting_started_dismiss": "閉じる",
+  "getting_started_galaxy": "知識マップを見る",
+  "getting_started_matrix": "負債マトリクスを開く",
+  "getting_started_quiz": "クイズで KC を上げる",
+  "getting_started_repos": "リポジトリを見る",
+  "overview_scan_title": "リポジトリを解析中",
+  "overview_scan_desc": "コード品質とチーム理解度（KC）をスキャンしています…",
+  "overview_scan_cta": "スキャンを開始",
+  "overview_sample_badge": "Sample / デモデータ"
 }

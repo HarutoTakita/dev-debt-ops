@@ -315,5 +315,17 @@
   "axis_legend_code": "Code debt (amber)",
   "axis_legend_knowledge": "Knowledge coverage KC (teal)",
   "matrix_avatar_understood": "Understood",
-  "matrix_avatar_review": "Review only"
+  "matrix_avatar_review": "Review only",
+  "quiz_coming_demo": "Preview",
+  "galaxy_coming_demo": "Preview",
+  "getting_started_title": "Get started",
+  "getting_started_dismiss": "Dismiss",
+  "getting_started_galaxy": "Explore the galaxy",
+  "getting_started_matrix": "Open the debt matrix",
+  "getting_started_quiz": "Raise KC with a quiz",
+  "getting_started_repos": "Browse repos",
+  "overview_scan_title": "Analyzing repository",
+  "overview_scan_desc": "Scanning code quality and team knowledge (KC)…",
+  "overview_scan_cta": "Start scan",
+  "overview_sample_badge": "Sample data"
 }
