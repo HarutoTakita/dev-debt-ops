@@ -1,0 +1,198 @@
+name: Deploy (GCP)
+
+# Build + deploy for GCP. api and service run as two separate Cloud Run services,
+# so this workflow builds BOTH images (docker/api.Dockerfile and
+# docker/service.Dockerfile), pushes them to Artifact Registry, then runs
+# `terraform apply` against infra/gcp. Called by deploy-stg.yml / deploy-prod.yml.
+#
+# Naming: `environment` is the GitHub Environment (staging|production) and drives
+# the WIF OIDC `environment` claim the bootstrap pool is pinned to. `tfvars_file`
+# selects the Terraform environment (stg.tfvars -> environment "stg").
+#
+# Auth is WIF only (no long-lived keys): vars.GCP_WIF_PROVIDER + vars.GCP_DEPLOY_SA
+# come from the `infra/bootstrap/gcp` outputs.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      tfvars_file:
+        required: true
+        type: string
+    secrets:
+      DB_PASSWORD:
+        required: true
+      SECRET_KEY:
+        required: true
+      # GitHub forbids the GITHUB_ prefix on secret names, so the GitHub App /
+      # OAuth secrets are surfaced as GH_* and mapped to TF_VAR_github_* below.
+      GH_APP_PRIVATE_KEY:
+        required: true
+      GH_CLIENT_SECRET:
+        required: true
+      GH_WEBHOOK_SECRET:
+        required: false
+
+# Serialize overlapping GCP runs against the same environment so a cancelled
+# `terraform apply` can't strand the GCS state lock for a queued run.
+# Cross-cloud and cross-environment runs use different groups and don't contend.
+concurrency:
+  group: gcp-deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    # Shared by every `terraform` invocation below. Sensitive values come from
+    # repo secrets and map 1:1 to infra/gcp variables. Both the targeted repo
+    # apply and the full apply need these (Terraform resolves all declared
+    # variables regardless of -target).
+    env:
+      TF_VAR_gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_secret_key: ${{ secrets.SECRET_KEY }}
+      TF_VAR_github_app_private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      TF_VAR_github_client_secret: ${{ secrets.GH_CLIENT_SECRET }}
+      TF_VAR_github_webhook_secret: ${{ secrets.GH_WEBHOOK_SECRET }}
+      TFVARS_FILE: ${{ inputs.tfvars_file }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: infra/gcp
+        run: terraform init
+
+      # The Artifact Registry repository is owned by this Terraform stack, so
+      # create it FIRST (idempotent no-op after the first deploy). This avoids the
+      # chicken-and-egg where the full apply would wire Cloud Run to images that
+      # haven't been pushed yet. -target prunes to the repo + its API-enable dep.
+      - name: Ensure Artifact Registry repository
+        working-directory: infra/gcp
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${TFVARS_FILE}" \
+            -target=google_artifact_registry_repository.main
+
+      - name: Compute image references
+        id: refs
+        working-directory: infra/gcp
+        env:
+          REGION: ${{ vars.GCP_REGION }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          REGION="${REGION:-asia-northeast1}"
+          # artifact_registry_repo output is the full resource name
+          # (projects/<p>/locations/<r>/repositories/<repo_id>); take the repo_id.
+          REPO="$(terraform output -raw artifact_registry_repo | sed 's#.*/##')"
+          HOST="${REGION}-docker.pkg.dev"
+          {
+            echo "host=${HOST}"
+            echo "api_image=${HOST}/${PROJECT}/${REPO}/api:${IMAGE_TAG}"
+            echo "service_image=${HOST}/${PROJECT}/${REPO}/service:${IMAGE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ steps.refs.outputs.host }}" --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # api bakes the SPA and runs `alembic upgrade head` on boot
+      # (docker/api.Dockerfile, default runtime stage).
+      - name: Build and push api image
+        env:
+          API_IMAGE: ${{ steps.refs.outputs.api_image }}
+        run: |
+          docker buildx build \
+            --file docker/api.Dockerfile \
+            --tag "$API_IMAGE" \
+            --cache-from type=gha,scope=gcp-api \
+            --cache-to type=gha,mode=max,scope=gcp-api \
+            --push \
+            .
+
+      - name: Build and push service image
+        env:
+          SERVICE_IMAGE: ${{ steps.refs.outputs.service_image }}
+        run: |
+          docker buildx build \
+            --file docker/service.Dockerfile \
+            --tag "$SERVICE_IMAGE" \
+            --cache-from type=gha,scope=gcp-service \
+            --cache-to type=gha,mode=max,scope=gcp-service \
+            --push \
+            .
+
+      # Block CRITICAL/HIGH CVEs before either image reaches Cloud Run. The image
+      # is already in the registry but never wired into a live revision until the
+      # full apply below.
+      - name: Scan api image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.refs.outputs.api_image }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          vuln-type: os,library
+          ignore-unfixed: true
+
+      - name: Scan service image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.refs.outputs.service_image }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          vuln-type: os,library
+          ignore-unfixed: true
+
+      # Full apply deploys both Cloud Run services on the freshly pushed images;
+      # the api revision migrates the DB on boot.
+      - name: Terraform Apply
+        working-directory: infra/gcp
+        env:
+          TF_VAR_container_image_api: ${{ steps.refs.outputs.api_image }}
+          TF_VAR_container_image_service: ${{ steps.refs.outputs.service_image }}
+        run: |
+          terraform apply -auto-approve -var-file="environments/${TFVARS_FILE}"
+
+      # api_url is the LB HTTPS endpoint when var.domain is set, otherwise a bare
+      # LB IP with no listener — so the hard health check runs only when a usable
+      # HTTPS URL exists (vars.APP_URL override or an https domain). Otherwise we
+      # surface the endpoint as a warning instead of failing the deploy on an
+      # optional DNS/cert setup.
+      - name: Health check
+        working-directory: infra/gcp
+        env:
+          APP_URL_OVERRIDE: ${{ vars.APP_URL }}
+        run: |
+          URL="$APP_URL_OVERRIDE"
+          [ -n "$URL" ] || URL="$(terraform output -raw api_url)"
+          case "$URL" in
+            https://*)
+              curl --fail --retry 10 --retry-delay 10 --retry-all-errors "${URL}/api/v1/health"
+              ;;
+            *)
+              echo "::warning::No HTTPS endpoint resolved (api_url=$URL). Set var.domain or vars.APP_URL to enable the health check."
+              ;;
+          esac

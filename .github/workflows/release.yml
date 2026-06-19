@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint changelog headings
+        run: |
+          # Ensure at least one version heading exists
+          if ! grep -qE '^## \[' CHANGELOG.md; then
+            echo "::error::No version headings found in CHANGELOG.md"
+            exit 1
+          fi
+          # Verify all headings match expected format
+          grep -nE '^## \[' CHANGELOG.md \
+            | grep -vE '^[0-9]+:## \[(Unreleased|[0-9]+\.[0-9]+\.[0-9]+)\]( - [0-9]{4}-[0-9]{2}-[0-9]{2})?$' \
+            && { echo "::error::Invalid changelog heading(s) found"; exit 1; } \
+            || echo "All changelog headings valid"
+
+      - name: Verify changelog entry exists
+        env:
+          TAG: ${{ github.ref_name }}
+        run: ./scripts/extract-changelog.sh "$TAG" > /dev/null
+
+      - name: Determine pre-release
+        id: prerelease
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          # Pre-release for 0.0.x; full release at 0.1.0+
+          if [ "$MAJOR" -eq 0 ] && [ "$MINOR" -eq 0 ]; then
+            echo "flag=--prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE_FLAG: ${{ steps.prerelease.outputs.flag }}
+        run: |
+          ./scripts/extract-changelog.sh "$TAG" | \
+          gh release create "$TAG" \
+            --title "$TAG" \
+            $PRERELEASE_FLAG \
+            --notes-file -
+
+      # CycloneDX SBOM covering both backend (uv.lock / pyproject.toml) and
+      # frontend (package.json / bun.lock) dependency graphs. SLSA / EU CRA
+      # increasingly require this artifact alongside releases.
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0.24.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Attach SBOM to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" sbom.cyclonedx.json

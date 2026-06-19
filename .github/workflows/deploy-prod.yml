@@ -1,0 +1,26 @@
+name: Deploy Production
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+# Deploys to Google Cloud (the only target). Pre-release tags (v0.0.x) are
+# skipped — gate matches release.yml's pre-release rule. The reusable
+# deploy-gcp.yml builds the api/service images and runs `terraform apply`.
+jobs:
+  deploy-gcp:
+    if: ${{ !startsWith(github.ref_name, 'v0.0.') }}
+    uses: ./.github/workflows/deploy-gcp.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: production
+      image_tag: ${{ github.ref_name }}
+      tfvars_file: prod.tfvars
+    secrets:
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+      GH_WEBHOOK_SECRET: ${{ secrets.GH_WEBHOOK_SECRET }}
