@@ -9,14 +9,26 @@ from app.models.user import User
 # models above, so `app.models.base` has already reassigned `SQLModel.metadata` to the
 # naming-convention metadata — so Alembic autogenerate and the test `create_all` pick up the
 # `jobs` / `tech_stacks` / `analysis_runs` / `repo_files` tables. (issue 018 / 026)
-from shared.models import AnalysisRun, CodeDebt, Dependency, FileKc, Job, RepoFile, TechStack
+from shared.models import (
+    AnalysisRun,
+    AssignedDeveloper,
+    CodeDebt,
+    Dependency,
+    FileKc,
+    Job,
+    KnowledgeDebt,
+    RepoFile,
+    TechStack,
+)
 
 __all__ = [
     "AnalysisRun",
+    "AssignedDeveloper",
     "CodeDebt",
     "Dependency",
     "FileKc",
     "Job",
+    "KnowledgeDebt",
     "OAuthAccount",
     "Org",
     "OrgMember",

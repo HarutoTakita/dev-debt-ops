@@ -7,11 +7,12 @@ into ``shared`` or ``api``. ``shared.worker.run_task`` resolves the active pipel
 ``service.registry.PIPELINES`` (the service ``/tasks/{pipeline}`` handler imports it).
 """
 
-from service.pipelines import code_debt_detection, kc_analysis, stack_analysis
+from service.pipelines import code_debt_detection, kc_analysis, knowledge_debt_detection, stack_analysis
 from shared.enums import JobType
 from shared.registry import PIPELINES as _SHARED_PIPELINES
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest, CodeDebtDetectionResult
 from shared.schemas.kc_analysis import KcAnalysisRequest, KcAnalysisResult
+from shared.schemas.knowledge_debt_detection import KnowledgeDebtDetectionRequest, KnowledgeDebtDetectionResult
 from shared.schemas.stack_analysis import StackAnalysisRequest, StackAnalysisResult
 
 PIPELINES = {
@@ -23,4 +24,9 @@ PIPELINES = {
         code_debt_detection.process,
     ),
     JobType.KC_ANALYSIS.value: (KcAnalysisRequest, KcAnalysisResult, kc_analysis.process),
+    JobType.KNOWLEDGE_DEBT_DETECTION.value: (
+        KnowledgeDebtDetectionRequest,
+        KnowledgeDebtDetectionResult,
+        knowledge_debt_detection.process,
+    ),
 }
