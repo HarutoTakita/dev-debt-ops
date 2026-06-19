@@ -17,7 +17,7 @@
 {#if quiz.availableCount === 0}
   <ComingSoonPlaceholder eyebrow="Re:Pay" title={m.quiz_coming_title()} description={m.quiz_coming_desc()}>
     {#snippet action()}
-      <Button onclick={() => quiz.loadAvailable(orgSlug)}>{m.quiz_coming_demo()}</Button>
+      <Button onclick={() => quiz.loadAvailable(orgSlug, projectSlug)}>{m.quiz_coming_demo()}</Button>
     {/snippet}
   </ComingSoonPlaceholder>
 {:else}
