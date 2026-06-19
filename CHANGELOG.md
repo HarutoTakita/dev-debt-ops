@@ -8,6 +8,10 @@
 
 ### Added
 
+- GCP 版 Terraform（issue-017）: `infra/gcp/`（アプリスタック）と `infra/bootstrap/gcp/`（CI 用 WIF + tfstate）を新設。
+  - `infra/gcp`: Cloud Run 2 サービス（api=internal-LB / service=internal-only、両者 Cloud SQL 接続 + Secret Manager 参照、env を 016 の `Settings` 名と 1:1）、Cloud Tasks キュー（rate/retry）+ tasks_invoker SA への `roles/run.invoker`、Cloud SQL PG17（prod=private IP / stg=public）、Artifact Registry、Secret Manager（`google-api-key` なし＝Vertex AI + ADC）、GCS payload バケット、VPC + Serverless VPC connector、外部 HTTPS LB + Cloud Armor（Traefik 等価のレート制限）、監視（log-based metric / uptime / alert）。
+  - `infra/bootstrap/gcp`: WIF pool/provider（GitHub OIDC、environment ピン留め）+ deploy SA + concern 別 project ロール（`iam.serviceAccountUser` actAs 含む）、tfstate バケット（versioning/UBLA、鶏卵対処の注記）。tfstate prefix は `gcp/` と `gcp/bootstrap/` で分離。
+  - オンライン経路に Pub/Sub リソースは一切無し（result は service が Cloud SQL 直書き）。定期スキャン用 Cloud Functions/Scheduler も本 issue では作らない。azure/aws の命名・env 分離・WIF 規約に整合。
 - 非同期タスク基盤（issue-016）: api→service の Cloud Tasks ディスパッチ + Job ライフサイクルを実装。
   - shared: `Job` モデルを軽量化（enum は String 永続化）、`TaskDispatcher` / `BlobClient` Protocol、`echo` / `ping` パイプライン + レジストリ + `run_task`（冪等な DB 直書き）、camelCase 共通スキーマ、`MockBlobClient` / `parse_gcs_url`。
   - api: `CloudTasksDispatcher`（OIDC 付き）/ `MockTaskDispatcher`、`GcsBlobClient`、`enqueue_job`（GCS スピルオーバー）、`timeout_stale_jobs`、in-process mock-worker（lifespan 起動）、`GET /api/v1/jobs/{id}`、`jobs` テーブルのマイグレーション（0005）。
