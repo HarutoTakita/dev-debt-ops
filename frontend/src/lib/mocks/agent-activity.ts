@@ -107,7 +107,10 @@ export const MOCK_ACTIVITIES: AgentActivity[] = [
         status: "succeeded",
         message: "@bob さんのレビューは形式的（所要 2 分・コメント 0 件）でした。",
         created_at: "2026-06-17T12:00:40+09:00",
-        evidence: [{ type: "pr_review", label: "PR #3789", detail: "自動 approve のみ・議論なし", href: null }],
+        evidence: [
+          // 検出 → 推論の逆リンク: PR #3789 が生んだ負債（src/services/user-service.ts）の Matrix 詳細へ戻す。
+          { type: "pr_review", label: "PR #3789", detail: "自動 approve のみ・議論なし", href: "/matrix/debt-002" },
+        ],
       },
       {
         id: "s4",
