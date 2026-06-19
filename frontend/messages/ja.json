@@ -287,5 +287,17 @@
   "learning_priority_supplementary": "補助",
   "learning_priority_hands_on": "ハンズオン",
   "learning_dormant": "{months} か月読まれていない（死蔵）",
-  "members_kc_tooltip": "org KC 寄与（Knowledge Coverage）— Coming Soon"
+  "members_kc_tooltip": "org KC 寄与（Knowledge Coverage）— Coming Soon",
+  "stack_title": "テックスタック",
+  "stack_analyze": "解析する",
+  "stack_reanalyze": "再解析",
+  "stack_retry": "再試行",
+  "stack_queued": "解析をキューに登録しました…",
+  "stack_analyzing": "解析中…",
+  "stack_step_listing": "設定ファイルを探索中…",
+  "stack_step_reading": "ファイルを読み込み中…",
+  "stack_step_classifying": "技術スタックを分類中…",
+  "stack_step_saving": "結果を保存中…",
+  "stack_failed": "テックスタックの解析に失敗しました",
+  "stack_languages": "言語"
 }

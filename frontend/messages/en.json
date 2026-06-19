@@ -287,5 +287,17 @@
   "learning_priority_supplementary": "Supplementary",
   "learning_priority_hands_on": "Hands-on",
   "learning_dormant": "Unread for {months} months (dormant)",
-  "members_kc_tooltip": "Org KC contribution (Knowledge Coverage) — coming soon"
+  "members_kc_tooltip": "Org KC contribution (Knowledge Coverage) — coming soon",
+  "stack_title": "Tech stack",
+  "stack_analyze": "Analyze",
+  "stack_reanalyze": "Re-analyze",
+  "stack_retry": "Retry",
+  "stack_queued": "Analysis queued…",
+  "stack_analyzing": "Analyzing…",
+  "stack_step_listing": "Discovering config files…",
+  "stack_step_reading": "Reading files…",
+  "stack_step_classifying": "Classifying the tech stack…",
+  "stack_step_saving": "Saving results…",
+  "stack_failed": "Tech-stack analysis failed",
+  "stack_languages": "Languages"
 }
