@@ -6,8 +6,8 @@
   import { ComingSoonError, createRepaymentPr, dismissDebt } from "$lib/api/client";
   import * as m from "$lib/paraglide/messages";
 
-  // 無視（dismiss）は実 API（PATCH status=dismissed、issue 031）。返済 PR 作成（033）と担当割当
-  // （handle 選択 UI が未実装）は Coming Soon プレースホルダのまま。
+  // 無視（dismiss, issue 031）と返済 PR 作成（issue 033）は実 API。担当割当は handle 選択 UI が
+  // 未実装のため Coming Soon プレースホルダのまま。
   type Props = { orgSlug: string; projectSlug: string; debtId: string };
   const { orgSlug, projectSlug, debtId }: Props = $props();
 
@@ -29,18 +29,20 @@
       toast.error(e instanceof Error ? e.message : m.common_error_generic());
     }
   }
+
+  async function createPr() {
+    try {
+      await createRepaymentPr(orgSlug, projectSlug, debtId);
+      toast.success(m.debt_repayment_pr_started());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : m.common_error_generic());
+    }
+  }
 </script>
 
 <div class="flex flex-wrap gap-2">
-  <Button
-    variant="outline"
-    size="sm"
-    class="gap-1.5 text-muted-foreground"
-    onclick={() => run(() => createRepaymentPr(orgSlug, debtId))}
-  >
-    <Hourglass class="size-3.5" />
+  <Button variant="outline" size="sm" class="gap-1.5" onclick={createPr}>
     {m.debt_action_create_pr()}
-    <span class="text-xs opacity-70">{m.debt_action_soon_suffix()}</span>
   </Button>
   <Button variant="outline" size="sm" class="gap-1.5" onclick={dismiss}>
     {m.debt_action_dismiss()}

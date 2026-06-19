@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import select
 from sqlmodel import col
 
-from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
+from app.api.deps import CurrentUser, OrgAdminScope, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import InstallationIdDep
 from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate
 from app.schemas.job import JobEnqueuedOut
@@ -204,3 +204,48 @@ async def patch_project_debt(
     if debt is None:  # pragma: no cover - just updated
         raise HTTPException(status_code=404, detail="負債が見つかりません")
     return debt
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/debts/{debt_id}/repayment-pr",
+    response_model=JobEnqueuedOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="返済 PR 生成を非同期ジョブとして enqueue する（org 管理者）",
+)
+async def create_repayment_pr(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    debt_id: uuid.UUID,
+    org_membership: OrgAdminScope,
+    installation_id: InstallationIdDep,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SessionDep,
+    dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
+    blob: Annotated[BlobClient, Depends(get_blob_client)],
+) -> JobEnqueuedOut:
+    """Enqueue a ``repayment_pr_generation`` job for a code debt (GitHub write → 202, admin only)."""
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    debt = await session.get(CodeDebt, debt_id)
+    if debt is None or debt.project_id != project.id:
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+    if debt.status == "in_pr" and debt.related_pr:
+        raise HTTPException(status_code=409, detail=f"既に返済 PR が作成済みです（{debt.related_pr}）")
+    payload = {
+        "debt_id": str(debt_id),
+        "owner": project.repo_owner,
+        "repo": project.repo_name,
+        "branch": project.default_branch or "main",
+        "requested_by": str(current_user.id),  # audit only
+        "github": {"installation_id": installation_id},
+    }
+    job = await enqueue_job(
+        session=session,
+        dispatcher=dispatcher,
+        blob_client=blob,
+        job_type=JobType.REPAYMENT_PR_GENERATION,
+        payload=payload,
+        created_by=current_user.id,
+        project_id=project.id,
+    )
+    return JobEnqueuedOut(job_id=job.id, status=job.status)
