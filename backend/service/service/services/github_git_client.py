@@ -359,6 +359,16 @@ class GitHubGitClient:
             )
         return reviews
 
+    async def list_commit_pulls(self, owner: str, repo: str, sha: str) -> list[int]:
+        """Return the PR numbers that contain a given commit (for review attribution).
+
+        ``GET /repos/{owner}/{repo}/commits/{sha}/pulls`` — an empty list means the commit was
+        pushed directly (no associated pull request).
+        """
+        resp = await self._client.get(f"/repos/{owner}/{repo}/commits/{sha}/pulls")
+        resp.raise_for_status()
+        return [pr["number"] for pr in resp.json() if "number" in pr]
+
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
         await self._client.aclose()
