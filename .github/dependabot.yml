@@ -1,0 +1,43 @@
+# Weekly dependency update PRs.
+# Security alerts are raised immediately regardless of schedule.
+# See docs/reference/prod-readiness.md §7 for the supply-chain rationale.
+
+version: 2
+updates:
+  # Backend Python deps (uv reads pyproject.toml + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # Frontend JS deps (bun reads package.json + bun.lock)
+  - package-ecosystem: "bun"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # Terraform — app stack
+  - package-ecosystem: "terraform"
+    directory: "/infra/gcp"
+    schedule:
+      interval: "weekly"
+
+  # Terraform — bootstrap stack
+  - package-ecosystem: "terraform"
+    directory: "/infra/bootstrap/gcp"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions used in .github/workflows/
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Dockerfile base images (dev + prod)
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"

@@ -1,0 +1,24 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [develop]
+
+# Deploys to Google Cloud (the only target). The reusable deploy-gcp.yml builds
+# the api/service images and runs `terraform apply` against infra/gcp.
+jobs:
+  deploy-gcp:
+    uses: ./.github/workflows/deploy-gcp.yml
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      environment: staging
+      image_tag: ${{ github.sha }}
+      tfvars_file: stg.tfvars
+    secrets:
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GH_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
+      GH_WEBHOOK_SECRET: ${{ secrets.GH_WEBHOOK_SECRET }}
