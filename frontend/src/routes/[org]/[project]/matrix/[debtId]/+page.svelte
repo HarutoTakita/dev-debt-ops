@@ -33,7 +33,7 @@
       <DebtStatusBadge status={debt.status} />
     </div>
 
-    <DebtActions {orgSlug} debtId={debt.id} />
+    <DebtActions {orgSlug} {projectSlug} debtId={debt.id} />
 
     <!-- 本体: 左 = 該当コード + 根拠 / 右 = メタパネル -->
     <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
