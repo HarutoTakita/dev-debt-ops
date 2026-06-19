@@ -272,6 +272,16 @@ export async function detectDebts(orgSlug: string, projectSlug: string): Promise
   return analyzeStackJobSchema.parse(await response.json());
 }
 
+// detect-knowledge-debts は非同期（issue 030）: 202 {job_id} を返し、getJob でポーリングする。
+// 検知結果の一覧配信（listDebts / getDebt の差し替え）は 031 と連携。
+export async function detectKnowledgeDebts(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/detect-knowledge-debts`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "知識負債の検知に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
 export async function getJob(jobId: string): Promise<JobStatusResponse> {
   const response = await apiFetch(`/api/v1/jobs/${jobId}`);
   if (!response.ok) throw new Error(await errorDetail(response, "ジョブの取得に失敗しました"));
