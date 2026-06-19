@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StarSystem } from "$lib/api/schemas";
+  import { formatKc } from "$lib/format/kc";
   import StarNode from "./star-node.svelte";
 
   // 1 星系（モジュール）の島。所属ファイルの星を内包し、集計 KC をラベル表示する。
@@ -13,6 +14,6 @@
     {/each}
   </div>
   <div class="mt-1.5 text-center text-[10px] whitespace-nowrap text-cyan-200/70">
-    {system.module} · KC {Math.round(system.kc * 100)}%
+    {system.module} · {formatKc(system.kc)}
   </div>
 </div>

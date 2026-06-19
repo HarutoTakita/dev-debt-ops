@@ -3,6 +3,7 @@
   import { cn } from "$lib/utils";
   import * as Avatar from "$lib/components/ui/avatar";
   import * as Tooltip from "$lib/components/ui/tooltip";
+  import { formatKc } from "$lib/format/kc";
 
   // certified_via + coverage で「理解している人」と「形式レビューだけ／未理解の人」を視覚区別する。
   // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。
@@ -29,7 +30,5 @@
       </span>
     {/snippet}
   </Tooltip.Trigger>
-  <Tooltip.Content side="top"
-    >@{dev.github_handle} · KC {dev.coverage.toFixed(2)} · {dev.certified_via}</Tooltip.Content
-  >
+  <Tooltip.Content side="top">@{dev.github_handle} · {formatKc(dev.coverage)} · {dev.certified_via}</Tooltip.Content>
 </Tooltip.Root>

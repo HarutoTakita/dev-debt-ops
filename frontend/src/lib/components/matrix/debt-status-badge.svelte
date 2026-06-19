@@ -7,8 +7,8 @@
 
   const tone: Record<string, string> = {
     open: "bg-destructive/15 text-destructive",
-    in_pr: "bg-debt-code/15 text-debt-code",
-    in_progress: "bg-debt-code/15 text-debt-code",
+    in_pr: "bg-warning/15 text-warning",
+    in_progress: "bg-warning/15 text-warning",
     resolved: "bg-success/15 text-success",
     dismissed: "bg-muted text-muted-foreground",
   };

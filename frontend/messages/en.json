@@ -308,5 +308,12 @@
   "matrix_view_agent_reasoning": "View this agent's activity",
   "agents_evidence_view_debt": "View this debt's detail",
   "shell_breadcrumb_detail": "Detail",
-  "project_home_recent": "Recent projects"
+  "project_home_recent": "Recent projects",
+  "overview_tooltip_quality_kc": "Quality {quality} / KC {kc}%",
+  "matrix_priority_title": "Code debt {code} / Knowledge gap {know}",
+  "axis_legend_title": "The two axes",
+  "axis_legend_code": "Code debt (amber)",
+  "axis_legend_knowledge": "Knowledge coverage KC (teal)",
+  "matrix_avatar_understood": "Understood",
+  "matrix_avatar_review": "Review only"
 }

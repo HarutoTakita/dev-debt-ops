@@ -11,9 +11,10 @@ export function masteryLabel(s: MasteryStatus): string {
   }[s];
 }
 
+// ティール = 知識（明るさ = 被覆度）/ destructive = 危険専用。star-node の cls と 1:1 で一致させる。
 export const masteryDot: Record<MasteryStatus, string> = {
-  star: "bg-cyan-300 shadow-[0_0_6px_2px_rgba(103,232,249,0.7)]",
-  dim_star: "bg-teal-400/70",
-  black_hole: "bg-red-500",
+  star: "bg-debt-knowledge shadow-[0_0_6px_2px_rgba(45,212,191,0.5)]",
+  dim_star: "bg-debt-knowledge/60",
+  black_hole: "bg-destructive",
   unexplored: "border border-dashed border-slate-500 bg-transparent",
 };
