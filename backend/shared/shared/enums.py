@@ -21,6 +21,7 @@ class JobType(StrEnum):
     PING = "ping"  # minimal health pipeline (issue 016)
     STACK_ANALYSIS = "stack_analysis"  # ADK stack analysis (issue 018)
     CODE_DEBT_DETECTION = "code_debt_detection"  # 重複/dead/複雑度 + AI 生成痕跡検知 (issue 028)
+    KC_ANALYSIS = "kc_analysis"  # Knowledge Coverage 算出 (authorship/blame + 依存) (issue 029)
 
 
 class JobStatus(StrEnum):
