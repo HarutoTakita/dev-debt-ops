@@ -1,0 +1,22 @@
+[project]
+name = "rosetta-service"
+version = "0.0.5"
+description = "Rosetta heavy-processing service (async pipelines) — internal Cloud Run service"
+requires-python = ">=3.13"
+dependencies = [
+    "rosetta-shared",                                  # Job(SQLModel) / enum / schemas
+    "fastapi[standard-no-fastapi-cloud-cli]>=0.136.1",
+    "sqlalchemy[asyncio]>=2.0.49",                     # Cloud SQL に Job 結果を直書き
+    "asyncpg>=0.31.0",                                 # マイグレーションは api が所有
+]
+
+# Run from source (uvicorn service.main:app); deps installed, project not built as a wheel.
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+rosetta-shared = { workspace = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

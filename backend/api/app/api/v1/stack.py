@@ -119,7 +119,12 @@ async def analyze_stack(
         raise HTTPException(status_code=502, detail=f"Agent error: {e}") from e
 
     # Agent should have called save_stack; read the persisted result
-    result = await session.execute(sa_select(TechStack).where(TechStack.owner == owner, TechStack.repo == repo))
+    result = await session.execute(
+        sa_select(TechStack).where(
+            TechStack.owner == owner,  # ty: ignore[invalid-argument-type]
+            TechStack.repo == repo,  # ty: ignore[invalid-argument-type]
+        )
+    )
     tech_stack = result.scalar_one_or_none()
     if not tech_stack:
         raise HTTPException(status_code=502, detail="Agent did not save the tech stack result.")
@@ -137,7 +142,12 @@ async def get_stack(
     session: SASessionDep,
 ) -> TechStackOut:
     """Return the most recent cached tech-stack analysis. 404 if not yet analysed."""
-    result = await session.execute(sa_select(TechStack).where(TechStack.owner == owner, TechStack.repo == repo))
+    result = await session.execute(
+        sa_select(TechStack).where(
+            TechStack.owner == owner,  # ty: ignore[invalid-argument-type]
+            TechStack.repo == repo,  # ty: ignore[invalid-argument-type]
+        )
+    )
     tech_stack = result.scalar_one_or_none()
     if not tech_stack:
         raise HTTPException(status_code=404, detail="Not yet analysed. Call POST analyze-stack first.")
