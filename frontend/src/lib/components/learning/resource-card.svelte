@@ -12,8 +12,14 @@
   import * as m from "$lib/paraglide/messages";
 
   // リソース 1 件カード（種別アイコン・出典・所要時間・必須/推奨/補助・死蔵バッジ）。
-  type Props = { resource: LearningResource; completed: boolean };
-  const { resource, completed }: Props = $props();
+  // ontoggle が渡されれば完了トグル（PATCH、issue 035）を有効化する。
+  type Props = {
+    resource: LearningResource;
+    completed: boolean;
+    order?: number;
+    ontoggle?: (order: number, completed: boolean) => void;
+  };
+  const { resource, completed, order, ontoggle }: Props = $props();
 
   const ICON: Record<ResourceKind, typeof FileText> = {
     adr: FileText,
@@ -48,7 +54,21 @@
   <div class="min-w-0 flex-1">
     <div class="flex items-center gap-2">
       <span class="truncate text-sm font-medium">{resource.title}</span>
-      {#if completed}<Check class="size-3.5 shrink-0 text-success" />{/if}
+      {#if ontoggle && order != null}
+        <button
+          type="button"
+          onclick={() => ontoggle(order, !completed)}
+          aria-pressed={completed}
+          aria-label={m.learning_toggle_done()}
+          class="shrink-0 rounded-full border p-0.5 {completed
+            ? 'border-success text-success'
+            : 'border-muted-foreground/40 text-transparent hover:text-muted-foreground/40'}"
+        >
+          <Check class="size-3" />
+        </button>
+      {:else if completed}
+        <Check class="size-3.5 shrink-0 text-success" />
+      {/if}
     </div>
     {#if resource.source_ref}<p class="truncate text-xs text-muted-foreground">{resource.source_ref}</p>{/if}
     {#if dormantMonths != null}
