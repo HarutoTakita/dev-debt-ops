@@ -42,43 +42,55 @@
   );
 </script>
 
-<div class="relative h-full min-h-[28rem] overflow-hidden rounded-lg bg-slate-950">
-  <!-- 散らばる星（背景装飾） -->
-  <div
-    class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle,rgba(103,232,249,0.12)_1px,transparent_1px)] [background-size:34px_34px]"
-  ></div>
+<!-- 狭幅では横スクロール（rank30）。内側は正方形にして星(HTML %)とワームホール(SVG viewBox)が
+     共有座標系で一緒にリフローする（rank20）。 -->
+<div class="h-full min-h-[24rem] overflow-auto rounded-lg bg-slate-950">
+  <div class="relative aspect-square min-w-[34rem]">
+    <!-- 散らばる星（背景装飾） -->
+    <div
+      class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle,rgba(103,232,249,0.12)_1px,transparent_1px)] [background-size:34px_34px]"
+    ></div>
 
-  <!-- ワームホール（依存）。from→to を矢印で示し、線ごとにホバーで強調する。 -->
-  <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <defs>
-      <marker id="wormhole-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
-      </marker>
-    </defs>
-    {#each lines as l, i (i)}
-      <!-- 透明な太い当たり判定線（ホバー領域を確保） -->
-      <line class="wormhole-hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="transparent" stroke-width="2.5" />
-      <!-- 可視線（隣接の当たり判定線がホバーされると強調） -->
-      <line
-        class="wormhole"
-        x1={l.x1}
-        y1={l.y1}
-        x2={l.x2}
-        y2={l.y2}
-        stroke="rgba(103,232,249,0.28)"
-        stroke-width="0.28"
-        stroke-dasharray="1 1.2"
-        marker-end="url(#wormhole-arrow)"
-      />
+    <!-- ワームホール（依存）。from→to を矢印で示し、線ごとにホバーで強調する。 -->
+    <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
+      <defs>
+        <marker
+          id="wormhole-arrow"
+          viewBox="0 0 10 10"
+          refX="8"
+          refY="5"
+          markerWidth="4"
+          markerHeight="4"
+          orient="auto"
+        >
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
+        </marker>
+      </defs>
+      {#each lines as l, i (i)}
+        <!-- 透明な太い当たり判定線（ホバー領域を確保） -->
+        <line class="wormhole-hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="transparent" stroke-width="2.5" />
+        <!-- 可視線（隣接の当たり判定線がホバーされると強調） -->
+        <line
+          class="wormhole"
+          x1={l.x1}
+          y1={l.y1}
+          x2={l.x2}
+          y2={l.y2}
+          stroke="rgba(103,232,249,0.28)"
+          stroke-width="0.28"
+          stroke-dasharray="1 1.2"
+          marker-end="url(#wormhole-arrow)"
+        />
+      {/each}
+    </svg>
+
+    <!-- 星系（モジュール） -->
+    {#each galaxy.systems as system, i (system.module)}
+      <div class="absolute -translate-x-1/2 -translate-y-1/2" style="left: {posOf(i).x}%; top: {posOf(i).y}%;">
+        <StarSystem {system} />
+      </div>
     {/each}
-  </svg>
-
-  <!-- 星系（モジュール） -->
-  {#each galaxy.systems as system, i (system.module)}
-    <div class="absolute -translate-x-1/2 -translate-y-1/2" style="left: {posOf(i).x}%; top: {posOf(i).y}%;">
-      <StarSystem {system} />
-    </div>
-  {/each}
+  </div>
 </div>
 
 <style>
