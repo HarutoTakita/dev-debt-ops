@@ -346,5 +346,8 @@
   "repo_install_cta": "Install the GitHub App",
   "repo_install_browse": "Browse GitHub Apps",
   "repo_install_ask_admin": "Ask an org admin to install it.",
-  "project_switcher_error": "Failed to load projects"
+  "project_switcher_error": "Failed to load projects",
+  "matrix_priority_aria": "Priority {priority}, code debt {code}, knowledge gap {know}",
+  "overview_scatter_count": "{count} files",
+  "shell_toggle_theme": "Toggle theme"
 }
