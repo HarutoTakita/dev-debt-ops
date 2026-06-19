@@ -306,5 +306,7 @@
   "galaxy_repay_with_quiz": "Repay with a quiz",
   "gap_concept_learn": "Learn {concept}",
   "matrix_view_agent_reasoning": "View this agent's activity",
-  "agents_evidence_view_debt": "View this debt's detail"
+  "agents_evidence_view_debt": "View this debt's detail",
+  "shell_breadcrumb_detail": "Detail",
+  "project_home_recent": "Recent projects"
 }
