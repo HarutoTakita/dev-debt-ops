@@ -11,7 +11,7 @@ COPY frontend/ .
 RUN bun run build
 
 # ── Stage: builder (resolve + install rosetta-api deps from the workspace) ────
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /usr/local/bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1
@@ -29,7 +29,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package rosetta-api
 
 # ── Stage: base (common runtime layout: /app/app + /app/shared + venv) ────────
-FROM python:3.13-slim AS base
+FROM python:3.14-slim AS base
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
