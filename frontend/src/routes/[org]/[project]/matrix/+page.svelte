@@ -32,10 +32,15 @@
     const f = filter;
     const s = sort;
     loading = true;
-    listDebts(orgSlug, f, s).then((res) => {
-      debts = res.debts;
-      loading = false;
-    });
+    listDebts(orgSlug, projectSlug, f, s)
+      .then((res) => {
+        debts = res.debts;
+        loading = false;
+      })
+      .catch(() => {
+        debts = [];
+        loading = false;
+      });
   });
 
   function onfilter(f: DebtFilter) {
