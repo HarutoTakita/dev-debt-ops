@@ -171,3 +171,48 @@ async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
             except (TypeError, ValueError):
                 continue
     return probs
+
+
+_REFACTOR_PROMPT = """\
+You are refactoring a file to repay a code debt. Debt notes: {notes}
+
+=== {path} (current content) ===
+{content}
+
+Return ONLY a valid JSON object — no markdown — with this exact schema:
+{{
+  "new_content": "the full refactored file content",
+  "pr_title": "a concise PR title",
+  "pr_body": "a short PR description of what was changed and why"
+}}
+Preserve behavior; make the smallest change that addresses the debt. If unsure, return the original \
+content unchanged in "new_content".
+"""
+
+
+async def generate_refactor(path: str, content: str, notes: str) -> dict[str, str]:
+    """Return ``{new_content, pr_title, pr_body}`` for a repayment refactor (Gemini via Vertex AI).
+
+    Falls back to the original content (no-op refactor) if the model reply is unparseable. Raises
+    ValueError if GOOGLE_CLOUD_PROJECT or credentials are not configured.
+    """
+    client = _build_client()
+    prompt = _REFACTOR_PROMPT.format(notes=notes or "(none)", path=path, content=content[:_MAX_FILE_CHARS])
+
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2),
+    )
+
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    return {
+        "new_content": str(raw.get("new_content") or content),
+        "pr_title": str(raw.get("pr_title") or f"Repay code debt in {path}"),
+        "pr_body": str(raw.get("pr_body") or "Automated repayment refactor."),
+    }
