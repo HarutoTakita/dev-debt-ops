@@ -4,12 +4,18 @@ version = "0.0.5"
 description = "Rosetta heavy-processing service (async pipelines) — internal Cloud Run service"
 requires-python = ">=3.13"
 dependencies = [
-    "rosetta-shared",                                  # Job(SQLModel) / enum / schemas
+    "rosetta-shared",                                  # Job/TechStack(SQLModel) / enum / schemas
     "fastapi[standard-no-fastapi-cloud-cli]>=0.136.1",
-    "sqlalchemy[asyncio]>=2.0.49",                     # Cloud SQL に Job 結果を直書き
+    "sqlalchemy[asyncio]>=2.0.49",                     # Cloud SQL に Job 結果 + TechStack を直書き
     "asyncpg>=0.31.0",                                 # マイグレーションは api が所有
     "google-cloud-storage>=3.12.0",
     "google-auth>=2.52.0",
+    # stack-analysis パイプライン (issue 018): ADK + Vertex AI + GitHub クライアント
+    "google-adk>=0.4.0",
+    "google-genai>=1.0.0",
+    "httpx>=0.28.1",
+    "PyJWT>=2.8.0",
+    "cryptography>=42.0.0",
 ]
 
 # Run from source (uvicorn service.main:app); deps installed, project not built as a wheel.

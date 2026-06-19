@@ -51,7 +51,7 @@ async def run_task_endpoint(
 
     body = await request.json()
     try:
-        job = await run_task(session, pipeline=pipeline, request_body=body, blob_client=blob)
+        job = await run_task(session, pipeline=pipeline, request_body=body, blob_client=blob, pipelines=PIPELINES)
     except TransientTaskError as exc:
         logger.warning("task_transient_error pipeline=%s detail=%s", pipeline, exc)
         return JSONResponse(status_code=503, content={"detail": str(exc)})

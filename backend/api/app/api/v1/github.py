@@ -89,12 +89,17 @@ class FileContentOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-async def resolve_github_client(
+async def resolve_installation_id(
     current_user: CurrentUser,
     session: SASessionDep,
     github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
-) -> AsyncGenerator[GitHubGitClient]:
-    """Yield a GitHubGitClient authenticated with the user's GitHub App installation token."""
+) -> int:
+    """Resolve the GitHub App installation id for the current user's account.
+
+    Shared by ``resolve_github_client`` (which then mints a token) and the async
+    ``analyze-stack`` route (issue 018, method B — only the ``installation_id`` is enqueued
+    and the ``service`` container mints the token itself).
+    """
     result = await session.execute(
         sa_select(OAuthAccount).where(
             OAuthAccount.user_id == current_user.id,
@@ -115,7 +120,7 @@ async def resolve_github_client(
         github_login: str = user_resp.json()["login"]
 
     try:
-        installation_id = await github_app.get_installation_for_user(github_login)
+        return await github_app.get_installation_for_user(github_login)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             raise HTTPException(
@@ -124,6 +129,15 @@ async def resolve_github_client(
             ) from e
         raise HTTPException(status_code=502, detail="GitHub API error") from e
 
+
+InstallationIdDep = Annotated[int, Depends(resolve_installation_id)]
+
+
+async def resolve_github_client(
+    github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
+    installation_id: InstallationIdDep,
+) -> AsyncGenerator[GitHubGitClient]:
+    """Yield a GitHubGitClient authenticated with the user's GitHub App installation token."""
     token = await github_app.get_installation_token(installation_id)
     client = GitHubGitClient(access_token=token)
     try:

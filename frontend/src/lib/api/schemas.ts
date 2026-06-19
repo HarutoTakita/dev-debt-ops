@@ -149,6 +149,29 @@ export type TechItem = z.infer<typeof techItemSchema>;
 export type TechCategories = z.infer<typeof techCategoriesSchema>;
 export type TechStack = z.infer<typeof techStackSchema>;
 
+// Async jobs（issue 018）— analyze-stack は enqueue + ポーリングに変更。
+// status は backend の JobStatus（大文字 enum）に揃える。
+export const jobStatusEnum = z.enum(["QUEUED", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED"]);
+
+// POST analyze-stack の 202 レスポンス（job_id + status）。
+export const analyzeStackJobSchema = z.object({
+  job_id: z.uuid(),
+  status: jobStatusEnum,
+});
+
+// GET /jobs/{id} のポーリングレスポンス（status + 進捗 trace + 完了時 tech_stack）。
+export const jobStatusSchema = z.object({
+  id: z.uuid(),
+  status: jobStatusEnum,
+  agent_trace: z.array(z.string()).default([]),
+  tech_stack: techStackSchema.nullable().optional(),
+  error: z.string().nullable().optional(),
+});
+
+export type JobStatusValue = z.infer<typeof jobStatusEnum>;
+export type AnalyzeStackJob = z.infer<typeof analyzeStackJobSchema>;
+export type JobStatusResponse = z.infer<typeof jobStatusSchema>;
+
 // Overview（観測台）— 二軸負債ダッシュボード。集計バックエンドは未実装のため、
 // ここではフロントが期待する型だけを先に確定させる（後続 issue の集計 API がこの形に合わせる）。
 export const debtPrioritySchema = z.enum(["P0", "P1", "P2", "P3"]);
