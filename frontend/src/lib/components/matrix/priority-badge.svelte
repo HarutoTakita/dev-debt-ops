@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
   import { derivePriority, type Priority } from "./priority";
 
   // 二軸座標から導いた P0–P3 を、ピル内の 2 本ミニゲージ（左=コード負債軸 / 右=ナレッジ負債軸）で示す。
@@ -11,7 +12,7 @@
 
   const tone: Record<Priority, string> = {
     P0: "bg-destructive/15 text-destructive ring-1 ring-destructive/30",
-    P1: "bg-debt-code/15 text-debt-code",
+    P1: "bg-warning/15 text-warning",
     P2: "bg-muted text-foreground/70",
     P3: "bg-muted/60 text-muted-foreground",
   };
@@ -19,7 +20,7 @@
 
 <div
   class={cn("inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-xs font-semibold tabular-nums", tone[priority])}
-  title={`コード負債 ${Math.round(code * 100)} / 理解欠落 ${Math.round(know * 100)}`}
+  title={m.matrix_priority_title({ code: Math.round(code * 100), know: Math.round(know * 100) })}
 >
   <span>{priority}</span>
   <!-- 2 本ミニゲージ。P0 ほど両方が満ちる（最危険ゾーン）。色は currentColor を継承 -->

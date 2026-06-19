@@ -4,6 +4,7 @@
   import type { FileDebt } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
+  import AxisLegend from "./axis-legend.svelte";
 
   // 一次ビュー: ファイルを「コード品質 × チーム理解度(KC)」の平面に置いた散布図。
   // 縦軸 = コード品質（上 = クリーン = code_debt_score 小）/ 横軸 = KC（右 = 皆理解）。§2.3 準拠。
@@ -22,7 +23,10 @@
 </script>
 
 <div class="rounded-lg border bg-card p-4">
-  <div class="text-sm font-medium">{m.overview_matrix_title()}</div>
+  <div class="flex items-center gap-1.5">
+    <span class="text-sm font-medium">{m.overview_matrix_title()}</span>
+    <AxisLegend />
+  </div>
 
   <div class="mt-3 flex gap-2">
     <!-- 縦軸ラベル（コード品質 ↑） -->
@@ -47,19 +51,19 @@
           <div class="bg-debt-code/5"></div>
         </div>
 
-        <!-- 象限ラベル -->
+        <!-- 象限ラベル。危険と釣り合うよう他 3 つもコントラスト/太さを上げる（色のみ依存を避ける）。 -->
         <span
-          class="pointer-events-none absolute top-1.5 left-1.5 max-w-[45%] text-[10px] leading-tight text-muted-foreground"
+          class="pointer-events-none absolute top-1.5 left-1.5 max-w-[45%] text-[10px] leading-tight font-medium text-foreground/75"
         >
           {m.overview_quadrant_code_repay()}
         </span>
-        <span class="pointer-events-none absolute top-1.5 right-1.5 text-[10px] text-muted-foreground">
+        <span class="pointer-events-none absolute top-1.5 right-1.5 text-[10px] font-medium text-foreground/75">
           {m.overview_quadrant_ideal()}
         </span>
         <span class="pointer-events-none absolute bottom-1.5 left-1.5 text-[10px] font-semibold text-destructive">
           {m.overview_quadrant_danger()}
         </span>
-        <span class="pointer-events-none absolute right-1.5 bottom-1.5 text-[10px] text-muted-foreground">
+        <span class="pointer-events-none absolute right-1.5 bottom-1.5 text-[10px] font-medium text-foreground/75">
           {m.overview_quadrant_refactor()}
         </span>
 
@@ -89,9 +93,10 @@
           >
             <span class="font-mono">{hovered.path}</span>
             <span class="opacity-80">
-              · 品質 {Math.round((1 - hovered.code_debt_score) * 100)} / KC {Math.round(
-                hovered.knowledge_coverage * 100,
-              )}%
+              · {m.overview_tooltip_quality_kc({
+                quality: Math.round((1 - hovered.code_debt_score) * 100),
+                kc: Math.round(hovered.knowledge_coverage * 100),
+              })}
             </span>
           </div>
         {/if}

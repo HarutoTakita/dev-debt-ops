@@ -308,5 +308,12 @@
   "matrix_view_agent_reasoning": "このエージェントの活動を見る",
   "agents_evidence_view_debt": "この負債の詳細を見る",
   "shell_breadcrumb_detail": "詳細",
-  "project_home_recent": "最近開いたプロジェクト"
+  "project_home_recent": "最近開いたプロジェクト",
+  "overview_tooltip_quality_kc": "品質 {quality} / KC {kc}%",
+  "matrix_priority_title": "コード負債 {code} / 理解欠落 {know}",
+  "axis_legend_title": "二軸の見かた",
+  "axis_legend_code": "コード負債（amber）",
+  "axis_legend_knowledge": "知識被覆 KC（teal）",
+  "matrix_avatar_understood": "理解者",
+  "matrix_avatar_review": "レビューのみ"
 }
