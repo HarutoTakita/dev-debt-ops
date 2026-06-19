@@ -6,6 +6,7 @@ import {
   debtListSchema,
   fileContentSchema,
   overviewSchema,
+  personalGalaxySchema,
   jobStatusSchema,
   orgMemberSchema,
   orgSchema,
@@ -23,6 +24,7 @@ import {
   type DebtItem,
   type DebtList,
   type Overview,
+  type PersonalGalaxy,
   type FileContent,
   type JobStatusResponse,
   type Org,
@@ -294,6 +296,21 @@ export async function getStack(owner: string, repo: string): Promise<TechStack |
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの取得に失敗しました"));
   return techStackSchema.parse(await response.json());
+}
+
+// Knowledge Galaxy（issue 032）: GET .../galaxy を personalGalaxySchema で検証 / analyze-galaxy は enqueue。
+export async function getGalaxy(orgSlug: string, projectSlug: string): Promise<PersonalGalaxy> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/galaxy`);
+  if (!response.ok) throw new Error(await errorDetail(response, "Galaxy の取得に失敗しました"));
+  return personalGalaxySchema.parse(await response.json());
+}
+
+export async function analyzeGalaxy(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/analyze-galaxy`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "KC 算出の開始に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
 }
 
 // Overview 二軸集計（issue 031）: GET .../overview を取得して overviewSchema で検証。
