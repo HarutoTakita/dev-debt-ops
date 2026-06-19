@@ -36,7 +36,8 @@ def upgrade() -> None:
         sa.Column("job_id", sa.Uuid(), nullable=True),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.ForeignKeyConstraint(["project_id"], ["projects.id"], name=op.f("fk_analysis_runs_project_id_projects")),
+        # project_id は Job.project_id と同じく FK を張らない（shared metadata に projects が無く、
+        # ORM と DDL の schema を一致させるため。索引のみで join する）。
         sa.ForeignKeyConstraint(["job_id"], ["jobs.id"], name=op.f("fk_analysis_runs_job_id_jobs")),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_analysis_runs")),
     )

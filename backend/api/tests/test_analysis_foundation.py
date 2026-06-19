@@ -17,11 +17,20 @@ from shared.enums import JobStatus
 from shared.models import AnalysisRun, RepoFile
 
 
-async def test_analysis_run_project_fk_enforced() -> None:
-    """存在しない project_id の AnalysisRun は FK 違反になる。"""
+async def test_analysis_run_job_fk_enforced() -> None:
+    """存在しない job_id の AnalysisRun は FK 違反になる。
+
+    project_id は ``Job.project_id`` と同じく FK 無し（索引のみ・shared metadata に projects が無いため）。
+    一方 job_id → jobs.id は shared 内で解決でき create_all でも FK が張られるので、それを検証する。
+    """
     async with app_db.async_session_maker() as session:
         session.add(
-            AnalysisRun(project_id=uuid.uuid4(), commit_sha="deadbeef", kind="code_debt_detection"),
+            AnalysisRun(
+                project_id=uuid.uuid4(),  # FK 無し: 任意の uuid で可。
+                job_id=uuid.uuid4(),  # 存在しない jobs.id → FK 違反。
+                commit_sha="deadbeef",
+                kind="code_debt_detection",
+            ),
         )
         with pytest.raises(IntegrityError):
             await session.commit()

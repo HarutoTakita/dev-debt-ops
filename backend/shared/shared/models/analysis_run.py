@@ -29,8 +29,11 @@ class AnalysisRun(SQLModel, table=True):
     __tablename__ = "analysis_runs"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    # 解析対象 project（1 project = 1 repo）。Job.project_id（FK 無し）と違い実 FK を張る。
-    project_id: uuid.UUID = Field(foreign_key="projects.id", index=True, nullable=False)
+    # 解析対象 project（1 project = 1 repo）。``projects`` は api 所有テーブルで ``shared`` の
+    # metadata には無いため、``Job.project_id`` と同じく ORM レベルの FK は張らない（張ると
+    # service 側の ``SQLModel.metadata.create_all`` が projects を解決できず NoReferencedTableError）。
+    # 参照整合性が必要なら api 所有の Alembic 側で FK を足す（本 issue では Job 流儀に倣い索引のみ）。
+    project_id: uuid.UUID = Field(index=True, nullable=False)
     # 解析した時点の commit。冪等・trend スナップショットのキー（037 が同 commit の重複 run 抑止に使う）。
     commit_sha: str = Field(index=True, nullable=False)
     branch: str = Field(default="main", nullable=False)
