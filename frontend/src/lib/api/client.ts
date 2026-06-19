@@ -5,6 +5,7 @@ import {
   debtItemSchema,
   debtListSchema,
   fileContentSchema,
+  overviewSchema,
   jobStatusSchema,
   orgMemberSchema,
   orgSchema,
@@ -21,6 +22,7 @@ import {
   type BranchList,
   type DebtItem,
   type DebtList,
+  type Overview,
   type FileContent,
   type JobStatusResponse,
   type Org,
@@ -37,7 +39,6 @@ import {
   type TechStack,
   type Tree,
 } from "./schemas";
-import { MOCK_DEBTS } from "./mock/debts";
 import { QUIZ_LIST, mockQuizResult, mockQuizSession } from "./quiz-mock";
 
 export type {
@@ -295,9 +296,14 @@ export async function getStack(owner: string, repo: string): Promise<TechStack |
   return techStackSchema.parse(await response.json());
 }
 
-// Debt registry（Matrix）— 取得系はモック返却。シグネチャは本実装と互換にしておき、
-// 後で GET /api/v1/orgs/{slug}/debts に差し替える。アクション系は Coming Soon スタブ。
+// Overview 二軸集計（issue 031）: GET .../overview を取得して overviewSchema で検証。
+export async function getOverview(orgSlug: string, projectSlug: string): Promise<Overview> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/overview`);
+  if (!response.ok) throw new Error(await errorDetail(response, "Overview の取得に失敗しました"));
+  return overviewSchema.parse(await response.json());
+}
 
+// Debt registry（Matrix）— issue 031 で実 API に接続。フィルタ/ソートはクエリでサーバに委譲。
 export type DebtFilter = {
   kind?: ("code" | "knowledge")[];
   severity?: Severity[];
@@ -306,39 +312,43 @@ export type DebtFilter = {
 };
 export type DebtSort = { key: "severity" | "detected_at" | "estimated_repay_hours"; dir: "asc" | "desc" };
 
-const SEVERITY_RANK: Record<Severity, number> = { critical: 3, high: 2, medium: 1, low: 0 };
-
-function applyFilterSort(debts: DebtItem[], filter: DebtFilter, sort: DebtSort): DebtItem[] {
-  const filtered = debts.filter((d) => {
-    if (filter.kind?.length && !filter.kind.includes(d.kind)) return false;
-    if (filter.severity?.length && !filter.severity.includes(d.severity)) return false;
-    if (filter.agent?.length && !filter.agent.includes(d.assigned_agent)) return false;
-    if (filter.status?.length && !filter.status.includes(d.status)) return false;
-    return true;
-  });
-  const dir = sort.dir === "asc" ? 1 : -1;
-  return filtered.sort((a, b) => {
-    const cmp =
-      sort.key === "severity"
-        ? SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]
-        : sort.key === "detected_at"
-          ? a.detected_at.localeCompare(b.detected_at)
-          : a.estimated_repay_hours - b.estimated_repay_hours;
-    return cmp * dir;
-  });
+export async function listDebts(
+  orgSlug: string,
+  projectSlug: string,
+  filter: DebtFilter,
+  sort: DebtSort,
+): Promise<DebtList> {
+  const params = new URLSearchParams();
+  for (const k of filter.kind ?? []) params.append("kind", k);
+  for (const s of filter.severity ?? []) params.append("severity", s);
+  for (const a of filter.agent ?? []) params.append("agent", a);
+  for (const st of filter.status ?? []) params.append("status", st);
+  params.set("sort_key", sort.key);
+  params.set("sort_dir", sort.dir);
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts?${params}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "負債一覧の取得に失敗しました"));
+  return debtListSchema.parse(await response.json());
 }
 
-export async function listDebts(orgSlug: string, filter: DebtFilter, sort: DebtSort): Promise<DebtList> {
-  void orgSlug; // TODO: GET /api/v1/orgs/${orgSlug}/debts に差し替え。現状はモックをフィルタ/ソート。
-  const debts = applyFilterSort(MOCK_DEBTS, filter, sort);
-  return debtListSchema.parse({ debts, total: debts.length });
+export async function getDebt(orgSlug: string, projectSlug: string, debtId: string): Promise<DebtItem> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}`);
+  if (response.status === 404) throw new Error("負債が見つかりません");
+  if (!response.ok) throw new Error(await errorDetail(response, "負債の取得に失敗しました"));
+  return debtItemSchema.parse(await response.json());
 }
 
-export async function getDebt(orgSlug: string, debtId: string): Promise<DebtItem> {
-  void orgSlug;
-  const found = MOCK_DEBTS.find((d) => d.id === debtId);
-  if (!found) throw new Error("負債が見つかりません");
-  return debtItemSchema.parse(found);
+async function patchDebt(
+  orgSlug: string,
+  projectSlug: string,
+  debtId: string,
+  body: Record<string, unknown>,
+): Promise<DebtItem> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "負債の更新に失敗しました"));
+  return debtItemSchema.parse(await response.json());
 }
 
 // --- Coming Soon（場所だけ用意・本体は未実装） ---
@@ -353,16 +363,16 @@ export async function createRepaymentPr(orgSlug: string, debtId: string): Promis
   void debtId;
   throw new ComingSoonError();
 }
-export async function dismissDebt(orgSlug: string, debtId: string): Promise<never> {
-  void orgSlug;
-  void debtId;
-  throw new ComingSoonError();
+export async function dismissDebt(orgSlug: string, projectSlug: string, debtId: string): Promise<DebtItem> {
+  return patchDebt(orgSlug, projectSlug, debtId, { status: "dismissed" });
 }
-export async function assignDebt(orgSlug: string, debtId: string, handle: string): Promise<never> {
-  void orgSlug;
-  void debtId;
-  void handle;
-  throw new ComingSoonError();
+export async function assignDebt(
+  orgSlug: string,
+  projectSlug: string,
+  debtId: string,
+  handle: string,
+): Promise<DebtItem> {
+  return patchDebt(orgSlug, projectSlug, debtId, { assignee_github_handle: handle });
 }
 
 // Quiz（返済体験）— 取得系はモック返却。シグネチャは本実装と互換にしておく。
