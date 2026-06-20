@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { project } from "$lib/stores/project-store.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
+  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
@@ -32,6 +33,9 @@
       untrack(() => {
         project.setCurrent(null);
         repo.disconnect();
+        // Clear the shared analysis-run singleton so project A's stages / deep-links don't leak
+        // into project B and so in-flight polls are cancelled on project switch (issue-044).
+        analysisRun.reset();
       });
     };
   });

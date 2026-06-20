@@ -62,7 +62,7 @@
       {/if}
       <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
         <span>{m.learning_gap()}:</span>
-        {#each plan.gap_concepts as concept (concept)}
+        {#each Array.from(new Set(plan.gap_concepts)) as concept (concept)}
           <a
             href={resolve(`/${orgSlug}/${projectSlug}/galaxy`)}
             title={m.gap_concept_learn({ concept })}
