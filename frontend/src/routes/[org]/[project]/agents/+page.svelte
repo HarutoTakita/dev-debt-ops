@@ -8,6 +8,7 @@
   import NarrativeStream from "$lib/components/agents/narrative-stream.svelte";
   import AgentPipeline from "$lib/components/agents/agent-pipeline.svelte";
   import ComingSoonPlaceholder from "$lib/components/agents/coming-soon-placeholder.svelte";
+  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -33,7 +34,18 @@
         <Tabs.Trigger value="code_debt">{m.agents_kind_code()}</Tabs.Trigger>
         <Tabs.Trigger value="knowledge_debt">{m.agents_kind_knowledge()}</Tabs.Trigger>
       </Tabs.List>
-      <span class="text-xs text-muted-foreground">{m.agents_preview_label()}</span>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-7 px-2 text-xs"
+          disabled={analysisRun.running}
+          onclick={() => analysisRun.runAll({ orgSlug, projectSlug, owner: "", repo: "" })}
+        >
+          {m.agents_run_loop()}
+        </Button>
+        <span class="text-xs text-muted-foreground">{m.agents_preview_label()}</span>
+      </div>
     </div>
   </Tabs.Root>
 
