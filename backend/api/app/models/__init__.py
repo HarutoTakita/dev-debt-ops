@@ -10,6 +10,8 @@ from app.models.user import User
 # naming-convention metadata — so Alembic autogenerate and the test `create_all` pick up the
 # `jobs` / `tech_stacks` / `analysis_runs` / `repo_files` tables. (issue 018 / 026)
 from shared.models import (
+    AgentActivity,
+    AgentPipeline,
     AnalysisRun,
     AssignedDeveloper,
     CodeDebt,
@@ -21,6 +23,8 @@ from shared.models import (
     LearningPlan,
     LearningResource,
     LearningStep,
+    NarrativeEvidence,
+    NarrativeStep,
     QuizAnswer,
     QuizResult,
     QuizSession,
@@ -29,6 +33,8 @@ from shared.models import (
 )
 
 __all__ = [
+    "AgentActivity",
+    "AgentPipeline",
     "AnalysisRun",
     "AssignedDeveloper",
     "CodeDebt",
@@ -40,6 +46,8 @@ __all__ = [
     "LearningPlan",
     "LearningResource",
     "LearningStep",
+    "NarrativeEvidence",
+    "NarrativeStep",
     "OAuthAccount",
     "Org",
     "OrgMember",
