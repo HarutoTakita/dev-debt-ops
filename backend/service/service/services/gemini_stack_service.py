@@ -132,9 +132,14 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
     )
 
     try:
-        return json.loads(response.text)  # ty: ignore[invalid-argument-type]
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
     except (json.JSONDecodeError, AttributeError):
         return _empty_result()
+    # Guard against valid-JSON-but-wrong-shape replies (e.g. a list/scalar) before save_stack
+    # calls .get() on it — matches the dict guards in the sibling Gemini helpers (issue-045).
+    if not isinstance(raw, dict):
+        return _empty_result()
+    return raw
 
 
 async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
