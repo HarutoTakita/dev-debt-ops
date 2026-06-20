@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 解析パイプラインの冪等性・原子性の是正（issue-042）: (A) 検知/KC/知識の各パイプラインに stale 行削除を追加 — 再実行（at-least-once 再配信含む）で消えるべき finding（閾値低下・ファイル削除等）が残らないよう、現在の finding 集合に無い行を `run_id` スコープで削除（upsert は生存行の id を保持）。(B/C) `process` 内の `commit()` を `flush()` に置換し、`shared.worker.run_task` が唯一の終端 commit を所有 — ドメイン行と Job 終端ステータスが原子化。失敗時は worker が `rollback()` してから FAILED にし、`process` が flush した行を巻き込まない。(D) 再配信時の result_data 誤報告を修正（`agent_loop` は既存 `NarrativeStep` 数を報告、`quiz_grading` は `QuizResult` の実 KC を echo）。(E) `analysis_runs.branch` に server_default `'main'` を付与（Alembic `0015`、非 ORM insert の NOT NULL 違反防止）。
+
 ### Security
 
 - 認証強化（issue-041）: (A) CSRF 防御の深さとして `OriginCheckMiddleware` を追加 — unsafe メソッドで `Origin` ヘッダが存在しかつ同一オリジン/`FRONTEND_ORIGIN` のいずれでもない場合 403（`Origin` 不在時は従来の `SameSite=Lax` にフォールバック）。(B) `token_epoch` ログアウト無効化の機能不全を修正 — access JWT に `iat`（と `iss`）を発行時付与（従来は `iat` 不在で常に 0 のため、初回ログアウト後に発行される全トークンが恒久的に拒否されていた）。(C) OAuth 紐付けで未検証メールへのフォールバックを削除（primary+verified が無ければ noreply 合成形へ）。(D) access JWT に固有 audience（`rosetta:access`）を設定し reset/verify/OAuth-state トークンと分離。

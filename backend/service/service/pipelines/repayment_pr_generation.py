@@ -110,7 +110,7 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
     debt.related_pr = f"#{pr_number}"
     debt.status = "in_pr"
     session.add(debt)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     logger.info("repayment_pr_generation: opened PR #%s for debt %s", pr_number, request.debt_id)
     return _result(request, pr_number=pr_number, pr_url=pr_url, branch=head_branch, trace=trace)

@@ -71,7 +71,7 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
     quiz.questions = generated["questions"]
     quiz.answer_key = generated["answer_key"]
     session.add(quiz)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     logger.info("quiz_generation: %s questions for session %s", len(quiz.questions), request.session_id)
     return QuizGenerationResult(
