@@ -86,6 +86,11 @@ async def run_task(
         request = request_model.model_validate(body)
         ctx = PipelineContext(blob=blob_client, session=session)
         result = await process_fn(request, ctx)
+    except TransientTaskError:
+        # Transient (e.g. GitHub rate limit) — discard partial work and let the caller retry
+        # (HTTP 503 → Cloud Tasks redelivery). Do NOT mark the Job FAILED (issue-045).
+        await session.rollback()
+        raise
     except Exception as exc:
         # Discard any domain rows the pipeline flushed before failing, then mark FAILED. Without
         # the rollback those pending rows would be committed alongside the FAILED Job below.
