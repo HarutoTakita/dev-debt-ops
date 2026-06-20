@@ -20,9 +20,10 @@ import posixpath
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from service import config
 from service.services.authorship import AuthorIdentity, resolve_author_user_id
@@ -253,9 +254,20 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
     for edge in edges:
         await _upsert_dependency(session, run_id=run.id, from_path=edge.from_path, to_path=edge.to_path)
 
+    # Drop this run's file_kc / dependency rows for files/edges no longer present (issue-042).
+    current_files = set(source_paths)
+    stale_kc = delete(FileKc).where(col(FileKc.run_id) == run.id)
+    if current_files:
+        stale_kc = stale_kc.where(col(FileKc.file_path).notin_(current_files))
+    await session.execute(stale_kc)
+    stale_dep = delete(Dependency).where(col(Dependency.run_id) == run.id)
+    if seen_edges:
+        stale_dep = stale_dep.where(tuple_(col(Dependency.from_path), col(Dependency.to_path)).notin_(seen_edges))
+    await session.execute(stale_dep)
+
     run.status = JobStatus.COMPLETED
     session.add(run)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
     trace.append(f"upserted {file_kc_count} file_kc rows, {len(edges)} dependencies")
 
     logger.info(

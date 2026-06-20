@@ -79,11 +79,20 @@ async def run_task(
     session.add(job)
     await session.commit()
 
+    # The pipeline persists its domain rows on this same session WITHOUT committing
+    # (it flushes for ids). run_task owns the single terminal commit, so domain rows and the
+    # Job's terminal status land atomically — a failure leaves neither behind (issue-042).
     try:
         request = request_model.model_validate(body)
         ctx = PipelineContext(blob=blob_client, session=session)
         result = await process_fn(request, ctx)
     except Exception as exc:
+        # Discard any domain rows the pipeline flushed before failing, then mark FAILED. Without
+        # the rollback those pending rows would be committed alongside the FAILED Job below.
+        await session.rollback()
+        job = await session.get(Job, job.id)
+        if job is None:  # pragma: no cover - the PROCESSING row was committed above
+            raise TransientTaskError(f"job vanished mid-processing: {job_id_raw}") from exc
         job.status = JobStatus.FAILED
         job.error = str(exc)
         job.completed_at = datetime.now(UTC)

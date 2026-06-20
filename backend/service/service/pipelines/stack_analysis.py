@@ -228,7 +228,7 @@ def build_tools(github_client: GitHubGitClient, session: AsyncSession):
             },
         )
         await session.execute(stmt)
-        await session.commit()
+        await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
         logger.info("Saved tech stack for %s/%s@%s", owner, repo, branch)
         return f"Saved tech stack for {owner}/{repo}@{branch}"
 
