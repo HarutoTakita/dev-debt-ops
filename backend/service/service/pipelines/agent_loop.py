@@ -127,7 +127,20 @@ async def process(request: AgentLoopRequest, ctx: PipelineContext) -> AgentLoopR
         activity = (
             await session.execute(select(AgentActivity).where(col(AgentActivity.pipeline_id) == existing.id))
         ).scalar_one_or_none()
-        return _result(request, activity_id=str(activity.id) if activity else "", pipeline_id=str(existing.id), steps=0)
+        # Report the steps actually persisted on the first run, not 0 (issue-042 result_data fix).
+        prior_steps = 0
+        if activity is not None:
+            prior_steps = len(
+                (await session.execute(select(NarrativeStep).where(col(NarrativeStep.activity_id) == activity.id)))
+                .scalars()
+                .all()
+            )
+        return _result(
+            request,
+            activity_id=str(activity.id) if activity else "",
+            pipeline_id=str(existing.id),
+            steps=prior_steps,
+        )
 
     findings = await _latest_findings(session, project_id, kind)
     summary = _summary(kind, findings)
@@ -183,7 +196,7 @@ async def process(request: AgentLoopRequest, ctx: PipelineContext) -> AgentLoopR
                 )
         step_count += 1
 
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
     logger.info("agent_loop(%s): activity %s, %s steps", kind, activity.id, step_count)
     return _result(request, activity_id=str(activity.id), pipeline_id=str(pipeline.id), steps=step_count)
 

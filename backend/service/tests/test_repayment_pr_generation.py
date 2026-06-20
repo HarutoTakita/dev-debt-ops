@@ -100,6 +100,7 @@ async def test_process_opens_pr_and_marks_in_pr(
 
     async with session_maker() as session:
         result = await repayment_pr_generation.process(_request(debt_id), PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     assert fake.created_pr is True
     assert result.pr_number == 42
@@ -121,9 +122,11 @@ async def test_process_idempotent_when_already_in_pr(
 
     async with session_maker() as session:
         await repayment_pr_generation.process(_request(debt_id), PipelineContext(session=session))
+        await session.commit()
     fake.created_pr = False  # reset; a redelivery must NOT open another PR
     async with session_maker() as session:
         result = await repayment_pr_generation.process(_request(debt_id), PipelineContext(session=session))
+        await session.commit()
 
     assert fake.created_pr is False  # skipped
     assert result.pr_number is None

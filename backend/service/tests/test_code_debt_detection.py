@@ -149,6 +149,7 @@ async def test_process_detects_and_persists(monkeypatch: pytest.MonkeyPatch, ses
 
     async with session_maker() as session:
         result = await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     assert result.detected >= 2
     assert result.commit_sha == "abc123"
@@ -179,8 +180,10 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
 
     async with session_maker() as session:
         await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
 
     # Redelivery reuses the run (keyed by job_id) and upserts — no duplicate rows or runs.
     async with session_maker() as session:
@@ -197,3 +200,30 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
             await session.execute(select(func.count()).select_from(CodeDebt).where(CodeDebt.run_id == run.id))
         ).scalar_one()
         assert first >= 2
+
+
+async def test_rerun_removes_stale_debts(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
+    """A finding that disappears on re-run must be deleted, not left stale (issue-042)."""
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    # First pass: orphan.py is present → produces a "dead" finding.
+    _patch(monkeypatch, _FILES, {})
+    async with session_maker() as session:
+        await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    # Second pass (same job → same run): orphan.py is gone, so its "dead" debt must be removed.
+    _patch(monkeypatch, {"app/main.py": _MAIN, "app/util.py": "VALUE = 1\n"}, {})
+    async with session_maker() as session:
+        await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        debts = (await session.execute(select(CodeDebt).where(CodeDebt.run_id == run.id))).scalars().all()
+        keys = {(d.file_path, d.type) for d in debts}
+        assert ("app/orphan.py", "dead") not in keys  # stale finding deleted
+        assert ("app/main.py", "complexity") in keys  # surviving finding kept

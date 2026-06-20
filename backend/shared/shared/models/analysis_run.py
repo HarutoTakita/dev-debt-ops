@@ -36,7 +36,9 @@ class AnalysisRun(SQLModel, table=True):
     project_id: uuid.UUID = Field(index=True, nullable=False)
     # 解析した時点の commit。冪等・trend スナップショットのキー（037 が同 commit の重複 run 抑止に使う）。
     commit_sha: str = Field(index=True, nullable=False)
-    branch: str = Field(default="main", nullable=False)
+    # server_default("main") so non-ORM inserts (constructed statements) can't NOT-NULL-violate
+    # when the column is omitted (issue-042).
+    branch: str = Field(default="main", sa_column_kwargs={"server_default": "main"}, nullable=False)
     # 解析種別。値は JobType（lowercase snake_case）に揃える。後続 issue が値を入れる。
     kind: str = Field(sa_type=String, index=True, nullable=False)
     # この run を生成した非同期 Job（手動 / 定期どちらの run か追える）。
