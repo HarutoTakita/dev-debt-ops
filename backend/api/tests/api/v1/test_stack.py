@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from httpx import AsyncClient
 
+from app.api.deps import get_github_app_service
 from app.api.v1.github import resolve_installation_id
 from app.core import db as app_db
 from app.main import app
@@ -21,6 +22,18 @@ from shared.enums import JobStatus, JobType
 from shared.models import Job, TechStack
 
 _CATS = ("frameworks", "databases", "auth", "container", "infra", "cicd", "monitoring", "testing", "other")
+
+_INSTALLATION_ID = 12345678
+
+
+class _StubGitHubApp:
+    """Stub GitHubAppService whose repo→installation mapping is set per test (issue-039)."""
+
+    def __init__(self, repo_installation: int) -> None:
+        self._repo_installation = repo_installation
+
+    async def get_installation_for_repo(self, owner: str, repo: str) -> int:
+        return self._repo_installation
 
 
 @pytest.fixture(autouse=True)
@@ -34,10 +47,16 @@ def _reset_singletons():
 
 @pytest.fixture
 def _stub_installation():
-    """Override the GitHub installation-id resolver so no external call is made."""
-    app.dependency_overrides[resolve_installation_id] = lambda: 12345678
-    yield 12345678
+    """Override installation resolution + the GitHub App so no external call is made.
+
+    By default the repo's managing installation matches the caller's, so ``verify_repo_access``
+    passes. Tests that need a mismatch override ``get_github_app_service`` themselves.
+    """
+    app.dependency_overrides[resolve_installation_id] = lambda: _INSTALLATION_ID
+    app.dependency_overrides[get_github_app_service] = lambda: _StubGitHubApp(_INSTALLATION_ID)
+    yield _INSTALLATION_ID
     app.dependency_overrides.pop(resolve_installation_id, None)
+    app.dependency_overrides.pop(get_github_app_service, None)
 
 
 @pytest.mark.usefixtures("_stub_installation")
@@ -65,6 +84,68 @@ async def test_analyze_stack_enqueues_and_returns_202(authenticated_client: Asyn
     assert len(dispatcher.tasks) == 1
     assert dispatcher.tasks[0].pipeline == JobType.STACK_ANALYSIS.value
     assert dispatcher.tasks[0].dedup_key == str(job_id)
+
+
+async def test_get_stack_requires_authentication(client: AsyncClient) -> None:
+    """Unauthenticated GET .../stack is rejected (issue-039: was previously open)."""
+    resp = await client.get("/api/v1/github/repositories/acme/rosetta/stack")
+    assert resp.status_code == 401
+
+
+@pytest.mark.usefixtures("_stub_installation")
+async def test_get_stack_returns_cached_for_accessible_repo(authenticated_client: AsyncClient) -> None:
+    """A repo managed by the caller's installation returns its cached analysis."""
+    async with app_db.async_session_maker() as session:
+        session.add(
+            TechStack(
+                owner="acme",
+                repo="rosetta",
+                analyzed_at=datetime.now(UTC),
+                languages=[{"name": "Python", "confidence": "high"}],
+                categories={k: [] for k in _CATS},
+            )
+        )
+        await session.commit()
+
+    resp = await authenticated_client.get("/api/v1/github/repositories/acme/rosetta/stack")
+    assert resp.status_code == 200
+    assert resp.json()["owner"] == "acme"
+
+
+async def test_get_stack_404_when_installation_does_not_manage_repo(authenticated_client: AsyncClient) -> None:
+    """Cross-tenant read: the repo is managed by a different installation → 404, no leak."""
+    app.dependency_overrides[resolve_installation_id] = lambda: _INSTALLATION_ID
+    app.dependency_overrides[get_github_app_service] = lambda: _StubGitHubApp(99999999)  # different installation
+    try:
+        async with app_db.async_session_maker() as session:
+            session.add(
+                TechStack(
+                    owner="victim",
+                    repo="private",
+                    analyzed_at=datetime.now(UTC),
+                    languages=[{"name": "Go", "confidence": "high"}],
+                    categories={k: [] for k in _CATS},
+                )
+            )
+            await session.commit()
+
+        resp = await authenticated_client.get("/api/v1/github/repositories/victim/private/stack")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.pop(resolve_installation_id, None)
+        app.dependency_overrides.pop(get_github_app_service, None)
+
+
+async def test_analyze_stack_404_when_installation_does_not_manage_repo(authenticated_client: AsyncClient) -> None:
+    """Triggering analysis for a repo the caller's installation can't manage → 404."""
+    app.dependency_overrides[resolve_installation_id] = lambda: _INSTALLATION_ID
+    app.dependency_overrides[get_github_app_service] = lambda: _StubGitHubApp(99999999)
+    try:
+        resp = await authenticated_client.post("/api/v1/github/repositories/victim/private/analyze-stack")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.pop(resolve_installation_id, None)
+        app.dependency_overrides.pop(get_github_app_service, None)
 
 
 async def test_api_does_not_import_the_agent() -> None:
