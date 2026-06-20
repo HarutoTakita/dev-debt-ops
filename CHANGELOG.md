@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Security
+
+- service の `/tasks/{pipeline}` OIDC 検証を fail-closed 化（issue-037 レビュー → issue-038）: ワーカー入口はパイプラインを実行し Job/ドメイン行を直接 DB へ書き込む（返済 PR の GitHub 書き込み含む）唯一の入口だが、OIDC 検証スキップを司る `USE_MOCK_QUEUE` のデフォルトが `true`（fail-open）だった。デフォルトを `false` に変更し、`config.validate_runtime_config()` を service 起動時に呼んで非 dev（stg/prod）で `USE_MOCK_QUEUE=true` を起動エラーにする。dev は `.env.dev`（`USE_MOCK_QUEUE=true`）で従来通り、テストは conftest で opt-in。**注意:** `compose.prod.yml`（ENVIRONMENT=prod のローカル本番スタック）で `.env.prod` に `USE_MOCK_QUEUE=true` を設定していると service が起動しなくなる（fail-closed の意図通り）。
+
 ### Added
 
 - 生成トリガー導線と解析ラン・コックピット（issue-037、フロントのみ）: 032-036 で実データ化した各非同期パイプラインを、ユーザーが UI から起動・進捗確認・結果到達できるよう導線を整備。共有 `analysis-run-store`（`*.svelte.ts` runes）が 018 stack-analysis のポーリング/状態遷移を「ステージ集合 + 依存順 + deep-link」に一般化し、検知（コード/知識）・分析（Galaxy/KC）・計画（学習）・ループ（Twin Agent、`detect_code` 完了に依存）の各ステージを enqueue→`GET /jobs/{id}` ポーリングで終端まで駆動（`runAll` は依存順に実行し失敗依存はスキップ、`runStage` は QUEUED/PROCESSING を再起動しない冪等、`cancel`/`reset` は世代カウンタで in-flight ポーリングを中断）。Overview に `analysis-run-cockpit`（主 CTA「このリポジトリを解析する」→ステージ一覧 + 状態 + 完了 deep-link + 再解析/ステージ再実行）を追加し、Matrix 空状態（検知）・Galaxy 未観測（KC 解析）・Learning 未生成（プラン生成→完了後に生成プランへ遷移）・Agents（ループ実行）に同 store を共有する生成 CTA を新設。Paraglide ja/en に `analysis_*` 文言を追加。バックエンド・API 変更なし。
