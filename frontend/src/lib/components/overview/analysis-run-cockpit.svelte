@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
   import type { ResolvedPathname } from "$app/types";
   import { Button } from "$lib/components/ui/button";
   import { analysisRun, STAGES, type RunContext, type StageStatus } from "$lib/stores/analysis-run-store.svelte";
@@ -37,15 +36,16 @@
     FAILED: "text-destructive",
   };
 
-  // ポーリングのタイマーリーク防止（コンポーネント破棄時に停止）。
-  onDestroy(() => analysisRun.cancel());
+  // 注意: analysisRun は複数ページが共有するシングルトン。cockpit unmount で cancel() すると
+  // 他ページ（Matrix/Galaxy 等）が起動したポーリングまで止めてしまうため、ここでは cancel しない。
+  // プロジェクト切替時のキャンセル/リセットは [org]/[project]/+layout のクリーンアップが担う（issue-044）。
 </script>
 
 <section class="mx-auto max-w-5xl px-4 pt-4">
   {#if !analysisRun.started}
     <div class="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
-      <Button onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button>
+      <Button disabled={analysisRun.running} onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button>
     </div>
   {:else}
     <div class="rounded-lg border bg-card p-4">
