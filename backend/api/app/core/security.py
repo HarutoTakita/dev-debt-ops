@@ -42,10 +42,15 @@ access_cookie_transport = CookieTransport(
 
 
 def get_access_jwt_strategy() -> EpochCheckedJWTStrategy:
-    """Return an access-token JWT strategy that enforces `iat >= user.token_epoch`."""
+    """Return an access-token JWT strategy that enforces `iat >= user.token_epoch`.
+
+    Uses an app-specific ``audience`` so access tokens can't be confused with the
+    reset/verify/OAuth-state tokens signed by the same secret (issue-041).
+    """
     return EpochCheckedJWTStrategy(
         secret=settings.SECRET_KEY.get_secret_value(),
         lifetime_seconds=settings.JWT_LIFETIME_SECONDS,
+        token_audience=["rosetta:access"],
     )
 
 
