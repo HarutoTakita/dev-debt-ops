@@ -30,7 +30,9 @@
       </Sheet.Content>
     </Sheet.Root>
 
-    <main class="min-w-0 flex-1 overflow-hidden">
+    <!-- メイン領域のみ縦スクロール（トップバー/サイドバーは固定）。overflow-hidden だと
+         縦長ページの下部が見切れてスクロールできないため overflow-y-auto にする。 -->
+    <main class="min-w-0 flex-1 overflow-y-auto">
       {@render children()}
     </main>
   </div>
