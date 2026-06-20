@@ -77,11 +77,19 @@ class AnalysisRunStore {
     this.stages = { ...this.stages, [id]: { ...this.stages[id], ...patch } };
   }
 
+  #runAllActive = false; // reentrancy guard: a second runAll (fast double-click / two pages) is ignored
+
   /** Run all stages in dependency order; a failed dependency skips its dependents (others continue). */
   async runAll(ctx: RunContext) {
-    for (const def of STAGES) {
-      const depsOk = def.dependsOn.every((d) => this.stages[d]?.status === "COMPLETED");
-      if (depsOk) await this.runStage(def.id, ctx);
+    if (this.#runAllActive) return; // a run is already orchestrating; don't interleave a second loop
+    this.#runAllActive = true;
+    try {
+      for (const def of STAGES) {
+        const depsOk = def.dependsOn.every((d) => this.stages[d]?.status === "COMPLETED");
+        if (depsOk) await this.runStage(def.id, ctx);
+      }
+    } finally {
+      this.#runAllActive = false;
     }
   }
 
@@ -136,6 +144,7 @@ class AnalysisRunStore {
 
   reset() {
     this.#generation += 1;
+    this.#runAllActive = false;
     this.stages = _initial();
   }
 }

@@ -33,13 +33,24 @@
     }
   });
 
-  // 接続済み・スキャン完了後に実データ（issue 031 の集計 API）を取得。失敗/空ならサンプルにフォールバック。
+  // 接続済み・スキャン完了後に実データ（issue 031 の集計 API）を取得。
+  // 取得失敗（エラー）と「データ無し（空）」を区別する: 空はサンプル表示、失敗は
+  // 再試行 UI を出す（mock を実データ風に見せない、issue-044）。
   let overview = $state<Overview | null>(null);
+  let overviewError = $state(false);
+  async function loadOverview() {
+    if (!(repo.connected && repo.scanState !== "scanning" && orgSlug && projectSlug)) return;
+    try {
+      overview = await getOverview(orgSlug, projectSlug);
+      overviewError = false;
+    } catch {
+      overview = null;
+      overviewError = true;
+    }
+  }
   $effect(() => {
     if (repo.connected && repo.scanState !== "scanning" && orgSlug && projectSlug) {
-      getOverview(orgSlug, projectSlug)
-        .then((o) => (overview = o))
-        .catch(() => (overview = null));
+      void loadOverview();
     }
   });
 </script>
@@ -76,7 +87,12 @@
   <div class="mx-auto max-w-5xl px-4 pt-4">
     <GettingStarted />
   </div>
-  {#if overview && overview.files.length > 0}
+  {#if overviewError}
+    <div class="mx-auto max-w-5xl space-y-3 px-4 py-8 text-center">
+      <p class="text-sm text-muted-foreground">{m.overview_load_error()}</p>
+      <Button variant="outline" onclick={loadOverview}>{m.common_retry()}</Button>
+    </div>
+  {:else if overview && overview.files.length > 0}
     <OverviewDashboard {overview} />
   {:else}
     <OverviewDashboard overview={overviewMock} isSample />

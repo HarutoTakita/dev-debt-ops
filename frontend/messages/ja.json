@@ -329,6 +329,7 @@
   "overview_scan_title": "リポジトリを解析中",
   "overview_scan_desc": "コード品質とチーム理解度（KC）をスキャンしています…",
   "overview_scan_cta": "スキャンを開始",
+  "overview_load_error": "概要の取得に失敗しました。",
   "overview_sample_badge": "Sample / デモデータ",
   "analysis_run_title": "解析ラン（コアループ）",
   "analysis_run_cta": "このリポジトリを解析する",

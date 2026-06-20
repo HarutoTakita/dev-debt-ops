@@ -329,6 +329,7 @@
   "overview_scan_title": "Analyzing repository",
   "overview_scan_desc": "Scanning code quality and team knowledge (KC)…",
   "overview_scan_cta": "Start scan",
+  "overview_load_error": "Failed to load the overview.",
   "overview_sample_badge": "Sample data",
   "analysis_run_title": "Analysis run (core loop)",
   "analysis_run_cta": "Analyze this repository",
