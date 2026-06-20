@@ -289,3 +289,37 @@ async def grade_quiz(payload: str) -> dict:
     except (TypeError, ValueError):
         score = 0.0
     return {"score": score, "understood": raw.get("understood") or [], "gap_concepts": raw.get("gap_concepts") or []}
+
+
+_EXTERNAL_RESOURCES_PROMPT = """\
+A developer needs to learn these concepts: {concepts}
+
+Suggest external learning resources (official docs, books, articles). Return ONLY a valid JSON object \
+— no markdown — with this exact schema:
+{{
+  "resources": [
+    {{"kind": "docs|book|article", "title": "...", "url": "https://...",
+      "estimated_minutes": 30, "priority": "required|recommended|supplementary|hands_on"}}
+  ]
+}}
+Prefer authoritative sources. Use https URLs. Keep to at most 6 resources.
+"""
+
+
+async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
+    """Return external learning resources for gap concepts (Gemini). Empty on parse failure."""
+    if not gap_concepts:
+        return []
+    client = _build_client()
+    prompt = _EXTERNAL_RESOURCES_PROMPT.format(concepts=", ".join(gap_concepts))
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return []
+    resources = raw.get("resources") if isinstance(raw, dict) else None
+    return resources if isinstance(resources, list) else []
