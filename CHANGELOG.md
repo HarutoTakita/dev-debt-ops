@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- 返済 PR 生成の冪等性とプロンプトインジェクション耐性（issue-043）: (A) 部分失敗後の再配信で重複 PR / 422 を生まないよう、`GitHubGitClient.find_open_pull_request` を新設し、開始前に既存 open PR を検知して再利用。`create_branch` の 422（ref 既存）と `create_pull_request` の 422（PR 既存）を捕捉して継続、commit は head ブランチの file sha を使う。(B) `_REFACTOR_PROMPT` にリポジトリ内容が「指示ではなくデータ」である信頼境界の区切りを明示し、`_is_plausible_refactor`（空/原文の 3 倍超を拒否）で Gemini 出力をコミット前に検証 — プロンプトインジェクションされた巨大/空の `new_content` が自動 PR に混入するのを防止。PR 本文に「未レビュー」を明示。
 - 解析パイプラインの冪等性・原子性の是正（issue-042）: (A) 検知/KC/知識の各パイプラインに stale 行削除を追加 — 再実行（at-least-once 再配信含む）で消えるべき finding（閾値低下・ファイル削除等）が残らないよう、現在の finding 集合に無い行を `run_id` スコープで削除（upsert は生存行の id を保持）。(B/C) `process` 内の `commit()` を `flush()` に置換し、`shared.worker.run_task` が唯一の終端 commit を所有 — ドメイン行と Job 終端ステータスが原子化。失敗時は worker が `rollback()` してから FAILED にし、`process` が flush した行を巻き込まない。(D) 再配信時の result_data 誤報告を修正（`agent_loop` は既存 `NarrativeStep` 数を報告、`quiz_grading` は `QuizResult` の実 KC を echo）。(E) `analysis_runs.branch` に server_default `'main'` を付与（Alembic `0015`、非 ORM insert の NOT NULL 違反防止）。
 
 ### Security

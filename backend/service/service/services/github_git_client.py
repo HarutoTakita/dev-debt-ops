@@ -399,6 +399,22 @@ class GitHubGitClient:
         resp = await self._client.put(f"/repos/{owner}/{repo}/contents/{path}", json=body)
         resp.raise_for_status()
 
+    async def find_open_pull_request(self, owner: str, repo: str, head: str) -> tuple[int, str] | None:
+        """Return ``(number, html_url)`` of the open PR for ``head`` branch, or None.
+
+        Used to make repayment-PR generation idempotent under at-least-once redelivery (issue-043):
+        a prior partial run may have already opened the PR for ``rosetta/repay-*``.
+        """
+        resp = await self._client.get(
+            f"/repos/{owner}/{repo}/pulls",
+            params={"state": "open", "head": f"{owner}:{head}", "per_page": 1},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            return None
+        return data[0]["number"], data[0]["html_url"]
+
     async def create_pull_request(
         self, owner: str, repo: str, *, title: str, head: str, base: str, body: str
     ) -> tuple[int, str]:
