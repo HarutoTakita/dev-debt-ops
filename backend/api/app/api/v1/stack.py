@@ -3,21 +3,28 @@
 ``POST .../analyze-stack`` is async (issue 018): it resolves the caller's GitHub App
 installation id, enqueues a ``stack_analysis`` Job via Cloud Tasks, and returns ``202``
 immediately — the ADK agent runs in the ``service`` container, off the api request path.
-The frontend polls ``GET /jobs/{id}``. ``GET .../stack`` is unchanged: it reads the
-persisted ``TechStack`` (404 = not yet analysed).
+The frontend polls ``GET /jobs/{id}``. ``GET .../stack`` reads the persisted ``TechStack``
+(404 = not yet analysed).
+
+``TechStack`` is keyed globally on ``(owner, repo)``, so both routes verify the caller's
+GitHub App installation actually manages ``owner/repo`` before reading or triggering analysis
+(issue-039). Otherwise any authenticated user could read another tenant's (possibly private)
+cached analysis by guessing ``owner/repo``.
 """
 
 import logging
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select as sa_select
 
-from app.api.deps import CurrentUser, SASessionDep, SessionDep
+from app.api.deps import CurrentUser, SASessionDep, SessionDep, get_github_app_service
 from app.api.v1.github import InstallationIdDep
 from app.schemas.job import JobEnqueuedOut
 from app.services.dependencies import get_blob_client, get_task_dispatcher
+from app.services.github_app import GitHubAppService
 from app.services.job_orchestrator import enqueue_job
 from shared.enums import JobType
 from shared.models import TechStack
@@ -26,6 +33,25 @@ from shared.queue import BlobClient, TaskDispatcher
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/github", tags=["Stack"])
+
+GitHubAppDep = Annotated[GitHubAppService, Depends(get_github_app_service)]
+
+
+async def verify_repo_access(github_app: GitHubAppService, installation_id: int, owner: str, repo: str) -> None:
+    """Ensure the caller's installation manages ``owner/repo``; raise 404 otherwise.
+
+    Compares the repo's managing installation with the caller's resolved installation. A
+    mismatch (or a repo the App can't see) is reported as 404 — we don't leak whether the
+    repo exists or has been analysed by another tenant.
+    """
+    try:
+        repo_installation = await github_app.get_installation_for_repo(owner, repo)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Repository not found or not accessible") from exc
+        raise HTTPException(status_code=502, detail="GitHub API error") from exc
+    if repo_installation != installation_id:
+        raise HTTPException(status_code=404, detail="Repository not found or not accessible")
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +138,7 @@ async def analyze_stack(
     owner: str,
     repo: str,
     installation_id: InstallationIdDep,
+    github_app: GitHubAppDep,
     current_user: CurrentUser,
     session: SessionDep,
     dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
@@ -125,6 +152,7 @@ async def analyze_stack(
     queue (only ``installation_id`` is carried, the service mints the token). The frontend
     polls ``GET /jobs/{job_id}`` for progress (``agent_trace``) and the final ``tech_stack``.
     """
+    await verify_repo_access(github_app, installation_id, owner, repo)
     payload = {
         "owner": owner,
         "repo": repo,
@@ -151,9 +179,16 @@ async def analyze_stack(
 async def get_stack(
     owner: str,
     repo: str,
+    installation_id: InstallationIdDep,
+    github_app: GitHubAppDep,
     session: SASessionDep,
 ) -> TechStackOut:
-    """Return the most recent cached tech-stack analysis. 404 if not yet analysed."""
+    """Return the most recent cached tech-stack analysis. 404 if not yet analysed.
+
+    Requires authentication (via ``InstallationIdDep``) and verifies the caller's installation
+    manages ``owner/repo`` (issue-039) before reading the global ``(owner, repo)`` cache.
+    """
+    await verify_repo_access(github_app, installation_id, owner, repo)
     result = await session.execute(
         sa_select(TechStack).where(
             TechStack.owner == owner,  # ty: ignore[invalid-argument-type]
