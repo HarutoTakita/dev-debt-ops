@@ -5,7 +5,23 @@ from dataclasses import dataclass
 
 import httpx
 
+from shared.worker import TransientTaskError
+
 API_BASE = "https://api.github.com"
+
+
+async def _raise_on_rate_limit(response: httpx.Response) -> None:
+    """Response hook: turn a GitHub rate-limit response into a transient error (issue-045).
+
+    A 429, or a 403 carrying ``Retry-After`` / ``x-ratelimit-remaining: 0``, is a rate limit
+    (primary or secondary), not a permanent failure. Raising ``TransientTaskError`` makes the
+    worker return 503 so Cloud Tasks retries, instead of marking the Job FAILED.
+    """
+    if response.status_code == 429 or (
+        response.status_code == 403
+        and (response.headers.get("retry-after") is not None or response.headers.get("x-ratelimit-remaining") == "0")
+    ):
+        raise TransientTaskError(f"GitHub rate limited (status {response.status_code})")
 
 
 @dataclass
@@ -139,6 +155,7 @@ class GitHubGitClient:
                 "X-GitHub-Api-Version": "2022-11-28",
             },
             timeout=30.0,
+            event_hooks={"response": [_raise_on_rate_limit]},
         )
 
     async def list_repositories(self, page: int = 1, per_page: int = 30) -> RepositoryListResult:
