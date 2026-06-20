@@ -28,7 +28,7 @@ from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
 from shared.enums import JobType
-from shared.models import LearningPlan, LearningResource, LearningStep, QuizResult
+from shared.models import LearningPlan, LearningResource, LearningStep, QuizResult, QuizSession
 from shared.queue import BlobClient, TaskDispatcher
 
 router = APIRouter(tags=["learning"])
@@ -111,11 +111,23 @@ async def create_learning_plan(
 
     gap_concepts: list[str] = list(body.gap_concepts) if body else []
     if attempt_id is not None:
+        # Verify the quiz attempt belongs to this project AND this caller before reading its
+        # gap_concepts (issue-040: previously any attempt_id was accepted → cross-user/tenant leak).
+        qs = (await session.exec(sm_select(QuizSession).where(col(QuizSession.id) == attempt_id))).one_or_none()
+        if qs is None or qs.project_id != project.id:
+            raise HTTPException(status_code=404, detail="クイズが見つかりません")
+        if qs.developer_id != current_user.id:
+            raise HTTPException(status_code=403, detail="このクイズにアクセスする権限がありません")
         qr = (await session.exec(sm_select(QuizResult).where(col(QuizResult.session_id) == attempt_id))).one_or_none()
         if qr is not None:
             gap_concepts = [c["id"] for c in qr.gap_concepts if isinstance(c, dict) and "id" in c]
 
-    plan = LearningPlan(project_id=project.id, gap_concepts=gap_concepts, quiz_session_id=attempt_id)
+    plan = LearningPlan(
+        project_id=project.id,
+        developer_id=current_user.id,
+        gap_concepts=gap_concepts,
+        quiz_session_id=attempt_id,
+    )
     session.add(plan)
     await session.flush()
     payload = {
@@ -149,15 +161,18 @@ async def get_learning_plan(
     project_slug: Annotated[str, Path(description="Project slug within the org.")],
     plan_id: uuid.UUID,
     org_membership: OrgScope,
+    current_user: CurrentUser,
     service: ProjectServiceDep,
     session: SASessionDep,
 ) -> LearningPlanOut:
-    """Return one learning plan with its ordered steps (team assets first)."""
+    """Return one learning plan with its ordered steps (team assets first). Owner-scoped."""
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     plan = (await session.execute(select(LearningPlan).where(col(LearningPlan.id) == plan_id))).scalar_one_or_none()
     if plan is None or plan.project_id != project.id:
         raise HTTPException(status_code=404, detail="学習プランが見つかりません")
+    if plan.developer_id is not None and plan.developer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="この学習プランにアクセスする権限がありません")
     return await _plan_out(session, plan)
 
 
@@ -172,15 +187,18 @@ async def patch_learning_step(
     order: int,
     body: StepPatchIn,
     org_membership: OrgScope,
+    current_user: CurrentUser,
     service: ProjectServiceDep,
     session: SASessionDep,
 ) -> LearningStepOut:
-    """Patch a step's ``completed`` flag (and ``completed_at``)."""
+    """Patch a step's ``completed`` flag (and ``completed_at``). Owner-scoped."""
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     plan = (await session.execute(select(LearningPlan).where(col(LearningPlan.id) == plan_id))).scalar_one_or_none()
     if plan is None or plan.project_id != project.id:
         raise HTTPException(status_code=404, detail="学習プランが見つかりません")
+    if plan.developer_id is not None and plan.developer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="この学習プランにアクセスする権限がありません")
     step = (
         await session.execute(
             select(LearningStep).where(col(LearningStep.plan_id) == plan_id, col(LearningStep.order) == order)

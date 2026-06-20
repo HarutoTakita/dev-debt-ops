@@ -37,6 +37,9 @@ class LearningPlan(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     project_id: uuid.UUID = Field(index=True, nullable=False)
+    # Owner of this (personal) plan. Index-only, no FK (Job.developer_id 流儀). Nullable for
+    # pre-issue-040 rows; new plans always set it and ownership is enforced when present.
+    developer_id: uuid.UUID | None = Field(default=None, index=True)
     gap_concepts: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))  # list[str]
     estimated_total_minutes: int = Field(default=0, nullable=False)
     quiz_session_id: uuid.UUID | None = Field(default=None)

@@ -139,3 +139,23 @@ async def test_other_users_session_is_403(authenticated_client: AsyncClient) -> 
     sid = await _seed_session(project_id, uuid.uuid4())  # someone else's session
     resp = await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}")
     assert resp.status_code == 403
+
+
+@pytest.mark.usefixtures("_stub_installation")
+async def test_submit_409_when_already_submitted(authenticated_client: AsyncClient) -> None:
+    """Submitting an already-completed session is rejected (issue-040)."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_session(project_id, user_id, status="completed")
+    resp = await authenticated_client.post(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/submit")
+    assert resp.status_code == 409
+
+
+async def test_save_answer_409_when_completed(authenticated_client: AsyncClient) -> None:
+    """Editing answers after grading/completion is rejected (issue-040)."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_session(project_id, user_id, status="completed")
+    resp = await authenticated_client.patch(
+        f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/answers",
+        json={"question_id": "q1", "value": "changed"},
+    )
+    assert resp.status_code == 409
