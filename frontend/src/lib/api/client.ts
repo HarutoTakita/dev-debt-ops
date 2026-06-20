@@ -5,6 +5,8 @@ import {
   debtItemSchema,
   debtListSchema,
   fileContentSchema,
+  learningPlanSchema,
+  learningStepSchema,
   overviewSchema,
   personalGalaxySchema,
   jobStatusSchema,
@@ -23,6 +25,8 @@ import {
   type BranchList,
   type DebtItem,
   type DebtList,
+  type LearningPlan,
+  type LearningStep,
   type Overview,
   type PersonalGalaxy,
   type FileContent,
@@ -295,6 +299,44 @@ export async function getStack(owner: string, repo: string): Promise<TechStack |
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの取得に失敗しました"));
   return techStackSchema.parse(await response.json());
+}
+
+// Learning plan（issue 035）: 生成は 202+plan_id 即時発番、取得/ステップ進捗は実 API。
+export async function generatePlan(
+  orgSlug: string,
+  projectSlug: string,
+  opts: { attemptId?: string; gapConcepts?: string[] } = {},
+): Promise<{ job_id: string; plan_id: string }> {
+  const qs = opts.attemptId ? `?attempt_id=${opts.attemptId}` : "";
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/plans${qs}`, {
+    method: "POST",
+    body: JSON.stringify({ gap_concepts: opts.gapConcepts ?? [] }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "学習プラン生成の開始に失敗しました"));
+  const data = (await response.json()) as { job_id: string; plan_id: string };
+  return { job_id: String(data.job_id), plan_id: String(data.plan_id) };
+}
+
+export async function getLearningPlan(orgSlug: string, projectSlug: string, planId: string): Promise<LearningPlan> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/plans/${planId}`);
+  if (response.status === 404) throw new Error("学習プランが見つかりません");
+  if (!response.ok) throw new Error(await errorDetail(response, "学習プランの取得に失敗しました"));
+  return learningPlanSchema.parse(await response.json());
+}
+
+export async function patchStep(
+  orgSlug: string,
+  projectSlug: string,
+  planId: string,
+  order: number,
+  completed: boolean,
+): Promise<LearningStep> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/plans/${planId}/steps/${order}`,
+    { method: "PATCH", body: JSON.stringify({ completed }) },
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "ステップの更新に失敗しました"));
+  return learningStepSchema.parse(await response.json());
 }
 
 // Knowledge Galaxy（issue 032）: GET .../galaxy を personalGalaxySchema で検証 / analyze-galaxy は enqueue。

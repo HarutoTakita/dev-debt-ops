@@ -11,6 +11,7 @@ from service.pipelines import (
     code_debt_detection,
     kc_analysis,
     knowledge_debt_detection,
+    learning_plan_generation,
     quiz_generation,
     quiz_grading,
     repayment_pr_generation,
@@ -21,6 +22,7 @@ from shared.registry import PIPELINES as _SHARED_PIPELINES
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest, CodeDebtDetectionResult
 from shared.schemas.kc_analysis import KcAnalysisRequest, KcAnalysisResult
 from shared.schemas.knowledge_debt_detection import KnowledgeDebtDetectionRequest, KnowledgeDebtDetectionResult
+from shared.schemas.learning_plan import LearningPlanGenerationRequest, LearningPlanGenerationResult
 from shared.schemas.quiz import (
     QuizGenerationRequest,
     QuizGenerationResult,
@@ -51,4 +53,9 @@ PIPELINES = {
     ),
     JobType.QUIZ_GENERATION.value: (QuizGenerationRequest, QuizGenerationResult, quiz_generation.process),
     JobType.QUIZ_GRADING.value: (QuizGradingRequest, QuizGradingResult, quiz_grading.process),
+    JobType.LEARNING_PLAN_GENERATION.value: (
+        LearningPlanGenerationRequest,
+        LearningPlanGenerationResult,
+        learning_plan_generation.process,
+    ),
 }
