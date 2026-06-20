@@ -1,12 +1,16 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { resolve } from "$app/paths";
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  import type { ResolvedPathname } from "$app/types";
   import { patchStep } from "$lib/api/client";
   import type { LearningPlan } from "$lib/api/schemas";
+  import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/common/coming-soon-placeholder.svelte";
   import PlanProgress from "$lib/components/learning/plan-progress.svelte";
   import ResourceList from "$lib/components/learning/resource-list.svelte";
+  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -16,6 +20,22 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
+
+  // 共有 analysis-run-store でプラン生成（plan_learning）を起動し、完了後に生成プランへ遷移（issue 037）。
+  let generating = $state(false);
+  function generatePlanNow() {
+    generating = true;
+    void analysisRun.runStage("plan_learning", { orgSlug, projectSlug, owner: "", repo: "" });
+  }
+  $effect(() => {
+    const st = analysisRun.stages.plan_learning;
+    if (generating && st.status === "COMPLETED" && st.link) {
+      generating = false;
+      void goto(st.link as ResolvedPathname);
+    } else if (generating && st.status === "FAILED") {
+      generating = false;
+    }
+  });
 
   // ステップ完了の楽観更新（PATCH 実 API。失敗時は据え置き）。
   async function toggle(order: number, completed: boolean) {
@@ -62,16 +82,21 @@
     <div class="flex-1">
       <ComingSoonPlaceholder title={m.learning_coming_title()} description={m.learning_coming_body()} />
     </div>
-    {#if !preview}
-      <div class="shrink-0 pb-8 text-center">
-        <button
-          type="button"
-          onclick={() => (preview = true)}
-          class="text-xs text-muted-foreground underline hover:text-foreground"
-        >
-          {m.learning_preview()}
-        </button>
-      </div>
-    {/if}
+    <div class="shrink-0 space-y-3 pb-8 text-center">
+      <Button disabled={generating} onclick={generatePlanNow}>
+        {generating ? m.analysis_run_running() : m.learning_generate_cta()}
+      </Button>
+      {#if !preview}
+        <div>
+          <button
+            type="button"
+            onclick={() => (preview = true)}
+            class="text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            {m.learning_preview()}
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
 {/if}
