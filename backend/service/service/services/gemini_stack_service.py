@@ -323,3 +323,40 @@ async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
         return []
     resources = raw.get("resources") if isinstance(raw, dict) else None
     return resources if isinstance(resources, list) else []
+
+
+_AGENT_NARRATIVE_PROMPT = """\
+You are a "{kind}" twin agent narrating your autonomous debt-repayment loop in the FIRST PERSON \
+(Japanese), warmly and concisely. Findings:
+
+{summary}
+
+Return ONLY a valid JSON object — no markdown — with this exact schema:
+{{
+  "headline": "a short first-person headline of what you did",
+  "steps": [
+    {{"status": "scanning|analyzing|creating_pr|running_quiz|succeeded|failed|pending",
+      "message": "first-person sentence"}}
+  ]
+}}
+Produce 3-5 steps tracing detect → analyze → plan. Keep messages under 120 chars.
+"""
+
+
+async def generate_agent_narrative(kind: str, summary: str) -> dict:
+    """Return ``{headline, steps:[{status,message}]}`` for an agent loop (Gemini). Empty on failure."""
+    client = _build_client()
+    prompt = _AGENT_NARRATIVE_PROMPT.format(kind=kind, summary=summary or "(no findings)")
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.4),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return {"headline": "", "steps": []}
+    if not isinstance(raw, dict):
+        return {"headline": "", "steps": []}
+    steps = raw.get("steps") if isinstance(raw.get("steps"), list) else []
+    return {"headline": str(raw.get("headline") or ""), "steps": steps}

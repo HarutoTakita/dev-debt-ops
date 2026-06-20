@@ -1,5 +1,8 @@
 import { z } from "zod";
 import {
+  agentActivitySchema,
+  agentPipelineSchema,
+  agentProfileSchema,
   analyzeStackJobSchema,
   branchListSchema,
   debtItemSchema,
@@ -21,6 +24,9 @@ import {
   repositoryListSchema,
   techStackSchema,
   treeSchema,
+  type AgentActivity,
+  type AgentPipeline,
+  type AgentProfile,
   type AnalyzeStackJob,
   type BranchList,
   type DebtItem,
@@ -299,6 +305,54 @@ export async function getStack(owner: string, repo: string): Promise<TechStack |
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(await errorDetail(response, "テックスタックの取得に失敗しました"));
   return techStackSchema.parse(await response.json());
+}
+
+// Twin Agent（issue 036）: 自律ループ起動 + 活動/パイプライン配信 + 失敗ノード再実行。
+export async function getAgentProfiles(): Promise<AgentProfile[]> {
+  const response = await apiFetch("/api/v1/agents/profiles");
+  if (!response.ok) throw new Error(await errorDetail(response, "エージェント人格の取得に失敗しました"));
+  return z.array(agentProfileSchema).parse(await response.json());
+}
+
+export async function runAgentLoop(orgSlug: string, projectSlug: string, kind: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agents/${kind}/run`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "エージェント起動に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
+export async function listActivities(orgSlug: string, projectSlug: string, kind?: string): Promise<AgentActivity[]> {
+  const qs = kind ? `?kind=${kind}` : "";
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agents/activities${qs}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "活動の取得に失敗しました"));
+  return z.array(agentActivitySchema).parse(await response.json());
+}
+
+export async function getActivity(orgSlug: string, projectSlug: string, activityId: string): Promise<AgentActivity> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agents/activities/${activityId}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "活動の取得に失敗しました"));
+  return agentActivitySchema.parse(await response.json());
+}
+
+export async function getPipeline(orgSlug: string, projectSlug: string, pipelineId: string): Promise<AgentPipeline> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agents/pipelines/${pipelineId}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "パイプラインの取得に失敗しました"));
+  return agentPipelineSchema.parse(await response.json());
+}
+
+export async function retryAgentNode(
+  orgSlug: string,
+  projectSlug: string,
+  pipelineId: string,
+  nodeId: string,
+): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agents/pipelines/${pipelineId}/nodes/${nodeId}/retry`,
+    { method: "POST" },
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "ノード再実行に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
 }
 
 // Learning plan（issue 035）: 生成は 202+plan_id 即時発番、取得/ステップ進捗は実 API。
