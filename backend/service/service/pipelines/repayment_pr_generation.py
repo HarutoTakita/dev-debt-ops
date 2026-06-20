@@ -11,6 +11,7 @@ PR is **not** re-created — the existing reference is returned (avoids duplicat
 import logging
 import uuid
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -26,6 +27,9 @@ from shared.schemas.repayment_pr_generation import RepaymentPrGenerationRequest,
 from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
+
+# Footer appended to every auto-generated PR body — flags it as machine-generated and unreviewed.
+_PR_FOOTER = "\n\n---\n🤖 自動生成（返済 PR・未レビュー）。根拠: "
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -78,32 +82,58 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        current = await client.get_file_content(request.owner, request.repo, debt.file_path, request.branch)
-        refactor = await gemini_stack_service.generate_refactor(
-            debt.file_path, current.content or "", debt.archaeology_notes
-        )
-        trace.append("generated refactor")
+        # Idempotency under partial failure (issue-043): a prior delivery may have opened the PR but
+        # crashed before committing the debt row. Reuse the existing PR instead of 422-ing on a
+        # duplicate branch / opening a second PR.
+        existing_pr = await client.find_open_pull_request(request.owner, request.repo, head_branch)
+        if existing_pr is not None:
+            pr_number, pr_url = existing_pr
+            trace.append(f"reusing existing PR #{pr_number}")
+        else:
+            current = await client.get_file_content(request.owner, request.repo, debt.file_path, request.branch)
+            refactor = await gemini_stack_service.generate_refactor(
+                debt.file_path, current.content or "", debt.archaeology_notes
+            )
+            trace.append("generated refactor")
 
-        base_sha = await client.get_branch_sha(request.owner, request.repo, request.branch)
-        await client.create_branch(request.owner, request.repo, head_branch, base_sha)
-        await client.create_or_update_file(
-            request.owner,
-            request.repo,
-            debt.file_path,
-            message=refactor["pr_title"],
-            content=refactor["new_content"],
-            branch=head_branch,
-            sha=current.sha,
-        )
-        pr_number, pr_url = await client.create_pull_request(
-            request.owner,
-            request.repo,
-            title=refactor["pr_title"],
-            head=head_branch,
-            base=request.branch,
-            body=f"{refactor['pr_body']}\n\n---\n🤖 自動生成（返済 PR）。根拠: {debt.archaeology_notes}",
-        )
-        trace.append(f"opened PR #{pr_number}")
+            base_sha = await client.get_branch_sha(request.owner, request.repo, request.branch)
+            try:
+                await client.create_branch(request.owner, request.repo, head_branch, base_sha)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 422:  # 422 = ref already exists (prior partial run)
+                    raise
+                trace.append("branch already exists; reusing")
+            # Use the head-branch file sha so the commit succeeds whether the branch is fresh or
+            # was already edited by a prior partial run.
+            head_file = await client.get_file_content(request.owner, request.repo, debt.file_path, head_branch)
+            await client.create_or_update_file(
+                request.owner,
+                request.repo,
+                debt.file_path,
+                message=refactor["pr_title"],
+                content=refactor["new_content"],
+                branch=head_branch,
+                sha=head_file.sha,
+            )
+            pr_body = f"{refactor['pr_body']}{_PR_FOOTER}{debt.archaeology_notes}"
+            try:
+                pr_number, pr_url = await client.create_pull_request(
+                    request.owner,
+                    request.repo,
+                    title=refactor["pr_title"],
+                    head=head_branch,
+                    base=request.branch,
+                    body=pr_body,
+                )
+                trace.append(f"opened PR #{pr_number}")
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 422:  # 422 = a PR for this head already exists
+                    raise
+                found = await client.find_open_pull_request(request.owner, request.repo, head_branch)
+                if found is None:
+                    raise
+                pr_number, pr_url = found
+                trace.append(f"PR already existed #{pr_number}")
     finally:
         await client.aclose()
 
