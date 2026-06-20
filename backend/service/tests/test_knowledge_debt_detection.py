@@ -166,6 +166,7 @@ async def test_process_detects_each_reason_and_joins_kc(
 
     async with session_maker() as session:
         result = await knowledge_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     assert result.detected == 3
     assert result.reasons == {"ai_generated": 1, "author_left": 1, "no_review": 1}
@@ -206,8 +207,10 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
 
     async with session_maker() as session:
         await knowledge_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         await knowledge_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
 
     async with session_maker() as session:
         run = (

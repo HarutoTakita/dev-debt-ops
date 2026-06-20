@@ -76,6 +76,7 @@ async def test_loop_binds_pipeline_activity_and_evidence(
 
     async with session_maker() as session:
         result = await agent_loop.process(request, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     assert result.step_count == 3
     async with session_maker() as session:
@@ -123,8 +124,10 @@ async def test_loop_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: a
 
     async with session_maker() as session:
         await agent_loop.process(request, PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         await agent_loop.process(request, PipelineContext(session=session))
+        await session.commit()
 
     async with session_maker() as session:
         count = (

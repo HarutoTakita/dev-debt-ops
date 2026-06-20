@@ -124,6 +124,7 @@ async def test_process_computes_kc_and_wormholes(
 
     async with session_maker() as session:
         result = await kc_analysis.process(request, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     # a.py: alice + bob(unmatched) + agg = 3; b.py: alice + carol(unmatched) + agg = 3; lonely: agg = 1.
     assert result.file_kc_count == 7
@@ -168,8 +169,10 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
 
     async with session_maker() as session:
         await kc_analysis.process(request, PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         await kc_analysis.process(request, PipelineContext(session=session))
+        await session.commit()
 
     async with session_maker() as session:
         run = (

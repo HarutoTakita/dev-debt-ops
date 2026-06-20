@@ -90,6 +90,7 @@ async def test_generation_team_first_and_minutes(
     plan_id = await _seed_plan(session_maker)
     async with session_maker() as session:
         result = await learning_plan_generation.process(_request(plan_id), PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     # team = adr(0001-cache.md) + code(src/cache.py); external = 1 valid (no-url dropped)
     assert result.team_count == 2
@@ -118,8 +119,10 @@ async def test_generation_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
     plan_id = await _seed_plan(session_maker)
     async with session_maker() as session:
         await learning_plan_generation.process(_request(plan_id), PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         await learning_plan_generation.process(_request(plan_id), PipelineContext(session=session))
+        await session.commit()
     async with session_maker() as session:
         count = (
             await session.execute(select(func.count()).select_from(LearningStep).where(LearningStep.plan_id == plan_id))

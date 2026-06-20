@@ -15,7 +15,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -242,6 +242,7 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
     )
 
     reasons_count: dict[str, int] = {}
+    current_keys: set[tuple[str, str]] = set()
     detected = 0
     for path, sig in signals.items():
         ai_prob = ai_probs.get(path, 0.0)
@@ -279,12 +280,19 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
                 await _upsert_assigned(
                     session, debt_id=debt_id, handle=handle, coverage=dev_kc, certified_via=certified_via
                 )
+            current_keys.add((path, reason))
             reasons_count[reason] = reasons_count.get(reason, 0) + 1
             detected += 1
 
+    # Drop this run's knowledge debts no longer produced by the current pass (issue-042).
+    stale = delete(KnowledgeDebt).where(col(KnowledgeDebt.run_id) == run.id)
+    if current_keys:
+        stale = stale.where(tuple_(col(KnowledgeDebt.file_path), col(KnowledgeDebt.reason)).notin_(current_keys))
+    await session.execute(stale)
+
     run.status = JobStatus.COMPLETED
     session.add(run)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
     trace.append(f"detected {detected} knowledge debts")
 
     logger.info("knowledge_debt_detection: %s debts for %s/%s@%s", detected, request.owner, request.repo, commit_sha)
