@@ -1,13 +1,19 @@
 <script lang="ts">
-  import { toast } from "svelte-sonner";
+  import { page } from "$app/state";
   import { Button } from "$lib/components/ui/button";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
+  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
   // 星域未観測の空状態。GlEmptyState の構図を、暗い宇宙背景 + 星（CSS）で Rosetta 独自表現に。
+  // 共有 analysis-run-store 経由で KC 解析（analyze_galaxy ステージ）を起動する（issue 037）。
   function startScan() {
-    // 本実装で実スキャンへ接続。現状は Coming Soon を明示する。
-    toast.info(m.galaxy_coming_toast());
+    analysisRun.runStage("analyze_galaxy", {
+      orgSlug: page.params.org ?? "",
+      projectSlug: page.params.project ?? "",
+      owner: "",
+      repo: "",
+    });
   }
 </script>
 
