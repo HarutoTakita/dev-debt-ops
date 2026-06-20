@@ -86,3 +86,45 @@ async def test_logout_bumps_token_epoch(authenticated_client: AsyncClient) -> No
         replayer.cookies.set(access_cookie_transport.cookie_name, stale_access, domain="test", path="/")
         r = await replayer.get("/api/v1/users/me")
         assert r.status_code == 401
+
+
+async def test_login_after_logout_issues_working_token(authenticated_client: AsyncClient) -> None:
+    """After logout bumps token_epoch, a fresh login must yield an *accepted* access token.
+
+    Regression for issue-041: without an ``iat`` claim on issue, every post-logout token would
+    carry ``iat=0`` and be rejected forever by the epoch check.
+    """
+    await authenticated_client.post("/api/v1/auth/logout")
+    login = await authenticated_client.post(
+        "/api/v1/auth/login",
+        data={"username": "user@example.com", "password": "testpassword123"},
+    )
+    assert login.status_code == 204
+    authenticated_client.cookies = login.cookies
+    me = await authenticated_client.get("/api/v1/users/me")
+    assert me.status_code == 200
+    assert me.json()["email"] == "user@example.com"
+
+
+async def test_cross_origin_post_is_rejected(client: AsyncClient) -> None:
+    """A state-changing request with a foreign Origin is rejected (issue-041 CSRF)."""
+    resp = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "user@example.com", "password": "testpassword123"},
+        headers={"Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+
+
+async def test_same_frontend_origin_post_is_allowed(client: AsyncClient) -> None:
+    """The configured frontend Origin passes the CSRF check (not 403)."""
+    await client.post(
+        "/api/v1/auth/register",
+        json={"email": "csrf@example.com", "password": "testpassword123"},
+    )
+    resp = await client.post(
+        "/api/v1/auth/login",
+        data={"username": "csrf@example.com", "password": "testpassword123"},
+        headers={"Origin": "http://localhost:5173"},
+    )
+    assert resp.status_code != 403
