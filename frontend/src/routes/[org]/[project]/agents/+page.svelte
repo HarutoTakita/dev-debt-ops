@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import * as Tabs from "$lib/components/ui/tabs";
   import { Button } from "$lib/components/ui/button";
   import type { AgentKind } from "$lib/api/schemas";
@@ -9,9 +10,12 @@
   import ComingSoonPlaceholder from "$lib/components/agents/coming-soon-placeholder.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // 実エージェント連携は後続 issue。マウント時にモックを読み込む（冪等）。
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+
+  // 実 API から人格・活動・パイプラインを取得（issue 036）。
   $effect(() => {
-    agents.loadMock();
+    if (orgSlug && projectSlug) void agents.load(orgSlug, projectSlug).catch(() => {});
   });
 
   const pipeline = $derived(agents.visiblePipelines[0] ?? null);

@@ -1,5 +1,6 @@
 """Shared ORM models, re-exported for ``from shared.models import Job, TechStack, ...``."""
 
+from shared.models.agent_loop import AgentActivity, AgentPipeline, NarrativeEvidence, NarrativeStep
 from shared.models.analysis_run import AnalysisRun
 from shared.models.assigned_developer import AssignedDeveloper
 from shared.models.code_debt import CodeDebt
@@ -16,6 +17,8 @@ from shared.models.repo_file import RepoFile
 from shared.models.tech_stack import TechStack
 
 __all__ = [
+    "AgentActivity",
+    "AgentPipeline",
     "AnalysisRun",
     "AssignedDeveloper",
     "CodeDebt",
@@ -27,6 +30,8 @@ __all__ = [
     "LearningPlan",
     "LearningResource",
     "LearningStep",
+    "NarrativeEvidence",
+    "NarrativeStep",
     "QuizAnswer",
     "QuizResult",
     "QuizSession",
