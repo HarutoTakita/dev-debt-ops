@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from service import config
 from service.db import get_session
 from service.dependencies import get_blob_client, verify_oidc
 from service.registry import PIPELINES
@@ -22,6 +23,9 @@ from shared.queue import BlobClient
 from shared.worker import TransientTaskError, run_task
 
 logger = logging.getLogger(__name__)
+
+# Fail-closed: refuse to start in stg/prod with the OIDC bypass enabled (issue-038).
+config.validate_runtime_config()
 
 app = FastAPI(title="Rosetta Service", summary="Heavy-processing worker (async pipelines)")
 
