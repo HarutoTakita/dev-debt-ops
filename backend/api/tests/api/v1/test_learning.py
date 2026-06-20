@@ -11,7 +11,7 @@ from app.main import app
 from app.models.project import Project
 from app.services.dependencies import get_task_dispatcher, reset_blob_client, reset_task_dispatcher
 from shared.enums import JobType
-from shared.models import LearningPlan, LearningResource, LearningStep
+from shared.models import LearningPlan, LearningResource, LearningStep, QuizResult, QuizSession
 
 
 @pytest.fixture(autouse=True)
@@ -132,3 +132,47 @@ async def test_patch_step_completed(authenticated_client: AsyncClient) -> None:
     get = await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/learning/plans/{plan_id}")
     steps = {s["order"]: s for s in get.json()["steps"]}
     assert steps[0]["completed"] is True
+
+
+async def test_get_plan_403_for_other_developers_plan(authenticated_client: AsyncClient) -> None:
+    """A plan owned by another developer is not readable (issue-040)."""
+    org_slug, project_slug, project_id = await _project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        plan = LearningPlan(project_id=project_id, developer_id=uuid.uuid4(), gap_concepts=["x"])
+        session.add(plan)
+        await session.commit()
+        plan_id = plan.id
+    resp = await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/learning/plans/{plan_id}")
+    assert resp.status_code == 403
+
+
+@pytest.mark.usefixtures("_stub_installation")
+async def test_generate_403_for_other_developers_attempt(authenticated_client: AsyncClient) -> None:
+    """attempt_id belonging to another developer must not be readable (issue-040 IDOR)."""
+    org_slug, project_slug, project_id = await _project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        other_session = QuizSession(
+            project_id=project_id,
+            developer_id=uuid.uuid4(),  # someone else
+            file_path="src/a.py",
+            repo_full_name="acme/rosetta",
+            questions=[],
+            answer_key={},
+        )
+        session.add(other_session)
+        await session.flush()
+        session.add(
+            QuizResult(
+                session_id=other_session.id,
+                understood=[],
+                gap_concepts=[{"id": "secret-gap", "label": "leaked"}],
+                kc_before=0.1,
+                kc_after=0.2,
+            )
+        )
+        await session.commit()
+        attempt_id = other_session.id
+    resp = await authenticated_client.post(
+        f"/api/v1/orgs/{org_slug}/projects/{project_slug}/learning/plans?attempt_id={attempt_id}"
+    )
+    assert resp.status_code == 403
