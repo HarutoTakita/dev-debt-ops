@@ -167,7 +167,7 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
 
     plan.estimated_total_minutes = total_minutes
     session.add(plan)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     logger.info(
         "learning_plan_generation: %s steps (team=%s ext=%s) for plan %s",

@@ -75,6 +75,7 @@ async def test_generation_fills_questions(monkeypatch: pytest.MonkeyPatch, sessi
     )
     async with session_maker() as session:
         result = await quiz_generation.process(req, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
     assert result.question_count == 1
     async with session_maker() as session:
         qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
@@ -115,6 +116,7 @@ async def test_grading_writes_result_and_completes(
     )
     async with session_maker() as session:
         result = await quiz_grading.process(req, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     assert result.score == 0.8
     assert result.kc_before == 0.2

@@ -53,8 +53,16 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
     if quiz is None:
         return _result(request, score=0.0, kc_before=0.0, kc_after=0.0, trace=["session not found"])
     if quiz.status == "completed":  # idempotent: do not re-grade (free_text grading is non-deterministic)
+        # Echo the persisted KC delta rather than fabricating one from the score (issue-042).
+        prior = (
+            await session.execute(select(QuizResult).where(col(QuizResult.session_id) == sid))
+        ).scalar_one_or_none()
         return _result(
-            request, score=quiz.score or 0.0, kc_before=0.0, kc_after=quiz.score or 0.0, trace=["already completed"]
+            request,
+            score=quiz.score or 0.0,
+            kc_before=prior.kc_before if prior else 0.0,
+            kc_after=prior.kc_after if prior else (quiz.score or 0.0),
+            trace=["already completed"],
         )
 
     answers = (await session.execute(select(QuizAnswer).where(col(QuizAnswer.session_id) == sid))).scalars().all()
@@ -103,7 +111,7 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
     quiz.score = score
     quiz.completed_at = now
     session.add(quiz)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     # KC 反映フック（issue 029 所有）: certified_via="quiz" の file_kc 更新はここで呼ぶ配線位置。
     logger.info("quiz_grading: session %s scored %.2f (kc %.2f→%.2f)", request.session_id, score, kc_before, kc_after)

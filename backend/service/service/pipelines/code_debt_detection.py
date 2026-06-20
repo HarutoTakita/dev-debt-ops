@@ -14,9 +14,10 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from service import config
 from service.services import code_analysis, gemini_stack_service
@@ -181,6 +182,19 @@ async def _upsert_debt(session: AsyncSession, *, run_id: uuid.UUID, project_id: 
     await session.execute(stmt)
 
 
+async def _delete_stale_debts(session: AsyncSession, *, run_id: uuid.UUID, current_keys: set[tuple[str, str]]) -> None:
+    """Delete this run's debts no longer produced by the current detection (issue-042).
+
+    Re-running a run (or an at-least-once redelivery) must not leave behind findings that have
+    since disappeared (e.g. a file dropped below threshold). Upsert keeps surviving rows' ids
+    stable; this removes only the rows whose ``(file_path, type)`` is absent from this pass.
+    """
+    stmt = delete(CodeDebt).where(col(CodeDebt.run_id) == run_id)
+    if current_keys:
+        stmt = stmt.where(tuple_(col(CodeDebt.file_path), col(CodeDebt.type)).notin_(current_keys))
+    await session.execute(stmt)
+
+
 async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> CodeDebtDetectionResult:
     """Detect code debts for the repository and upsert them under an analysis run."""
     if ctx.session is None:
@@ -229,9 +243,11 @@ async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> Co
         sev = code_analysis.quantize_severity(finding.score)
         by_severity[sev] = by_severity.get(sev, 0) + 1
 
+    await _delete_stale_debts(session, run_id=run.id, current_keys={(f.file_path, f.type) for f in findings})
+
     run.status = JobStatus.COMPLETED
     session.add(run)
-    await session.commit()
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     logger.info("code_debt_detection: %s findings for %s/%s@%s", len(findings), request.owner, request.repo, commit_sha)
     return CodeDebtDetectionResult(
