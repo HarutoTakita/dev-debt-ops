@@ -201,6 +201,9 @@ async def save_quiz_answer(
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     qs = await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
+    if qs.status in ("grading", "completed"):
+        # Answers must not change once grading has started / finished (issue-040).
+        raise HTTPException(status_code=409, detail="採点中または採点済みのクイズは編集できません")
 
     now = datetime.now(UTC)
     stmt = pg_insert(QuizAnswer).values(
@@ -244,6 +247,9 @@ async def submit_quiz(
         raise HTTPException(status_code=404, detail="クイズが見つかりません")
     if qs.developer_id != current_user.id:
         raise HTTPException(status_code=403, detail="このクイズにアクセスする権限がありません")
+    if qs.status in ("grading", "completed"):
+        # Already submitted — don't re-enqueue grading or discard a finished result (issue-040).
+        raise HTTPException(status_code=409, detail="このクイズは既に提出済みです")
     qs.status = "grading"
     session.add(qs)
     payload = {
