@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import repayment_pr_generation
 from service.services import gemini_stack_service
+from service.services.gemini_stack_service import _is_plausible_refactor
 from service.services.github_git_client import FileContent
 from shared.enums import JobStatus, JobType
 from shared.models import AnalysisRun, CodeDebt
@@ -21,9 +22,13 @@ from shared.schemas.stack_analysis import GitHubRef
 
 
 class _FakeClient:
-    def __init__(self) -> None:
+    def __init__(self, existing_pr: tuple[int, str] | None = None) -> None:
         self.created_pr = False
         self.branches: list[str] = []
+        self._existing_pr = existing_pr  # simulate a prior partial run that already opened the PR
+
+    async def find_open_pull_request(self, owner: str, repo: str, head: str) -> tuple[int, str] | None:
+        return self._existing_pr
 
     async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
         return FileContent(path=path, content="def f():\n    pass\n", sha="filesha", size=10)
@@ -133,3 +138,34 @@ async def test_process_idempotent_when_already_in_pr(
     async with session_maker() as session:
         debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
         assert debt.related_pr == "#42"  # unchanged
+
+
+async def test_process_reuses_existing_pr_when_debt_not_yet_in_pr(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """Partial-failure redelivery: the PR was opened but the debt row never committed (issue-043).
+
+    The pipeline must reuse the existing PR (no duplicate / no 422) and finish marking the debt.
+    """
+    fake = _FakeClient(existing_pr=(42, "https://github.com/acme/rosetta/pull/42"))
+    _patch(monkeypatch, fake)
+    debt_id = await _seed_debt(session_maker)  # status still "open", no related_pr
+
+    async with session_maker() as session:
+        result = await repayment_pr_generation.process(_request(debt_id), PipelineContext(session=session))
+        await session.commit()
+
+    assert fake.created_pr is False  # did NOT open a second PR
+    assert result.pr_number == 42
+    async with session_maker() as session:
+        debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
+        assert debt.status == "in_pr"
+        assert debt.related_pr == "#42"
+
+
+def test_is_plausible_refactor_rejects_empty_and_runaway() -> None:
+    """The prompt-injection size guard rejects empty / wildly oversized model output (issue-043)."""
+    original = "def f():\n    return 1\n"
+    assert _is_plausible_refactor(original, "def f():\n    return 2\n") is True
+    assert _is_plausible_refactor(original, "   ") is False  # empty
+    assert _is_plausible_refactor(original, "x" * (len(original) * 3 + 5000)) is False  # runaway rewrite
