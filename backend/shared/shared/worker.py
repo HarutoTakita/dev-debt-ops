@@ -55,7 +55,8 @@ async def run_task(
     job_id_raw = request_body.get("jobId")
     if not job_id_raw:
         raise TransientTaskError("request missing jobId")
-    job = await session.get(Job, uuid.UUID(str(job_id_raw)))
+    job_pk = uuid.UUID(str(job_id_raw))
+    job = await session.get(Job, job_pk)
     if job is None:
         raise TransientTaskError(f"job not found: {job_id_raw}")
 
@@ -95,7 +96,10 @@ async def run_task(
         # Discard any domain rows the pipeline flushed before failing, then mark FAILED. Without
         # the rollback those pending rows would be committed alongside the FAILED Job below.
         await session.rollback()
-        job = await session.get(Job, job.id)
+        # rollback() expired `job`; re-fetch by the known PK. Reading `job.id` here would
+        # trigger a sync lazy-load of the expired attribute outside the async greenlet
+        # (sqlalchemy.exc.MissingGreenlet), masking the real pipeline error as an HTTP 503.
+        job = await session.get(Job, job_pk)
         if job is None:  # pragma: no cover - the PROCESSING row was committed above
             raise TransientTaskError(f"job vanished mid-processing: {job_id_raw}") from exc
         job.status = JobStatus.FAILED
