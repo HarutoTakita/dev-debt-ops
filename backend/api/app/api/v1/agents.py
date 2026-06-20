@@ -59,6 +59,47 @@ def _as_uuid(value: str) -> uuid.UUID:
         raise HTTPException(status_code=404, detail="見つかりません") from e
 
 
+async def _evidence_by_step(db: AsyncSession, step_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[NarrativeEvidence]]:
+    """Load all evidence for the given steps in one query, grouped by step id (issue-045: no N+1)."""
+    if not step_ids:
+        return {}
+    stmt = select(NarrativeEvidence).where(col(NarrativeEvidence.step_id).in_(step_ids))
+    rows = (await db.execute(stmt)).scalars().all()
+    grouped: dict[uuid.UUID, list[NarrativeEvidence]] = {}
+    for e in rows:
+        grouped.setdefault(e.step_id, []).append(e)
+    return grouped
+
+
+def _activity_out_from(
+    activity: AgentActivity,
+    steps: list[NarrativeStep],
+    evidence_by_step: dict[uuid.UUID, list[NarrativeEvidence]],
+) -> AgentActivityOut:
+    """Build the response model from pre-loaded steps + evidence (no DB access)."""
+    step_out = [
+        NarrativeStepOut(
+            id=str(s.id),
+            status=s.status,
+            message=s.message,
+            created_at=s.created_at,
+            evidence=[
+                NarrativeEvidenceOut(type=e.type, label=e.label, detail=e.detail, href=e.href)
+                for e in evidence_by_step.get(s.id, [])
+            ],
+        )
+        for s in steps
+    ]
+    return AgentActivityOut(
+        id=str(activity.id),
+        kind=activity.kind,
+        headline=activity.headline,
+        steps=step_out,
+        pipeline_id=str(activity.pipeline_id),
+        created_at=activity.created_at,
+    )
+
+
 async def _activity_out(db: AsyncSession, activity: AgentActivity) -> AgentActivityOut:
     steps = (
         (
@@ -71,30 +112,8 @@ async def _activity_out(db: AsyncSession, activity: AgentActivity) -> AgentActiv
         .scalars()
         .all()
     )
-    step_out = []
-    for s in steps:
-        evidence = (
-            (await db.execute(select(NarrativeEvidence).where(col(NarrativeEvidence.step_id) == s.id))).scalars().all()
-        )
-        step_out.append(
-            NarrativeStepOut(
-                id=str(s.id),
-                status=s.status,
-                message=s.message,
-                created_at=s.created_at,
-                evidence=[
-                    NarrativeEvidenceOut(type=e.type, label=e.label, detail=e.detail, href=e.href) for e in evidence
-                ],
-            )
-        )
-    return AgentActivityOut(
-        id=str(activity.id),
-        kind=activity.kind,
-        headline=activity.headline,
-        steps=step_out,
-        pipeline_id=str(activity.pipeline_id),
-        created_at=activity.created_at,
-    )
+    evidence_by_step = await _evidence_by_step(db, [s.id for s in steps])
+    return _activity_out_from(activity, list(steps), evidence_by_step)
 
 
 @router.get("/agents/profiles", response_model=list[AgentProfileOut], summary="エージェント人格（静的）")
@@ -165,8 +184,28 @@ async def list_activities(
     if kind:
         stmt = stmt.where(col(AgentActivity.kind) == kind)
     stmt = stmt.order_by(col(AgentActivity.created_at).desc())
-    rows = (await session.execute(stmt)).scalars().all()
-    return [await _activity_out(session, a) for a in rows]
+    rows = list((await session.execute(stmt)).scalars().all())
+
+    # Batch-load steps + evidence for all activities (issue-045: 3 queries total, not O(activities×steps)).
+    activity_ids = [a.id for a in rows]
+    steps_all: list[NarrativeStep] = []
+    if activity_ids:
+        steps_all = list(
+            (
+                await session.execute(
+                    select(NarrativeStep)
+                    .where(col(NarrativeStep.activity_id).in_(activity_ids))
+                    .order_by(col(NarrativeStep.order))
+                )
+            )
+            .scalars()
+            .all()
+        )
+    evidence_by_step = await _evidence_by_step(session, [s.id for s in steps_all])
+    steps_by_activity: dict[uuid.UUID, list[NarrativeStep]] = {}
+    for s in steps_all:
+        steps_by_activity.setdefault(s.activity_id, []).append(s)
+    return [_activity_out_from(a, steps_by_activity.get(a.id, []), evidence_by_step) for a in rows]
 
 
 @router.get(

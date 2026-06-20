@@ -68,6 +68,10 @@ async def _latest_run_id(session: AsyncSession, project_id: uuid.UUID, kind: Job
     return run.id if run is not None else None
 
 
+def _to_assigned_out(r: AssignedDeveloper) -> AssignedDeveloperOut:
+    return AssignedDeveloperOut(github_handle=r.github_handle, coverage=r.coverage, certified_via=r.certified_via)
+
+
 async def _assigned(session: AsyncSession, kind: str, debt_id: uuid.UUID) -> list[AssignedDeveloperOut]:
     rows = (
         (
@@ -80,13 +84,35 @@ async def _assigned(session: AsyncSession, kind: str, debt_id: uuid.UUID) -> lis
         .scalars()
         .all()
     )
-    return [
-        AssignedDeveloperOut(github_handle=r.github_handle, coverage=r.coverage, certified_via=r.certified_via)
-        for r in rows
-    ]
+    return [_to_assigned_out(r) for r in rows]
 
 
-async def _code_out(session: AsyncSession, row: CodeDebt, repo: str) -> CodeDebtOut:
+async def _assigned_map(
+    session: AsyncSession, kind: str, debt_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[AssignedDeveloperOut]]:
+    """Load assignments for many debts in one query, grouped by debt id (issue-045: no N+1)."""
+    if not debt_ids:
+        return {}
+    rows = (
+        (
+            await session.execute(
+                select(AssignedDeveloper).where(
+                    col(AssignedDeveloper.debt_kind) == kind, col(AssignedDeveloper.debt_id).in_(debt_ids)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    grouped: dict[uuid.UUID, list[AssignedDeveloperOut]] = {}
+    for r in rows:
+        grouped.setdefault(r.debt_id, []).append(_to_assigned_out(r))
+    return grouped
+
+
+async def _code_out(
+    session: AsyncSession, row: CodeDebt, repo: str, assigned: list[AssignedDeveloperOut] | None = None
+) -> CodeDebtOut:
     return CodeDebtOut(
         id=str(row.id),
         file_path=row.file_path,
@@ -103,11 +129,13 @@ async def _code_out(session: AsyncSession, row: CodeDebt, repo: str) -> CodeDebt
         knowledge_coverage=row.knowledge_coverage,
         ai_generation_prob=row.ai_generation_prob,
         estimated_repay_hours=row.estimated_repay_hours,
-        assigned_developers=await _assigned(session, "code", row.id),
+        assigned_developers=assigned if assigned is not None else await _assigned(session, "code", row.id),
     )
 
 
-async def _knowledge_out(session: AsyncSession, row: KnowledgeDebt) -> KnowledgeDebtOut:
+async def _knowledge_out(
+    session: AsyncSession, row: KnowledgeDebt, assigned: list[AssignedDeveloperOut] | None = None
+) -> KnowledgeDebtOut:
     return KnowledgeDebtOut(
         id=str(row.id),
         file_path=row.file_path,
@@ -122,7 +150,7 @@ async def _knowledge_out(session: AsyncSession, row: KnowledgeDebt) -> Knowledge
         knowledge_coverage=row.knowledge_coverage,
         ai_generation_prob=row.ai_generation_prob,
         estimated_repay_hours=row.estimated_repay_hours,
-        assigned_developers=await _assigned(session, "knowledge", row.id),
+        assigned_developers=assigned if assigned is not None else await _assigned(session, "knowledge", row.id),
     )
 
 
@@ -221,8 +249,10 @@ async def list_debts(
                 stmt = stmt.where(col(CodeDebt.severity).in_(severities))
             if statuses:
                 stmt = stmt.where(col(CodeDebt.status).in_(statuses))
-            for r in (await session.execute(stmt)).scalars().all():
-                items.append(await _code_out(session, r, project.repo_name))
+            code_rows = list((await session.execute(stmt)).scalars().all())
+            amap = await _assigned_map(session, "code", [r.id for r in code_rows])
+            for r in code_rows:
+                items.append(await _code_out(session, r, project.repo_name, amap.get(r.id, [])))
     if want_knowledge:
         kn_run = await _latest_run_id(session, project.id, JobType.KNOWLEDGE_DEBT_DETECTION)
         if kn_run is not None:
@@ -231,8 +261,10 @@ async def list_debts(
                 stmt = stmt.where(col(KnowledgeDebt.severity).in_(severities))
             if statuses:
                 stmt = stmt.where(col(KnowledgeDebt.status).in_(statuses))
-            for r in (await session.execute(stmt)).scalars().all():
-                items.append(await _knowledge_out(session, r))
+            kn_rows = list((await session.execute(stmt)).scalars().all())
+            amap = await _assigned_map(session, "knowledge", [r.id for r in kn_rows])
+            for r in kn_rows:
+                items.append(await _knowledge_out(session, r, amap.get(r.id, [])))
 
     reverse = sort_dir != "asc"
     if sort_key == "severity":
