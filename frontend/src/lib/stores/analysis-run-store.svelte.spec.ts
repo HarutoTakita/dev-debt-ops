@@ -95,4 +95,13 @@ describe("AnalysisRunStore", () => {
     expect(store.stages.detect_code.status).toBe("idle");
     expect(store.started).toBe(false);
   });
+
+  it("a second concurrent runAll is ignored (reentrancy guard)", async () => {
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    await Promise.all([store.runAll(CTX), store.runAll(CTX)]);
+    // The second runAll returns immediately; each stage is enqueued exactly once.
+    expect(mocks.detectDebts).toHaveBeenCalledTimes(1);
+    expect(mocks.runAgentLoop).toHaveBeenCalledTimes(1);
+  });
 });
