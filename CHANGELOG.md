@@ -8,6 +8,7 @@
 
 ### Security
 
+- TechStack 解析結果のテナント分離（issue-039）: `TechStack` は `(owner, repo)` でグローバル一意のため、`GET .../stack`（**認証なし**だった）と `POST .../analyze-stack` を、`owner`/`repo` を知る/総当りする主体が他テナントの（private 含む）解析結果を読める/起動できる状態だった。両ルートに `verify_repo_access` を追加し、呼び出し元の GitHub App installation が当該 repo を管理しているか（`get_installation_for_repo == installation_id`）を検証、不一致は 404（存在を秘匿）。GET には `InstallationIdDep` 経由で認証を必須化。エンドポイントのパス契約は不変（フロント変更なし）。
 - service の `/tasks/{pipeline}` OIDC 検証を fail-closed 化（issue-037 レビュー → issue-038）: ワーカー入口はパイプラインを実行し Job/ドメイン行を直接 DB へ書き込む（返済 PR の GitHub 書き込み含む）唯一の入口だが、OIDC 検証スキップを司る `USE_MOCK_QUEUE` のデフォルトが `true`（fail-open）だった。デフォルトを `false` に変更し、`config.validate_runtime_config()` を service 起動時に呼んで非 dev（stg/prod）で `USE_MOCK_QUEUE=true` を起動エラーにする。dev は `.env.dev`（`USE_MOCK_QUEUE=true`）で従来通り、テストは conftest で opt-in。**注意:** `compose.prod.yml`（ENVIRONMENT=prod のローカル本番スタック）で `.env.prod` に `USE_MOCK_QUEUE=true` を設定していると service が起動しなくなる（fail-closed の意図通り）。
 
 ### Added
