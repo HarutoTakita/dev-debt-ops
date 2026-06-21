@@ -17,9 +17,18 @@ from sqlmodel import col
 
 from app.models.project import Project
 from app.schemas.debt import AssignedDeveloperOut, CodeDebtOut, DebtItemOut, DebtListOut, KnowledgeDebtOut
-from app.schemas.overview import DebtTrendPointOut, FileDebtOut, OverviewOut, WeeklyActivityOut
+from app.schemas.overview import DebtTrendPointOut, FeatureDebtOut, FileDebtOut, OverviewOut, WeeklyActivityOut
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, AssignedDeveloper, CodeDebt, DebtTrendPoint, FileKc, KnowledgeDebt
+from shared.models import (
+    AnalysisRun,
+    AssignedDeveloper,
+    CodeDebt,
+    DebtTrendPoint,
+    Feature,
+    FeatureFile,
+    FileKc,
+    KnowledgeDebt,
+)
 
 SEVERITY_RANK = {"critical": 3, "high": 2, "medium": 1, "low": 0}
 
@@ -154,7 +163,92 @@ async def _knowledge_out(
     )
 
 
-async def build_overview(session: AsyncSession, project: Project, org_slug: str) -> OverviewOut:
+def _empty_file_debt(path: str) -> FileDebtOut:
+    """A file with no KC/code-debt data yet (analysed-clean / not-yet-covered) — used as a fallback."""
+    return FileDebtOut(
+        path=path,
+        language=_language_of(path),
+        code_debt_score=0.0,
+        knowledge_coverage=0.0,
+        business_impact=0.5,
+        priority="P3",
+    )
+
+
+def _node_from_files(key: str, name: str, granularity: str, members: list[FileDebtOut]) -> FeatureDebtOut:
+    """Roll up file-level points into one feature/folder node (issue 055, ADR 0006).
+
+    ``knowledge_coverage`` = average over members (a mostly-understood node reads as understood);
+    ``weakest_file`` = the lowest-KC member (the understanding-debt focus); ``code_debt_score`` =
+    max over members (mirrors the file-level code aggregation, code rollup proper is issue 057).
+    """
+    code = max((f.code_debt_score for f in members), default=0.0)
+    avg_kc = round(sum(f.knowledge_coverage for f in members) / len(members), 4) if members else 0.0
+    weakest = min(members, key=lambda f: f.knowledge_coverage, default=None)
+    return FeatureDebtOut(
+        key=key,
+        name=name,
+        granularity=granularity,
+        code_debt_score=code,
+        knowledge_coverage=avg_kc,
+        priority=derive_priority(code, avg_kc),
+        file_count=len(members),
+        weakest_file=weakest.path if weakest is not None else None,
+    )
+
+
+async def _rollup_features(
+    session: AsyncSession, project: Project, by_path: dict[str, FileDebtOut], granularity: str
+) -> list[FeatureDebtOut]:
+    """Group file-level points into feature or folder nodes (issue 055)."""
+    if granularity == "folder":
+        groups: dict[str, list[FileDebtOut]] = {}
+        for path, fd in by_path.items():
+            groups.setdefault(posixpath.dirname(path) or "(root)", []).append(fd)
+        return [_node_from_files(d, d, "folder", m) for d, m in sorted(groups.items())]
+
+    # feature: roll up by the latest feature-clustering run's feature_files mapping.
+    run_id = await _latest_run_id(session, project.id, JobType.FEATURE_CLUSTERING)
+    if run_id is None:
+        return []
+    features = (await session.execute(select(Feature).where(col(Feature.run_id) == run_id))).scalars().all()
+    members_by_feature = (
+        (await session.execute(select(FeatureFile).where(col(FeatureFile.run_id) == run_id))).scalars().all()
+    )
+    paths_by_feature: dict[uuid.UUID, list[str]] = {}
+    for ff in members_by_feature:
+        paths_by_feature.setdefault(ff.feature_id, []).append(ff.file_path)
+    nodes: list[FeatureDebtOut] = []
+    for feat in features:
+        members = [by_path.get(p, _empty_file_debt(p)) for p in paths_by_feature.get(feat.id, [])]
+        nodes.append(_node_from_files(feat.key, feat.name, "feature", members))
+    return nodes
+
+
+async def build_feature_drilldown(session: AsyncSession, project: Project, feature_key: str) -> list[FileDebtOut]:
+    """Return the file-level points for one feature (issue 055 drilldown). 404-empty if unknown."""
+    run_id = await _latest_run_id(session, project.id, JobType.FEATURE_CLUSTERING)
+    if run_id is None:
+        return []
+    feat = (
+        await session.execute(select(Feature).where(col(Feature.run_id) == run_id, col(Feature.key) == feature_key))
+    ).scalar_one_or_none()
+    if feat is None:
+        return []
+    paths = [
+        ff.file_path
+        for ff in (await session.execute(select(FeatureFile).where(col(FeatureFile.feature_id) == feat.id)))
+        .scalars()
+        .all()
+    ]
+    overview = await build_overview(session, project, "", granularity="file")
+    by_path = {f.path: f for f in overview.files}
+    return [by_path.get(p, _empty_file_debt(p)) for p in paths]
+
+
+async def build_overview(
+    session: AsyncSession, project: Project, org_slug: str, *, granularity: str = "file"
+) -> OverviewOut:
     """Aggregate the latest code-debt + KC runs into the Overview payload (empty when none)."""
     code_run = await _latest_run_id(session, project.id, JobType.CODE_DEBT_DETECTION)
     kc_run = await _latest_run_id(session, project.id, JobType.KC_ANALYSIS)
@@ -232,7 +326,17 @@ async def build_overview(session: AsyncSession, project: Project, org_slug: str)
         knowledge_agent_quizzes=0,  # zero-filled until issue 034 (quiz_session)
         knowledge_agent_passed=0,
     )
-    return OverviewOut(org=org_slug, generated_at=datetime.now(UTC), files=files, trend=trend, activity=activity)
+    by_path = {f.path: f for f in files}
+    features = await _rollup_features(session, project, by_path, granularity) if granularity != "file" else []
+    return OverviewOut(
+        org=org_slug,
+        generated_at=datetime.now(UTC),
+        granularity=granularity,
+        files=files,
+        features=features,
+        trend=trend,
+        activity=activity,
+    )
 
 
 async def list_debts(
