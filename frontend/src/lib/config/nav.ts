@@ -2,7 +2,6 @@ import Activity from "@lucide/svelte/icons/activity";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import Grid3x3 from "@lucide/svelte/icons/grid-3x3";
 import HelpCircle from "@lucide/svelte/icons/badge-question-mark";
-import Bot from "@lucide/svelte/icons/bot";
 import GraduationCap from "@lucide/svelte/icons/graduation-cap";
 import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
 import Settings from "@lucide/svelte/icons/settings";
@@ -75,6 +74,13 @@ export const navSections: NavSection[] = [
         // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
         pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
       },
+    ],
+  },
+  {
+    // 知識負債（理解する → 返済する）。input=学習 / output=クイズ を 1 セクションに統合（issue 051）。
+    id: "knowledge",
+    label: m.nav_section_knowledge,
+    items: [
       {
         id: "quizzes",
         label: m.nav_quizzes,
@@ -83,13 +89,6 @@ export const navSections: NavSection[] = [
         comingSoon: true,
         // 受験可能件数（モック）が 1 件以上のとき pill 表示
         pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
-      },
-      {
-        id: "agents",
-        label: m.nav_agents,
-        icon: Bot,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/agents`,
-        comingSoon: true,
       },
       {
         id: "learning",

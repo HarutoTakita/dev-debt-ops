@@ -56,7 +56,8 @@ export const STAGES: StageDef[] = [
     labelKey: "analysis_stage_loop_agents",
     enqueue: (c) => runAgentLoop(c.orgSlug, c.projectSlug, "code_debt"),
     dependsOn: ["detect_code"],
-    deepLink: (c) => _path(c, "/agents"),
+    // エージェント独立ビュー廃止（issue 051）。ループ状況は観測台（ダッシュボード）へ集約。
+    deepLink: (c) => _path(c, ""),
   },
 ];
 
