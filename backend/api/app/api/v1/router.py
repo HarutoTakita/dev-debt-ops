@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.debts import router as debts_router
+from app.api.v1.features import router as features_router
 from app.api.v1.galaxy import router as galaxy_router
 from app.api.v1.github import router as github_router
 from app.api.v1.health import router as health_router
@@ -28,6 +29,7 @@ api_router.include_router(kc_router)
 api_router.include_router(knowledge_debts_router)
 api_router.include_router(overview_router)
 api_router.include_router(galaxy_router)
+api_router.include_router(features_router)
 api_router.include_router(quizzes_router)
 api_router.include_router(learning_router)
 api_router.include_router(agents_router)
