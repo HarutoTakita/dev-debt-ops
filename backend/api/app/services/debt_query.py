@@ -189,9 +189,18 @@ async def build_overview(session: AsyncSession, project: Project, org_slug: str)
         for r in kc_rows:
             kc_map[r.file_path] = r.kc
 
+    # File universe for the scatter: drive off the KC run's files, not the union (issue-047).
+    # The KC run scores *every* analysed source file, so each plotted point carries a real
+    # knowledge_coverage. The code-debt run only persists threshold-crossing *findings*, so
+    # unioning it in fabricates knowledge_coverage=0.0 for any flagged file the KC run didn't
+    # cover (the two pipelines have different file caps) — those points then pile on the left
+    # edge and the horizontal axis reads as binary. Falling back to the code-debt file set only
+    # when no KC run exists yet keeps the dashboard non-empty during a KC-pending window
+    # (those points sit at kc=0.0 = genuinely "unexplored", not a fabricated value).
+    universe = sorted(kc_map) if kc_map else sorted(code_score)
     files = []
-    for path in sorted(set(code_score) | set(kc_map)):
-        code = code_score.get(path, 0.0)
+    for path in universe:
+        code = code_score.get(path, 0.0)  # 0.0 = analysed & clean (KC files ⊆ code-debt files)
         kc = kc_map.get(path, 0.0)
         files.append(
             FileDebtOut(
