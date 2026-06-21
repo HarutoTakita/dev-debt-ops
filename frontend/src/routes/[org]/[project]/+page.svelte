@@ -10,7 +10,8 @@
   import OverviewDashboard from "$lib/components/overview/overview-dashboard.svelte";
   import GettingStarted from "$lib/components/overview/getting-started.svelte";
   import AnalysisRunCockpit from "$lib/components/overview/analysis-run-cockpit.svelte";
-  import type { RunContext } from "$lib/stores/analysis-run-store.svelte";
+  import { ALL_STAGE_IDS, type RunContext } from "$lib/stores/analysis-run-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -53,6 +54,10 @@
       void loadOverview();
     }
   });
+
+  // コックピットでいずれかのステージが完了したら観測台の集計を再取得（issue 049）。
+  // loadOverview 内で接続/スキャン状態をガードしているため、未接続時は何もしない。
+  refreshOnStageComplete(ALL_STAGE_IDS, () => void loadOverview());
 </script>
 
 <svelte:head>
