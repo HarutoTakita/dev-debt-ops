@@ -29,6 +29,22 @@ class JobType(StrEnum):
     LEARNING_PLAN_GENERATION = "learning_plan_generation"  # チーム資産浮上の学習プラン生成 (issue 035)
     CODE_DEBT_LOOP = "code_debt_loop"  # Code Debt Agent 自律ループ束ね (issue 036)
     KNOWLEDGE_DEBT_LOOP = "knowledge_debt_loop"  # Knowledge Debt Agent 自律ループ束ね (issue 036)
+    FEATURE_CLUSTERING = "feature_clustering"  # Gemini でファイル群を機能へクラスタリング (issue 052)
+
+
+class Granularity(StrEnum):
+    """Measurement granularity shared by debt/KC rows, API and frontend (issue 052).
+
+    MVP で実計測・表示するのは ``feature``（052 系列）と既存の ``file``。``folder`` は既存の
+    ``file_kc.module``（= ディレクトリ）を射影して導出可能。``class`` / ``function`` は値だけ
+    先行定義し、実計測は issue 057（AST 解析）へ送る（API / フロント契約の早期安定化）。
+    """
+
+    FEATURE = "feature"
+    FOLDER = "folder"
+    FILE = "file"
+    CLASS = "class"  # 後続（057）
+    FUNCTION = "function"  # 後続（057）
 
 
 class JobStatus(StrEnum):
