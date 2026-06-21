@@ -5,10 +5,12 @@ blame line-share (027 authorship matching → ``users.id``), aggregates KC(file)
 thresholds, extracts intra-repo dependency edges (wormholes), and upserts ``file_kc`` / ``dependencies``
 under an ``analysis_run``. ``shared.worker.run_task`` owns the Job lifecycle + ``result_data``.
 
-KC formula is an MVP: KC(file,dev) = the developer's blame line-share (``certified_via="authorship"``);
-half-life / decay are unknown (no spec in repo) and intentionally omitted. KC(file) aggregate = max of
-dev KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``. quiz-certified KC (034) only updates rows
-later — this pipeline writes the ``certified_via`` column and upsert path it will reuse.
+KC formula is an MVP: KC(file,dev) = the developer's blame line-share (``certified_via="authorship"``),
+*capped at ``_AUTHORSHIP_KC_CEILING`` so authorship alone never reaches ``star``* (issue-048 — authoring
+a file is contact, not verified mastery). half-life / decay are unknown (no spec in repo) and
+intentionally omitted. KC(file) aggregate = max of dev KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``.
+quiz-certified KC (034) only updates rows later (uncapped → can reach ``star``) — this pipeline writes the
+``certified_via`` column and upsert path it will reuse.
 
 Idempotent across at-least-once redelivery: the run is keyed by ``job_id`` and rows upsert on their
 unique constraints (dev rows on ``(run_id, file_path, dev_id)``; aggregate rows on the partial index
@@ -40,6 +42,12 @@ logger = logging.getLogger(__name__)
 
 _MAX_FILES = 50  # blame is a GraphQL call per file; cap per run (MVP)
 _SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+
+# Authorship is evidence of *contact*, not verified mastery. Capping authorship-derived KC
+# just below the star threshold (0.7) keeps "I wrote it" at most ``dim_star`` — so a repo's
+# sole author no longer reads as having mastered every file. Verified KC (quiz/review, issue
+# 034) writes uncapped rows and can reach ``star``. (issue-048)
+_AUTHORSHIP_KC_CEILING = 0.6
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -222,6 +230,8 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
         dev_kcs: list[float] = []
         for identity, ratio in dev_ratios:
             dev_id = await resolve_author_user_id(session, identity)
+            # Cap authorship KC below the star threshold (issue-048): writing a file ≠ mastering it.
+            kc_auth = min(ratio, _AUTHORSHIP_KC_CEILING)
             await _upsert_file_kc(
                 session,
                 run_id=run.id,
@@ -229,11 +239,11 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
                 module=module,
                 dev_id=dev_id,
                 github_handle=identity.login,
-                kc=ratio,
-                mastery=mastery_from_kc(ratio, has_contact=True),
+                kc=kc_auth,
+                mastery=mastery_from_kc(kc_auth, has_contact=True),
                 certified_via="authorship",
             )
-            dev_kcs.append(ratio)
+            dev_kcs.append(kc_auth)
             file_kc_count += 1
 
         has_contact = len(dev_ratios) > 0
