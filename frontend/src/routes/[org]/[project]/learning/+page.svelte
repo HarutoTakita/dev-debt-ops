@@ -87,6 +87,15 @@
     </div>
     <PlanProgress {plan} />
     <ResourceList steps={plan.steps} ontoggle={toggle} />
+    <!-- input（学習）→ output（クイズ）の導線（issue 051）。読んだら腕試しで KC を上げる。 -->
+    <div class="border-t pt-3">
+      <a
+        href={resolve(`/${orgSlug}/${projectSlug}/quizzes`)}
+        class="inline-flex items-center gap-1.5 text-sm font-medium text-debt-knowledge underline-offset-2 hover:underline"
+      >
+        {m.learning_to_quiz()} →
+      </a>
+    </div>
   </div>
 {:else}
   <div class="flex h-full flex-col">
