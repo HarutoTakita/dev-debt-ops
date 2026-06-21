@@ -26,7 +26,7 @@ from service.services import gemini_stack_service
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobStatus, JobType, ResultStatus
-from shared.models import AnalysisRun, FileKc, QuizAnswer, QuizResult, QuizSession
+from shared.models import AnalysisRun, FeatureFile, FileKc, QuizAnswer, QuizResult, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.quiz import QuizGradingRequest, QuizGradingResult
 from shared.schemas.stack_analysis import GitHubRef
@@ -187,13 +187,25 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
     score = graded["score"]
 
     # Reflect the score into file_kc (certified_via="quiz", uncapped — issue 053 / ADR 0005).
-    reflected = await _reflect_quiz_kc(
-        session,
-        project_id=uuid.UUID(request.project_id),
-        file_path=quiz.file_path,
-        developer_id=quiz.developer_id,
-        score=score,
-    )
+    # A feature-scope session (issue 054) expands uniformly to every file in the feature.
+    project_uuid = uuid.UUID(request.project_id)
+    if quiz.granularity == "feature" and quiz.feature_id is not None:
+        feature_files = (
+            (await session.execute(select(FeatureFile).where(col(FeatureFile.feature_id) == quiz.feature_id)))
+            .scalars()
+            .all()
+        )
+        reflected = None
+        for ff in feature_files:
+            r = await _reflect_quiz_kc(
+                session, project_id=project_uuid, file_path=ff.file_path, developer_id=quiz.developer_id, score=score
+            )
+            if r is not None and reflected is None:
+                reflected = r  # representative before/after for the result summary
+    else:
+        reflected = await _reflect_quiz_kc(
+            session, project_id=project_uuid, file_path=quiz.file_path, developer_id=quiz.developer_id, score=score
+        )
     if reflected is not None:
         kc_before, kc_after = reflected
     else:

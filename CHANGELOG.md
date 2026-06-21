@@ -8,6 +8,7 @@
 
 ### Added
 
+- 機能（feature）単位のベースライン理解度クイズ（issue-054）: `quiz_generation` を機能スコープへ拡張（`granularity="feature"`/`feature_id`）し、機能の代表ファイル群（`feature_files` を `confidence` 上位）＋ `features.description` から Gemini が機能横断の設問を生成。api に `POST .../baseline-quizzes → 202`（最新 `feature_clustering` run の全機能 × 呼び出し元で自分のベースラインセッションを作成・生成 enqueue、自分スコープのオプトイン、既存 open セッションはスキップで冪等、未クラスタリングは 409）。採点（`quiz_grading`）は機能セッションを機能配下の全ファイルへ KC 一律展開（ADR `docs/adr/0005` に追記）。`quiz_sessions` に `granularity`/`feature_id`/`is_baseline` を追加（Alembic `0017`、default で後方互換）。
 - クイズ採点による KC 認定（`certified_via="quiz"`、issue-053）: `quiz_grading` の採点完了時に、受験者 × 対象ファイルの KC を `file_kc` に upsert するフックを実装（ADR `docs/adr/0005`）。authorship の 0.6 上限を適用せず（`kc = max(既存, score)`）、合格すれば star に到達可能 — blame 痕跡ゼロの単独開発 / コードを書かない PM も計測対象になる。最新 COMPLETED な `kc_analysis` run にアンカーし、集計行（`dev_id IS NULL`）を全 dev 行の max で再導出。再採点でも KC を下げない（max 採用で冪等）。
 - 計測粒度の抽象化と「機能（feature）」概念・クラスタリングパイプライン（issue-052）: `shared` に粒度 enum `Granularity`（`feature`/`folder`/`file` は実値、`class`/`function` は 057 向けの将来枠）と `features`/`feature_files` テーブル（Alembic `0016`、機能↔ファイルの多対多写像を `run_id` でスナップショット）を新設。`JobType.FEATURE_CLUSTERING` + service パイプライン `feature_clustering`（Gemini/Vertex AI + ADC でファイル一覧 + import グラフを機能へクラスタリングし `features`/`feature_files` を upsert、`(run_id,key)`/`(run_id,feature_id,file_path)` の一意制約で at-least-once 再配送に冪等）。api は `POST .../cluster-features → 202`（方式 B・enqueue のみ、配信は 055）。機能の人手編集（`source="manual"`）は列のみ用意。
 
