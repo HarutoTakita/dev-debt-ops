@@ -20,6 +20,11 @@
   function isDanger(f: FileDebt): boolean {
     return f.code_debt_score > 0.5 && f.knowledge_coverage < 0.5;
   }
+
+  // 0..1 のスコアをパーセント座標へ。想定外の範囲外値でも点が枠外へ飛ばないようクランプ（issue-047）。
+  function pct(score: number): number {
+    return Math.max(0, Math.min(1, score)) * 100;
+  }
 </script>
 
 <div class="rounded-lg border bg-card p-4">
@@ -84,8 +89,8 @@
               "hover:z-10 hover:scale-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:scale-100",
               isDanger(f) ? "size-4 bg-destructive ring-2 ring-destructive/25" : "size-3 bg-debt-knowledge",
             )}
-            style="left: {f.knowledge_coverage * 100}%; top: {f.code_debt_score * 100}%;"
-            style:opacity={isDanger(f) ? 1 : 0.45 + f.code_debt_score * 0.55}
+            style="left: {pct(f.knowledge_coverage)}%; top: {pct(f.code_debt_score)}%;"
+            style:opacity={isDanger(f) ? 1 : 0.45 + Math.max(0, Math.min(1, f.code_debt_score)) * 0.55}
             onmouseenter={() => (hovered = f)}
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = f)}
@@ -103,7 +108,7 @@
         {#if hovered}
           <div
             class="pointer-events-none absolute z-20 max-w-[80%] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] whitespace-nowrap text-background"
-            style="left: {hovered.knowledge_coverage * 100}%; top: calc({hovered.code_debt_score * 100}% - 6px);"
+            style="left: {pct(hovered.knowledge_coverage)}%; top: calc({pct(hovered.code_debt_score)}% - 6px);"
           >
             <span class="font-mono">{hovered.path}</span>
             <span class="opacity-80">

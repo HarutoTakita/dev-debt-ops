@@ -116,6 +116,56 @@ async def test_overview_aggregates_files(authenticated_client: AsyncClient) -> N
     assert body["activity"]["code_agent_merged"] == 1  # status in_pr
 
 
+async def test_overview_universe_is_kc_set(authenticated_client: AsyncClient) -> None:
+    """The scatter is driven off the KC file set, not the code∪kc union (issue-047).
+
+    A code-debt finding with no KC row must NOT be plotted at knowledge_coverage=0.0 (the old
+    left-edge artifact); a KC file with no code finding must appear at code_debt_score=0.0.
+    """
+    org_slug, project_slug, project_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        code_run = AnalysisRun(
+            project_id=project_id, commit_sha="c", kind=JobType.CODE_DEBT_DETECTION.value, status=JobStatus.COMPLETED
+        )
+        kc_run = AnalysisRun(
+            project_id=project_id, commit_sha="k", kind=JobType.KC_ANALYSIS.value, status=JobStatus.COMPLETED
+        )
+        session.add_all([code_run, kc_run])
+        await session.flush()
+        session.add_all(
+            [
+                # flagged-but-no-KC: previously fabricated kc=0.0 and stuck to the left edge.
+                CodeDebt(
+                    project_id=project_id,
+                    run_id=code_run.id,
+                    file_path="src/flagged.py",
+                    type="complexity",
+                    severity="high",
+                    code_debt_score=0.7,
+                ),
+                # known: both a code finding and a KC row → a real two-axis point.
+                CodeDebt(
+                    project_id=project_id,
+                    run_id=code_run.id,
+                    file_path="src/known.py",
+                    type="complexity",
+                    severity="critical",
+                    code_debt_score=0.9,
+                ),
+                FileKc(run_id=kc_run.id, file_path="src/clean.py", kc=0.5, mastery="dim_star"),
+                FileKc(run_id=kc_run.id, file_path="src/known.py", kc=0.2, mastery="black_hole"),
+            ]
+        )
+        await session.commit()
+
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/overview")).json()
+    files = {f["path"]: f for f in body["files"]}
+
+    assert set(files) == {"src/clean.py", "src/known.py"}  # universe = KC set; flagged.py excluded
+    assert files["src/clean.py"] == {**files["src/clean.py"], "code_debt_score": 0.0, "knowledge_coverage": 0.5}
+    assert files["src/known.py"] == {**files["src/known.py"], "code_debt_score": 0.9, "knowledge_coverage": 0.2}
+
+
 async def test_list_debts_filter_and_sort(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, project_id = await _seed_project(authenticated_client)
     await _seed_analysis(project_id)
