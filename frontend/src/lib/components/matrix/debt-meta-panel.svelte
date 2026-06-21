@@ -3,7 +3,6 @@
   import { page } from "$app/state";
   import type { DebtItem } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
-  import { agents } from "$lib/stores/agent-store.svelte";
   import { formatKc, formatKcPct } from "$lib/format/kc";
   import DeveloperAvatar from "./developer-avatar.svelte";
   import DeveloperKey from "./developer-key.svelte";
@@ -15,12 +14,8 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  const agentHref = $derived(resolve(`/${orgSlug}/${projectSlug}/agents`));
-
-  // detect → 推論への往復: agents 画面の kind を debt.kind に応じて事前選択する。
-  function selectAgentKind() {
-    agents.selectedKind = debt.kind === "code" ? "code_debt" : "knowledge_debt";
-  }
+  // エージェント独立ビュー廃止（issue 051）。担当エージェントの状況は観測台（ダッシュボード）へ。
+  const agentHref = $derived(resolve(`/${orgSlug}/${projectSlug}`));
 
   const rows = $derived([
     { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
@@ -37,7 +32,6 @@
     <span class="shrink-0 text-muted-foreground">{m.debt_meta_agent()}</span>
     <a
       href={agentHref}
-      onclick={selectAgentKind}
       title={m.matrix_view_agent_reasoning()}
       aria-label={m.matrix_view_agent_reasoning()}
       class="text-right underline-offset-2 hover:underline"
