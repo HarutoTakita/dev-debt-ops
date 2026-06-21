@@ -77,3 +77,10 @@ class SaveAnswerIn(BaseModel):
 
     question_id: str
     value: str
+
+
+class BaselineQuizzesOut(BaseModel):
+    """Summary for ``POST .../baseline-quizzes`` (issue 054)."""
+
+    created: int
+    job_ids: list[str]

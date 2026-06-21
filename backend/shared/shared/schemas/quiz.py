@@ -11,7 +11,7 @@ from shared.schemas.stack_analysis import GitHubRef
 
 
 class QuizGenerationRequest(JobRequestBase):
-    """Queue payload to generate quiz questions for one file."""
+    """Queue payload to generate quiz questions for one file or feature (issue 034 / 054)."""
 
     session_id: str
     project_id: str
@@ -20,6 +20,8 @@ class QuizGenerationRequest(JobRequestBase):
     branch: str = "main"
     github: GitHubRef
     requested_by: str
+    granularity: str = "file"  # "file" | "feature" (issue 054)
+    feature_id: str | None = None  # set when granularity="feature"
 
 
 class QuizGenerationResult(JobResultBase):
