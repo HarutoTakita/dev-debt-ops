@@ -16,12 +16,45 @@ from service.services import gemini_stack_service
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
-from shared.models import QuizSession
+from shared.models import Feature, FeatureFile, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.quiz import QuizGenerationRequest, QuizGenerationResult
 from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
+
+_MAX_FEATURE_FILES = 5  # representative files fed to Gemini for a feature-scope quiz
+_MAX_FEATURE_FILE_CHARS = 3000
+
+
+async def _feature_content(session, client, request: QuizGenerationRequest) -> tuple[str, str]:
+    """Return ``(label, combined_content)`` for a feature-scope quiz (issue 054).
+
+    Combines the feature description with its top representative files' contents so Gemini can
+    write feature-spanning comprehension questions rather than single-file ones.
+    """
+    feature_id = uuid.UUID(str(request.feature_id))
+    feat = (await session.execute(select(Feature).where(col(Feature.id) == feature_id))).scalar_one_or_none()
+    files = (
+        (
+            await session.execute(
+                select(FeatureFile)
+                .where(col(FeatureFile.feature_id) == feature_id)
+                .order_by(col(FeatureFile.confidence).desc())
+                .limit(_MAX_FEATURE_FILES)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    owner, _, repo = request.repo_full_name.partition("/")
+    blocks: list[str] = []
+    for ff in files:
+        fc = await client.get_file_content(owner, repo, ff.file_path, request.branch)
+        blocks.append(f"=== {ff.file_path} ===\n{(fc.content or '')[:_MAX_FEATURE_FILE_CHARS]}")
+    label = feat.name if feat is not None else (request.feature_id or "feature")
+    header = f"Feature: {label}\n{feat.description if feat is not None else ''}".strip()
+    return label, f"{header}\n\n{chr(10).join(blocks)}"
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -63,8 +96,12 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        fc = await client.get_file_content(owner, repo, request.file_path, request.branch)
-        generated = await gemini_stack_service.generate_quiz(request.file_path, fc.content or "")
+        if request.granularity == "feature" and request.feature_id:
+            label, content = await _feature_content(session, client, request)
+            generated = await gemini_stack_service.generate_quiz(label, content)
+        else:
+            fc = await client.get_file_content(owner, repo, request.file_path, request.branch)
+            generated = await gemini_stack_service.generate_quiz(request.file_path, fc.content or "")
     finally:
         await client.aclose()
 

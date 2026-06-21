@@ -22,6 +22,11 @@ class QuizSession(SQLModel, table=True):
     developer_id: uuid.UUID = Field(index=True, nullable=False)  # = users.id（認可で current_user に束ねる）
     file_path: str = Field(nullable=False)
     repo_full_name: str = Field(default="", nullable=False)
+    # 計測粒度（issue 054）。``feature`` のとき対象は ``feature_id`` で解決し ``file_path`` は代表/空。
+    # default ``file`` で既存のファイル単位受験は後方互換。
+    granularity: str = Field(default="file", nullable=False)
+    feature_id: uuid.UUID | None = Field(default=None)  # granularity="feature" のとき features.id
+    is_baseline: bool = Field(default=False, nullable=False)  # 初回ベースライン受験フラグ（自動生成 / 集計用）
     # not_started / in_progress / grading / completed（小文字。Job の JobStatus 大文字とは別系列）。
     status: str = Field(default="not_started", nullable=False)
     score: float | None = Field(default=None)

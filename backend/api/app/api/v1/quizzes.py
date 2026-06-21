@@ -14,12 +14,14 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
+from sqlmodel import select as sm_select
 
 from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import InstallationIdDep
 from app.models.user import User
 from app.schemas.job import JobEnqueuedOut
 from app.schemas.quiz import (
+    BaselineQuizzesOut,
     FileRefOut,
     GenerateQuizIn,
     QuizAnswerOut,
@@ -32,8 +34,8 @@ from app.schemas.quiz import (
 from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
-from shared.enums import JobType
-from shared.models import QuizAnswer, QuizResult, QuizSession
+from shared.enums import JobStatus, JobType
+from shared.models import AnalysisRun, Feature, FeatureFile, QuizAnswer, QuizResult, QuizSession
 from shared.queue import BlobClient, TaskDispatcher
 
 router = APIRouter(tags=["quizzes"])
@@ -161,6 +163,105 @@ async def generate_quiz(
         project_id=project.id,
     )
     return JobEnqueuedOut(job_id=job.id, status=job.status)
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/baseline-quizzes",
+    response_model=BaselineQuizzesOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="機能ごとのベースライン理解度クイズを生成する（自分の受験分）",
+)
+async def generate_baseline_quizzes(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    org_membership: OrgScope,
+    installation_id: InstallationIdDep,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SessionDep,
+    dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
+    blob: Annotated[BlobClient, Depends(get_blob_client)],
+) -> BaselineQuizzesOut:
+    """Create a baseline quiz session per feature for the caller and enqueue generation (issue 054).
+
+    Opt-in / self-scoped (only the caller's sessions) to avoid mass Job fan-out. Idempotent: a
+    feature that already has an open baseline session for the caller is skipped. 409 if feature
+    clustering (issue 052) has not run yet.
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    run = (
+        await session.exec(
+            sm_select(AnalysisRun)
+            .where(
+                col(AnalysisRun.project_id) == project.id,
+                col(AnalysisRun.kind) == JobType.FEATURE_CLUSTERING.value,
+                col(AnalysisRun.status) == JobStatus.COMPLETED,
+            )
+            .order_by(col(AnalysisRun.created_at).desc())
+            .limit(1)
+        )
+    ).first()
+    if run is None:
+        raise HTTPException(status_code=409, detail="機能クラスタリングが未実行です")
+
+    features = (await session.exec(sm_select(Feature).where(col(Feature.run_id) == run.id))).all()
+    job_ids: list[str] = []
+    for feat in features:
+        existing = (
+            await session.exec(
+                sm_select(QuizSession).where(
+                    col(QuizSession.project_id) == project.id,
+                    col(QuizSession.developer_id) == current_user.id,
+                    col(QuizSession.feature_id) == feat.id,
+                    col(QuizSession.is_baseline).is_(True),
+                    col(QuizSession.status) != "completed",
+                )
+            )
+        ).first()
+        if existing is not None:
+            continue  # already has an open baseline session for this feature
+        rep = (
+            await session.exec(
+                sm_select(FeatureFile)
+                .where(col(FeatureFile.feature_id) == feat.id)
+                .order_by(col(FeatureFile.confidence).desc())
+                .limit(1)
+            )
+        ).first()
+        quiz = QuizSession(
+            project_id=project.id,
+            developer_id=current_user.id,
+            file_path=rep.file_path if rep is not None else "",
+            repo_full_name=project.repo_full_name,
+            granularity="feature",
+            feature_id=feat.id,
+            is_baseline=True,
+            status="not_started",
+        )
+        session.add(quiz)
+        await session.flush()
+        payload = {
+            "session_id": str(quiz.id),
+            "project_id": str(project.id),
+            "file_path": quiz.file_path,
+            "repo_full_name": project.repo_full_name,
+            "branch": project.default_branch or "main",
+            "requested_by": str(current_user.id),
+            "github": {"installation_id": installation_id},
+            "granularity": "feature",
+            "feature_id": str(feat.id),
+        }
+        job = await enqueue_job(
+            session=session,
+            dispatcher=dispatcher,
+            blob_client=blob,
+            job_type=JobType.QUIZ_GENERATION,
+            payload=payload,
+            created_by=current_user.id,
+            project_id=project.id,
+        )
+        job_ids.append(str(job.id))
+    return BaselineQuizzesOut(created=len(job_ids), job_ids=job_ids)
 
 
 @router.get(
