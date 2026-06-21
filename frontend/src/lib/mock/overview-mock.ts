@@ -112,6 +112,8 @@ const others: FileDebt[] = [
 export const overviewMock: Overview = {
   org: "demo",
   generated_at: "2026-06-18T09:00:00+09:00",
+  granularity: "file",
+  features: [],
   files: [...namedDanger, ...generatedDanger, ...others],
   trend: [
     { week: "4週前", code_debt_score: 0.67, knowledge_coverage: 0.44 },

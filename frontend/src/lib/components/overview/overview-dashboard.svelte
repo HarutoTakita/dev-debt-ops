@@ -11,11 +11,20 @@
   import TrendIndicator from "./trend-indicator.svelte";
   import WeeklyActivity from "./weekly-activity.svelte";
   import PriorityList from "./priority-list.svelte";
+  import GranularitySwitch, { type Granularity } from "./granularity-switch.svelte";
+  import FeatureDebtList from "./feature-debt-list.svelte";
 
   // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と将来の実データ表示で共用する。
   // isSample: 表示中のデータがモック由来である間「Sample / デモデータ」バッジを出す（誠実表示）。
-  type Props = { overview: Overview; isSample?: boolean };
-  const { overview, isSample = false }: Props = $props();
+  // granularity / onGranularity: 粒度切替（issue 056）。onGranularity 提供時のみセグメントを出す
+  // （サンプル/モック表示では切替を出さない）。
+  type Props = {
+    overview: Overview;
+    isSample?: boolean;
+    granularity?: Granularity;
+    onGranularity?: (g: Granularity) => void;
+  };
+  const { overview, isSample = false, granularity = "file", onGranularity }: Props = $props();
 
   // 遷移先生成用の slug。ルートからではなく $app/state 経由で取得（mastery-list / constructive-result と同流儀）。
   const orgSlug = $derived(page.params.org ?? "");
@@ -40,11 +49,19 @@
     </div>
   {/if}
 
-  <!-- 一次ビュー: 二軸負債マトリクス + 4 象限凡例 -->
-  <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-    <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-    <QuadrantLegend {orgSlug} {projectSlug} />
-  </div>
+  {#if onGranularity}
+    <GranularitySwitch value={granularity} onChange={onGranularity} />
+  {/if}
+
+  <!-- 一次ビュー: granularity=file は二軸負債マトリクス、feature/folder は機能/フォルダ単位の理解負債リスト -->
+  {#if granularity === "file"}
+    <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
+      <QuadrantLegend {orgSlug} {projectSlug} />
+    </div>
+  {:else}
+    <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
+  {/if}
 
   <!-- stat-card（負債系は減少=緑に反転） -->
   <div class="grid gap-3 sm:grid-cols-3">
