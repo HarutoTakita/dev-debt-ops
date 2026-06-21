@@ -40,6 +40,15 @@
     if (kc >= 0.4) return "text-debt-knowledge";
     return "text-destructive";
   }
+  // コード負債（高いほど汚い）。粒度別のコード負債軸を機能ビューでも示す（issue 057）。
+  function codeTone(code: number): string {
+    if (code >= 0.6) return "text-destructive";
+    if (code >= 0.3) return "text-warning";
+    return "text-muted-foreground";
+  }
+  function codePct(code: number): number {
+    return Math.round(Math.max(0, Math.min(1, code)) * 100);
+  }
 </script>
 
 <div class="rounded-lg border bg-card p-4">
@@ -58,6 +67,10 @@
             <span class={cn("shrink-0 text-xs font-medium", masteryTone(f.knowledge_coverage))}>
               {m.feature_understanding()}
               {kcPct(f.knowledge_coverage)}%
+            </span>
+            <span class={cn("shrink-0 text-xs font-medium", codeTone(f.code_debt_score))}>
+              {m.feature_code_debt()}
+              {codePct(f.code_debt_score)}%
             </span>
             <span class="shrink-0 text-xs text-muted-foreground">{m.feature_files_count({ count: f.file_count })}</span
             >
@@ -79,6 +92,9 @@
                       <span class="min-w-0 flex-1 truncate">{file.path}</span>
                       <span class={cn("shrink-0", masteryTone(file.knowledge_coverage))}>
                         {kcPct(file.knowledge_coverage)}%
+                      </span>
+                      <span class={cn("shrink-0", codeTone(file.code_debt_score))}>
+                        {codePct(file.code_debt_score)}%
                       </span>
                     </li>
                   {/each}
