@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 計測粒度の抽象化と「機能（feature）」概念・クラスタリングパイプライン（issue-052）: `shared` に粒度 enum `Granularity`（`feature`/`folder`/`file` は実値、`class`/`function` は 057 向けの将来枠）と `features`/`feature_files` テーブル（Alembic `0016`、機能↔ファイルの多対多写像を `run_id` でスナップショット）を新設。`JobType.FEATURE_CLUSTERING` + service パイプライン `feature_clustering`（Gemini/Vertex AI + ADC でファイル一覧 + import グラフを機能へクラスタリングし `features`/`feature_files` を upsert、`(run_id,key)`/`(run_id,feature_id,file_path)` の一意制約で at-least-once 再配送に冪等）。api は `POST .../cluster-features → 202`（方式 B・enqueue のみ、配信は 055）。機能の人手編集（`source="manual"`）は列のみ用意。
+
 ### Fixed
 
 - バックエンド堅牢性: GitHub レート制限 / ADK 出力ガード / N+1（issue-045）: (A) `GitHubGitClient` に httpx レスポンスフックを追加し、429 / 403（`Retry-After` または `x-ratelimit-remaining: 0`）を `TransientTaskError` に変換 — `run_task` がこれを再 raise して 503 を返し、Cloud Tasks に再試行させる（恒久 FAILED にしない）。(B) `analyze_tech_stack` に dict 型ガードを追加（妥当 JSON だが非 dict の応答で `save_stack` の `.get()` が AttributeError になるのを防止、兄弟ヘルパと統一）。(C) agent activity 配信のステップ/エビデンス取得を `IN (...)` 一括ロードへ（O(activities×steps) → 固定クエリ数）。(D) 負債一覧の `assigned_developers` を debt id 群で一括ロード（N+1 解消）。注: コミット日付の偽造耐性（E）と ADC クライアントのキャッシュ（F）は低優先のため後続に委ねる。
