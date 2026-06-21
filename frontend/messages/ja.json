@@ -225,6 +225,7 @@
   "galaxy_status_unexplored": "未踏星域",
   "galaxy_legend_title": "凡例",
   "galaxy_legend_wormhole": "ワームホール（依存）",
+  "galaxy_legend_degree": "リングの大きさ＝依存の多さ",
   "galaxy_list_status": "状態",
   "galaxy_list_file": "ファイル",
   "galaxy_list_kc": "KC",
