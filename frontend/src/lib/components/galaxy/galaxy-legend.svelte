@@ -21,4 +21,8 @@
     <span class="inline-block h-px w-5 border-t border-dashed border-cyan-400/60"></span>
     {m.galaxy_legend_wormhole()}
   </span>
+  <span class="flex items-center gap-1.5 text-slate-300">
+    <span class="inline-block size-3 rounded-full border border-cyan-400/50"></span>
+    {m.galaxy_legend_degree()}
+  </span>
 </div>
