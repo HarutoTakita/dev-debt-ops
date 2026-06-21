@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from app.core import db as app_db
 from app.models.project import Project
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Feature, FeatureFile, FileKc
+from shared.models import AnalysisRun, CodeDebt, Feature, FeatureFile, FileKc
 
 
 async def _seed_project(client: AsyncClient) -> tuple[str, str, uuid.UUID]:
@@ -82,6 +82,35 @@ async def test_feature_granularity_rolls_up_kc(authenticated_client: AsyncClient
     assert node["knowledge_coverage"] == 0.6  # avg(0.9, 0.3)
     assert node["file_count"] == 2
     assert node["weakest_file"] == "src/auth/b.py"  # lowest KC
+
+
+async def test_feature_rolls_up_code_debt_as_max(authenticated_client: AsyncClient) -> None:
+    """Feature node code_debt_score = max over its files (issue 057 slice display + rollup)."""
+    org_slug, project_slug, project_id = await _seed_project(authenticated_client)
+    await _seed(project_id)
+    async with app_db.async_session_maker() as session:
+        code_run = AnalysisRun(
+            project_id=project_id, commit_sha="c", kind=JobType.CODE_DEBT_DETECTION.value, status=JobStatus.COMPLETED
+        )
+        session.add(code_run)
+        await session.flush()
+        session.add(
+            CodeDebt(
+                project_id=project_id,
+                run_id=code_run.id,
+                file_path="src/auth/a.py",
+                type="complexity",
+                severity="high",
+                code_debt_score=0.8,
+            )
+        )
+        await session.commit()
+
+    body = (
+        await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/overview?granularity=feature")
+    ).json()
+    node = body["features"][0]
+    assert node["code_debt_score"] == 0.8  # max over auth/a (0.8) and auth/b (0.0)
 
 
 async def test_folder_granularity_projects_directory(authenticated_client: AsyncClient) -> None:
