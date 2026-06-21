@@ -4,10 +4,25 @@
   import ComingSoonPlaceholder from "$lib/components/quiz/coming-soon-placeholder.svelte";
   import QuizList from "$lib/components/quiz/quiz-list.svelte";
   import { quiz } from "$lib/stores/quiz-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
+
+  function loadAvailable() {
+    if (orgSlug && projectSlug) void quiz.loadAvailable(orgSlug, projectSlug).catch(() => {});
+  }
+
+  // 入室時に受験可能クイズを実 API で取得（nav pill の availableCount も同時に更新）。
+  $effect(() => {
+    void orgSlug;
+    void projectSlug;
+    loadAvailable();
+  });
+
+  // 返済ループ完了で自動リフレッシュ（loop_agents → loadAvailable、issue 049）。
+  refreshOnStageComplete(["loop_agents"], loadAvailable);
 </script>
 
 <svelte:head>
