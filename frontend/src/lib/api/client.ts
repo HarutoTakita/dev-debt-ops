@@ -7,6 +7,7 @@ import {
   branchListSchema,
   debtItemSchema,
   debtListSchema,
+  fileDebtSchema,
   fileContentSchema,
   learningPlanSchema,
   learningStepSchema,
@@ -31,6 +32,7 @@ import {
   type BranchList,
   type DebtItem,
   type DebtList,
+  type FileDebt,
   type LearningPlan,
   type LearningStep,
   type Overview,
@@ -409,10 +411,29 @@ export async function analyzeGalaxy(orgSlug: string, projectSlug: string): Promi
 }
 
 // Overview 二軸集計（issue 031）: GET .../overview を取得して overviewSchema で検証。
-export async function getOverview(orgSlug: string, projectSlug: string): Promise<Overview> {
-  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/overview`);
+// issue 055/056: granularity=feature|folder|file で機能/フォルダ単位のロールアップを取得。
+export async function getOverview(
+  orgSlug: string,
+  projectSlug: string,
+  granularity: "feature" | "folder" | "file" = "file",
+): Promise<Overview> {
+  const qs = granularity === "file" ? "" : `?granularity=${granularity}`;
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/overview${qs}`);
   if (!response.ok) throw new Error(await errorDetail(response, "Overview の取得に失敗しました"));
   return overviewSchema.parse(await response.json());
+}
+
+// 機能ドリルダウン（issue 055/056）: GET .../features/{feature_key} で機能配下ファイルの理解負債を取得。
+export async function getFeatureDrilldown(
+  orgSlug: string,
+  projectSlug: string,
+  featureKey: string,
+): Promise<FileDebt[]> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/features/${encodeURIComponent(featureKey)}`,
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "機能の詳細取得に失敗しました"));
+  return z.array(fileDebtSchema).parse(await response.json());
 }
 
 // Debt registry（Matrix）— issue 031 で実 API に接続。フィルタ/ソートはクエリでサーバに委譲。
