@@ -8,7 +8,12 @@
 
 ### Added
 
+- クイズ採点による KC 認定（`certified_via="quiz"`、issue-053）: `quiz_grading` の採点完了時に、受験者 × 対象ファイルの KC を `file_kc` に upsert するフックを実装（ADR `docs/adr/0005`）。authorship の 0.6 上限を適用せず（`kc = max(既存, score)`）、合格すれば star に到達可能 — blame 痕跡ゼロの単独開発 / コードを書かない PM も計測対象になる。最新 COMPLETED な `kc_analysis` run にアンカーし、集計行（`dev_id IS NULL`）を全 dev 行の max で再導出。再採点でも KC を下げない（max 採用で冪等）。
 - 計測粒度の抽象化と「機能（feature）」概念・クラスタリングパイプライン（issue-052）: `shared` に粒度 enum `Granularity`（`feature`/`folder`/`file` は実値、`class`/`function` は 057 向けの将来枠）と `features`/`feature_files` テーブル（Alembic `0016`、機能↔ファイルの多対多写像を `run_id` でスナップショット）を新設。`JobType.FEATURE_CLUSTERING` + service パイプライン `feature_clustering`（Gemini/Vertex AI + ADC でファイル一覧 + import グラフを機能へクラスタリングし `features`/`feature_files` を upsert、`(run_id,key)`/`(run_id,feature_id,file_path)` の一意制約で at-least-once 再配送に冪等）。api は `POST .../cluster-features → 202`（方式 B・enqueue のみ、配信は 055）。機能の人手編集（`source="manual"`）は列のみ用意。
+
+### Changed
+
+- `quiz_results.kc_before` / `kc_after` を暫定値から **反映前後の実 KC** へ格上げ（issue-053）。`GET .../quizzes/{id}/result` が `file_kc` の実値と整合する。
 
 ### Fixed
 
