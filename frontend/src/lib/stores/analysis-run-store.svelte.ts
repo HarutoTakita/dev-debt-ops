@@ -3,6 +3,7 @@ import { analyzeGalaxy, detectDebts, detectKnowledgeDebts, generatePlan, getJob,
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "plan_learning" | "loop_agents";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
 type EnqueueResult = { job_id: string; link?: string };
@@ -150,4 +151,5 @@ class AnalysisRunStore {
 }
 
 export const analysisRun = new AnalysisRunStore();
+export const ALL_STAGE_IDS: StageId[] = STAGES.map((s) => s.id as StageId);
 export { AnalysisRunStore };
