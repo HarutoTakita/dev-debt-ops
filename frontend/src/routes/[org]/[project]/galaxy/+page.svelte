@@ -9,6 +9,7 @@
   import MasteryList from "$lib/components/galaxy/mastery-list.svelte";
   import AxisLegend from "$lib/components/overview/axis-legend.svelte";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -20,6 +21,12 @@
     if (window.matchMedia("(max-width: 767px)").matches) tab = "list";
     // 実 API から個人 KC マップを取得（未観測なら observed=false で ComingSoonPlaceholder が出る）。
     if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => galaxy.reset());
+  });
+
+  // コックピットの星域解析完了で自動リフレッシュ（analyze_galaxy → galaxy.load、issue 049）。
+  // 再取得失敗時は既存表示を保持（reset しない）。
+  refreshOnStageComplete(["analyze_galaxy"], () => {
+    if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => {});
   });
 </script>
 
