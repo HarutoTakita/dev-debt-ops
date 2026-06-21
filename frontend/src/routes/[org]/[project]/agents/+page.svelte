@@ -9,15 +9,25 @@
   import AgentPipeline from "$lib/components/agents/agent-pipeline.svelte";
   import ComingSoonPlaceholder from "$lib/components/agents/coming-soon-placeholder.svelte";
   import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
 
+  function load() {
+    if (orgSlug && projectSlug) void agents.load(orgSlug, projectSlug).catch(() => {});
+  }
+
   // 実 API から人格・活動・パイプラインを取得（issue 036）。
   $effect(() => {
-    if (orgSlug && projectSlug) void agents.load(orgSlug, projectSlug).catch(() => {});
+    void orgSlug;
+    void projectSlug;
+    load();
   });
+
+  // 返済ループ完了で活動/パイプラインを自動リフレッシュ（loop_agents → agents.load、issue 049）。
+  refreshOnStageComplete(["loop_agents"], load);
 
   const pipeline = $derived(agents.visiblePipelines[0] ?? null);
 </script>

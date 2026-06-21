@@ -4,13 +4,14 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import type { ResolvedPathname } from "$app/types";
-  import { patchStep } from "$lib/api/client";
+  import { getLearningPlan, patchStep } from "$lib/api/client";
   import type { LearningPlan } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/common/coming-soon-placeholder.svelte";
   import PlanProgress from "$lib/components/learning/plan-progress.svelte";
   import ResourceList from "$lib/components/learning/resource-list.svelte";
   import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -34,6 +35,16 @@
       void goto(st.link as ResolvedPathname);
     } else if (generating && st.status === "FAILED") {
       generating = false;
+    }
+  });
+
+  // 既存プランを表示中にコックピットでプラン生成が完了したら、その場で再取得して反映（issue 049）。
+  // 自前の生成ボタン経由（generating=true）は上の effect が新プランへ遷移するためスキップ。
+  refreshOnStageComplete(["plan_learning"], () => {
+    if (!generating && plan && orgSlug && projectSlug) {
+      void getLearningPlan(orgSlug, projectSlug, plan.id)
+        .then((p) => (plan = p))
+        .catch(() => {});
     }
   });
 

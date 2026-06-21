@@ -11,6 +11,7 @@
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { Button } from "$lib/components/ui/button";
   import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -29,12 +30,9 @@
     recentSearches.load(orgSlug);
   });
 
-  // フィルタ/ソート変更で再取得（モック）。filter/sort/orgSlug を読むので変更時に再実行される。
-  $effect(() => {
-    const f = filter;
-    const s = sort;
+  function loadDebts() {
     loading = true;
-    listDebts(orgSlug, projectSlug, f, s)
+    listDebts(orgSlug, projectSlug, filter, sort)
       .then((res) => {
         debts = res.debts;
         loading = false;
@@ -43,7 +41,19 @@
         debts = [];
         loading = false;
       });
+  }
+
+  // フィルタ/ソート変更で再取得。filter/sort/org/project を読むので変更時に再実行される。
+  $effect(() => {
+    void filter;
+    void sort;
+    void orgSlug;
+    void projectSlug;
+    loadDebts();
   });
+
+  // コックピットの解析完了で自動リフレッシュ（detect_code / detect_knowledge → listDebts、issue 049）。
+  refreshOnStageComplete(["detect_code", "detect_knowledge"], loadDebts);
 
   function onfilter(f: DebtFilter) {
     filter = f;
