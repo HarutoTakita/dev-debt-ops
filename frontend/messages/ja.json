@@ -346,6 +346,7 @@
   "feature_show_files": "配下ファイルを表示",
   "feature_hide_files": "閉じる",
   "feature_understanding": "理解度",
+  "feature_code_debt": "コード負債",
   "overview_sample_badge": "Sample / デモデータ",
   "analysis_run_title": "解析ラン（コアループ）",
   "analysis_run_cta": "このリポジトリを解析する",

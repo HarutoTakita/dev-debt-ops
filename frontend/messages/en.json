@@ -346,6 +346,7 @@
   "feature_show_files": "Show files",
   "feature_hide_files": "Hide",
   "feature_understanding": "Understanding",
+  "feature_code_debt": "Code debt",
   "overview_sample_badge": "Sample data",
   "analysis_run_title": "Analysis run (core loop)",
   "analysis_run_cta": "Analyze this repository",
