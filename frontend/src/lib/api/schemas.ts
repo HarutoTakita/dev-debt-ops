@@ -199,16 +199,31 @@ export const weeklyActivitySchema = z.object({
   knowledge_agent_passed: z.number(),
 });
 
+// 機能 / フォルダ単位のロールアップノード（issue 055 配信、issue 056 が消費）。snake_case 維持。
+export const featureDebtSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  granularity: z.string(),
+  code_debt_score: z.number(),
+  knowledge_coverage: z.number(),
+  priority: debtPrioritySchema,
+  file_count: z.number(),
+  weakest_file: z.string().nullable().default(null),
+});
+
 export const overviewSchema = z.object({
   org: z.string(),
   generated_at: z.iso.datetime({ offset: true }),
+  granularity: z.string().default("file"), // issue 055
   files: z.array(fileDebtSchema), // 散布図の点
+  features: z.array(featureDebtSchema).default([]), // 機能/フォルダ単位ノード（issue 055）
   trend: z.array(debtTrendPointSchema), // 地層グラフ
   activity: weeklyActivitySchema, // 今週の活動
 });
 
 export type DebtPriority = z.infer<typeof debtPrioritySchema>;
 export type FileDebt = z.infer<typeof fileDebtSchema>;
+export type FeatureDebt = z.infer<typeof featureDebtSchema>;
 export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
 export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
 export type Overview = z.infer<typeof overviewSchema>;

@@ -8,6 +8,7 @@
   import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/overview/coming-soon-placeholder.svelte";
   import OverviewDashboard from "$lib/components/overview/overview-dashboard.svelte";
+  import { type Granularity } from "$lib/components/overview/granularity-switch.svelte";
   import GettingStarted from "$lib/components/overview/getting-started.svelte";
   import AnalysisRunCockpit from "$lib/components/overview/analysis-run-cockpit.svelte";
   import { ALL_STAGE_IDS, type RunContext } from "$lib/stores/analysis-run-store.svelte";
@@ -39,10 +40,12 @@
   // 再試行 UI を出す（mock を実データ風に見せない、issue-044）。
   let overview = $state<Overview | null>(null);
   let overviewError = $state(false);
-  async function loadOverview() {
+  // 粒度切替（issue 056）。変更すると getOverview を再取得する。
+  let granularity = $state<Granularity>("file");
+  async function loadOverview(g: Granularity = granularity) {
     if (!(repo.connected && repo.scanState !== "scanning" && orgSlug && projectSlug)) return;
     try {
-      overview = await getOverview(orgSlug, projectSlug);
+      overview = await getOverview(orgSlug, projectSlug, g);
       overviewError = false;
     } catch {
       overview = null;
@@ -50,8 +53,9 @@
     }
   }
   $effect(() => {
+    const g = granularity; // 粒度変更で再取得（同期 read で依存に含める）
     if (repo.connected && repo.scanState !== "scanning" && orgSlug && projectSlug) {
-      void loadOverview();
+      void loadOverview(g);
     }
   });
 
@@ -95,10 +99,10 @@
   {#if overviewError}
     <div class="mx-auto max-w-5xl space-y-3 px-4 py-8 text-center">
       <p class="text-sm text-muted-foreground">{m.overview_load_error()}</p>
-      <Button variant="outline" onclick={loadOverview}>{m.common_retry()}</Button>
+      <Button variant="outline" onclick={() => loadOverview()}>{m.common_retry()}</Button>
     </div>
   {:else if overview && overview.files.length > 0}
-    <OverviewDashboard {overview} />
+    <OverviewDashboard {overview} {granularity} onGranularity={(g) => (granularity = g)} />
   {:else}
     <OverviewDashboard overview={overviewMock} isSample />
   {/if}
