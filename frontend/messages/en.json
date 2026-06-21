@@ -225,6 +225,7 @@
   "galaxy_status_unexplored": "Unexplored",
   "galaxy_legend_title": "Legend",
   "galaxy_legend_wormhole": "Wormhole (dependency)",
+  "galaxy_legend_degree": "Ring size = dependency degree",
   "galaxy_list_status": "Status",
   "galaxy_list_file": "File",
   "galaxy_list_kc": "KC",
