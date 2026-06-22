@@ -58,10 +58,8 @@
     </Tooltip.Trigger>
     <Tooltip.Content side="right" class="flex items-center gap-2">
       <span>{item.label()}</span>
-      {#if pillText && !item.comingSoon}
+      {#if pillText}
         <span class="opacity-70">{pillText}</span>
-      {:else if item.comingSoon}
-        <span class="opacity-70">{m.shell_soon()}</span>
       {/if}
     </Tooltip.Content>
   </Tooltip.Root>
@@ -69,16 +67,14 @@
   <a
     href={resolve(route)}
     aria-current={active ? "page" : undefined}
-    class={cn(baseRow, active ? activeCls : inactiveCls, item.comingSoon && "opacity-90")}
+    class={cn(baseRow, active ? activeCls : inactiveCls)}
   >
     <Icon class="size-4 shrink-0" />
     <span class="flex-1 truncate">{item.label()}</span>
-    {#if pillText && !item.comingSoon}
+    {#if pillText}
       <Badge variant={active ? "secondary" : "outline"} class="h-5 px-1.5 text-[10px] font-medium tabular-nums">
         {pillText}
       </Badge>
-    {:else if item.comingSoon}
-      <Badge variant="outline" class="h-5 px-1.5 text-[10px] text-muted-foreground">{m.shell_soon()}</Badge>
     {/if}
   </a>
 {/if}
