@@ -15,7 +15,7 @@
   // FileMastery は debt id を持たないため、返済導線はファイル絞りなしの quizzes へ（issue-019 rank 8/21）。
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/quizzes`));
+  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/learning`));
 
   const glow = $derived(Math.max(0.25, file.kc));
   // rank20: KC に応じてサイズもスケール（理解度を発光 + 大きさの二重符号に）。

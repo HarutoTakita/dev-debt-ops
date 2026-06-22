@@ -14,7 +14,7 @@
   const cards = $derived([
     { emoji: "🗺️", label: m.getting_started_galaxy(), href: resolve(`/${orgSlug}/${projectSlug}/galaxy`) },
     { emoji: "📊", label: m.getting_started_matrix(), href: resolve(`/${orgSlug}/${projectSlug}/matrix`) },
-    { emoji: "📚", label: m.getting_started_quiz(), href: resolve(`/${orgSlug}/${projectSlug}/quizzes`) },
+    { emoji: "📚", label: m.getting_started_quiz(), href: resolve(`/${orgSlug}/${projectSlug}/learning`) },
     { emoji: "📂", label: m.getting_started_repos(), href: resolve(`/${orgSlug}/${projectSlug}/repos`) },
   ]);
 </script>
