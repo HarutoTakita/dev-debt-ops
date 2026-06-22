@@ -1,4 +1,12 @@
-import { analyzeGalaxy, detectDebts, detectKnowledgeDebts, generatePlan, getJob, runAgentLoop } from "$lib/api/client";
+import {
+  analyzeGalaxy,
+  detectDebts,
+  detectKnowledgeDebts,
+  generatePlan,
+  getAnalysisStatus,
+  getJob,
+  runAgentLoop,
+} from "$lib/api/client";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
@@ -10,6 +18,8 @@ type EnqueueResult = { job_id: string; link?: string };
 type StageDef = {
   id: string;
   labelKey: string;
+  // 対応する JobType 値（analysis-status での状態復元キー）。
+  jobType: string;
   enqueue: (ctx: RunContext) => Promise<EnqueueResult>;
   dependsOn: string[];
   deepLink: ((ctx: RunContext) => string) | null;
@@ -23,6 +33,7 @@ export const STAGES: StageDef[] = [
   {
     id: "detect_code",
     labelKey: "analysis_stage_detect_code",
+    jobType: "code_debt_detection",
     enqueue: (c) => detectDebts(c.orgSlug, c.projectSlug),
     dependsOn: [],
     deepLink: (c) => _path(c, "/matrix"),
@@ -30,6 +41,7 @@ export const STAGES: StageDef[] = [
   {
     id: "detect_knowledge",
     labelKey: "analysis_stage_detect_knowledge",
+    jobType: "knowledge_debt_detection",
     enqueue: (c) => detectKnowledgeDebts(c.orgSlug, c.projectSlug),
     dependsOn: [],
     deepLink: (c) => _path(c, "/matrix?kind=knowledge"),
@@ -37,6 +49,7 @@ export const STAGES: StageDef[] = [
   {
     id: "analyze_galaxy",
     labelKey: "analysis_stage_analyze_galaxy",
+    jobType: "kc_analysis",
     enqueue: (c) => analyzeGalaxy(c.orgSlug, c.projectSlug),
     dependsOn: [],
     deepLink: (c) => _path(c, "/galaxy"),
@@ -44,6 +57,7 @@ export const STAGES: StageDef[] = [
   {
     id: "plan_learning",
     labelKey: "analysis_stage_plan_learning",
+    jobType: "learning_plan_generation",
     enqueue: async (c) => {
       const { job_id, plan_id } = await generatePlan(c.orgSlug, c.projectSlug, {});
       return { job_id, link: _path(c, `/learning?planId=${plan_id}`) };
@@ -54,6 +68,7 @@ export const STAGES: StageDef[] = [
   {
     id: "loop_agents",
     labelKey: "analysis_stage_loop_agents",
+    jobType: "code_debt_loop",
     enqueue: (c) => runAgentLoop(c.orgSlug, c.projectSlug, "code_debt"),
     dependsOn: ["detect_code"],
     // エージェント独立ビュー廃止（issue 051）。ループ状況は観測台（ダッシュボード）へ集約。
@@ -80,6 +95,39 @@ class AnalysisRunStore {
   }
 
   #runAllActive = false; // reentrancy guard: a second runAll (fast double-click / two pages) is ignored
+  #hydrated = false; // guards one-shot rehydration per project (cleared on reset)
+
+  /** Rehydrate stage status from persisted jobs so a page reload doesn't reset the cockpit.
+
+   * Reads the latest job per stage (``GET .../analysis-status``) and reflects COMPLETED / FAILED,
+   * resuming polling for any still-running stage. No-op once a run has started or after hydrating.
+   */
+  async hydrate(ctx: RunContext) {
+    if (this.started || this.#hydrated) return;
+    this.#hydrated = true;
+    let data;
+    try {
+      data = await getAnalysisStatus(ctx.orgSlug, ctx.projectSlug);
+    } catch {
+      this.#hydrated = false; // allow a later retry
+      return;
+    }
+    if (this.started) return; // a run started while we awaited the fetch
+    const gen = this.#generation;
+    for (const def of STAGES) {
+      const entry = data.jobs[def.jobType];
+      if (!entry) continue;
+      if (entry.status === "COMPLETED") {
+        this.#set(def.id, { status: "COMPLETED", jobId: entry.job_id, link: def.deepLink?.(ctx) ?? null });
+      } else if (entry.status === "FAILED" || entry.status === "CANCELLED") {
+        this.#set(def.id, { status: "FAILED", jobId: entry.job_id });
+      } else {
+        // QUEUED / PROCESSING — resume polling from where it left off.
+        this.#set(def.id, { status: "PROCESSING", jobId: entry.job_id });
+        void this.#poll(def.id, ctx, def, gen);
+      }
+    }
+  }
 
   /** Run all stages in dependency order; a failed dependency skips its dependents (others continue). */
   async runAll(ctx: RunContext) {
@@ -147,6 +195,7 @@ class AnalysisRunStore {
   reset() {
     this.#generation += 1;
     this.#runAllActive = false;
+    this.#hydrated = false;
     this.stages = _initial();
   }
 }
