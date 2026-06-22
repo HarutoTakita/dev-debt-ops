@@ -44,7 +44,9 @@ async def _mint_installation_token(github: GitHubRef) -> str:
 
 
 def _is_source(path: str) -> bool:
-    return path.lower().endswith((".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"))
+    return path.lower().endswith(
+        (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+    ) and not code_analysis.is_vendored_path(path)
 
 
 def _age_days(authored_at: str, *, now: datetime) -> int:

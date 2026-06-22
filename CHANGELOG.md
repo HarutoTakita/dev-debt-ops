@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 解析対象からインストール済み依存・生成物を除外: `node_modules` / `.venv` / `dist` / `build` / `.svelte-kit` / `__pycache__` / `vendor` 等のディレクトリ配下は開発者が書いたコードではないため、コード品質（`code_debt_detection`）・理解度（`kc_analysis`）・理解負債（`knowledge_debt_detection`）・機能クラスタリング（`feature_clustering`）・学習プラン・テックスタック判定の各解析で一律に除外。`code_analysis.is_vendored_path()` を新設して `is_source_file` に組み込み、各パイプラインのファイル選別（`_is_source` / `_is_key_file` / blob 列挙）へ適用。
+
 ### Removed
 
 - エージェント廃止に伴う UI の残骸を削除: ダッシュボードの「今週の活動（Code Agent / Knowledge Agent）」カード（`weekly-activity.svelte`）、優先度マップ（旧マトリクス）のフィルタ facet「エージェント」、負債詳細パネルの「担当エージェント」行（実体のない活動リンク）を撤去。`labels.ts` の `agentLabel` と未使用化した i18n（`overview_weekly_*` / `filter_facet_agent` / `agent_code_debt` / `agent_knowledge_debt` / `debt_meta_agent` / `matrix_view_agent_reasoning`）も削除。

@@ -29,6 +29,7 @@ from sqlmodel import col
 
 from service import config
 from service.services.authorship import AuthorIdentity, resolve_author_user_id
+from service.services.code_analysis import is_vendored_path
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import BlameRange, GitHubGitClient
@@ -59,7 +60,7 @@ async def _mint_installation_token(github: GitHubRef) -> str:
 
 
 def _is_source(path: str) -> bool:
-    return path.lower().endswith(_SOURCE_EXTS)
+    return path.lower().endswith(_SOURCE_EXTS) and not is_vendored_path(path)
 
 
 def _module_of(path: str) -> str:
