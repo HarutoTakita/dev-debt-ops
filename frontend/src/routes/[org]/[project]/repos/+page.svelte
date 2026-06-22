@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { getFileContent, getRepositoryTree, listBranches } from "$lib/api/client";
-  import type { Branch, FileContent, Tree } from "$lib/api/schemas";
+  import { page } from "$app/state";
+  import { getFileContent, getRepositoryTree, listBranches, listDebts } from "$lib/api/client";
+  import type { Branch, CodeDebt, FileContent, Tree } from "$lib/api/schemas";
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
+  import CodeDebtPanel from "$lib/components/repo/code-debt-panel.svelte";
   import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
+  import { Button } from "$lib/components/ui/button";
   import { repo } from "$lib/stores/repo-store.svelte";
+  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
 
   // ゴーストツリー（インデント付き行）の幅・字下げプリセット。
   const ghostTree = [
@@ -28,6 +36,39 @@
   let fileContent = $state<FileContent | null>(null);
   let fileLoading = $state(false);
   let treeLoading = $state(false);
+
+  // 技術負債（コード）をプロジェクト単位で取得し、ファイルツリーの密度バッジ＋ファイル別返済パネルに使う。
+  let codeDebts = $state<CodeDebt[]>([]);
+  const debtsByPath = $derived.by(() => {
+    const groups: Record<string, CodeDebt[]> = {};
+    for (const d of codeDebts) (groups[d.file_path] ??= []).push(d);
+    return new Map(Object.entries(groups));
+  });
+  const debtCountByPath = $derived(new Map([...debtsByPath].map(([p, list]) => [p, list.length])));
+  const openCount = $derived(codeDebts.filter((d) => d.status === "open").length);
+  const selectedDebts = $derived(selectedPath ? (debtsByPath.get(selectedPath) ?? []) : []);
+  const detecting = $derived(
+    analysisRun.stages.detect_code.status === "QUEUED" || analysisRun.stages.detect_code.status === "PROCESSING",
+  );
+
+  function loadDebts() {
+    if (!orgSlug || !projectSlug) return;
+    listDebts(orgSlug, projectSlug, { kind: ["code"] }, { key: "severity", dir: "desc" })
+      .then((res) => {
+        codeDebts = res.debts.filter((d): d is CodeDebt => d.kind === "code");
+      })
+      .catch(() => {
+        codeDebts = [];
+      });
+  }
+
+  $effect(() => {
+    void orgSlug;
+    void projectSlug;
+    loadDebts();
+  });
+  // 解析（コード負債検知）の完了で密度バッジ／パネルを再取得（issue 049 の仕組みを流用）。
+  refreshOnStageComplete(["detect_code"], loadDebts);
 
   async function loadTree(branch: string) {
     if (!repo.connected) return;
@@ -113,17 +154,39 @@
             {/each}
           </div>
         {:else if tree}
-          <FileTreeComponent tree={tree.tree} {selectedPath} onfileselect={onFileSelect} />
+          <FileTreeComponent tree={tree.tree} {selectedPath} {debtCountByPath} onfileselect={onFileSelect} />
         {/if}
       </aside>
 
-      <main class="flex-1 overflow-hidden">
-        <FileViewer
-          path={selectedPath}
-          content={fileContent?.content ?? null}
-          size={fileContent?.size ?? 0}
-          loading={fileLoading}
-        />
+      <main class="flex flex-1 flex-col overflow-hidden">
+        <div class="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs">
+          <span class="text-muted-foreground tabular-nums">{m.code_improve_open_count({ count: openCount })}</span>
+          {#if codeDebts.length === 0}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={detecting}
+              onclick={() => analysisRun.runStage("detect_code", { orgSlug, projectSlug, owner: "", repo: "" })}
+            >
+              {m.matrix_detect_cta()}
+            </Button>
+          {/if}
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <FileViewer
+            path={selectedPath}
+            content={fileContent?.content ?? null}
+            size={fileContent?.size ?? 0}
+            loading={fileLoading}
+          />
+        </div>
+
+        {#if selectedPath}
+          <div class="max-h-64 shrink-0 overflow-y-auto border-t bg-surface-sunken/40">
+            <CodeDebtPanel {orgSlug} {projectSlug} debts={selectedDebts} onchanged={loadDebts} />
+          </div>
+        {/if}
       </main>
     </div>
   </div>
