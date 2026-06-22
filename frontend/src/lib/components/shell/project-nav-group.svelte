@@ -40,6 +40,17 @@
   const starred = $derived(projectSections.isStarred(orgSlug, project.id));
   const sections = $derived(projectSections.sections(orgSlug));
   const currentSection = $derived(projectSections.sectionOf(orgSlug, project.id));
+
+  // ドラッグ&ドロップ: project id を運び、ドロップ先グループ（親）が moveToGroup する。
+  let dragging = $state(false);
+  function onDragStart(e: DragEvent) {
+    e.dataTransfer?.setData("text/plain", project.id);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    dragging = true;
+  }
+  function onDragEnd() {
+    dragging = false;
+  }
 </script>
 
 <Collapsible.Root bind:open>
@@ -47,20 +58,19 @@
     class={cn(
       "group flex h-9 items-center rounded-md pr-1 transition-colors hover:bg-accent/50",
       active && "bg-accent/60",
+      dragging && "opacity-40",
     )}
   >
     <button
       type="button"
+      draggable={true}
+      ondragstart={onDragStart}
+      ondragend={onDragEnd}
       onclick={() => (open = !open)}
-      class="flex h-full min-w-0 flex-1 items-center gap-2 px-2.5 text-left text-sm"
+      class="flex h-full min-w-0 flex-1 cursor-grab items-center gap-2 px-2.5 text-left text-sm active:cursor-grabbing"
       aria-expanded={open}
     >
-      <span
-        class={cn(
-          "flex size-6 shrink-0 items-center justify-center rounded",
-          active ? "bg-debt-knowledge/15 text-debt-knowledge" : "text-muted-foreground",
-        )}
-      >
+      <span class="flex size-6 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge">
         <FolderGit2 class="size-4" />
       </span>
       <span class={cn("min-w-0 flex-1 truncate", active ? "font-medium text-foreground" : "text-muted-foreground")}>
