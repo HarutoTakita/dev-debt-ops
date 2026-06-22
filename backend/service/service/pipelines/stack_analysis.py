@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from service import config
+from service.services.code_analysis import is_vendored_path
 from service.services.gemini_stack_service import analyze_tech_stack
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -90,7 +91,13 @@ _MAX_FILE_CHARS = 5_000
 
 
 def _is_key_file(path: str) -> bool:
-    """Return True if path is a key configuration file for tech-stack detection."""
+    """Return True if path is a key configuration file for tech-stack detection.
+
+    Vendored/installed paths (node_modules/*/package.json 等) are excluded — those configs
+    belong to dependencies, not the team's own stack.
+    """
+    if is_vendored_path(path):
+        return False
     filename = path.rsplit("/", 1)[-1]
     ext = ("." + filename.rsplit(".", 1)[-1]) if "." in filename else ""
     return (

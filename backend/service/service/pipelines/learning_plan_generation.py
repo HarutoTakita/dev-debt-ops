@@ -20,6 +20,7 @@ from sqlmodel import col
 
 from service import config
 from service.services import gemini_stack_service
+from service.services.code_analysis import is_vendored_path
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -59,7 +60,7 @@ async def _internal_assets(
     if not owner or not repo:
         return []
     tree = await client.get_repository_tree(owner, repo, request.branch)
-    blobs = [t.path for t in tree if t.type == "blob"]
+    blobs = [t.path for t in tree if t.type == "blob" and not is_vendored_path(t.path)]
     concepts = [c.lower() for c in request.gap_concepts]
 
     picked: dict[str, dict] = {}  # path → resource (dedup)
