@@ -33,8 +33,8 @@
     void projectSlug;
     void load();
   });
-  // 解析・採点・プラン生成の完了で単元を再取得（issue 049）。
-  refreshOnStageComplete(["analyze_galaxy", "plan_learning"], load);
+  // 機能クラスタリング・理解度分析・プラン生成の完了で単元を再取得（issue 049）。
+  refreshOnStageComplete(["cluster_features", "analyze_galaxy", "plan_learning"], load);
 
   function kcPct(kc: number): number {
     return Math.round(Math.max(0, Math.min(1, kc)) * 100);
