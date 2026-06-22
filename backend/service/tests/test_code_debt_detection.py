@@ -41,6 +41,37 @@ class TestQuantizeSeverity:
         assert code_analysis.quantize_severity(score) == expected
 
 
+class TestVendoredExclusion:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "frontend/node_modules/react/index.js",
+            "backend/.venv/lib/python3.13/site-packages/foo.py",
+            "frontend/build/app.js",
+            "frontend/.svelte-kit/generated/root.svelte",
+            "vendor/github.com/x/y.go",
+            "service/__pycache__/x.py",
+            "dist/bundle.js",
+        ],
+    )
+    def test_vendored_paths_excluded(self, path: str) -> None:
+        assert code_analysis.is_vendored_path(path) is True
+        assert code_analysis.is_source_file(path) is False
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "frontend/src/lib/app.ts",
+            "backend/api/app/main.py",
+            "packages/core/index.ts",  # monorepo の自前ソース。vendored ではない
+            "src/components/button.tsx",
+        ],
+    )
+    def test_authored_source_kept(self, path: str) -> None:
+        assert code_analysis.is_vendored_path(path) is False
+        assert code_analysis.is_source_file(path) is True
+
+
 class TestDerivePriority:
     def test_p0_both_axes_high(self) -> None:
         assert code_analysis.derive_priority(0.7, 0.2) == "P0"  # know = 0.8

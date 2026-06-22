@@ -25,6 +25,53 @@ _PY_EXTS = (".py",)
 _TS_JS_EXTS = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 _SOURCE_EXTS = _PY_EXTS + _TS_JS_EXTS
 
+# インストール済み依存・生成物・ツールのディレクトリ。これらは開発者が書いたコードではないため、
+# 解析（コード品質 / 理解度 / 理解負債 / 機能クラスタリング）の対象外にする。パスのいずれかの
+# セグメントがこの集合に一致したら除外する（例: frontend/node_modules/x/index.js, backend/.venv/...）。
+_VENDORED_DIRS: frozenset[str] = frozenset(
+    {
+        "node_modules",
+        "bower_components",
+        "jspm_packages",
+        "vendor",
+        "third_party",
+        "third-party",
+        "vendored",
+        ".venv",
+        "venv",
+        "site-packages",
+        "dist",
+        "build",
+        "target",  # Rust / Maven / Gradle 出力
+        ".next",
+        ".nuxt",
+        ".svelte-kit",
+        ".output",
+        ".turbo",
+        ".cache",
+        ".parcel-cache",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "coverage",
+        "htmlcov",
+        ".gradle",
+        "Pods",
+        "Carthage",
+    }
+)
+
+
+def is_vendored_path(path: str) -> bool:
+    """Whether a path is an installed-dependency / generated / tooling file (node_modules, .venv, dist, build …).
+
+    いずれかのパスセグメントが ``_VENDORED_DIRS`` に一致したら True。解析パイプラインはこれを
+    使って「開発者が書いていないファイル」を一律に除外する。
+    """
+    return any(segment in _VENDORED_DIRS for segment in path.split("/"))
+
+
 # Decision-point keywords per language family (base complexity is 1).
 _PY_DECISION = re.compile(r"\b(if|elif|for|while|except|with|assert|and|or)\b|\bcase\b")
 _JS_DECISION = re.compile(r"\b(if|for|while|case|catch)\b|&&|\|\||\?\??")
@@ -145,8 +192,8 @@ def derive_priority(code: float, knowledge_coverage: float) -> str:
 
 
 def is_source_file(path: str) -> bool:
-    """Whether a path is a source file this analysis considers."""
-    return path.lower().endswith(_SOURCE_EXTS)
+    """Whether a path is a source file this analysis considers (vendored/generated paths excluded)."""
+    return path.lower().endswith(_SOURCE_EXTS) and not is_vendored_path(path)
 
 
 def complexity_is_debt(complexity: int) -> bool:
