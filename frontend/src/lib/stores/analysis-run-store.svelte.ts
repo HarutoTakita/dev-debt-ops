@@ -5,13 +5,12 @@ import {
   generatePlan,
   getAnalysisStatus,
   getJob,
-  runAgentLoop,
 } from "$lib/api/client";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
-export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "plan_learning" | "loop_agents";
+export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "plan_learning";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
 type EnqueueResult = { job_id: string; link?: string };
@@ -27,7 +26,7 @@ type StageDef = {
 
 const _path = (ctx: RunContext, suffix: string) => `/${ctx.orgSlug}/${ctx.projectSlug}${suffix}`;
 
-// コアループのステージ集合（検知 → 分析 → 計画 → 返済〔=ループ束ね〕）。クイズ/返済 PR は
+// コアループのステージ集合（検知 → 分析 → 計画）。クイズ/返済 PR は
 // ファイル/負債単位のため各 Map 詳細の責務（037 対象外）。
 export const STAGES: StageDef[] = [
   {
@@ -64,15 +63,6 @@ export const STAGES: StageDef[] = [
     },
     dependsOn: [],
     deepLink: (c) => _path(c, "/learning"),
-  },
-  {
-    id: "loop_agents",
-    labelKey: "analysis_stage_loop_agents",
-    jobType: "code_debt_loop",
-    enqueue: (c) => runAgentLoop(c.orgSlug, c.projectSlug, "code_debt"),
-    dependsOn: ["detect_code"],
-    // エージェント独立ビュー廃止（issue 051）。ループ状況は観測台（ダッシュボード）へ集約。
-    deepLink: (c) => _path(c, ""),
   },
 ];
 

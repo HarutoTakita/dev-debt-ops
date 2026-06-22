@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 解析ランから「ループ（Twin Agent）」ステージとバックエンドの Agent 自律ループ束ね機能を削除（issue 036 の撤回）。エージェント独立ビューは既に廃止（issue 051）済みで、ループ結果を表示する箇所が無くなっていたため、(フロント) コックピットの `loop_agents` ステージ・`runAgentLoop` クライアント・`/agents` ルート・`components/agents/*`・`agent-store`・関連 Zod スキーマを撤去、(バックエンド) `agents` API ルータ・`agent_loop` パイプライン + レジストリ登録・`shared` の agent_loop スキーマ/ORM モデルを削除し、`agent_pipelines` / `agent_activities` / `narrative_steps` / `narrative_evidence` テーブルを drop（Alembic `0019`、downgrade で再作成）。`analysis-status` の対象 JobType からも `code_debt_loop` を除外。`JobType.{CODE_DEBT,KNOWLEDGE_DEBT}_LOOP` の enum 値は既存 `jobs` 行のロード互換のため残置。
+
 ### Added
 
 - 多粒度計測トラッキング（issue-057）のスライス: 機能/フォルダビュー（`feature-debt-list`）に**コード負債軸**（`code_debt_score`）を表示（056 が後送りにしたコード負債側）し、機能ノードのコード負債ロールアップ（配下ファイルの max）をテストで担保。残作業を子 issue へ分割: 060（コード負債の粒度集計の本実装）/ 061（クラス・関数の AST 計測）/ 062（粒度間整合・定期再計測・クイズ粒度）。057 は子 issue 完了までトラッキングとして open 維持。
