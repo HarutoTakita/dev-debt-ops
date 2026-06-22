@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 
-from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.debts import router as debts_router
 from app.api.v1.features import router as features_router
@@ -34,7 +33,6 @@ api_router.include_router(features_router)
 api_router.include_router(knowledge_units_router)
 api_router.include_router(quizzes_router)
 api_router.include_router(learning_router)
-api_router.include_router(agents_router)
 api_router.include_router(github_router)
 api_router.include_router(stack_router)
 api_router.include_router(jobs_router)
