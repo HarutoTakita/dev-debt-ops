@@ -17,6 +17,7 @@
 
 ### Changed
 
+- プロダクトのポジショニングを「理解負債（Knowledge/Understanding Debt）中心」へリポジション（issue-058、ナラティブ）: 副題を `Tech Debt Twin Agent` → **`Knowledge Debt Twin Agent`** に変更。差別化を「理解度をクイズで実測し学習で返済する閉ループ」に置き、コード負債は**主役ではなく「ホットスポット（hotspot）= リスク信号」**として位置づけ（検知・二軸マトリクスは維持し削除しない）。`CLAUDE.md` のプロダクト概要を更新、フロントのランディングタグライン（`root_tagline` ja/en）と `project_home_subtitle` を理解負債中心へ。057（多粒度・コード負債拡張）の優先度を下げる注記を追記。UI/API の再構成は 059。
 - `quiz_results.kc_before` / `kc_after` を暫定値から **反映前後の実 KC** へ格上げ（issue-053）。`GET .../quizzes/{id}/result` が `file_kc` の実値と整合する。
 
 ### Fixed
