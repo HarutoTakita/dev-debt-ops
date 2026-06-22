@@ -1,9 +1,23 @@
 const KEY = "rosetta:project-sections";
 
+/** セクション見出しのアイコン色（Tailwind の完全クラス名で持つ — JIT 生成のため動的合成しない）。 */
+export const SECTION_ICON_COLORS = [
+  "text-debt-knowledge",
+  "text-debt-code",
+  "text-emerald-500",
+  "text-sky-500",
+  "text-violet-500",
+  "text-rose-500",
+  "text-amber-500",
+  "text-teal-500",
+];
+
 /** ユーザー定義セクション（Slack のサイドバーセクション相当）。 */
 export interface ProjectSection {
   id: string;
   name: string;
+  /** SECTION_ICON_COLORS のインデックス（カラフルなアイコン色）。 */
+  color: number;
 }
 
 interface OrgView {
@@ -79,11 +93,12 @@ class ProjectSectionsStore {
     return this.#view(org).assignments[projectId] ?? null;
   }
 
-  /** 新規セクションを作成して id を返す。 */
+  /** 新規セクションを作成して id を返す。色はパレットを作成順で巡回して割り当てる。 */
   createSection(org: string, name: string): string {
     const id = crypto.randomUUID();
     const v = this.#view(org);
-    this.#commit(org, { ...v, sections: [...v.sections, { id, name: name.trim() || "新しいセクション" }] });
+    const color = v.sections.length % SECTION_ICON_COLORS.length;
+    this.#commit(org, { ...v, sections: [...v.sections, { id, name: name.trim() || "新しいセクション", color }] });
     return id;
   }
 
@@ -112,6 +127,24 @@ class ProjectSectionsStore {
     if (sectionId === null) delete assignments[projectId];
     else assignments[projectId] = sectionId;
     this.#commit(org, { ...v, assignments });
+  }
+
+  /**
+   * ドラッグ&ドロップ用: プロジェクトを表示グループ（スター付き / セクション / 既定）へ移動する。
+   * ドロップ先に必ず現れるよう、スター付き以外へ移すときは star を外す（1 グループ表示の原則）。
+   */
+  moveToGroup(org: string, projectId: string, groupKey: string) {
+    const v = this.#view(org);
+    let starred = v.starred;
+    const assignments = { ...v.assignments };
+    if (groupKey === STARRED_KEY) {
+      if (!starred.includes(projectId)) starred = [...starred, projectId];
+    } else {
+      starred = starred.filter((id) => id !== projectId);
+      if (groupKey === DEFAULT_KEY) delete assignments[projectId];
+      else assignments[projectId] = groupKey;
+    }
+    this.#commit(org, { ...v, starred, assignments });
   }
 
   // --- グループ折りたたみ ---
