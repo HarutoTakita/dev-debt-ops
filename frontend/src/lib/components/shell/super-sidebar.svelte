@@ -6,7 +6,7 @@
   import MoreHorizontal from "@lucide/svelte/icons/more-horizontal";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import FolderPlus from "@lucide/svelte/icons/folder-plus";
+  import Hash from "@lucide/svelte/icons/hash";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -18,7 +18,13 @@
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
   import { project } from "$lib/stores/project-store.svelte";
-  import { projectSections, STARRED_KEY, DEFAULT_KEY, type ProjectSection } from "$lib/stores/project-sections.svelte";
+  import {
+    projectSections,
+    STARRED_KEY,
+    DEFAULT_KEY,
+    SECTION_ICON_COLORS,
+    type ProjectSection,
+  } from "$lib/stores/project-sections.svelte";
   import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import ProjectNavGroup from "./project-nav-group.svelte";
@@ -100,6 +106,15 @@
     goto(resolve(`/${orgSlug}/projects/new`));
   }
 
+  // ドラッグ&ドロップでプロジェクトをグループ間移動。dragOverKey はドロップ先のハイライト用。
+  let dragOverKey = $state<string | null>(null);
+  function onDrop(e: DragEvent, groupKey: string) {
+    e.preventDefault();
+    const id = e.dataTransfer?.getData("text/plain");
+    dragOverKey = null;
+    if (id) projectSections.moveToGroup(orgSlug, id, groupKey);
+  }
+
   const skeletonRows = Array.from({ length: 4 }, (_v, i) => i);
 </script>
 
@@ -136,62 +151,80 @@
         {:else}
           {#each groups as group (group.key)}
             {@const collapsed = projectSections.isCollapsed(orgSlug, group.key)}
-            <div class="group/section flex items-center gap-1 px-1 pt-2 pb-0.5">
-              <button
-                type="button"
-                onclick={() => projectSections.toggleCollapsed(orgSlug, group.key)}
-                class="flex min-w-0 flex-1 items-center gap-1 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:text-foreground"
-              >
-                {#if group.key === STARRED_KEY}
-                  <Star class="size-3 shrink-0 fill-current text-amber-500" />
-                {/if}
-                <span class="truncate">{group.label}</span>
-                <ChevronDown class={cn("size-3 shrink-0 transition-transform", collapsed && "-rotate-90")} />
-              </button>
-              {#if group.section}
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger>
-                    {#snippet child({ props })}
-                      <button
-                        {...props}
-                        aria-label={m.section_actions()}
-                        title={m.section_actions()}
-                        class="rounded p-0.5 text-muted-foreground opacity-0 group-hover/section:opacity-100 hover:text-foreground data-[state=open]:opacity-100"
+            <!-- グループ全体がドロップ先（ここに落とすとそのグループへ移動）。 -->
+            <section
+              role="group"
+              aria-label={group.label}
+              ondragover={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                dragOverKey = group.key;
+              }}
+              ondragleave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) dragOverKey = null;
+              }}
+              ondrop={(e) => onDrop(e, group.key)}
+              class={cn("rounded-md", dragOverKey === group.key && "bg-accent/40 ring-1 ring-debt-knowledge/40")}
+            >
+              <div class="group/section flex items-center gap-1 px-1 pt-2 pb-0.5">
+                <button
+                  type="button"
+                  onclick={() => projectSections.toggleCollapsed(orgSlug, group.key)}
+                  class="flex min-w-0 flex-1 items-center gap-1 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:text-foreground"
+                >
+                  {#if group.key === STARRED_KEY}
+                    <Star class="size-3 shrink-0 fill-current text-amber-500" />
+                  {:else if group.section}
+                    <Hash class={cn("size-3 shrink-0", SECTION_ICON_COLORS[group.section.color ?? 0])} />
+                  {/if}
+                  <span class="truncate">{group.label}</span>
+                  <ChevronDown class={cn("size-3 shrink-0 transition-transform", collapsed && "-rotate-90")} />
+                </button>
+                {#if group.section}
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger>
+                      {#snippet child({ props })}
+                        <button
+                          {...props}
+                          aria-label={m.section_actions()}
+                          title={m.section_actions()}
+                          class="rounded p-0.5 text-muted-foreground opacity-0 group-hover/section:opacity-100 hover:text-foreground data-[state=open]:opacity-100"
+                        >
+                          <MoreHorizontal class="size-3.5" />
+                        </button>
+                      {/snippet}
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="start" class="w-44">
+                      <DropdownMenu.Item onSelect={() => group.section && openRenameSection(group.section)}>
+                        <Pencil class="size-4" />
+                        <span>{m.section_rename()}</span>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        onSelect={() => group.section && projectSections.deleteSection(orgSlug, group.section.id)}
                       >
-                        <MoreHorizontal class="size-3.5" />
-                      </button>
-                    {/snippet}
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content align="start" class="w-44">
-                    <DropdownMenu.Item onSelect={() => group.section && openRenameSection(group.section)}>
-                      <Pencil class="size-4" />
-                      <span>{m.section_rename()}</span>
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={() => group.section && projectSections.deleteSection(orgSlug, group.section.id)}
-                    >
-                      <Trash2 class="size-4" />
-                      <span>{m.section_delete()}</span>
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              {/if}
-            </div>
-            {#if !collapsed}
-              <div class="flex flex-col gap-0.5">
-                {#each group.items as p (p.id)}
-                  <ProjectNavGroup
-                    project={p}
-                    {orgSlug}
-                    active={p.id === currentId}
-                    onNewSection={openCreateSection}
-                  />
-                {/each}
-                {#if group.items.length === 0}
-                  <p class="px-2.5 py-1 text-xs text-muted-foreground/70">{m.section_empty()}</p>
+                        <Trash2 class="size-4" />
+                        <span>{m.section_delete()}</span>
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
                 {/if}
               </div>
-            {/if}
+              {#if !collapsed}
+                <div class="flex flex-col gap-0.5 pb-0.5">
+                  {#each group.items as p (p.id)}
+                    <ProjectNavGroup
+                      project={p}
+                      {orgSlug}
+                      active={p.id === currentId}
+                      onNewSection={openCreateSection}
+                    />
+                  {/each}
+                  {#if group.items.length === 0}
+                    <p class="px-2.5 py-1 text-xs text-muted-foreground/70">{m.section_empty()}</p>
+                  {/if}
+                </div>
+              {/if}
+            </section>
           {/each}
         {/if}
       {:else if project.loading}
@@ -219,8 +252,8 @@
       {/if}
     </div>
 
-    <!-- 一番下: セクション追加（控えめ）＋ 新規プロジェクト（主操作） -->
-    <div class="mt-1 flex flex-col gap-0.5 border-t border-sidebar-border pt-2">
+    <!-- 一番下: 新規プロジェクト作成 -->
+    <div class="mt-1 border-t border-sidebar-border pt-2">
       {#if sidebar.collapsed}
         <Tooltip.Root>
           <Tooltip.Trigger>
@@ -229,7 +262,7 @@
                 {...props}
                 onclick={newProject}
                 aria-label={m.project_switcher_new()}
-                class="flex h-9 items-center justify-center rounded-md text-debt-code hover:bg-accent/50"
+                class="flex h-9 w-full items-center justify-center rounded-md text-debt-code hover:bg-accent/50"
               >
                 <Plus class="size-4" />
               </button>
@@ -240,16 +273,8 @@
       {:else}
         <button
           type="button"
-          onclick={() => openCreateSection()}
-          class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-        >
-          <FolderPlus class="size-3.5" />
-          <span>{m.section_add()}</span>
-        </button>
-        <button
-          type="button"
           onclick={newProject}
-          class="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-debt-code transition-colors hover:bg-accent/50"
+          class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-debt-code transition-colors hover:bg-accent/50"
         >
           <Plus class="size-4" />
           <span>{m.project_switcher_new()}</span>
