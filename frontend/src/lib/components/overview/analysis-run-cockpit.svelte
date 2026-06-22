@@ -13,6 +13,7 @@
     analysis_stage_detect_code: m.analysis_stage_detect_code,
     analysis_stage_detect_knowledge: m.analysis_stage_detect_knowledge,
     analysis_stage_analyze_galaxy: m.analysis_stage_analyze_galaxy,
+    analysis_stage_cluster_features: m.analysis_stage_cluster_features,
     analysis_stage_plan_learning: m.analysis_stage_plan_learning,
   };
 

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   detectDebts: vi.fn(),
   detectKnowledgeDebts: vi.fn(),
   analyzeGalaxy: vi.fn(),
+  clusterFeatures: vi.fn(),
   generatePlan: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
@@ -25,6 +26,7 @@ beforeEach(() => {
   mocks.detectDebts.mockResolvedValue({ job_id: "j-dc", status: "QUEUED" });
   mocks.detectKnowledgeDebts.mockResolvedValue({ job_id: "j-dk", status: "QUEUED" });
   mocks.analyzeGalaxy.mockResolvedValue({ job_id: "j-g", status: "QUEUED" });
+  mocks.clusterFeatures.mockResolvedValue({ job_id: "j-fc", status: "QUEUED" });
   mocks.generatePlan.mockResolvedValue({ job_id: "j-p", plan_id: "plan-1" });
   mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["done"] }));
 });
@@ -51,7 +53,7 @@ describe("AnalysisRunStore", () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
     await store.runAll(CTX);
-    for (const id of ["detect_code", "detect_knowledge", "analyze_galaxy", "plan_learning"]) {
+    for (const id of ["detect_code", "detect_knowledge", "analyze_galaxy", "cluster_features", "plan_learning"]) {
       expect(store.stages[id].status).toBe("COMPLETED");
     }
   });

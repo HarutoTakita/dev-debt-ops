@@ -375,6 +375,7 @@
   "analysis_stage_detect_code": "検知（技術負債）",
   "analysis_stage_detect_knowledge": "検知（理解負債）",
   "analysis_stage_analyze_galaxy": "分析（理解度）",
+  "analysis_stage_cluster_features": "機能のクラスタリング",
   "analysis_stage_plan_learning": "計画（学習プラン）",
   "analysis_status_idle": "待機",
   "analysis_status_queued": "キュー",

@@ -294,6 +294,16 @@ export async function detectKnowledgeDebts(orgSlug: string, projectSlug: string)
   return analyzeStackJobSchema.parse(await response.json());
 }
 
+// 機能クラスタリング（issue 052）: 202 {job_id} を返し getJob でポーリング。features/feature_files を生成し、
+// 単元（063）・機能粒度ビュー（055/056）・機能スコープのクイズ（054）の前提になる。
+export async function clusterFeatures(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/cluster-features`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "機能クラスタリングに失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
 export async function getJob(jobId: string): Promise<JobStatusResponse> {
   const response = await apiFetch(`/api/v1/jobs/${jobId}`);
   if (!response.ok) throw new Error(await errorDetail(response, "ジョブの取得に失敗しました"));

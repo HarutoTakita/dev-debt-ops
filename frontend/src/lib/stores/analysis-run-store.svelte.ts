@@ -1,5 +1,6 @@
 import {
   analyzeGalaxy,
+  clusterFeatures,
   detectDebts,
   detectKnowledgeDebts,
   generatePlan,
@@ -10,7 +11,7 @@ import {
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
-export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "plan_learning";
+export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "cluster_features" | "plan_learning";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
 type EnqueueResult = { job_id: string; link?: string };
@@ -52,6 +53,15 @@ export const STAGES: StageDef[] = [
     enqueue: (c) => analyzeGalaxy(c.orgSlug, c.projectSlug),
     dependsOn: [],
     deepLink: (c) => _path(c, "/galaxy"),
+  },
+  {
+    // 機能（feature）クラスタリング。単元（学習）・機能粒度ビュー・機能クイズの前提（issue 052）。
+    id: "cluster_features",
+    labelKey: "analysis_stage_cluster_features",
+    jobType: "feature_clustering",
+    enqueue: (c) => clusterFeatures(c.orgSlug, c.projectSlug),
+    dependsOn: [],
+    deepLink: (c) => _path(c, "/learning"),
   },
   {
     id: "plan_learning",
