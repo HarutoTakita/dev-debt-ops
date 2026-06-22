@@ -2,11 +2,6 @@
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
 @import "@fontsource-variable/inter";
-@import "@fontsource/archivo/400.css";
-@import "@fontsource/archivo/500.css";
-@import "@fontsource/archivo/600.css";
-@import "@fontsource/archivo/700.css";
-@import "@fontsource-variable/fraunces";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "highlight.js/styles/github-dark.css";
@@ -95,8 +90,9 @@ body {
 
 @theme inline {
   --font-sans: "Inter Variable", sans-serif;
-  /* Rosetta: 見出しは Fraunces セリフ（地層 × 天文台の世界観）。Archivo から差し替え */
-  --font-display: "Fraunces Variable", "Vazirmatn", serif;
+  /* UI 全体をサイドバー＝本文と同じサンセリフ（Inter）に統一。見出し専用フォント（Fraunces）は廃止し、
+     font-display ユーティリティは sans へ集約（クラス名は各所で維持）。 */
+  --font-display: "Inter Variable", "Vazirmatn", sans-serif;
   /* Rosetta: コード / kbd など等幅は JetBrains Mono を明示バインド（既定の ui-monospace から差し替え） */
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
   --color-surface-sunken: var(--surface-sunken);
