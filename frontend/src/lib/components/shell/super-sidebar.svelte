@@ -7,6 +7,7 @@
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Hash from "@lucide/svelte/icons/hash";
+  import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -176,6 +177,8 @@
                     <Star class="size-3 shrink-0 fill-current text-amber-500" />
                   {:else if group.section}
                     <Hash class={cn("size-3 shrink-0", SECTION_ICON_COLORS[group.section.color ?? 0])} />
+                  {:else}
+                    <LayoutGrid class="size-3 shrink-0 text-debt-knowledge" />
                   {/if}
                   <span class="truncate">{group.label}</span>
                   <ChevronDown class={cn("size-3 shrink-0 transition-transform", collapsed && "-rotate-90")} />
