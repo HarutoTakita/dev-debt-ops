@@ -15,6 +15,10 @@
 - クイズ採点による KC 認定（`certified_via="quiz"`、issue-053）: `quiz_grading` の採点完了時に、受験者 × 対象ファイルの KC を `file_kc` に upsert するフックを実装（ADR `docs/adr/0005`）。authorship の 0.6 上限を適用せず（`kc = max(既存, score)`）、合格すれば star に到達可能 — blame 痕跡ゼロの単独開発 / コードを書かない PM も計測対象になる。最新 COMPLETED な `kc_analysis` run にアンカーし、集計行（`dev_id IS NULL`）を全 dev 行の max で再導出。再採点でも KC を下げない（max 採用で冪等）。
 - 計測粒度の抽象化と「機能（feature）」概念・クラスタリングパイプライン（issue-052）: `shared` に粒度 enum `Granularity`（`feature`/`folder`/`file` は実値、`class`/`function` は 057 向けの将来枠）と `features`/`feature_files` テーブル（Alembic `0016`、機能↔ファイルの多対多写像を `run_id` でスナップショット）を新設。`JobType.FEATURE_CLUSTERING` + service パイプライン `feature_clustering`（Gemini/Vertex AI + ADC でファイル一覧 + import グラフを機能へクラスタリングし `features`/`feature_files` を upsert、`(run_id,key)`/`(run_id,feature_id,file_path)` の一意制約で at-least-once 再配送に冪等）。api は `POST .../cluster-features → 202`（方式 B・enqueue のみ、配信は 055）。機能の人手編集（`source="manual"`）は列のみ用意。
 
+### Fixed
+
+- 解析ステータスがリロードで初期化される問題を修正: 解析ラン・コックピットの状態はメモリ常駐シングルトンのため、画面リロードで全ステージが `idle` に戻り、一度実行済みでも主 CTA に戻っていた。api に `GET .../analysis-status`（プロジェクトの解析 JobType ごとの最新ジョブ状態を返す）を新設し、フロントの `analysis-run-store` に `hydrate()` を追加してマウント時に永続化済みジョブからステージ状態（COMPLETED / FAILED / 実行中は再ポーリング）を復元。一度でも解析したプロジェクトはリロード後も完了/リンク表示を維持する。
+
 ### Changed
 
 - Overview/IA を理解負債中心に再構成（issue-059、プロダクト面）: Overview 上部に**理解度（KC）ヒーロー**（KC% を大きく提示 + 説明 + Galaxy 導線）を追加し、理解度を主役に。二軸マトリクスは**残しつつ**「学習を優先すべき領域」へ見出しを変更し、「理解度（横軸）を主軸・コード負債（縦軸）はホットスポット＝緊急度の重み」と読ませるレンズ注記を追加。最危険象限を「最優先で理解を埋める領域」に再表現。i18n（ja/en）を 058 の決定に整合。コード負債検知（028）・配信 API・マトリクスは削除せず信号として維持。
