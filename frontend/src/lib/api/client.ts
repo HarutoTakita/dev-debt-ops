@@ -6,6 +6,7 @@ import {
   analyzeStackJobSchema,
   branchListSchema,
   analysisStatusSchema,
+  knowledgeUnitsSchema,
   debtItemSchema,
   debtListSchema,
   fileDebtSchema,
@@ -32,6 +33,7 @@ import {
   type AnalyzeStackJob,
   type BranchList,
   type AnalysisStatus,
+  type KnowledgeUnit,
   type DebtItem,
   type DebtList,
   type FileDebt,
@@ -363,12 +365,12 @@ export async function retryAgentNode(
 export async function generatePlan(
   orgSlug: string,
   projectSlug: string,
-  opts: { attemptId?: string; gapConcepts?: string[] } = {},
+  opts: { attemptId?: string; gapConcepts?: string[]; featureId?: string } = {},
 ): Promise<{ job_id: string; plan_id: string }> {
   const qs = opts.attemptId ? `?attempt_id=${opts.attemptId}` : "";
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/plans${qs}`, {
     method: "POST",
-    body: JSON.stringify({ gap_concepts: opts.gapConcepts ?? [] }),
+    body: JSON.stringify({ gap_concepts: opts.gapConcepts ?? [], feature_id: opts.featureId ?? null }),
   });
   if (!response.ok) throw new Error(await errorDetail(response, "学習プラン生成の開始に失敗しました"));
   const data = (await response.json()) as { job_id: string; plan_id: string };
@@ -423,6 +425,23 @@ export async function getOverview(
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/overview${qs}`);
   if (!response.ok) throw new Error(await errorDetail(response, "Overview の取得に失敗しました"));
   return overviewSchema.parse(await response.json());
+}
+
+// 機能単位の学習×確認クイズ単元（issue 063）: GET .../knowledge-units。
+export async function getKnowledgeUnits(orgSlug: string, projectSlug: string): Promise<KnowledgeUnit[]> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/knowledge-units`);
+  if (!response.ok) throw new Error(await errorDetail(response, "単元の取得に失敗しました"));
+  return knowledgeUnitsSchema.parse(await response.json()).units;
+}
+
+// 全機能のベースライン確認クイズを生成（issue 054/063）: POST .../baseline-quizzes → 202 {created, job_ids}。
+export async function generateBaselineQuizzes(orgSlug: string, projectSlug: string): Promise<{ created: number }> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/baseline-quizzes`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "確認クイズの用意に失敗しました"));
+  const data = (await response.json()) as { created?: number };
+  return { created: Number(data.created ?? 0) };
 }
 
 // 解析ステージの最新ジョブ状態（リロード後の状態復元用）: GET .../analysis-status。
