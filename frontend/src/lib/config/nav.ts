@@ -2,7 +2,7 @@ import Activity from "@lucide/svelte/icons/activity";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import Grid3x3 from "@lucide/svelte/icons/grid-3x3";
 import GraduationCap from "@lucide/svelte/icons/graduation-cap";
-import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
+import GitBranch from "@lucide/svelte/icons/git-branch";
 import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
 import { galaxy } from "$lib/stores/galaxy-store.svelte";
@@ -70,7 +70,7 @@ export const allNavItems: NavItem[] = [
   {
     id: "repos",
     label: m.nav_repos,
-    icon: FolderGit2,
+    icon: GitBranch,
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
   },
   {
