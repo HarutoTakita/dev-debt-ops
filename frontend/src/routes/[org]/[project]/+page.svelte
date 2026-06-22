@@ -10,20 +10,12 @@
   import OverviewDashboard from "$lib/components/overview/overview-dashboard.svelte";
   import { type Granularity } from "$lib/components/overview/granularity-switch.svelte";
   import GettingStarted from "$lib/components/overview/getting-started.svelte";
-  import AnalysisRunCockpit from "$lib/components/overview/analysis-run-cockpit.svelte";
-  import { ALL_STAGE_IDS, type RunContext } from "$lib/stores/analysis-run-store.svelte";
+  import { ALL_STAGE_IDS } from "$lib/stores/analysis-run-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  // 解析ラン・コックピットの実行コンテキスト（接続リポジトリの owner/repo を束ねる）。
-  const runCtx = $derived<RunContext>({
-    orgSlug,
-    projectSlug,
-    owner: repo.connected?.owner ?? "",
-    repo: repo.connected?.name ?? "",
-  });
 
   // 負債スコア・KC を算出する集計バックエンドは未実装（仕様書 §10.3 で後続フェーズ）。
   // 現状の overviewMock はモックデータのため、接続直後にいきなり実データのように見せない。
@@ -92,7 +84,6 @@
     </div>
   </div>
 {:else}
-  <AnalysisRunCockpit ctx={runCtx} />
   <div class="mx-auto max-w-5xl px-4 pt-4">
     <GettingStarted />
   </div>
