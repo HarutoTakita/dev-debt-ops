@@ -9,7 +9,6 @@
   import DebtTrendStrata from "./debt-trend-strata.svelte";
   import StatCard from "./stat-card.svelte";
   import TrendIndicator from "./trend-indicator.svelte";
-  import WeeklyActivity from "./weekly-activity.svelte";
   import PriorityList from "./priority-list.svelte";
   import GranularitySwitch, { type Granularity } from "./granularity-switch.svelte";
   import FeatureDebtList from "./feature-debt-list.svelte";
@@ -109,16 +108,13 @@
     <DebtTrendStrata trend={overview.trend} />
   </div>
 
-  <!-- 二次ビュー: 今週の活動 + 優先対応リスト -->
-  <div class="grid gap-4 sm:grid-cols-2">
-    <div class="rounded-lg border bg-card p-4"><WeeklyActivity activity={overview.activity} /></div>
-    <div class="rounded-lg border bg-card p-4">
-      <PriorityList {orgSlug} {projectSlug} files={overview.files} />
-      {#if dangerCount > 0}
-        <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
-          >{m.overview_view_all_danger({ count: dangerCount })} →</a
-        >
-      {/if}
-    </div>
+  <!-- 二次ビュー: 優先対応リスト -->
+  <div class="rounded-lg border bg-card p-4">
+    <PriorityList {orgSlug} {projectSlug} files={overview.files} />
+    {#if dangerCount > 0}
+      <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+        >{m.overview_view_all_danger({ count: dangerCount })} →</a
+      >
+    {/if}
   </div>
 </div>
