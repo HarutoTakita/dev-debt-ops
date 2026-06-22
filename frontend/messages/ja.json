@@ -375,7 +375,6 @@
   "analysis_stage_detect_knowledge": "検知（知識負債）",
   "analysis_stage_analyze_galaxy": "分析（Galaxy / KC）",
   "analysis_stage_plan_learning": "計画（学習プラン）",
-  "analysis_stage_loop_agents": "ループ（Twin Agent）",
   "analysis_status_idle": "待機",
   "analysis_status_queued": "キュー",
   "analysis_status_processing": "処理中",
