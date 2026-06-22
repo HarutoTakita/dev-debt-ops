@@ -40,14 +40,15 @@
     if (kc >= 0.4) return "text-debt-knowledge";
     return "text-destructive";
   }
-  // コード負債（高いほど汚い）。粒度別のコード負債軸を機能ビューでも示す（issue 057）。
-  function codeTone(code: number): string {
-    if (code >= 0.6) return "text-destructive";
-    if (code >= 0.3) return "text-warning";
-    return "text-muted-foreground";
+  // コード品質（= 1 - コード負債スコア。高いほど良い）。理解度(KC)と同じ「正の向き」に揃える（ポジ/ネガ混同回避）。
+  function qualityPct(code: number): number {
+    return 100 - Math.round(Math.max(0, Math.min(1, code)) * 100);
   }
-  function codePct(code: number): number {
-    return Math.round(Math.max(0, Math.min(1, code)) * 100);
+  function qualityTone(code: number): string {
+    const q = 1 - code;
+    if (q >= 0.7) return "text-success";
+    if (q >= 0.4) return "text-debt-knowledge";
+    return "text-destructive";
   }
 </script>
 
@@ -68,9 +69,9 @@
               {m.feature_understanding()}
               {kcPct(f.knowledge_coverage)}%
             </span>
-            <span class={cn("shrink-0 text-xs font-medium", codeTone(f.code_debt_score))}>
+            <span class={cn("shrink-0 text-xs font-medium", qualityTone(f.code_debt_score))}>
               {m.feature_code_debt()}
-              {codePct(f.code_debt_score)}%
+              {qualityPct(f.code_debt_score)}%
             </span>
             <span class="shrink-0 text-xs text-muted-foreground">{m.feature_files_count({ count: f.file_count })}</span
             >
@@ -93,8 +94,8 @@
                       <span class={cn("shrink-0", masteryTone(file.knowledge_coverage))}>
                         {kcPct(file.knowledge_coverage)}%
                       </span>
-                      <span class={cn("shrink-0", codeTone(file.code_debt_score))}>
-                        {codePct(file.code_debt_score)}%
+                      <span class={cn("shrink-0", qualityTone(file.code_debt_score))}>
+                        {qualityPct(file.code_debt_score)}%
                       </span>
                     </li>
                   {/each}
