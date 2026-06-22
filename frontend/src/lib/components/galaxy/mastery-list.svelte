@@ -14,7 +14,7 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/quizzes`));
+  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/learning`));
 </script>
 
 <div class="overflow-x-auto p-1">
