@@ -41,6 +41,12 @@
   const sections = $derived(projectSections.sections(orgSlug));
   const currentSection = $derived(projectSections.sectionOf(orgSlug, project.id));
 
+  // メニューを「単独（ダッシュボード/設定）」と「負債の対（理解負債/技術負債）」へ仕分け、対が分かるよう束ねる。
+  const overviewItem = $derived(allNavItems.find((i) => i.id === "overview"));
+  const knowledgeItems = $derived(allNavItems.filter((i) => i.group === "knowledge"));
+  const codeItems = $derived(allNavItems.filter((i) => i.group === "code"));
+  const bottomItems = $derived(allNavItems.filter((i) => !i.group && i.id !== "overview"));
+
   // ドラッグ&ドロップ: project id を運び、ドロップ先グループ（親）が moveToGroup する。
   let dragging = $state(false);
   function onDragStart(e: DragEvent) {
@@ -134,8 +140,23 @@
   </div>
 
   <Collapsible.Content class="flex flex-col gap-0.5 py-0.5 pl-3.5">
-    {#each allNavItems as item (item.id)}
+    {#if overviewItem}
+      <NavItem item={overviewItem} {ctx} showPill={active} />
+    {/if}
+    {@render debtGroup(m.nav_group_knowledge(), "border-debt-knowledge/50 text-debt-knowledge", knowledgeItems)}
+    {@render debtGroup(m.nav_group_code(), "border-debt-code/50 text-debt-code", codeItems)}
+    {#each bottomItems as item (item.id)}
       <NavItem {item} {ctx} showPill={active} />
     {/each}
   </Collapsible.Content>
 </Collapsible.Root>
+
+<!-- 負債の対（可視化 → 返済）を色付きの枠＋見出しで束ね、「セット」だと分かるようにする。 -->
+{#snippet debtGroup(label: string, accent: string, items: typeof knowledgeItems)}
+  <div class={cn("mt-1 flex flex-col gap-0.5 border-l-2 pl-2", accent)}>
+    <span class="px-1 text-[10px] font-semibold tracking-wide uppercase opacity-80">{label}</span>
+    {#each items as item (item.id)}
+      <NavItem {item} {ctx} showPill={active} />
+    {/each}
+  </div>
+{/snippet}

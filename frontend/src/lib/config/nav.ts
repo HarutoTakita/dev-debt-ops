@@ -29,6 +29,8 @@ export interface NavItem {
   enabled?: (ctx: NavContext) => boolean;
   /** KC% / 未返済負債残高など（本 issue ではダミー固定値）。アクティブプロジェクトのみ表示。 */
   pill?: (ctx: NavContext) => string | null;
+  /** 負債の対：knowledge=理解負債（可視化/返済）、code=技術負債（可視化/返済）。サイドバーで対をまとめる。 */
+  group?: "knowledge" | "code";
 }
 
 // プロジェクト 1 つ分のメニュー項目（表示順）。セクション見出し（理解する/知識負債/参照）は廃止し、
@@ -42,35 +44,41 @@ export const allNavItems: NavItem[] = [
     exact: true,
     route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
   },
+  // 理解負債の対: 可視化（理解度マップ）→ 返済（クイズと学習）。
   {
     id: "galaxy",
     label: m.nav_galaxy,
     icon: Sparkles,
+    group: "knowledge",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
     // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
     pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
-  },
-  {
-    id: "matrix",
-    label: m.nav_matrix,
-    icon: Grid3x3,
-    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
-    // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
-    pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
   },
   {
     // クイズ（実測）と学習（返済）はループの両輪。1 メニュー = タブ統合ハブ（/learning）に集約。
     id: "knowledge-hub",
     label: m.nav_knowledge_hub,
     icon: GraduationCap,
+    group: "knowledge",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     // 受験可能クイズ件数を pill 表示（1 件以上のとき）。
     pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
+  },
+  // 技術負債の対: 可視化（コード品質マップ）→ 返済（コード改善）。
+  {
+    id: "matrix",
+    label: m.nav_matrix,
+    icon: Grid3x3,
+    group: "code",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
+    // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
+    pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
   },
   {
     id: "repos",
     label: m.nav_repos,
     icon: GitBranch,
+    group: "code",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
   },
   {

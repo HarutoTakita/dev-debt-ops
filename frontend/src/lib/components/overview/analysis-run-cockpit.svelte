@@ -46,7 +46,7 @@
   });
 </script>
 
-<section class="mx-auto max-w-5xl px-4 pt-4">
+<section class="w-full">
   {#if !analysisRun.started}
     <div class="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
