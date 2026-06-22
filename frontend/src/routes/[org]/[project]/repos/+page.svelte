@@ -8,6 +8,7 @@
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
+  import * as m from "$lib/paraglide/messages";
 
   // ゴーストツリー（インデント付き行）の幅・字下げプリセット。
   const ghostTree = [
@@ -85,7 +86,7 @@
 </script>
 
 <svelte:head>
-  <title>Repos · Rosetta</title>
+  <title>{m.nav_repos()} · Rosetta</title>
 </svelte:head>
 
 {#if !repo.connected}
