@@ -8,7 +8,6 @@ into ``shared`` or ``api``. ``shared.worker.run_task`` resolves the active pipel
 """
 
 from service.pipelines import (
-    agent_loop,
     code_debt_detection,
     feature_clustering,
     kc_analysis,
@@ -21,7 +20,6 @@ from service.pipelines import (
 )
 from shared.enums import JobType
 from shared.registry import PIPELINES as _SHARED_PIPELINES
-from shared.schemas.agent_loop import AgentLoopRequest, AgentLoopResult
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest, CodeDebtDetectionResult
 from shared.schemas.feature_clustering import FeatureClusteringRequest, FeatureClusteringResult
 from shared.schemas.kc_analysis import KcAnalysisRequest, KcAnalysisResult
@@ -62,8 +60,6 @@ PIPELINES = {
         LearningPlanGenerationResult,
         learning_plan_generation.process,
     ),
-    JobType.CODE_DEBT_LOOP.value: (AgentLoopRequest, AgentLoopResult, agent_loop.process),
-    JobType.KNOWLEDGE_DEBT_LOOP.value: (AgentLoopRequest, AgentLoopResult, agent_loop.process),
     JobType.FEATURE_CLUSTERING.value: (
         FeatureClusteringRequest,
         FeatureClusteringResult,

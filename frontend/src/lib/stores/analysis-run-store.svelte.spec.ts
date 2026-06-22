@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   detectKnowledgeDebts: vi.fn(),
   analyzeGalaxy: vi.fn(),
   generatePlan: vi.fn(),
-  runAgentLoop: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
 }));
@@ -27,7 +26,6 @@ beforeEach(() => {
   mocks.detectKnowledgeDebts.mockResolvedValue({ job_id: "j-dk", status: "QUEUED" });
   mocks.analyzeGalaxy.mockResolvedValue({ job_id: "j-g", status: "QUEUED" });
   mocks.generatePlan.mockResolvedValue({ job_id: "j-p", plan_id: "plan-1" });
-  mocks.runAgentLoop.mockResolvedValue({ job_id: "j-a", status: "QUEUED" });
   mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["done"] }));
 });
 
@@ -49,17 +47,16 @@ describe("AnalysisRunStore", () => {
     expect(store.stages.plan_learning.link).toBe("/acme/rosetta/learning?planId=plan-1");
   });
 
-  it("runAll runs every stage in dependency order (loop after detect)", async () => {
+  it("runAll runs every stage to COMPLETED", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
     await store.runAll(CTX);
-    for (const id of ["detect_code", "detect_knowledge", "analyze_galaxy", "plan_learning", "loop_agents"]) {
+    for (const id of ["detect_code", "detect_knowledge", "analyze_galaxy", "plan_learning"]) {
       expect(store.stages[id].status).toBe("COMPLETED");
     }
-    expect(mocks.runAgentLoop).toHaveBeenCalled();
   });
 
-  it("a failed dependency skips its dependents but others still run", async () => {
+  it("a failed stage does not block independent stages", async () => {
     mocks.getJob.mockImplementation(async (id: string) =>
       id === "j-dc" ? job("FAILED", { error: "boom" }) : job("COMPLETED"),
     );
@@ -67,7 +64,6 @@ describe("AnalysisRunStore", () => {
     store.pollIntervalMs = 1;
     await store.runAll(CTX);
     expect(store.stages.detect_code.status).toBe("FAILED");
-    expect(store.stages.loop_agents.status).toBe("idle"); // dependency failed → skipped
     expect(store.stages.analyze_galaxy.status).toBe("COMPLETED"); // independent → ran
   });
 
@@ -103,7 +99,6 @@ describe("AnalysisRunStore", () => {
     await Promise.all([store.runAll(CTX), store.runAll(CTX)]);
     // The second runAll returns immediately; each stage is enqueued exactly once.
     expect(mocks.detectDebts).toHaveBeenCalledTimes(1);
-    expect(mocks.runAgentLoop).toHaveBeenCalledTimes(1);
   });
 
   it("hydrate rebuilds stage status from persisted jobs (survives reload)", async () => {

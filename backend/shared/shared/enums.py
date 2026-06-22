@@ -27,8 +27,9 @@ class JobType(StrEnum):
     QUIZ_GENERATION = "quiz_generation"  # 低 KC ファイルから L1-L5 クイズ生成 (issue 034)
     QUIZ_GRADING = "quiz_grading"  # クイズ意味採点 + KC 反映フック (issue 034)
     LEARNING_PLAN_GENERATION = "learning_plan_generation"  # チーム資産浮上の学習プラン生成 (issue 035)
-    CODE_DEBT_LOOP = "code_debt_loop"  # Code Debt Agent 自律ループ束ね (issue 036)
-    KNOWLEDGE_DEBT_LOOP = "knowledge_debt_loop"  # Knowledge Debt Agent 自律ループ束ね (issue 036)
+    # 廃止: Twin Agent 自律ループ (issue 036) は削除済み。値は既存 jobs 行のロード互換のためだけに残す。
+    CODE_DEBT_LOOP = "code_debt_loop"
+    KNOWLEDGE_DEBT_LOOP = "knowledge_debt_loop"
     FEATURE_CLUSTERING = "feature_clustering"  # Gemini でファイル群を機能へクラスタリング (issue 052)
 
 
