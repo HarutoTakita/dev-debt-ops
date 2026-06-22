@@ -1,7 +1,14 @@
-# Rosetta — Tech Debt Twin Agent
+# Rosetta — Knowledge Debt Twin Agent
 
 ## プロジェクト概要
-SvelteKit (SPA)、FastAPI、PostgreSQL、Docker、Terraformを使用した、Google Cloud ベースのフルスタックアプリケーション。
+**理解負債（Knowledge / Understanding Debt）を主役に据えたプラットフォーム**（issue 058 リポジション）。
+差別化は「理解度を git blame から*推測*するのでなく、**クイズで能動的に実測**し（blame 非依存。単独開発・
+コードを書かない PM も計測可）、**学習プラン → クイズ再受験で返済する閉ループ**」にある。コード負債（技術負債）
+の検知・二軸マトリクスは**維持するが、主役ではなく「どの理解ギャップが緊急かを示すホットスポット（hotspot）=
+リスク信号」**として位置づける（CodeScene 等が成熟済みの領域のため差別化の中心には置かない）。
+
+技術スタックは SvelteKit (SPA)、FastAPI、PostgreSQL、Docker、Terraform を使用した Google Cloud ベースの
+フルスタックアプリケーション。
 
 ## モノレポ構成
 - `frontend/` — SvelteKit 2 SPA (Svelte 5 runes, shadcn-svelte@latest, Tailwind v4)
