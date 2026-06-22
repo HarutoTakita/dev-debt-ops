@@ -5,6 +5,7 @@ import {
   agentProfileSchema,
   analyzeStackJobSchema,
   branchListSchema,
+  analysisStatusSchema,
   debtItemSchema,
   debtListSchema,
   fileDebtSchema,
@@ -30,6 +31,7 @@ import {
   type AgentProfile,
   type AnalyzeStackJob,
   type BranchList,
+  type AnalysisStatus,
   type DebtItem,
   type DebtList,
   type FileDebt,
@@ -421,6 +423,13 @@ export async function getOverview(
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/overview${qs}`);
   if (!response.ok) throw new Error(await errorDetail(response, "Overview の取得に失敗しました"));
   return overviewSchema.parse(await response.json());
+}
+
+// 解析ステージの最新ジョブ状態（リロード後の状態復元用）: GET .../analysis-status。
+export async function getAnalysisStatus(orgSlug: string, projectSlug: string): Promise<AnalysisStatus> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/analysis-status`);
+  if (!response.ok) throw new Error(await errorDetail(response, "解析状態の取得に失敗しました"));
+  return analysisStatusSchema.parse(await response.json());
 }
 
 // 機能ドリルダウン（issue 055/056）: GET .../features/{feature_key} で機能配下ファイルの理解負債を取得。

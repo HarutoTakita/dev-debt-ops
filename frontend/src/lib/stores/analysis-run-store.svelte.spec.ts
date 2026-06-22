@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   generatePlan: vi.fn(),
   runAgentLoop: vi.fn(),
   getJob: vi.fn(),
+  getAnalysisStatus: vi.fn(),
 }));
 vi.mock("$lib/api/client", () => mocks);
 
@@ -103,5 +104,34 @@ describe("AnalysisRunStore", () => {
     // The second runAll returns immediately; each stage is enqueued exactly once.
     expect(mocks.detectDebts).toHaveBeenCalledTimes(1);
     expect(mocks.runAgentLoop).toHaveBeenCalledTimes(1);
+  });
+
+  it("hydrate rebuilds stage status from persisted jobs (survives reload)", async () => {
+    mocks.getAnalysisStatus.mockResolvedValue({
+      jobs: {
+        code_debt_detection: { status: "COMPLETED", job_id: "j1" },
+        kc_analysis: { status: "FAILED", job_id: "j2" },
+      },
+    });
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    await store.hydrate(CTX);
+    expect(store.started).toBe(true);
+    expect(store.stages.detect_code.status).toBe("COMPLETED");
+    expect(store.stages.detect_code.link).toBe("/acme/rosetta/matrix");
+    expect(store.stages.analyze_galaxy.status).toBe("FAILED");
+    expect(store.stages.detect_knowledge.status).toBe("idle"); // no job → stays idle
+    expect(mocks.detectDebts).not.toHaveBeenCalled(); // hydration does not enqueue
+  });
+
+  it("hydrate is a no-op once a run has started", async () => {
+    mocks.getAnalysisStatus.mockResolvedValue({
+      jobs: { code_debt_detection: { status: "COMPLETED", job_id: "j1" } },
+    });
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    await store.runStage("detect_knowledge", CTX); // a run has started
+    await store.hydrate(CTX);
+    expect(mocks.getAnalysisStatus).not.toHaveBeenCalled();
   });
 });

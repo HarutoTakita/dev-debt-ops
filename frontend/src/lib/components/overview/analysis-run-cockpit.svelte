@@ -39,6 +39,12 @@
   // 注意: analysisRun は複数ページが共有するシングルトン。cockpit unmount で cancel() すると
   // 他ページ（Matrix/Galaxy 等）が起動したポーリングまで止めてしまうため、ここでは cancel しない。
   // プロジェクト切替時のキャンセル/リセットは [org]/[project]/+layout のクリーンアップが担う（issue-044）。
+
+  // リロード後の状態復元: 一度でも解析したプロジェクトは、永続化済みジョブからステージ状態を
+  // 復元する（hydrate はプロジェクトごとに一度だけ・run 開始済みなら no-op）。
+  $effect(() => {
+    if (ctx.orgSlug && ctx.projectSlug) void analysisRun.hydrate(ctx);
+  });
 </script>
 
 <section class="mx-auto max-w-5xl px-4 pt-4">
