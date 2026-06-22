@@ -221,9 +221,15 @@ export const overviewSchema = z.object({
   activity: weeklyActivitySchema, // 今週の活動
 });
 
+// 解析ステージごとの最新ジョブ状態（リロード後の状態復元用）。JobType 値でキー。
+export const analysisStatusSchema = z.object({
+  jobs: z.record(z.string(), z.object({ status: z.string(), job_id: z.string() })),
+});
+
 export type DebtPriority = z.infer<typeof debtPrioritySchema>;
 export type FileDebt = z.infer<typeof fileDebtSchema>;
 export type FeatureDebt = z.infer<typeof featureDebtSchema>;
+export type AnalysisStatus = z.infer<typeof analysisStatusSchema>;
 export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
 export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
 export type Overview = z.infer<typeof overviewSchema>;
