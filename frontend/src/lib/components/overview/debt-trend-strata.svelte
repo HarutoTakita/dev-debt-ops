@@ -3,11 +3,13 @@
   import * as m from "$lib/paraglide/messages";
 
   // 推移を「地層断面」として描く。各週を 1 層として積み、最新週を最上層に置く。
-  // トラック = 理解の堆積（ティール）、左から重なるアンバー = 残った負債。週を追うごとに負債層が薄くなる。
+  // ダッシュボードは正の向き（コード品質 × 理解度）で統一。アンバーのバー = コード品質（= 1 - コード負債
+  // スコア。週を追うごとに伸びる）、トラック（ティール）= 理解度の土台。
   type Props = { trend: DebtTrendPoint[] };
   const { trend }: Props = $props();
 
   const layers = $derived([...trend].reverse()); // 今週（最新）を最上層へ
+  const pct = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
 </script>
 
 <div>
@@ -28,10 +30,12 @@
       <div class="flex items-center gap-2 text-xs">
         <span class="w-12 shrink-0 text-right text-muted-foreground">{p.week}</span>
         <div class="relative h-4 flex-1 overflow-hidden rounded-sm bg-debt-knowledge/15">
-          <div class="absolute inset-y-0 left-0 bg-debt-code/55" style="width: {p.code_debt_score * 100}%"></div>
+          <div class="absolute inset-y-0 left-0 bg-debt-code/55" style="width: {100 - pct(p.code_debt_score)}%"></div>
         </div>
-        <span class="w-28 shrink-0 text-right text-muted-foreground tabular-nums">
-          負債 {Math.round(p.code_debt_score * 100)} / KC {Math.round(p.knowledge_coverage * 100)}
+        <span class="w-32 shrink-0 text-right text-muted-foreground tabular-nums">
+          {m.overview_trend_legend_debt()}
+          {100 - pct(p.code_debt_score)} / {m.overview_trend_legend_kc()}
+          {pct(p.knowledge_coverage)}
         </span>
       </div>
     {/each}
