@@ -51,6 +51,19 @@ class WeeklyActivityOut(BaseModel):
     knowledge_agent_passed: int
 
 
+class AnalysisJobStatusOut(BaseModel):
+    """Latest job status for one analysis stage (issue: persist cockpit status across reload)."""
+
+    status: str  # QUEUED / PROCESSING / COMPLETED / FAILED / CANCELLED
+    job_id: str
+
+
+class AnalysisStatusOut(BaseModel):
+    """Per-job-type latest status for a project, keyed by ``JobType`` value (snake_case)."""
+
+    jobs: dict[str, AnalysisJobStatusOut]
+
+
 class OverviewOut(BaseModel):
     """Overview dashboard payload (``overviewSchema``)."""
 
