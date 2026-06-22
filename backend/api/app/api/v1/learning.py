@@ -125,6 +125,7 @@ async def create_learning_plan(
     plan = LearningPlan(
         project_id=project.id,
         developer_id=current_user.id,
+        feature_id=uuid.UUID(body.feature_id) if body and body.feature_id else None,
         gap_concepts=gap_concepts,
         quiz_session_id=attempt_id,
     )

@@ -10,6 +10,7 @@ from app.api.v1.health import router as health_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.kc import router as kc_router
 from app.api.v1.knowledge_debts import router as knowledge_debts_router
+from app.api.v1.knowledge_units import router as knowledge_units_router
 from app.api.v1.learning import router as learning_router
 from app.api.v1.orgs import router as orgs_router
 from app.api.v1.overview import router as overview_router
@@ -30,6 +31,7 @@ api_router.include_router(knowledge_debts_router)
 api_router.include_router(overview_router)
 api_router.include_router(galaxy_router)
 api_router.include_router(features_router)
+api_router.include_router(knowledge_units_router)
 api_router.include_router(quizzes_router)
 api_router.include_router(learning_router)
 api_router.include_router(agents_router)

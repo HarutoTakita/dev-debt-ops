@@ -226,10 +226,26 @@ export const analysisStatusSchema = z.object({
   jobs: z.record(z.string(), z.object({ status: z.string(), job_id: z.string() })),
 });
 
+// 機能（feature）単位の学習×確認クイズ単元（issue 063）。
+export const knowledgeUnitSchema = z.object({
+  feature_id: z.string(),
+  feature_key: z.string(),
+  name: z.string(),
+  knowledge_coverage: z.number(),
+  code_debt_score: z.number(),
+  file_count: z.number(),
+  status: z.string(), // unstarted | in_progress | verified | needs_review
+  learning_plan_id: z.string().nullable().default(null),
+  quiz_session_id: z.string().nullable().default(null),
+  quiz_status: z.string().nullable().default(null),
+});
+export const knowledgeUnitsSchema = z.object({ units: z.array(knowledgeUnitSchema) });
+
 export type DebtPriority = z.infer<typeof debtPrioritySchema>;
 export type FileDebt = z.infer<typeof fileDebtSchema>;
 export type FeatureDebt = z.infer<typeof featureDebtSchema>;
 export type AnalysisStatus = z.infer<typeof analysisStatusSchema>;
+export type KnowledgeUnit = z.infer<typeof knowledgeUnitSchema>;
 export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
 export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
 export type Overview = z.infer<typeof overviewSchema>;

@@ -50,6 +50,7 @@ class GeneratePlanIn(BaseModel):
     """Body for ``POST .../learning/plans`` (used when no ``attempt_id`` resolves the gaps)."""
 
     gap_concepts: list[str] = []
+    feature_id: str | None = None  # 機能単元にプランを紐付ける（issue 063）
 
 
 class StepPatchIn(BaseModel):
