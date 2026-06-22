@@ -17,7 +17,4 @@
 >
   <Search class="size-4 shrink-0" />
   <span class="flex-1 truncate text-left">{m.shell_command_palette()}</span>
-  <span class="hidden rounded border border-border px-1 text-[10px] tracking-wide uppercase sm:inline-flex">
-    {m.shell_soon()}
-  </span>
 </button>
