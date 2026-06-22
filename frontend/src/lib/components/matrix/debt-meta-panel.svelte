@@ -1,21 +1,14 @@
 <script lang="ts">
-  import { resolve } from "$app/paths";
-  import { page } from "$app/state";
   import type { DebtItem } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import { formatKc, formatKcPct } from "$lib/format/kc";
   import DeveloperAvatar from "./developer-avatar.svelte";
   import DeveloperKey from "./developer-key.svelte";
-  import { agentLabel, categoryLabel, kindLabel, severityLabel } from "./labels";
+  import { categoryLabel, kindLabel, severityLabel } from "./labels";
 
   // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。
   type Props = { debt: DebtItem };
   const { debt }: Props = $props();
-
-  const orgSlug = $derived(page.params.org ?? "");
-  const projectSlug = $derived(page.params.project ?? "");
-  // エージェント独立ビュー廃止（issue 051）。担当エージェントの状況は観測台（ダッシュボード）へ。
-  const agentHref = $derived(resolve(`/${orgSlug}/${projectSlug}`));
 
   const rows = $derived([
     { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
@@ -28,17 +21,6 @@
 </script>
 
 <div class="divide-y rounded-lg border bg-card px-4">
-  <div class="flex items-start justify-between gap-3 py-1.5 text-sm">
-    <span class="shrink-0 text-muted-foreground">{m.debt_meta_agent()}</span>
-    <a
-      href={agentHref}
-      title={m.matrix_view_agent_reasoning()}
-      aria-label={m.matrix_view_agent_reasoning()}
-      class="text-right underline-offset-2 hover:underline"
-    >
-      {agentLabel(debt.assigned_agent)}
-    </a>
-  </div>
   {#each rows as r (r.label)}
     <div class="flex items-start justify-between gap-3 py-1.5 text-sm">
       <span class="shrink-0 text-muted-foreground">{r.label}</span>

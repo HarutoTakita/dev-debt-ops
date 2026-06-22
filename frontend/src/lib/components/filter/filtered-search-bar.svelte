@@ -9,12 +9,12 @@
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // GitLab filtered_search_bar_root.vue の写像。種別/深刻度/エージェント/ステータスをトークン（scope:value ピル）で
+  // GitLab filtered_search_bar_root.vue の写像。種別/深刻度/ステータスをトークン（scope:value ピル）で
   // 多選択フィルタし、最近の検索を localStorage（recent-searches ストア）から復元する。
   type Props = { filter: DebtFilter; onfilter: (f: DebtFilter) => void };
   const { filter, onfilter }: Props = $props();
 
-  type FacetKey = "kind" | "severity" | "agent" | "status";
+  type FacetKey = "kind" | "severity" | "status";
   type FacetValue = { value: string; label: () => string };
   type Facet = { key: FacetKey; label: () => string; values: FacetValue[] };
 
@@ -35,14 +35,6 @@
         { value: "high", label: m.severity_high },
         { value: "medium", label: m.severity_medium },
         { value: "low", label: m.severity_low },
-      ],
-    },
-    {
-      key: "agent",
-      label: m.filter_facet_agent,
-      values: [
-        { value: "code_debt", label: m.agent_code_debt },
-        { value: "knowledge_debt", label: m.agent_knowledge_debt },
       ],
     },
     {

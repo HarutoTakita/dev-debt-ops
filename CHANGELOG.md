@@ -8,6 +8,7 @@
 
 ### Removed
 
+- エージェント廃止に伴う UI の残骸を削除: ダッシュボードの「今週の活動（Code Agent / Knowledge Agent）」カード（`weekly-activity.svelte`）、優先度マップ（旧マトリクス）のフィルタ facet「エージェント」、負債詳細パネルの「担当エージェント」行（実体のない活動リンク）を撤去。`labels.ts` の `agentLabel` と未使用化した i18n（`overview_weekly_*` / `filter_facet_agent` / `agent_code_debt` / `agent_knowledge_debt` / `debt_meta_agent` / `matrix_view_agent_reasoning`）も削除。
 - 解析ランから「ループ（Twin Agent）」ステージとバックエンドの Agent 自律ループ束ね機能を削除（issue 036 の撤回）。エージェント独立ビューは既に廃止（issue 051）済みで、ループ結果を表示する箇所が無くなっていたため、(フロント) コックピットの `loop_agents` ステージ・`runAgentLoop` クライアント・`/agents` ルート・`components/agents/*`・`agent-store`・関連 Zod スキーマを撤去、(バックエンド) `agents` API ルータ・`agent_loop` パイプライン + レジストリ登録・`shared` の agent_loop スキーマ/ORM モデルを削除し、`agent_pipelines` / `agent_activities` / `narrative_steps` / `narrative_evidence` テーブルを drop（Alembic `0019`、downgrade で再作成）。`analysis-status` の対象 JobType からも `code_debt_loop` を除外。`JobType.{CODE_DEBT,KNOWLEDGE_DEBT}_LOOP` の enum 値は既存 `jobs` 行のロード互換のため残置。
 
 ### Added
@@ -25,7 +26,7 @@
 
 ### Changed
 
-- サイドバーに Slack 風のスター／ユーザー定義セクションを追加し、左上のプロジェクトスイッチャーを廃止: プロジェクトをスター付与でき「スター付き」グループへ集約、ユーザー定義セクションを作成・改名・削除して各プロジェクトを割り当て可能（表示は スター付き → セクション → 既定 の 1 グループ）。割り当ては行内 ⋯ メニューに加え、**プロジェクトのドラッグ&ドロップ**でグループ間移動できる（ドロップ先をハイライト）。新規セクションには作成順に巡回するカラフルなアイコン色（`#` アイコン）を付与。スター／セクション／割り当て／グループ開閉は org 別に localStorage 永続化（`project-sections` store）。冗長になった左上スイッチャー（`project-switcher.svelte`）を削除し、新規プロジェクト作成はサイドバー最下部の「＋」ボタンへ集約。プロジェクト行のアイコンは従来の色付き（`debt-knowledge` トークン）に統一。あわせて メニューの「soon」バッジ（ギャラクシー / クイズと学習 / 設定の `comingSoon`）を全廃。
+- サイドバーに Slack 風のスター／ユーザー定義セクションを追加し、左上のプロジェクトスイッチャーを廃止: プロジェクトをスター付与でき「スター付き」グループへ集約、ユーザー定義セクションを作成・改名・削除して各プロジェクトを割り当て可能（表示は スター付き → セクション → 既定 の 1 グループ）。割り当ては行内 ⋯ メニューに加え、**プロジェクトのドラッグ&ドロップ**でグループ間移動できる（ドロップ先をハイライト）。各グループ見出しにカラフルなアイコン（スター付き=★、ユーザー定義=作成順に巡回する色付き `#`、既定=`debt-knowledge` 色のグリッド）を付与。スター／セクション／割り当て／グループ開閉は org 別に localStorage 永続化（`project-sections` store）。冗長になった左上スイッチャー（`project-switcher.svelte`）を削除し、新規プロジェクト作成はサイドバー最下部の「＋」ボタンへ集約。プロジェクト行のアイコンは従来の色付き（`debt-knowledge` トークン）に統一。あわせて メニューの「soon」バッジ（ギャラクシー / クイズと学習 / 設定の `comingSoon`）を全廃。
 - サイドバーをセクション制からプロジェクト単位の開閉メニューへ再構成: 「理解する / 知識負債 / 参照」のセクション見出しを廃止し、org の全プロジェクトを同時に一覧（`project-nav-group`）。各プロジェクトはクリックで配下メニュー（観測台 / ギャラクシー / 負債マトリクス / クイズと学習 / リポジトリ / 設定）を開閉でき、選択中プロジェクトは自動展開する。サイドバーマウント時に org のプロジェクト一覧をロード（スイッチャー Popover を開かずとも全件表示）。`nav.ts` の `navSections`/`NavSection` を廃しメニュー項目をフラット化、`menu-section.svelte` を削除。ピン留め機能（複数プロジェクト下で対象が曖昧になるため）と、非アクティブプロジェクトでのダミー pill 表示を撤去。折りたたみ時は各プロジェクトの Overview へのアイコンリンクを表示。
 
 - 学習と確認クイズを機能（feature）単位の「単元」に統合（Udemy 型 learn→confirm、issue-063）: `/learning` をタブ並置から**単元（機能）リスト**へ再構成。各単元は KC% ＋ 状態（未学習/学習中/理解済み/要復習）＋「学習プランを作る/開く」＋「理解度を確認する（確認クイズ）」を 1 カードに集約し、学習 → 確認クイズ合格 → 機能 KC↑（理解済み）を単元ごとに可視化。`?planId`/`?from=quiz` では学習プラン詳細を表示（クイズ結果遷移・ブックマーク救済）。確認クイズは 054 の機能スコープ quiz を流用、受験ページ `/quizzes/{sessionId}` は維持。バックエンドに `GET .../knowledge-units`（機能 KC＋学習プラン＋確認クイズ状態の join）と `learning_plans.feature_id`（Alembic `0018`）、`POST .../learning/plans` の `feature_id` 受付を追加。
