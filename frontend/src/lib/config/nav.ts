@@ -25,8 +25,6 @@ export interface NavItem {
   icon: IconComponent;
   /** プロジェクトルート（Overview）など完全一致でアクティブ判定する項目 */
   exact?: boolean;
-  /** 未実装機能: ナビ枠だけ用意し、ルートは Coming Soon プレースホルダへ向ける */
-  comingSoon?: boolean;
   /** 有効条件（例: Repos は接続済みのみ活性） */
   enabled?: (ctx: NavContext) => boolean;
   /** KC% / 未返済負債残高など（本 issue ではダミー固定値）。アクティブプロジェクトのみ表示。 */
@@ -49,7 +47,6 @@ export const allNavItems: NavItem[] = [
     label: m.nav_galaxy,
     icon: Sparkles,
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
-    comingSoon: true,
     // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
     pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
   },
@@ -67,7 +64,6 @@ export const allNavItems: NavItem[] = [
     label: m.nav_knowledge_hub,
     icon: GraduationCap,
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
-    comingSoon: true,
     // 受験可能クイズ件数を pill 表示（1 件以上のとき）。
     pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
   },
@@ -82,7 +78,6 @@ export const allNavItems: NavItem[] = [
     label: m.nav_settings,
     icon: Settings,
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
-    comingSoon: true,
   },
 ];
 
