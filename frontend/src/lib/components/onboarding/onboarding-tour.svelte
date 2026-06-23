@@ -45,6 +45,11 @@
         const href = s.route({ orgSlug, projectSlug });
         if (page.url.pathname !== href) await goto(resolve(href));
       }
+      // タブ等の隠れた対象は、表示前に reveal 要素をクリックして出す（例: マップ/リストの切替）。
+      if (s.reveal) {
+        const rev = document.querySelector<HTMLElement>(`[data-tour="${s.reveal}"]`);
+        rev?.click();
+      }
       if (!s.target) {
         rect = null; // ターゲット無し（ページ別ガイドの詳細）は中央に説明だけ出す
         return;

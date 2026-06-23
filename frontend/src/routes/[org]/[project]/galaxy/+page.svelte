@@ -40,9 +40,9 @@
   <div class="mx-auto flex h-full max-w-5xl flex-col gap-3 p-4">
     <Tabs.Root bind:value={tab} class="flex min-h-0 flex-1 flex-col">
       <div class="flex items-center justify-between gap-2">
-        <Tabs.List>
-          <Tabs.Trigger value="map">{m.galaxy_tab_map()}</Tabs.Trigger>
-          <Tabs.Trigger value="list">{m.galaxy_tab_list()}</Tabs.Trigger>
+        <Tabs.List data-tour="galaxy-views">
+          <Tabs.Trigger value="map" data-tour="galaxy-tab-map">{m.galaxy_tab_map()}</Tabs.Trigger>
+          <Tabs.Trigger value="list" data-tour="galaxy-tab-list">{m.galaxy_tab_list()}</Tabs.Trigger>
         </Tabs.List>
         {#if galaxy.myKc !== null}
           <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -59,7 +59,7 @@
         <GalaxyLegend />
       </Tabs.Content>
 
-      <Tabs.Content value="list" class="mt-3 flex-1 overflow-auto">
+      <Tabs.Content value="list" class="mt-3 flex-1 overflow-auto" data-tour="galaxy-list">
         <MasteryList galaxy={galaxy.galaxy} />
       </Tabs.Content>
     </Tabs.Root>
