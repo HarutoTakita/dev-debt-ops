@@ -377,6 +377,7 @@
   "analysis_stage_analyze_galaxy": "分析（理解度）",
   "analysis_stage_cluster_features": "機能のクラスタリング",
   "analysis_stage_plan_learning": "計画（学習プラン）",
+  "analysis_stage_confirm_quizzes": "確認クイズの用意",
   "analysis_status_idle": "待機",
   "analysis_status_queued": "キュー",
   "analysis_status_processing": "処理中",

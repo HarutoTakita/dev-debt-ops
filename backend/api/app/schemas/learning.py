@@ -53,6 +53,13 @@ class GeneratePlanIn(BaseModel):
     feature_id: str | None = None  # 機能単元にプランを紐付ける（issue 063）
 
 
+class BaselinePlansOut(BaseModel):
+    """Summary for ``POST .../baseline-plans`` (issue 064) — one plan per clustered feature."""
+
+    created: int
+    job_ids: list[str]
+
+
 class StepPatchIn(BaseModel):
     """Body for ``PATCH .../learning/plans/{id}/steps/{order}``."""
 

@@ -377,6 +377,7 @@
   "analysis_stage_analyze_galaxy": "Analyze (understanding)",
   "analysis_stage_cluster_features": "Cluster features",
   "analysis_stage_plan_learning": "Plan (learning)",
+  "analysis_stage_confirm_quizzes": "Prepare quizzes",
   "analysis_status_idle": "Idle",
   "analysis_status_queued": "Queued",
   "analysis_status_processing": "Processing",
