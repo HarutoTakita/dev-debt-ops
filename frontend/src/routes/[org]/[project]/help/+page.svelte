@@ -6,9 +6,10 @@
   // ヘルプページ（issue 066）。サイドバー左下の ? から到達。オンボーディングガイドを再生でき、
   // 各メニューの要点（ツアーと同じ文言を再利用）を一覧する。
   const menus = [
+    { label: m.nav_overview, body: m.tour_overview_body },
     { label: m.nav_galaxy, body: m.tour_galaxy_body },
-    { label: m.nav_matrix, body: m.tour_matrix_body },
     { label: m.nav_knowledge_hub, body: m.tour_knowledge_body },
+    { label: m.nav_matrix, body: m.tour_matrix_body },
     { label: m.nav_repos, body: m.tour_repos_body },
     { label: m.nav_settings, body: m.tour_settings_body },
   ];
