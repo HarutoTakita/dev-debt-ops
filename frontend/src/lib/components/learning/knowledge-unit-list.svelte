@@ -47,9 +47,6 @@
 </script>
 
 <div class="mx-auto max-w-2xl space-y-4 p-4">
-  <div class="flex items-baseline justify-between gap-2">
-    <h1 class="font-display text-xl font-semibold">{m.units_title()}</h1>
-  </div>
   <p class="text-xs text-muted-foreground">{m.units_subtitle()}</p>
 
   {#if loading}
