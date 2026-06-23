@@ -35,10 +35,8 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
-  // ヘルプモーダル（オンボーディングガイドの再生 / LP は今後追加予定）。
-  let helpOpen = $state(false);
+  // ヘルプ（オンボーディングガイドの再生 / LP は今後追加予定）。「...」と同様のドロップダウンから選ぶ。
   function startGuide() {
-    helpOpen = false;
     onboarding.start(tourSteps);
   }
 
@@ -294,10 +292,10 @@
       {/if}
     </div>
 
-    <!-- 一番下: ヘルプ。小モーダルで「オンボーディングガイドを確認する」「LP（今後）」を選ぶ（issue 066）。 -->
+    <!-- 一番下: ヘルプ。「...」と同様のドロップダウンで「ガイド確認」「LP（今後）」を選ぶ（issue 066）。 -->
     <div class="mt-1">
-      <Dialog.Root bind:open={helpOpen}>
-        <Dialog.Trigger>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
           {#snippet child({ props })}
             {#if sidebar.collapsed}
               <button
@@ -319,29 +317,18 @@
               </button>
             {/if}
           {/snippet}
-        </Dialog.Trigger>
-        <Dialog.Content class="sm:max-w-sm">
-          <Dialog.Header>
-            <Dialog.Title>{m.help_title()}</Dialog.Title>
-          </Dialog.Header>
-          <div class="flex flex-col gap-2">
-            <button
-              type="button"
-              onclick={startGuide}
-              class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              {m.help_view_guide()}
-            </button>
-            <button
-              type="button"
-              disabled
-              class="cursor-not-allowed rounded-md border px-3 py-2 text-sm font-medium text-muted-foreground opacity-60"
-            >
-              {m.help_view_lp()}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Root>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Content side="top" align="start" class="w-56">
+          <DropdownMenu.Label>{m.help_title()}</DropdownMenu.Label>
+          <DropdownMenu.Item onSelect={startGuide}>
+            <CircleHelp class="size-4" />
+            <span>{m.help_view_guide()}</span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item disabled>
+            <span>{m.help_view_lp()}</span>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
     </div>
   </nav>
 </Tooltip.Provider>
