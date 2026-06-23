@@ -85,7 +85,7 @@
     </span>
   </div>
 
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col gap-2" data-tour="matrix-search">
     <FilteredSearchBar {filter} {onfilter} />
     <div class="flex items-center justify-between">
       <span class="text-xs text-muted-foreground">{m.matrix_total({ count: debts.length })}</span>
