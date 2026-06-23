@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { resolve } from "$app/paths";
   import { listDebts, type DebtFilter, type DebtSort } from "$lib/api/client";
   import type { DebtItem } from "$lib/api/schemas";
   import * as Tooltip from "$lib/components/ui/tooltip";
@@ -9,8 +10,6 @@
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import Logo from "$lib/components/logo.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
-  import { Button } from "$lib/components/ui/button";
-  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -117,13 +116,12 @@
       <Logo class="size-10 text-debt-code/70" />
       <p class="text-sm font-medium">{m.matrix_empty()}</p>
       <p class="max-w-sm text-xs text-muted-foreground">{m.matrix_empty_hint()}</p>
-      <Button
-        disabled={analysisRun.stages.detect_code.status === "QUEUED" ||
-          analysisRun.stages.detect_code.status === "PROCESSING"}
-        onclick={() => analysisRun.runStage("detect_code", { orgSlug, projectSlug, owner: "", repo: "" })}
+      <a
+        href={resolve(`/${orgSlug}/${projectSlug}`)}
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
       >
-        {m.matrix_detect_cta()}
-      </Button>
+        {m.analysis_run_cta()}
+      </a>
     </div>
   {:else}
     <Tooltip.Provider delayDuration={150}>
