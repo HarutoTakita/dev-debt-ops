@@ -5,9 +5,6 @@ import GraduationCap from "@lucide/svelte/icons/graduation-cap";
 import GitBranch from "@lucide/svelte/icons/git-branch";
 import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
-import { galaxy } from "$lib/stores/galaxy-store.svelte";
-import { quiz } from "$lib/stores/quiz-store.svelte";
-import { MOCK_DEBTS } from "$lib/api/mock/debts";
 import * as m from "$lib/paraglide/messages";
 
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
@@ -51,8 +48,6 @@ export const allNavItems: NavItem[] = [
     icon: Sparkles,
     group: "knowledge",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
-    // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
-    pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
   },
   {
     // クイズ（実測）と学習（返済）はループの両輪。1 メニュー = タブ統合ハブ（/learning）に集約。
@@ -61,8 +56,6 @@ export const allNavItems: NavItem[] = [
     icon: GraduationCap,
     group: "knowledge",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
-    // 受験可能クイズ件数を pill 表示（1 件以上のとき）。
-    pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
   },
   // 技術負債の対: 可視化（コード品質マップ）→ 返済（コード改善）。
   {
@@ -71,8 +64,6 @@ export const allNavItems: NavItem[] = [
     icon: Grid3x3,
     group: "code",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
-    // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
-    pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
   },
   {
     id: "repos",
