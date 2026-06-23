@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { getLearningPlan, patchStep } from "$lib/api/client";
-  import type { LearningPlan } from "$lib/api/schemas";
   import PlanProgress from "$lib/components/learning/plan-progress.svelte";
   import ResourceList from "$lib/components/learning/resource-list.svelte";
   import KnowledgeUnitList from "$lib/components/learning/knowledge-unit-list.svelte";
@@ -24,7 +22,10 @@
   });
 
   // --- 学習プラン詳細（?planId / ?from=quiz） ---
-  let plan = $state<LearningPlan | null>(untrack(() => data.plan));
+  // writable $derived: 一覧 → ?planId / ?from=quiz のクライアント遷移で load が再実行され data.plan が
+  // 変わると追従する（同一ルート内遷移で再初期化されず「学習を開く」が無反応だった不具合の修正）。
+  // ステップ完了トグル等のローカル更新は再代入で上書きでき、次に data.plan が変わるまで保持される。
+  let plan = $derived(data.plan);
   refreshOnStageComplete(["plan_learning"], () => {
     if (plan && orgSlug && projectSlug) {
       void getLearningPlan(orgSlug, projectSlug, plan.id)
