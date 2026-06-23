@@ -9,8 +9,8 @@ export type TourPlacement = "right" | "bottom" | "left" | "top";
 
 export type TourStep = {
   id: string;
-  /** ハイライト対象の data-tour 値。 */
-  target: string;
+  /** ハイライト対象の data-tour 値。省略時は中央に説明だけ出す（ページ別ガイドの詳細説明用）。 */
+  target?: string;
   title: () => string;
   body: () => string;
   placement: TourPlacement;
@@ -72,3 +72,53 @@ export const tourSteps: TourStep[] = [
     placement: "right",
   },
 ];
+
+// 各メニューの「詳細を確認する」で開くページ別ガイド（issue 066）。メイン手順の id をキーにする。
+// 当該ページへ遷移し、中央に詳しい説明を出す（target 無し）。MVP は 1 ステップ／ページ。
+export const pageTours: Record<string, TourStep[]> = {
+  overview: [
+    {
+      id: "overview-detail",
+      title: m.tour_overview_title,
+      body: m.tour_overview_detail,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
+    },
+  ],
+  galaxy: [
+    {
+      id: "galaxy-detail",
+      title: m.tour_galaxy_title,
+      body: m.tour_galaxy_detail,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
+    },
+  ],
+  "knowledge-hub": [
+    {
+      id: "knowledge-detail",
+      title: m.tour_knowledge_title,
+      body: m.tour_knowledge_detail,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+    },
+  ],
+  matrix: [
+    {
+      id: "matrix-detail",
+      title: m.tour_matrix_title,
+      body: m.tour_matrix_detail,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
+    },
+  ],
+  repos: [
+    {
+      id: "repos-detail",
+      title: m.tour_repos_title,
+      body: m.tour_repos_detail,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+    },
+  ],
+};

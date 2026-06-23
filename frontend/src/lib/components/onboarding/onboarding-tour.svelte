@@ -3,7 +3,7 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
-  import { tourSteps } from "./tour-steps";
+  import { pageTours } from "./tour-steps";
   import * as m from "$lib/paraglide/messages";
 
   // 自作の軽量プロダクトツアー（issue 066）。外部 CDN/ライブラリ非依存。
@@ -12,9 +12,11 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  const total = tourSteps.length;
-  const step = $derived(onboarding.active ? (tourSteps[onboarding.stepIndex] ?? null) : null);
-  const isLast = $derived(onboarding.stepIndex >= total - 1);
+  const total = $derived(onboarding.steps.length);
+  const step = $derived(onboarding.active ? (onboarding.steps[onboarding.stepIndex] ?? null) : null);
+  const isLast = $derived(onboarding.stepIndex >= onboarding.steps.length - 1);
+  // メイン手順で、対応するページ別ガイドがあるステップだけ「詳細を確認する」を出す。
+  const hasDetail = $derived(step ? Boolean(pageTours[step.id]) : false);
 
   type Rect = { x: number; y: number; w: number; h: number };
   let rect = $state<Rect | null>(null);
@@ -42,11 +44,16 @@
         const href = s.route({ orgSlug, projectSlug });
         if (page.url.pathname !== href) await goto(resolve(href));
       }
+      if (!s.target) {
+        rect = null; // ターゲット無し（ページ別ガイドの詳細）は中央に説明だけ出す
+        return;
+      }
+      const target = s.target;
       for (let i = 0; i < 40 && !cancelled; i++) {
-        if (document.querySelector(`[data-tour="${s.target}"]`)) break;
+        if (document.querySelector(`[data-tour="${target}"]`)) break;
         await new Promise((r) => setTimeout(r, 50));
       }
-      if (!cancelled) measure(s.target);
+      if (!cancelled) measure(target);
     })();
     return () => {
       cancelled = true;
@@ -55,7 +62,7 @@
 
   // resize / scroll で再計測（実行中のみ）。
   $effect(() => {
-    if (!onboarding.active || !step) return;
+    if (!onboarding.active || !step || !step.target) return;
     const target = step.target;
     const recompute = () => measure(target);
     window.addEventListener("resize", recompute);
@@ -107,6 +114,13 @@
     if (isLast) onboarding.finish(orgSlug);
     else onboarding.next();
   }
+
+  // 「詳細を確認する」: 当該メニューのページ別ガイドに切り替える。
+  function openDetail() {
+    if (!step) return;
+    const pt = pageTours[step.id];
+    if (pt) onboarding.start(pt);
+  }
 </script>
 
 {#if onboarding.active && step}
@@ -136,6 +150,11 @@
   >
     <p class="font-display text-sm font-semibold">{step.title()}</p>
     <p class="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body()}</p>
+    {#if hasDetail}
+      <button type="button" onclick={openDetail} class="mt-2 text-xs font-medium text-primary hover:underline">
+        {m.tour_detail()} →
+      </button>
+    {/if}
     <div class="mt-3 flex items-center justify-between gap-2">
       <span class="text-xs text-muted-foreground tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
       <div class="flex items-center gap-1.5">

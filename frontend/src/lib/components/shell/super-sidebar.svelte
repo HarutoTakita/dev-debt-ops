@@ -28,16 +28,19 @@
     type ProjectSection,
   } from "$lib/stores/project-sections.svelte";
   import type { Project } from "$lib/api/schemas";
-  import type { Pathname } from "$app/types";
   import * as m from "$lib/paraglide/messages";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
+  import { tourSteps } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
-  // ヘルプページ（オンボーディングガイド再生）への導線。現在プロジェクトがあるときのみ表示。
-  const helpPath: Pathname | null = $derived(
-    project.current ? (`/${orgSlug}/${project.current.slug}/help` as Pathname) : null,
-  );
+  // ヘルプモーダル（オンボーディングガイドの再生 / LP は今後追加予定）。
+  let helpOpen = $state(false);
+  function startGuide() {
+    helpOpen = false;
+    onboarding.start(tourSteps);
+  }
 
   // org の全プロジェクトをサイドバーに同時表示。一覧未取得（直リンク到達など）でも現在プロジェクトの
   // メニューは即使えるよう、フォールバックで current を出す。
@@ -291,38 +294,55 @@
       {/if}
     </div>
 
-    <!-- 一番下: ヘルプ（オンボーディングガイドを再生できる、issue 066） -->
-    {#if helpPath}
-      <div class="mt-1">
-        {#if sidebar.collapsed}
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <a
-                  {...props}
-                  href={resolve(helpPath)}
-                  data-tour="help"
-                  aria-label={m.nav_help()}
-                  class="flex h-9 w-full items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                >
-                  <CircleHelp class="size-4" />
-                </a>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="right">{m.nav_help()}</Tooltip.Content>
-          </Tooltip.Root>
-        {:else}
-          <a
-            href={resolve(helpPath)}
-            data-tour="help"
-            class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-          >
-            <CircleHelp class="size-4" />
-            <span>{m.nav_help()}</span>
-          </a>
-        {/if}
-      </div>
-    {/if}
+    <!-- 一番下: ヘルプ。小モーダルで「オンボーディングガイドを確認する」「LP（今後）」を選ぶ（issue 066）。 -->
+    <div class="mt-1">
+      <Dialog.Root bind:open={helpOpen}>
+        <Dialog.Trigger>
+          {#snippet child({ props })}
+            {#if sidebar.collapsed}
+              <button
+                {...props}
+                data-tour="help"
+                aria-label={m.nav_help()}
+                class="flex h-9 w-full items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              >
+                <CircleHelp class="size-4" />
+              </button>
+            {:else}
+              <button
+                {...props}
+                data-tour="help"
+                class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+              >
+                <CircleHelp class="size-4" />
+                <span>{m.nav_help()}</span>
+              </button>
+            {/if}
+          {/snippet}
+        </Dialog.Trigger>
+        <Dialog.Content class="sm:max-w-sm">
+          <Dialog.Header>
+            <Dialog.Title>{m.help_title()}</Dialog.Title>
+          </Dialog.Header>
+          <div class="flex flex-col gap-2">
+            <button
+              type="button"
+              onclick={startGuide}
+              class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {m.help_view_guide()}
+            </button>
+            <button
+              type="button"
+              disabled
+              class="cursor-not-allowed rounded-md border px-3 py-2 text-sm font-medium text-muted-foreground opacity-60"
+            >
+              {m.help_view_lp()}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Root>
+    </div>
   </nav>
 </Tooltip.Provider>
 
