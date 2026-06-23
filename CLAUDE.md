@@ -15,7 +15,7 @@
 - `backend/` — uv workspace モノレポ: `shared/`（共有 enum・スキーマ・ORM モデル `Job`）/ `api/`（FastAPI、外部公開）/ `service/`（重い処理 worker） (Python 3.13, SQLModel, Alembic)
 - `infra/` — Terraform (Google Cloud Run + Cloud SQL)
 - `docker/` — Dockerfiles (`api.Dockerfile` / `service.Dockerfile`、各 `dev` / `runtime` ステージ)
-- `docs/` — ドキュメント (Diátaxis: `tutorials/` / `guides/` / `reference/` / `adr/`)
+- `docs/` — ドキュメント (Diátaxis: `tutorials/` / `guides/` / `reference/`)
 
 ## フロントエンド (`frontend/`)
 - **スタック:** SvelteKit 2 + Svelte 5 + shadcn-svelte@latest + Tailwind CSS v4 + Zod v4
