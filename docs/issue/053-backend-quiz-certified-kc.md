@@ -31,7 +31,7 @@
 
 1. `quiz_grading` の採点完了時に、対象（受験者 × ファイル）の KC を **`certified_via="quiz"` で `file_kc` に upsert**する。
 2. クイズ認定 KC は **authorship の 0.6 上限を適用しない**（合格すれば star=≥0.7 到達可）。これが blame 非依存の核。
-3. KC(file) 集計行（`dev_id IS NULL`）を、クイズ認定後に再導出して整合させる（集計方針は 029 ADR に従う）。
+3. KC(file) 集計行（`dev_id IS NULL`）を、クイズ認定後に再導出して整合させる（集計方針は 029 に従う）。
 4. `kc_before`/`kc_after` を「**反映前後の実 KC**」に格上げし、暫定値ではなく `file_kc` の値と一致させる。
 
 ### 前提 issue（depends_on）
@@ -46,9 +46,9 @@
 
 029 は authorship 由来の KC を所有し、034 は採点（`quiz_results`）を所有する。本 issue は **「採点スコア → KC への
 変換と `file_kc` 書き込み」という両者の橋渡し**を唯一所有する。KC 反映式（スコア→KC の写像）を製品判断として
-確定し、ADR 化する（捏造した精密式は導入しない）。
+確定する（捏造した精密式は導入しない）。
 
-## KC 反映の設計（本 issue で確定・ADR 化）
+## KC 反映の設計（本 issue で確定）
 
 ### どの run の `file_kc` を更新するか
 
@@ -56,7 +56,7 @@
 受験者・ファイルから、対象 `file_kc` 行 `(run_id, file_path, dev_id=受験者)` を特定する。該当 run の `file_kc` を
 **upsert で書き換える**（行が無ければ新規＝blame 痕跡ゼロの単独開発/PM ケースを救済）。
 
-### スコア → KC 写像（MVP・ADR 化）
+### スコア → KC 写像（MVP）
 
 ```
 kc_quiz = quiz_score        # 採点スコア（0..1）をそのまま認定 KC とする MVP 式
@@ -66,7 +66,7 @@ kc_quiz = quiz_score        # 採点スコア（0..1）をそのまま認定 KC 
   **MVP は「同一 (run, file, dev) について authorship と quiz の高い方を採用」**（`max(kc_auth_capped, kc_quiz)`）。
   これにより「書いた人＝authorship」も「書いてない理解者＝quiz」も同じ軸で star に到達できる。
 - `mastery` は反映後 KC に `mastery_from_kc(kc, has_contact=True)` を再適用（クイズ受験は「接触あり」とみなす）。
-- decay / 半減期は外部仕様に式が無いため MVP では入れない（029 と整合、ADR に「不明」を明記）。
+- decay / 半減期は外部仕様に式が無いため MVP では入れない（029 と整合、「不明」と明記）。
 
 ### KC(file) 集計行の再導出
 
@@ -76,7 +76,7 @@ kc_quiz = quiz_score        # 採点スコア（0..1）をそのまま認定 KC 
 ## タスク
 
 ### shared（`backend/shared/shared/`）
-- [ ] 反映式・閾値を確定する ADR を `docs/adr/` に追記（029 の KC ADR と相互参照。「quiz は上限なし」「max 採用」「decay なし=不明」）。
+- [ ] 反映式・閾値を本 issue / 実装コメントに明記（「quiz は上限なし」「max 採用」「decay なし=不明」）。
       （モデル変更は基本不要。必要なら `quiz_results` に反映済みフラグ列を追加し冪等化。）
 
 ### service（`backend/service/service/`）
@@ -99,7 +99,7 @@ kc_quiz = quiz_score        # 採点スコア（0..1）をそのまま認定 KC 
 - クイズ採点完了時に `file_kc` の対象行が `certified_via="quiz"` で upsert され、blame 上限 0.6 を超えて star に到達できる。
 - blame 痕跡が無い（単独開発で 1 人 / コードを書かない PM）ファイルでも、クイズ合格で KC が計測・記録される。
 - `quiz_results.kc_before` / `kc_after` が `file_kc` の実 KC と一致し、暫定値ではなくなる。
-- 反映式・上限・集約方針・decay 不明が `docs/adr/` の ADR に記録される。
+- 反映式・上限・集約方針・decay 不明が本 issue / 実装に明記される。
 - 再配送/再採点で KC が多重加算されない（冪等）。
 - バックエンド：`uv run ruff check/format --check`・`uv run ty check`・`pytest`（shared/api/service）が通る。
 - `CHANGELOG.md`（日本語）に `Added`（クイズ採点による KC 認定 `certified_via="quiz"`）/ `Changed`（kc_before/after を実値化）を追記。
@@ -108,7 +108,7 @@ kc_quiz = quiz_score        # 採点スコア（0..1）をそのまま認定 KC 
 - **機能（feature）単位での KC 認定** → 054（機能ベースラインクイズ）/ 055（機能ロールアップ）。本 issue は**ファイル単位**の認定。
 - **クイズ対象の自動選定**（低 KC ファイル抽出）→ 029/030 由来。本 issue は採点済みセッションの反映のみ。
 - **review 由来の KC 認定**（`certified_via="review"`）→ 将来。
-- **KC 精密式（decay / 半減期）** → 外部仕様に式が無く MVP 暫定（ADR に「不明」を残す）。
+- **KC 精密式（decay / 半減期）** → 外部仕様に式が無く MVP 暫定（「不明」と明記する）。
 
 ## 参考
 - 既存実装：`backend/service/service/pipelines/quiz_grading.py`（KC 反映フックのコメント位置）、
