@@ -1,51 +1,93 @@
 <script lang="ts">
   import type { PersonalGalaxy } from "$lib/api/schemas";
-  import StarSystem from "./star-system.svelte";
+  import StarNode from "./star-node.svelte";
   import { computeForceLayout, type Point } from "./force-layout";
-  import { buildGalaxyGraph } from "./galaxy-graph";
+  import { buildFeatureGraph, buildFileSubgraph } from "./galaxy-graph";
+  import { formatKc } from "$lib/format/kc";
+  import { cn } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
 
-  // 2D 星系マップ。星系（モジュール）を実依存グラフの力学レイアウトで配置し、
-  // ワームホール（依存）を発光ラインで結ぶ。ノードホバーで関連エッジを強調する（issue 050）。
+  // 2 段の理解度マップ（issue 065）。Level 1 = 機能（feature）ノード + 機能間グラフ。機能クリックで
+  // Level 2（その機能の構成ファイルの依存グラフ）へインプレースズーム。「← 戻る」で Level 1 に戻る。
+  // Map/Set の構築は galaxy-graph.ts / force-layout.ts（.ts 側）で完結させる（prefer-svelte-reactivity）。
   const { galaxy }: { galaxy: PersonalGalaxy } = $props();
 
+  let selected = $state<string | null>(null); // 選択中の feature key（null = Level 1）
   let hovered = $state<string | null>(null);
 
-  // 依存グラフ（モジュール集約・隣接・次数）。Map/Set は .ts 側で完結させる。
-  const graph = $derived(buildGalaxyGraph(galaxy));
-  const degreeOf = (module: string): number => graph.degree.get(module) ?? 0;
+  const selectedFeature = $derived(galaxy.features.find((f) => f.key === selected) ?? null);
+  // データ更新で選択中の機能が消えたら Level 1 に戻す。
+  $effect(() => {
+    if (selected !== null && !galaxy.features.some((f) => f.key === selected)) selected = null;
+  });
 
-  // 決定的フォースレイアウト。systems / wormholes 変化時のみ再計算。
-  const layout = $derived(
+  const FALLBACK: Point = { x: 50, y: 50 };
+
+  // --- Level 1: 機能グラフ ---
+  const fgraph = $derived(buildFeatureGraph(galaxy.features, galaxy.feature_edges));
+  const flayout = $derived(
     computeForceLayout(
-      galaxy.systems.map((s) => s.module),
-      graph.edges.map((e) => [e.a, e.b] as const),
+      galaxy.features.map((f) => f.key),
+      fgraph.edges.map((e) => [e.a, e.b] as const),
     ),
   );
-  const FALLBACK: Point = { x: 50, y: 50 };
-  const posOf = (module: string): Point => layout.get(module) ?? FALLBACK;
-
-  // 描画用エッジ（座標 + 端点モジュール）。
-  const lines = $derived(
-    graph.edges.map(({ a, b }) => {
-      const pa = posOf(a);
-      const pb = posOf(b);
+  const fLines = $derived(
+    fgraph.edges.map(({ a, b }) => {
+      const pa = flayout.get(a) ?? FALLBACK;
+      const pb = flayout.get(b) ?? FALLBACK;
       return { a, b, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y };
     }),
+  );
+
+  // --- Level 2: 機能内ファイルグラフ ---
+  const sub = $derived(selected ? buildFileSubgraph(galaxy, selected) : null);
+  const slayout = $derived(
+    computeForceLayout(sub ? sub.files.map((f) => f.path) : [], sub ? sub.edges.map((e) => [e.a, e.b] as const) : []),
+  );
+  const sLines = $derived(
+    sub
+      ? sub.edges.map(({ a, b }) => {
+          const pa = slayout.get(a) ?? FALLBACK;
+          const pb = slayout.get(b) ?? FALLBACK;
+          return { a, b, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y };
+        })
+      : [],
   );
 
   function edgeActive(l: { a: string; b: string }): boolean {
     return hovered !== null && (l.a === hovered || l.b === hovered);
   }
-  function systemDimmed(module: string): boolean {
-    if (hovered === null || hovered === module) return false;
-    return !(graph.neighbors.get(hovered)?.has(module) ?? false);
+  function dimmed(neighbors: Map<string, Set<string>>, id: string): boolean {
+    if (hovered === null || hovered === id) return false;
+    return !(neighbors.get(hovered)?.has(id) ?? false);
   }
-  // 次数リングの追加直径(rem)。次数 0 は 0、最大次数で +2.4rem。
-  const ringExtra = (module: string): number => (degreeOf(module) / graph.maxDegree) * 2.4;
+  // 機能ノードの色（mastery。star-node の配色と整合）。
+  function featureClass(mastery: string): string {
+    return (
+      {
+        star: "border-debt-knowledge bg-debt-knowledge/25 text-debt-knowledge",
+        dim_star: "border-debt-knowledge/60 bg-debt-knowledge/10 text-debt-knowledge",
+        black_hole: "border-destructive/70 bg-destructive/20 text-destructive",
+        unexplored: "border-dashed border-slate-600 bg-slate-900/60 text-slate-300",
+      }[mastery] ?? "border-slate-600 bg-slate-900/60 text-slate-300"
+    );
+  }
 </script>
 
-<!-- 狭幅では横スクロール（rank30）。内側は正方形にして星(HTML %)とワームホール(SVG viewBox)が
-     共有座標系で一緒にリフローする（rank20）。 -->
+{#if selected !== null && selectedFeature}
+  <button
+    type="button"
+    onclick={() => {
+      selected = null;
+      hovered = null;
+    }}
+    class="mb-2 inline-flex items-center gap-1 text-xs font-medium text-cyan-200/80 hover:text-cyan-100"
+  >
+    ← {selectedFeature.name} · {formatKc(selectedFeature.kc)}
+  </button>
+{/if}
+
+<!-- 狭幅では横スクロール。内側は正方形にして星(HTML %)と依存線(SVG viewBox)が共有座標系で一緒にリフローする。 -->
 <div class="h-full min-h-[24rem] overflow-auto rounded-lg bg-slate-950">
   <div class="relative aspect-square min-w-[34rem]">
     <!-- 散らばる星（背景装飾） -->
@@ -53,68 +95,98 @@
       class="pointer-events-none absolute inset-0 [background-image:radial-gradient(circle,rgba(103,232,249,0.12)_1px,transparent_1px)] [background-size:34px_34px]"
     ></div>
 
-    <!-- ワームホール（依存）。from→to を矢印で示し、ノードホバーで関連エッジを強調・他を減衰。 -->
-    <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
-      <defs>
-        <marker
-          id="wormhole-arrow"
-          viewBox="0 0 10 10"
-          refX="8"
-          refY="5"
-          markerWidth="4"
-          markerHeight="4"
-          orient="auto"
-        >
-          <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
-        </marker>
-      </defs>
-      {#each lines as l (l.a + " " + l.b)}
-        <line
-          class="wormhole"
-          x1={l.x1}
-          y1={l.y1}
-          x2={l.x2}
-          y2={l.y2}
-          stroke="rgba(103,232,249,{hovered === null ? 0.3 : edgeActive(l) ? 0.85 : 0.07})"
-          stroke-width={edgeActive(l) ? 0.55 : 0.28}
-          stroke-dasharray="1 1.2"
-          marker-end="url(#wormhole-arrow)"
-        />
-      {/each}
-    </svg>
-
-    <!-- 依存次数リング（中心的モジュールほど大きい。色=KC とは別軸の二重符号化）。 -->
-    {#each galaxy.systems as system (system.module + "-ring")}
-      {@const p = posOf(system.module)}
-      {#if ringExtra(system.module) > 0.01}
-        <div
-          class="wormhole pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-400/25"
-          style="left: {p.x}%; top: {p.y}%; width: calc(5rem + {ringExtra(
-            system.module,
-          )}rem); height: calc(5rem + {ringExtra(system.module)}rem); opacity: {hovered === null ||
-          hovered === system.module
-            ? 0.55
-            : 0.15};"
-        ></div>
-      {/if}
-    {/each}
-
-    <!-- 星系（モジュール）。ホバー/フォーカスで関連エッジを強調し、非関連を減衰。 -->
-    {#each galaxy.systems as system (system.module)}
-      {@const p = posOf(system.module)}
-      <div
-        class="wormhole absolute -translate-x-1/2 -translate-y-1/2"
-        style="left: {p.x}%; top: {p.y}%; opacity: {systemDimmed(system.module) ? 0.35 : 1};"
-        role="group"
-        aria-label={system.module}
-        onmouseenter={() => (hovered = system.module)}
-        onmouseleave={() => (hovered = null)}
-        onfocusin={() => (hovered = system.module)}
-        onfocusout={() => (hovered = null)}
-      >
-        <StarSystem {system} />
+    {#if galaxy.features.length === 0}
+      <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
+        <p class="max-w-sm text-sm text-slate-400">{m.galaxy_no_features()}</p>
       </div>
-    {/each}
+    {:else if selected === null}
+      <!-- Level 1: 機能間グラフ -->
+      <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
+        <defs>
+          <marker id="edge-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
+          </marker>
+        </defs>
+        {#each fLines as l (l.a + " " + l.b)}
+          <line
+            class="wormhole"
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke="rgba(103,232,249,{hovered === null ? 0.3 : edgeActive(l) ? 0.85 : 0.07})"
+            stroke-width={edgeActive(l) ? 0.55 : 0.28}
+            stroke-dasharray="1 1.2"
+            marker-end="url(#edge-arrow)"
+          />
+        {/each}
+      </svg>
+
+      {#each galaxy.features as f (f.key)}
+        {@const p = flayout.get(f.key) ?? FALLBACK}
+        <button
+          type="button"
+          class={cn(
+            "wormhole absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border px-3 py-2 text-center backdrop-blur-sm",
+            "hover:ring-2 hover:ring-cyan-400/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            featureClass(f.mastery),
+          )}
+          style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(fgraph.neighbors, f.key) ? 0.35 : 1};"
+          aria-label={f.name}
+          onmouseenter={() => (hovered = f.key)}
+          onmouseleave={() => (hovered = null)}
+          onfocusin={() => (hovered = f.key)}
+          onfocusout={() => (hovered = null)}
+          onclick={() => {
+            selected = f.key;
+            hovered = null;
+          }}
+        >
+          <span class="block max-w-36 truncate text-xs font-semibold">{f.name}</span>
+          <span class="block text-[10px] opacity-80">
+            {formatKc(f.kc)} · {m.galaxy_file_count({ count: f.file_count })}
+          </span>
+        </button>
+      {/each}
+    {:else if sub}
+      <!-- Level 2: 機能内ファイル依存グラフ -->
+      <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
+        <defs>
+          <marker id="edge-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="rgba(103,232,249,0.75)" />
+          </marker>
+        </defs>
+        {#each sLines as l (l.a + " " + l.b)}
+          <line
+            class="wormhole"
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke="rgba(103,232,249,{hovered === null ? 0.3 : edgeActive(l) ? 0.85 : 0.07})"
+            stroke-width={edgeActive(l) ? 0.55 : 0.28}
+            stroke-dasharray="1 1.2"
+            marker-end="url(#edge-arrow)"
+          />
+        {/each}
+      </svg>
+
+      {#each sub.files as file (file.path)}
+        {@const p = slayout.get(file.path) ?? FALLBACK}
+        <div
+          class="wormhole absolute -translate-x-1/2 -translate-y-1/2"
+          style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(sub.neighbors, file.path) ? 0.35 : 1};"
+          role="group"
+          aria-label={file.path}
+          onmouseenter={() => (hovered = file.path)}
+          onmouseleave={() => (hovered = null)}
+          onfocusin={() => (hovered = file.path)}
+          onfocusout={() => (hovered = null)}
+        >
+          <StarNode {file} />
+        </div>
+      {/each}
+    {/if}
   </div>
 </div>
 
