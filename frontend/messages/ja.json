@@ -421,7 +421,7 @@
   "feature_code_debt": "コード品質",
   "overview_sample_badge": "Sample / デモデータ",
   "analysis_run_short": "解析",
-  "analysis_run_title": "解析ラン（コアループ）",
+  "analysis_run_title": "リポジトリ解析",
   "analysis_run_cta": "このリポジトリを解析する",
   "analysis_run_running": "解析を実行中…",
   "analysis_regenerate": "再解析する",
