@@ -73,17 +73,19 @@
   {/if}
 
   <!-- 一次ビュー: granularity=file は二軸負債マトリクス、feature/folder は機能/フォルダ単位の理解負債リスト -->
-  {#if granularity === "file"}
-    <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-      <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-      <QuadrantLegend {orgSlug} {projectSlug} />
-    </div>
-  {:else}
-    <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
-  {/if}
+  <div data-tour="overview-primary">
+    {#if granularity === "file"}
+      <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
+        <QuadrantLegend {orgSlug} {projectSlug} />
+      </div>
+    {:else}
+      <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
+    {/if}
+  </div>
 
   <!-- stat-card（負債系は減少=緑に反転） -->
-  <div class="grid gap-3 sm:grid-cols-3">
+  <div class="grid gap-3 sm:grid-cols-3" data-tour="overview-stats">
     <div class="relative">
       <StatCard label={m.overview_stat_kc()} value={`${latestKc}%`}>
         {#snippet trend()}
@@ -107,12 +109,12 @@
   </div>
 
   <!-- 推移地層グラフ -->
-  <div class="rounded-lg border bg-card p-4">
+  <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
     <DebtTrendStrata trend={overview.trend} />
   </div>
 
   <!-- 二次ビュー: 優先対応リスト -->
-  <div class="rounded-lg border bg-card p-4">
+  <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
     <PriorityList {orgSlug} {projectSlug} files={overview.files} />
     {#if dangerCount > 0}
       <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
