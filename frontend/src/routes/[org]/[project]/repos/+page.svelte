@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { resolve } from "$app/paths";
   import { getFileContent, getRepositoryTree, listBranches, listDebts } from "$lib/api/client";
   import type { Branch, CodeDebt, FileContent, Tree } from "$lib/api/schemas";
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
@@ -9,9 +10,7 @@
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
-  import { Button } from "$lib/components/ui/button";
   import { repo } from "$lib/stores/repo-store.svelte";
-  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -47,9 +46,6 @@
   const debtCountByPath = $derived(new Map([...debtsByPath].map(([p, list]) => [p, list.length])));
   const openCount = $derived(codeDebts.filter((d) => d.status === "open").length);
   const selectedDebts = $derived(selectedPath ? (debtsByPath.get(selectedPath) ?? []) : []);
-  const detecting = $derived(
-    analysisRun.stages.detect_code.status === "QUEUED" || analysisRun.stages.detect_code.status === "PROCESSING",
-  );
 
   function loadDebts() {
     if (!orgSlug || !projectSlug) return;
@@ -162,14 +158,12 @@
         <div class="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs">
           <span class="text-muted-foreground tabular-nums">{m.code_improve_open_count({ count: openCount })}</span>
           {#if codeDebts.length === 0}
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={detecting}
-              onclick={() => analysisRun.runStage("detect_code", { orgSlug, projectSlug, owner: "", repo: "" })}
+            <a
+              href={resolve(`/${orgSlug}/${projectSlug}`)}
+              class="inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium hover:bg-accent/40"
             >
-              {m.matrix_detect_cta()}
-            </Button>
+              {m.analysis_run_cta()}
+            </a>
           {/if}
         </div>
 

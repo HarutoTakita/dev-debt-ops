@@ -1,20 +1,12 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
-  import { analysisRun } from "$lib/stores/analysis-run-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
   // 星域未観測の空状態。GlEmptyState の構図を、暗い宇宙背景 + 星（CSS）で Rosetta 独自表現に。
-  // 共有 analysis-run-store 経由で KC 解析（analyze_galaxy ステージ）を起動する（issue 037）。
-  function startScan() {
-    analysisRun.runStage("analyze_galaxy", {
-      orgSlug: page.params.org ?? "",
-      projectSlug: page.params.project ?? "",
-      owner: "",
-      repo: "",
-    });
-  }
+  // コンテンツ生成は Overview の「解析」に集約（issue 064）。ここでは解析（ダッシュボード）へ誘導する。
 </script>
 
 <div
@@ -29,7 +21,12 @@
     <h2 class="font-display text-xl font-semibold text-cyan-100">{m.galaxy_coming_title()}</h2>
     <p class="text-sm leading-relaxed text-slate-400">{m.galaxy_coming_desc()}</p>
     <div class="flex items-center justify-center gap-2">
-      <Button onclick={startScan} class="bg-cyan-600 text-white hover:bg-cyan-500">{m.galaxy_coming_cta()}</Button>
+      <a
+        href={resolve(`/${page.params.org}/${page.params.project}`)}
+        class="inline-flex h-9 items-center justify-center rounded-md bg-cyan-600 px-4 text-sm font-medium text-white hover:bg-cyan-500"
+      >
+        {m.analysis_run_cta()}
+      </a>
       <Button variant="outline" onclick={() => galaxy.loadMock()}>{m.galaxy_coming_demo()}</Button>
     </div>
   </div>
