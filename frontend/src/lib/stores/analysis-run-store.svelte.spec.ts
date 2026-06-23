@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   detectKnowledgeDebts: vi.fn(),
   analyzeGalaxy: vi.fn(),
   clusterFeatures: vi.fn(),
-  generatePlan: vi.fn(),
+  generateBaselinePlans: vi.fn(),
+  generateBaselineQuizzes: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
 }));
@@ -27,7 +28,8 @@ beforeEach(() => {
   mocks.detectKnowledgeDebts.mockResolvedValue({ job_id: "j-dk", status: "QUEUED" });
   mocks.analyzeGalaxy.mockResolvedValue({ job_id: "j-g", status: "QUEUED" });
   mocks.clusterFeatures.mockResolvedValue({ job_id: "j-fc", status: "QUEUED" });
-  mocks.generatePlan.mockResolvedValue({ job_id: "j-p", plan_id: "plan-1" });
+  mocks.generateBaselinePlans.mockResolvedValue({ created: 3 });
+  mocks.generateBaselineQuizzes.mockResolvedValue({ created: 3 });
   mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["done"] }));
 });
 
@@ -42,18 +44,27 @@ describe("AnalysisRunStore", () => {
     expect(store.stages.detect_code.step).toBe("done");
   });
 
-  it("plan_learning link carries the returned plan_id", async () => {
+  it("plan_learning generates baseline plans and links to the learning hub", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
     await store.runStage("plan_learning", CTX);
-    expect(store.stages.plan_learning.link).toBe("/acme/rosetta/learning?planId=plan-1");
+    expect(mocks.generateBaselinePlans).toHaveBeenCalledWith("acme", "rosetta");
+    expect(store.stages.plan_learning.status).toBe("COMPLETED");
+    expect(store.stages.plan_learning.link).toBe("/acme/rosetta/learning");
   });
 
   it("runAll runs every stage to COMPLETED", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
     await store.runAll(CTX);
-    for (const id of ["detect_code", "detect_knowledge", "analyze_galaxy", "cluster_features", "plan_learning"]) {
+    for (const id of [
+      "detect_code",
+      "detect_knowledge",
+      "analyze_galaxy",
+      "cluster_features",
+      "plan_learning",
+      "confirm_quizzes",
+    ]) {
       expect(store.stages[id].status).toBe("COMPLETED");
     }
   });
