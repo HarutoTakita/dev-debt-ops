@@ -49,7 +49,10 @@
   {/if}
 
   <!-- ヒーロー: 理解度（KC）を主役に、返済導線（Galaxy）を前面化（issue 059 リポジション） -->
-  <div class="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+  <div
+    class="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+    data-tour="overview-kc"
+  >
     <div class="min-w-0">
       <div class="flex items-baseline gap-2">
         <span class="font-display text-3xl font-bold">{latestKc}%</span>

@@ -111,15 +111,20 @@
   });
 
   function onNext() {
-    if (isLast) onboarding.finish(orgSlug);
-    else onboarding.next();
+    if (!isLast) {
+      onboarding.next();
+    } else if (onboarding.inDetail) {
+      onboarding.backToMain(); // ページ別ガイドの最後 → 全体ガイドの元の位置へ戻る
+    } else {
+      onboarding.finish(orgSlug);
+    }
   }
 
-  // 「詳細を確認する」: 当該メニューのページ別ガイドに切り替える。
+  // 「詳細を確認する」: 当該メニューのページ別ガイドに切り替える（全体ガイドの位置は保持）。
   function openDetail() {
     if (!step) return;
     const pt = pageTours[step.id];
-    if (pt) onboarding.start(pt);
+    if (pt) onboarding.startDetail(pt);
   }
 </script>
 
@@ -148,6 +153,15 @@
       ? "left: 50%; top: 50%; transform: translate(-50%, -50%);"
       : `left: ${bubble.left}px; top: ${bubble.top}px;`}
   >
+    {#if onboarding.inDetail}
+      <button
+        type="button"
+        onclick={() => onboarding.backToMain()}
+        class="mb-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+      >
+        ← {m.tour_back_to_main()}
+      </button>
+    {/if}
     <p class="font-display text-sm font-semibold">{step.title()}</p>
     <p class="mt-1 text-sm leading-relaxed text-muted-foreground">{step.body()}</p>
     {#if hasDetail}
@@ -179,7 +193,7 @@
           onclick={onNext}
           class="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
-          {isLast ? m.tour_finish() : m.tour_next()}
+          {isLast ? (onboarding.inDetail ? m.tour_back_to_main() : m.tour_finish()) : m.tour_next()}
         </button>
       </div>
     </div>
