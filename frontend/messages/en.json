@@ -421,7 +421,7 @@
   "feature_code_debt": "Code quality",
   "overview_sample_badge": "Sample data",
   "analysis_run_short": "Analyze",
-  "analysis_run_title": "Analysis run (core loop)",
+  "analysis_run_title": "Repository analysis",
   "analysis_run_cta": "Analyze this repository",
   "analysis_run_running": "Running analysis…",
   "analysis_regenerate": "Re-analyze",
