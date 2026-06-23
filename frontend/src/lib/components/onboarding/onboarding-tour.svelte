@@ -32,6 +32,11 @@
     rect = { x: r.left, y: r.top, w: r.width, h: r.height };
   }
 
+  // 対象がビューポート内に収まっているか（下方で見切れている等を検出）。
+  function inViewport(r: DOMRect): boolean {
+    return r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;
+  }
+
   // ステップ変化: route 遷移 → 対象出現待ち → 計測。
   $effect(() => {
     const s = step;
@@ -57,10 +62,19 @@
       const target = s.target;
       // 遷移直後・レイアウト確定前を考慮し、可視（サイズあり）になるまで待つ（最大 ~2s）。
       // 出現しなければ measure() が中央フォールバックする（変な位置に出さない）。
+      let el: Element | null = null;
       for (let i = 0; i < 40 && !cancelled; i++) {
-        const el = document.querySelector(`[data-tour="${target}"]`);
+        el = document.querySelector(`[data-tour="${target}"]`);
         if (el && el.getBoundingClientRect().width > 0) break;
         await new Promise((r) => setTimeout(r, 50));
+      }
+      if (cancelled) return;
+      // 対象が画面外（下方で見切れている等）ならビューポート中央へスクロールしてから計測する。
+      // （スクロール中も scroll リスナーが再計測するので、ハイライトと吹き出しは追従する。）
+      const r0 = el?.getBoundingClientRect();
+      if (el && r0 && !inViewport(r0)) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        await new Promise((r) => setTimeout(r, 300));
       }
       if (!cancelled) measure(target);
     })();
