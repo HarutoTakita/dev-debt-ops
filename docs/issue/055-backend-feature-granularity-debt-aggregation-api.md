@@ -23,7 +23,7 @@
 
 ### 目的
 
-1. KC(file) を `feature_files` で機能へロールアップする集計関数を追加（集約方針は 029/048 と整合：MVP は平均 or max を ADR 確定）。
+1. KC(file) を `feature_files` で機能へロールアップする集計関数を追加（集約方針は 029/048 と整合：MVP は平均 or max を本 issue で確定）。
 2. Overview / Galaxy / 負債レジストリ API に `granularity` クエリパラメータを追加（`feature` / `folder` / `file`）。
 3. `granularity=feature` のとき、機能を 1 点（または 1 ノード）として KC・理解負債・優先度を返す。
 4. 機能配下のドリルダウン（機能 → ファイル）に対応する（フロント 056 のツリー/展開に供給）。
@@ -35,7 +35,7 @@
 - **issue 031 / 032** — Overview / 負債レジストリ / Galaxy 配信 API の所有者。本 issue はそれらに `granularity` を増設する
   （`docs/issue/031-backend-overview-and-debt-registry-api.md` / `docs/issue/032-backend-galaxy-personal-kc-api.md`）。
 
-## 集計の設計（本 issue で確定・ADR 化）
+## 集計の設計（本 issue で確定）
 
 ### 機能 KC のロールアップ
 
@@ -44,7 +44,7 @@ KC(feature) = aggregate( KC(file) for file in feature_files[feature] )
 ```
 
 - `aggregate` は MVP で **平均**（多数の理解済みファイルに 1 つの暗部があっても薄まりすぎない閾値運用を 056 と調整）か
-  **min（最弱リンク）**のどちらかを ADR で確定。`confidence` 加重平均も選択肢。
+  **min（最弱リンク）**のどちらかを本 issue で確定。`confidence` 加重平均も選択肢。
   → 「理解負債 = 弱いところを可視化」目的に沿うなら **min 寄り**を推奨し、表示は平均と min を両方返すことも検討。
 - 機能の `code_debt_score`（057 でコード負債を機能集計するまでは）は **暫定で配下 `code_debts` の max**（既存の
   ファイル集計と同じく `max`）を流用してよい。本 issue の主眼は KC（理解負債）側。
@@ -76,7 +76,7 @@ KC(feature) = aggregate( KC(file) for file in feature_files[feature] )
 - [ ] `services/galaxy_query.py` に `granularity=feature` の星系集計を追加（`module` は `folder` に射影）。
 - [ ] Overview / 負債レジストリ / Galaxy のルート（031/032）に `granularity` クエリパラメータを追加。
       機能ドリルダウン `GET .../features/{feature_key}` を追加。**Annotated DI param 順序を変更しない**。
-- [ ] 集約方針（平均/min/confidence 加重）を ADR 化。
+- [ ] 集約方針（平均/min/confidence 加重）を本 issue / 実装コメントに明記。
 
 ### test
 - [ ] api：`granularity=feature` の Overview が機能数分の点を返し、KC が配下ファイルの集約と一致すること。
@@ -85,7 +85,7 @@ KC(feature) = aggregate( KC(file) for file in feature_files[feature] )
 
 ## 完了条件
 - Overview / Galaxy / 負債レジストリ API が `granularity=feature|folder|file` を受け、機能単位の理解負債を配信できる。
-- 機能 KC が配下ファイル KC（authorship + quiz）のロールアップとして算出され、集約方針が ADR に記録される。
+- 機能 KC が配下ファイル KC（authorship + quiz）のロールアップとして算出され、集約方針が本 issue / 実装に明記される。
 - 機能ドリルダウン（機能 → ファイル）が動作する。
 - `granularity` 未指定時は従来のファイル単位挙動と完全後方互換。
 - バックエンド：`uv run ruff check/format --check`・`uv run ty check`・`pytest`（shared/api/service）が通る。
