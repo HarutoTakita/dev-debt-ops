@@ -18,19 +18,21 @@ export type TourStep = {
   route?: (ctx: { orgSlug: string; projectSlug: string }) => Pathname;
 };
 
+// 順序は左サイドバーの上から（ダッシュボード → 理解度マップ → クイズと学習 → コード品質マップ → コード改善）。
+// 続けて、トップバー右上の「解析」ボタンとヘルプ ?。
 export const tourSteps: TourStep[] = [
+  {
+    id: "overview",
+    target: "nav-overview",
+    title: m.tour_overview_title,
+    body: m.tour_overview_body,
+    placement: "right",
+  },
   {
     id: "galaxy",
     target: "nav-galaxy",
     title: m.tour_galaxy_title,
     body: m.tour_galaxy_body,
-    placement: "right",
-  },
-  {
-    id: "matrix",
-    target: "nav-matrix",
-    title: m.tour_matrix_title,
-    body: m.tour_matrix_body,
     placement: "right",
   },
   {
@@ -41,6 +43,13 @@ export const tourSteps: TourStep[] = [
     placement: "right",
   },
   {
+    id: "matrix",
+    target: "nav-matrix",
+    title: m.tour_matrix_title,
+    body: m.tour_matrix_body,
+    placement: "right",
+  },
+  {
     id: "repos",
     target: "nav-repos",
     title: m.tour_repos_title,
@@ -48,20 +57,12 @@ export const tourSteps: TourStep[] = [
     placement: "right",
   },
   {
-    id: "settings",
-    target: "nav-settings",
-    title: m.tour_settings_title,
-    body: m.tour_settings_body,
-    placement: "right",
-  },
-  {
-    // 最重要操作。Overview のコックピットへ遷移してから「解析」をハイライト。
+    // 最重要操作。トップバー右上の「解析」ボタン（常時表示）をハイライト。
     id: "analysis",
     target: "analysis-run",
     title: m.tour_analysis_title,
     body: m.tour_analysis_body,
     placement: "bottom",
-    route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
   },
   {
     id: "help",
