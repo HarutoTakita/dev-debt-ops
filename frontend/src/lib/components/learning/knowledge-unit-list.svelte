@@ -62,7 +62,7 @@
             <span class={cn("shrink-0 text-xs font-medium", statusOf(u.status).tone)}
               >{statusOf(u.status).label()}</span
             >
-            <span class="shrink-0 text-xs text-muted-foreground">KC {kcPct(u.knowledge_coverage)}%</span>
+            <span class="shrink-0 text-xs text-muted-foreground">{m.kc_label()} {kcPct(u.knowledge_coverage)}%</span>
             <span class="shrink-0 text-xs text-muted-foreground">{m.unit_files_count({ count: u.file_count })}</span>
           </div>
           <div class="mt-2 flex flex-wrap items-center gap-2">

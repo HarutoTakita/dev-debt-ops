@@ -169,7 +169,7 @@ export const QUIZ_LIST: QuizList = {
       session_id: "quiz-token-rotation",
       file_path: "src/auth/token-rotation.ts",
       repo_full_name: "demo/app",
-      reason: "作者が離脱 · KC 0.31",
+      reason: "作者が離脱 · 理解度 0.31",
       question_count: 5,
       estimated_minutes: 6,
     },

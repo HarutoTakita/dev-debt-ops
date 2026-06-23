@@ -4,6 +4,7 @@
   import type { DebtPriority, FileDebt } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
+  import { priorityLabel } from "$lib/components/matrix/priority";
 
   type Props = { orgSlug: string; projectSlug: string; files: FileDebt[] };
   const { orgSlug, projectSlug, files }: Props = $props();
@@ -39,7 +40,7 @@
           aria-label={m.overview_open_danger_matrix()}
           class="flex items-center gap-2 rounded px-1 py-0.5 text-xs transition-colors hover:bg-accent/40"
         >
-          <span class={cn("rounded px-1.5 py-0.5 font-medium tabular-nums", badge[f.priority])}>{f.priority}</span>
+          <span class={cn("rounded px-1.5 py-0.5 font-medium", badge[f.priority])}>{priorityLabel(f.priority)}</span>
           <span class="truncate font-mono text-muted-foreground">{f.path}</span>
         </a>
       </li>
