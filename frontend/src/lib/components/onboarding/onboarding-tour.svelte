@@ -23,11 +23,12 @@
 
   function measure(target: string) {
     const el = document.querySelector(`[data-tour="${target}"]`);
-    if (!el) {
+    const r = el?.getBoundingClientRect();
+    // 要素が無い / 非表示（0 サイズ）/ レイアウト未確定なら中央表示にフォールバック（変な位置を防ぐ）。
+    if (!r || r.width === 0 || r.height === 0) {
       rect = null;
       return;
     }
-    const r = el.getBoundingClientRect();
     rect = { x: r.left, y: r.top, w: r.width, h: r.height };
   }
 
@@ -49,8 +50,11 @@
         return;
       }
       const target = s.target;
+      // 遷移直後・レイアウト確定前を考慮し、可視（サイズあり）になるまで待つ（最大 ~2s）。
+      // 出現しなければ measure() が中央フォールバックする（変な位置に出さない）。
       for (let i = 0; i < 40 && !cancelled; i++) {
-        if (document.querySelector(`[data-tour="${target}"]`)) break;
+        const el = document.querySelector(`[data-tour="${target}"]`);
+        if (el && el.getBoundingClientRect().width > 0) break;
         await new Promise((r) => setTimeout(r, 50));
       }
       if (!cancelled) measure(target);
