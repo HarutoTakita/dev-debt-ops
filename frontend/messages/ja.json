@@ -361,7 +361,7 @@
   "tour_matrix_body": "コードの複雑さ・重複・デッドコードなどのリスク信号を一覧します。理解負債の優先順位づけに使います。",
   "tour_knowledge_title": "クイズと学習",
   "tour_knowledge_body": "確認クイズで理解度を実測し、学習プランで返済します。診断→返済ループの中心です。",
-  "tour_repos_title": "リポジトリ",
+  "tour_repos_title": "コード改善",
   "tour_repos_body": "ソースコードを閲覧し、ファイル単位の技術負債を確認・改善します。",
   "tour_settings_title": "設定",
   "tour_settings_body": "プロジェクトやメンバーの設定を行います。",
