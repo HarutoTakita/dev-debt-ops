@@ -104,6 +104,7 @@
   "unit_learn_create": "学習プランを作る",
   "unit_learn_open": "学習を開く",
   "unit_confirm": "理解度を確認する",
+  "unit_pending": "解析で生成されます",
   "unit_prepare_quizzes": "確認クイズを用意する",
   "unit_back": "← 単元一覧へ戻る",
   "nav_repos": "コード改善",

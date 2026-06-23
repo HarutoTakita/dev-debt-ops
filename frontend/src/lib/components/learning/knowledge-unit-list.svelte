@@ -1,10 +1,8 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
-  import { goto } from "$app/navigation";
   import type { ResolvedPathname } from "$app/types";
-  import { generateBaselineQuizzes, generatePlan, getKnowledgeUnits } from "$lib/api/client";
+  import { getKnowledgeUnits } from "$lib/api/client";
   import type { KnowledgeUnit } from "$lib/api/schemas";
-  import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -15,8 +13,6 @@
 
   let units = $state<KnowledgeUnit[]>([]);
   let loading = $state(true);
-  let busyKey = $state<string | null>(null); // プラン生成中の単元
-  let preparing = $state(false); // 確認クイズ一括用意中
 
   async function load() {
     loading = true;
@@ -48,42 +44,11 @@
   function statusOf(s: string) {
     return STATUS[s] ?? STATUS.unstarted;
   }
-
-  async function createPlan(u: KnowledgeUnit) {
-    busyKey = u.feature_key;
-    try {
-      const { plan_id } = await generatePlan(orgSlug, projectSlug, { featureId: u.feature_id });
-      const href = (resolve(`/${orgSlug}/${projectSlug}/learning`) + `?planId=${plan_id}`) as ResolvedPathname;
-      await goto(href);
-    } catch {
-      /* surface nothing; the button re-enables */
-    } finally {
-      busyKey = null;
-    }
-  }
-  async function prepareQuizzes() {
-    preparing = true;
-    try {
-      await generateBaselineQuizzes(orgSlug, projectSlug);
-      await load();
-    } catch {
-      /* keep */
-    } finally {
-      preparing = false;
-    }
-  }
-
-  const anyQuizMissing = $derived(units.some((u) => !u.quiz_session_id));
 </script>
 
 <div class="mx-auto max-w-2xl space-y-4 p-4">
   <div class="flex items-baseline justify-between gap-2">
     <h1 class="font-display text-xl font-semibold">{m.units_title()}</h1>
-    {#if units.length > 0 && anyQuizMissing}
-      <Button variant="outline" size="sm" class="h-7 px-2 text-xs" disabled={preparing} onclick={prepareQuizzes}>
-        {m.unit_prepare_quizzes()}
-      </Button>
-    {/if}
   </div>
   <p class="text-xs text-muted-foreground">{m.units_subtitle()}</p>
 
@@ -113,15 +78,7 @@
                 {m.unit_learn_open()}
               </a>
             {:else}
-              <Button
-                variant="outline"
-                size="sm"
-                class="h-7 px-2.5 text-xs"
-                disabled={busyKey === u.feature_key}
-                onclick={() => createPlan(u)}
-              >
-                {m.unit_learn_create()}
-              </Button>
+              <span class="text-xs text-muted-foreground">{m.unit_pending()}</span>
             {/if}
             {#if u.quiz_session_id}
               <a
