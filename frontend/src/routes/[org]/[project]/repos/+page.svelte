@@ -141,7 +141,7 @@
     />
 
     <div class="flex flex-1 overflow-hidden">
-      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r">
+      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r" data-tour="repos-tree">
         <TechStackPanel owner={repo.connected.owner} repo={repo.connected.name} />
         {#if treeLoading}
           <div class="flex flex-col gap-2 p-3" aria-busy="true">

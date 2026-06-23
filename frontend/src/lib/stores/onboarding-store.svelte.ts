@@ -15,6 +15,10 @@ class OnboardingStore {
   stepIndex = $state(0);
   // 現在実行中のステップ列（メイン手順 or ページ別ガイド）。
   steps = $state<TourStep[]>([]);
+  // ページ別ガイドを表示中か（true のとき「全体ガイドに戻る」を出す）。
+  inDetail = $state(false);
+  // 「詳細を確認する」で抜ける前のメイン手順の位置（全体ガイドへ戻すため）。
+  #mainReturn: { steps: TourStep[]; stepIndex: number } | null = null;
 
   // org ごとの完了フラグ（永続）。自動開始判定にのみ使うため非リアクティブで十分。
   #completed: Record<string, boolean> = {};
@@ -55,11 +59,32 @@ class OnboardingStore {
     return !this.isCompleted(orgSlug);
   }
 
-  /** 指定したステップ列でツアーを開始（メイン手順 or ページ別ガイド）。 */
+  /** 指定したステップ列でツアーを開始（全体ガイド）。詳細からの復帰位置はクリアする。 */
   start(steps: TourStep[]) {
+    this.#mainReturn = null;
+    this.inDetail = false;
     this.steps = steps;
     this.stepIndex = 0;
     this.active = true;
+  }
+
+  /** 「詳細を確認する」: 現在のメイン位置を覚えてページ別ガイドへ切り替える。 */
+  startDetail(steps: TourStep[]) {
+    this.#mainReturn = { steps: this.steps, stepIndex: this.stepIndex };
+    this.inDetail = true;
+    this.steps = steps;
+    this.stepIndex = 0;
+    this.active = true;
+  }
+
+  /** 詳細ガイドから全体ガイドの元の位置へ戻る。 */
+  backToMain() {
+    if (this.#mainReturn) {
+      this.steps = this.#mainReturn.steps;
+      this.stepIndex = this.#mainReturn.stepIndex;
+      this.#mainReturn = null;
+    }
+    this.inDetail = false;
   }
 
   next() {
@@ -74,6 +99,8 @@ class OnboardingStore {
   finish(orgSlug: string) {
     this.active = false;
     this.stepIndex = 0;
+    this.#mainReturn = null;
+    this.inDetail = false;
     if (orgSlug) {
       this.#completed = { ...this.#completed, [orgSlug]: true };
       this.#persist();
