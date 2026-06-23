@@ -3,6 +3,8 @@
 // 以降は自動表示せず、サイドバーの ? → ヘルプページからいつでも再生できる。
 // 永続の前例: project-store / sidebar-store / recent-searches（同じ rosetta:* キー規約）。
 
+import type { TourStep } from "$lib/components/onboarding/tour-steps";
+
 const KEY = "rosetta:onboarding";
 
 type Persisted = { completedByOrg: Record<string, boolean> };
@@ -11,6 +13,8 @@ class OnboardingStore {
   // ツアー実行状態（リアクティブ）。
   active = $state(false);
   stepIndex = $state(0);
+  // 現在実行中のステップ列（メイン手順 or ページ別ガイド）。
+  steps = $state<TourStep[]>([]);
 
   // org ごとの完了フラグ（永続）。自動開始判定にのみ使うため非リアクティブで十分。
   #completed: Record<string, boolean> = {};
@@ -51,8 +55,9 @@ class OnboardingStore {
     return !this.isCompleted(orgSlug);
   }
 
-  /** 手動開始（ヘルプページから）。 */
-  start() {
+  /** 指定したステップ列でツアーを開始（メイン手順 or ページ別ガイド）。 */
+  start(steps: TourStep[]) {
+    this.steps = steps;
     this.stepIndex = 0;
     this.active = true;
   }
