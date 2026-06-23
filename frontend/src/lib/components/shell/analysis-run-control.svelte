@@ -30,6 +30,7 @@
       <button
         {...props}
         title={m.analysis_run_cta()}
+        data-tour="analysis-run"
         class={cn(
           "flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm transition-colors hover:bg-accent",
           analysisRun.running ? "text-debt-knowledge" : "text-muted-foreground hover:text-foreground",
