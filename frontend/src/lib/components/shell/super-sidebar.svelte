@@ -40,6 +40,23 @@
     onboarding.start(tourSteps);
   }
 
+  // アクティブなプロジェクトが属するグループキー（スター優先 → セクション → 既定）。
+  const activeGroupKey = $derived.by(() => {
+    if (!currentId) return null;
+    if (projectSections.isStarred(orgSlug, currentId)) return STARRED_KEY;
+    return projectSections.sectionOf(orgSlug, currentId) ?? DEFAULT_KEY;
+  });
+
+  // ツアー開始時は、アクティブなプロジェクトの nav 項目を必ず表示する（ハイライト対象を確実に存在させる）。
+  // ① サイドバー全体の折りたたみを解除し、② 該当セクショングループを展開する。
+  // ③ プロジェクト配下メニューの展開は project-nav-group が onboarding.active を見て行う。
+  $effect(() => {
+    if (!onboarding.active) return;
+    if (sidebar.collapsed) sidebar.collapsed = false;
+    const key = activeGroupKey;
+    if (key && projectSections.isCollapsed(orgSlug, key)) projectSections.toggleCollapsed(orgSlug, key);
+  });
+
   // org の全プロジェクトをサイドバーに同時表示。一覧未取得（直リンク到達など）でも現在プロジェクトの
   // メニューは即使えるよう、フォールバックで current を出す。
   const projects = $derived(project.list.length > 0 ? project.list : project.current ? [project.current] : []);
