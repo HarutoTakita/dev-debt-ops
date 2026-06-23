@@ -366,7 +366,7 @@ export async function analyzeGalaxy(orgSlug: string, projectSlug: string): Promi
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/analyze-galaxy`, {
     method: "POST",
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "KC 算出の開始に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "理解度の算出開始に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
 
