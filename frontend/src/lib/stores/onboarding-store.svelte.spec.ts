@@ -26,7 +26,10 @@ describe("OnboardingStore", () => {
 
   it("start / next / prev / finish drive active + step", () => {
     const s = new OnboardingStore();
-    s.start();
+    s.start([
+      { id: "a", title: () => "a", body: () => "a", placement: "right" },
+      { id: "b", title: () => "b", body: () => "b", placement: "right" },
+    ]);
     expect(s.active).toBe(true);
     expect(s.stepIndex).toBe(0);
     s.next();
