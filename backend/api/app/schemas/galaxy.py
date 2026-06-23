@@ -16,6 +16,9 @@ class FileMasteryOut(BaseModel):
     kc: float
     mastery: str
     mastered: bool
+    # 所属する機能（feature）の key 群。Level 2（機能内ファイルグラフ）の絞り込みに使う（issue 065）。
+    # 1 ファイルが複数機能に属し得るため list。未クラスタリング時は空。
+    feature_keys: list[str] = []
 
 
 class WormholeOut(BaseModel):
@@ -35,6 +38,25 @@ class StarSystemOut(BaseModel):
     files: list[FileMasteryOut]
 
 
+class FeatureNodeOut(BaseModel):
+    """A feature (Level 1 node) with aggregate KC + mastery (issue 065)."""
+
+    key: str
+    name: str
+    kc: float
+    mastery: str
+    file_count: int
+
+
+class FeatureEdgeOut(BaseModel):
+    """A feature→feature edge (Level 1); ``from`` is reserved so the field is ``from_``."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: str = Field(alias="from")
+    to: str
+
+
 class PersonalGalaxyOut(BaseModel):
     """The personal galaxy payload (``personalGalaxySchema``)."""
 
@@ -43,3 +65,6 @@ class PersonalGalaxyOut(BaseModel):
     observed: bool
     systems: list[StarSystemOut]
     wormholes: list[WormholeOut]
+    # 機能レベルのグラフ（issue 065）。未クラスタリング時は空でフロントは従来表示にフォールバック。
+    features: list[FeatureNodeOut] = []
+    feature_edges: list[FeatureEdgeOut] = []

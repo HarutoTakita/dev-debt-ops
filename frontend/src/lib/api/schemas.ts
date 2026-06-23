@@ -330,6 +330,8 @@ export const fileMasterySchema = z.object({
   mastery: masteryStatusSchema,
   // §5.5 個人認定の簡易版: クイズ未連携のため mastery==="star" を「マスター済み」表示
   mastered: z.boolean().default(false),
+  // 所属機能の key 群（issue 065）。Level 2（機能内ファイルグラフ）の絞り込みに使う。未クラスタリング時は空。
+  feature_keys: z.array(z.string()).default([]),
 });
 
 export const wormholeSchema = z.object({
@@ -343,18 +345,36 @@ export const starSystemSchema = z.object({
   files: z.array(fileMasterySchema),
 });
 
+// 機能（feature）レベルのグラフ（issue 065）。Level 1 = 機能ノード + 機能間エッジ。
+export const featureNodeSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  kc: z.number().min(0).max(1),
+  mastery: masteryStatusSchema,
+  file_count: z.number().int().min(0),
+});
+
+export const featureEdgeSchema = z.object({
+  from: z.string(), // 依存元の機能 key
+  to: z.string(), // 依存先の機能 key
+});
+
 export const personalGalaxySchema = z.object({
   developer: z.string(),
   org_kc: z.number().min(0).max(1), // サイドバー pill 用の自分の KC%
   observed: z.boolean(), // false の場合は ComingSoonPlaceholder を出す
   systems: z.array(starSystemSchema),
   wormholes: z.array(wormholeSchema),
+  features: z.array(featureNodeSchema).default([]), // Level 1 機能ノード（issue 065）
+  feature_edges: z.array(featureEdgeSchema).default([]), // Level 1 機能間エッジ
 });
 
 export type MasteryStatus = z.infer<typeof masteryStatusSchema>;
 export type FileMastery = z.infer<typeof fileMasterySchema>;
 export type Wormhole = z.infer<typeof wormholeSchema>;
 export type StarSystem = z.infer<typeof starSystemSchema>;
+export type FeatureNode = z.infer<typeof featureNodeSchema>;
+export type FeatureEdge = z.infer<typeof featureEdgeSchema>;
 export type PersonalGalaxy = z.infer<typeof personalGalaxySchema>;
 
 // Quiz（返済体験 / §6.4・§7.1 QuizSession）。クイズ合格で KC が上がる Re:Pay の演出を担う。
