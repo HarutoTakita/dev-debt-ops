@@ -1,11 +1,20 @@
 <script lang="ts">
+  import { page } from "$app/state";
   import { cn } from "$lib/utils";
   import * as Sheet from "$lib/components/ui/sheet";
   import Topbar from "$lib/components/shell/topbar.svelte";
   import SuperSidebar from "$lib/components/shell/super-sidebar.svelte";
+  import OnboardingTour from "$lib/components/onboarding/onboarding-tour.svelte";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
 
   let { children } = $props();
+
+  // 初回プロジェクト作成 → 遷移後にツアーを一度だけ自動開始（issue 066）。
+  $effect(() => {
+    const orgSlug = page.params.org;
+    if (orgSlug && onboarding.consumeAutoStart(orgSlug)) onboarding.start();
+  });
 </script>
 
 <div class="flex h-screen flex-col">
@@ -37,3 +46,5 @@
     </main>
   </div>
 </div>
+
+<OnboardingTour />

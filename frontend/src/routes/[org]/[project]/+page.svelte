@@ -9,7 +9,6 @@
   import ComingSoonPlaceholder from "$lib/components/overview/coming-soon-placeholder.svelte";
   import OverviewDashboard from "$lib/components/overview/overview-dashboard.svelte";
   import { type Granularity } from "$lib/components/overview/granularity-switch.svelte";
-  import GettingStarted from "$lib/components/overview/getting-started.svelte";
   import { ALL_STAGE_IDS } from "$lib/stores/analysis-run-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -83,20 +82,15 @@
       </div>
     </div>
   </div>
-{:else}
-  <div class="mx-auto max-w-5xl px-4 pt-4">
-    <GettingStarted />
+{:else if overviewError}
+  <div class="mx-auto max-w-5xl space-y-3 px-4 py-8 text-center">
+    <p class="text-sm text-muted-foreground">{m.overview_load_error()}</p>
+    <Button variant="outline" onclick={() => loadOverview()}>{m.common_retry()}</Button>
   </div>
-  {#if overviewError}
-    <div class="mx-auto max-w-5xl space-y-3 px-4 py-8 text-center">
-      <p class="text-sm text-muted-foreground">{m.overview_load_error()}</p>
-      <Button variant="outline" onclick={() => loadOverview()}>{m.common_retry()}</Button>
-    </div>
-  {:else if overview && overview.files.length > 0}
-    <OverviewDashboard {overview} {granularity} onGranularity={(g) => (granularity = g)} />
-  {:else}
-    <OverviewDashboard overview={overviewMock} isSample />
-  {/if}
+{:else if overview && overview.files.length > 0}
+  <OverviewDashboard {overview} {granularity} onGranularity={(g) => (granularity = g)} />
+{:else}
+  <OverviewDashboard overview={overviewMock} isSample />
 {/if}
 
 <style>
