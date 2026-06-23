@@ -97,6 +97,36 @@ export const STAGES: StageDef[] = [
   },
 ];
 
+// コックピット表示用グループ（解析ステージ UI の集約）。裏のジョブ/パイプラインは STAGES のまま個別に
+// 走るが、ユーザーには「検知 / 計測 / 用意」の 3 フェーズとして見せる。機能クラスタリングは学習・クイズ
+// 生成の前提のため「用意」グループ内に畳み込み、単独行にはしない。
+export type StageGroupDef = {
+  id: string;
+  labelKey: string;
+  stageIds: StageId[];
+  deepLink: (ctx: RunContext) => string;
+};
+export const STAGE_GROUPS: StageGroupDef[] = [
+  {
+    id: "g_technical",
+    labelKey: "analysis_group_technical",
+    stageIds: ["detect_code"],
+    deepLink: (c) => _path(c, "/matrix"),
+  },
+  {
+    id: "g_knowledge",
+    labelKey: "analysis_group_knowledge",
+    stageIds: ["detect_knowledge", "analyze_galaxy"],
+    deepLink: (c) => _path(c, "/galaxy"),
+  },
+  {
+    id: "g_repay",
+    labelKey: "analysis_group_repay",
+    stageIds: ["cluster_features", "plan_learning", "confirm_quizzes"],
+    deepLink: (c) => _path(c, "/learning"),
+  },
+];
+
 type StageState = { status: StageStatus; jobId: string | null; step: string; link: string | null };
 
 function _initial(): Record<string, StageState> {
