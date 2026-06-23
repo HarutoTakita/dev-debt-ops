@@ -154,7 +154,7 @@
         {/if}
       </aside>
 
-      <main class="flex flex-1 flex-col overflow-hidden">
+      <main class="flex flex-1 flex-col overflow-hidden" data-tour="repos-viewer">
         <div class="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs">
           <span class="text-muted-foreground tabular-nums">{m.code_improve_open_count({ count: openCount })}</span>
           {#if codeDebts.length === 0}
