@@ -15,6 +15,7 @@
 
 - 解析対象からインストール済み依存・生成物を除外: `node_modules` / `.venv` / `dist` / `build` / `.svelte-kit` / `__pycache__` / `vendor` 等のディレクトリ配下は開発者が書いたコードではないため、コード品質（`code_debt_detection`）・理解度（`kc_analysis`）・理解負債（`knowledge_debt_detection`）・機能クラスタリング（`feature_clustering`）・学習プラン・テックスタック判定の各解析で一律に除外。`code_analysis.is_vendored_path()` を新設して `is_source_file` に組み込み、各パイプラインのファイル選別（`_is_source` / `_is_key_file` / blob 列挙）へ適用。
 - 知識ハブ（`/learning`）で「学習を開く」が無反応だった不具合を修正: `?planId` への同一ルート内クライアント遷移で `load` は再実行されるのに、`plan` が `untrack` 初期化のままで `data` 変化に追従していなかった。writable `$derived` へ変更し、単元一覧 ⇄ 学習プラン詳細の切替が反応するように。
+- 機能スコープの学習プランが教材 0 件だった不具合を修正: `baseline-plans` が `gap_concepts=[]` でプランを作るため `learning_plan_generation` の教材探索（concept マッチ + 外部検索）が空回りしていた。`learning_plan_generation` を機能対応にし、`plan.feature_id` があれば**機能の代表ファイル（クラスタリング confidence 上位）を「読むべきチーム資産」**として、**機能名を外部リソース検索の手がかり**として使うように。
 
 ### Removed
 
