@@ -52,7 +52,6 @@
   <div class="mx-auto max-w-2xl space-y-4 p-4">
     <a href={unitsHref} class="text-xs text-muted-foreground hover:text-foreground">{m.unit_back()}</a>
     <div>
-      <h1 class="font-display text-xl font-semibold">{m.knowledge_tab_learning()}</h1>
       {#if data.from === "quiz"}
         <p class="mt-0.5 text-xs text-debt-knowledge">{m.learning_from_quiz()}</p>
       {/if}
