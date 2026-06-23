@@ -51,9 +51,9 @@ def _mastery_of(kc: float) -> str:
 
 
 async def _latest_run_id(session: AsyncSession, project_id, kind: str):
-    return (
+    run = (
         await session.execute(
-            select(AnalysisRun.id)
+            select(AnalysisRun)
             .where(
                 col(AnalysisRun.project_id) == project_id,
                 col(AnalysisRun.kind) == kind,
@@ -63,6 +63,7 @@ async def _latest_run_id(session: AsyncSession, project_id, kind: str):
             .limit(1)
         )
     ).scalar_one_or_none()
+    return run.id if run is not None else None
 
 
 async def build_galaxy(session: AsyncSession, project: Project, user: User) -> PersonalGalaxyOut:
