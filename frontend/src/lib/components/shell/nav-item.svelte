@@ -50,6 +50,7 @@
           {...props}
           href={resolve(route)}
           aria-current={active ? "page" : undefined}
+          data-tour={`nav-${item.id}`}
           class={cn(baseRow, "justify-center", active ? activeCls : inactiveCls)}
         >
           <Icon class="size-4" />
@@ -67,6 +68,7 @@
   <a
     href={resolve(route)}
     aria-current={active ? "page" : undefined}
+    data-tour={`nav-${item.id}`}
     class={cn(baseRow, active ? activeCls : inactiveCls)}
   >
     <Icon class="size-4 shrink-0" />

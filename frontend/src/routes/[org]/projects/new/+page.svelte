@@ -10,6 +10,7 @@
   import { Input } from "$lib/components/ui/input";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import { project } from "$lib/stores/project-store.svelte";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -38,6 +39,8 @@
     try {
       const created = await createProject(orgSlug, name.trim(), selectedRepo);
       await project.loadList(orgSlug);
+      // 初回プロジェクト（作成後の一覧が 1 件のみ）ならオンボーディングツアーを自動開始する（issue 066）。
+      if (project.list.length <= 1) onboarding.requestAutoStart(orgSlug);
       await goto(resolve(`/${orgSlug}/${created.slug}`));
     } catch (e) {
       error = e instanceof Error ? e.message : m.project_create_failed();

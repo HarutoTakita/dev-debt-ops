@@ -8,6 +8,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Hash from "@lucide/svelte/icons/hash";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
+  import CircleHelp from "@lucide/svelte/icons/circle-help";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -27,11 +28,16 @@
     type ProjectSection,
   } from "$lib/stores/project-sections.svelte";
   import type { Project } from "$lib/api/schemas";
+  import type { Pathname } from "$app/types";
   import * as m from "$lib/paraglide/messages";
   import ProjectNavGroup from "./project-nav-group.svelte";
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
+  // ヘルプページ（オンボーディングガイド再生）への導線。現在プロジェクトがあるときのみ表示。
+  const helpPath: Pathname | null = $derived(
+    project.current ? (`/${orgSlug}/${project.current.slug}/help` as Pathname) : null,
+  );
 
   // org の全プロジェクトをサイドバーに同時表示。一覧未取得（直リンク到達など）でも現在プロジェクトの
   // メニューは即使えるよう、フォールバックで current を出す。
@@ -284,6 +290,39 @@
         </button>
       {/if}
     </div>
+
+    <!-- 一番下: ヘルプ（オンボーディングガイドを再生できる、issue 066） -->
+    {#if helpPath}
+      <div class="mt-1">
+        {#if sidebar.collapsed}
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <a
+                  {...props}
+                  href={resolve(helpPath)}
+                  data-tour="help"
+                  aria-label={m.nav_help()}
+                  class="flex h-9 w-full items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                >
+                  <CircleHelp class="size-4" />
+                </a>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="right">{m.nav_help()}</Tooltip.Content>
+          </Tooltip.Root>
+        {:else}
+          <a
+            href={resolve(helpPath)}
+            data-tour="help"
+            class="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            <CircleHelp class="size-4" />
+            <span>{m.nav_help()}</span>
+          </a>
+        {/if}
+      </div>
+    {/if}
   </nav>
 </Tooltip.Provider>
 

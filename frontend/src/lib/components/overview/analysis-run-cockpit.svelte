@@ -83,7 +83,7 @@
   });
 </script>
 
-<section class="w-full">
+<section class="w-full" data-tour="analysis-run">
   {#if !analysisRun.started}
     <div class="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>

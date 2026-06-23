@@ -21,11 +21,13 @@
 
 ### Removed
 
+- ダッシュボードの「はじめに」カード（各メニューへ遷移するだけのクイックリンク）を撤去（issue 066）。オンボーディングはプロダクトツアーへ置き換え。`getting-started.svelte`・`getting_started_*` i18n・`project-store` の dismiss ロジックを削除。
 - エージェント廃止に伴う UI の残骸を削除: ダッシュボードの「今週の活動（Code Agent / Knowledge Agent）」カード（`weekly-activity.svelte`）、優先度マップ（旧マトリクス）のフィルタ facet「エージェント」、負債詳細パネルの「担当エージェント」行（実体のない活動リンク）を撤去。`labels.ts` の `agentLabel` と未使用化した i18n（`overview_weekly_*` / `filter_facet_agent` / `agent_code_debt` / `agent_knowledge_debt` / `debt_meta_agent` / `matrix_view_agent_reasoning`）も削除。
 - 解析ランから「ループ（Twin Agent）」ステージとバックエンドの Agent 自律ループ束ね機能を削除（issue 036 の撤回）。エージェント独立ビューは既に廃止（issue 051）済みで、ループ結果を表示する箇所が無くなっていたため、(フロント) コックピットの `loop_agents` ステージ・`runAgentLoop` クライアント・`/agents` ルート・`components/agents/*`・`agent-store`・関連 Zod スキーマを撤去、(バックエンド) `agents` API ルータ・`agent_loop` パイプライン + レジストリ登録・`shared` の agent_loop スキーマ/ORM モデルを削除し、`agent_pipelines` / `agent_activities` / `narrative_steps` / `narrative_evidence` テーブルを drop（Alembic `0019`、downgrade で再作成）。`analysis-status` の対象 JobType からも `code_debt_loop` を除外。`JobType.{CODE_DEBT,KNOWLEDGE_DEBT}_LOOP` の enum 値は既存 `jobs` 行のロード互換のため残置。
 
 ### Added
 
+- オンボーディングガイド（初回プロダクトツアー）を実装（issue 066）: 初回プロジェクト作成時に、サイドバーの各メニュー・Overview の「解析」ボタン・ヘルプを順にハイライト＋吹き出しで案内するツアーを自動開始。外部 CDN/ライブラリ非依存の自作オーバーレイ（`data-tour` 属性で対象解決・クロスページ goto・Esc/スキップ・完了は org ごとに localStorage 永続）。サイドバー左下に `?` アイコンを追加し、`[org]/[project]/help` ページからいつでも再生できる。`onboarding-store.svelte.ts` / `components/onboarding/{tour-steps.ts,onboarding-tour.svelte}` を新設。
 - 生成トリガーを「解析」ボタンに集約（issue-064）: Overview の「解析」(`runAll`) に学習プラン（`plan_learning`）とベースライン確認クイズ（`confirm_quizzes`）の生成を組み込み、検知・KC・機能クラスタリングと併せて 1 操作で全コンテンツを生成。学習プランは全機能分を一括生成する `POST .../baseline-plans`（`baseline-quizzes` と対称・自分スコープ・冪等・未クラスタリングは 409）を新設し、`plan_learning` をプロジェクト全体 1 本から機能ごと全機能分へ変更。N 件ファンアウトで単一 job を持たないステージは enqueue 完了で COMPLETED 扱いとし、`cluster_features` 完了を依存に持たせた。各メニューページの個別生成トリガー（matrix/repos の負債検知・galaxy のスキャン・単元の学習プラン/確認クイズ生成）を撤去し、Overview の「解析」へ誘導する表示専用に変更（生成導線を「解析」1 本に集約）。
 - 多粒度計測トラッキング（issue-057）のスライス: 機能/フォルダビュー（`feature-debt-list`）に**コード負債軸**（`code_debt_score`）を表示（056 が後送りにしたコード負債側）し、機能ノードのコード負債ロールアップ（配下ファイルの max）をテストで担保。残作業を子 issue へ分割: 060（コード負債の粒度集計の本実装）/ 061（クラス・関数の AST 計測）/ 062（粒度間整合・定期再計測・クイズ粒度）。057 は子 issue 完了までトラッキングとして open 維持。
 - フロント：粒度切替 UI と機能（feature）単位の理解負債表示（issue-056）: Overview に粒度セグメント（機能/フォルダ/ファイル、`class`/`function` は disabled の将来枠）を追加。`feature`/`folder` で 055 の `granularity` API を消費し、機能/フォルダ単位の理解負債を一覧表示（KC%・mastery 色・優先度・ファイル数・最弱ファイル）。機能クリックで `GET .../features/{key}` を呼び配下ファイルへドリルダウン。`schemas.ts` に `featureDebtSchema` と `overview` の `granularity`/`features`、`client.ts` に `getOverview(granularity)`/`getFeatureDrilldown`、i18n（ja/en）に粒度・機能ビュー文言を追加。Galaxy の機能星系表示は Galaxy 粒度バックエンド（057）に依存するため対象外。
