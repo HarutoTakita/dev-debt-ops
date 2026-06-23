@@ -400,6 +400,16 @@ export async function generateBaselineQuizzes(orgSlug: string, projectSlug: stri
   return { created: Number(data.created ?? 0) };
 }
 
+// 機能ごとの学習プランを一括生成（issue 064）: 生成導線を「解析」に集約。baseline-quizzes と対称（N 件ファンアウト）。
+export async function generateBaselinePlans(orgSlug: string, projectSlug: string): Promise<{ created: number }> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/baseline-plans`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "学習プランの一括生成に失敗しました"));
+  const data = (await response.json()) as { created?: number };
+  return { created: Number(data.created ?? 0) };
+}
+
 // 解析ステージの最新ジョブ状態（リロード後の状態復元用）: GET .../analysis-status。
 export async function getAnalysisStatus(orgSlug: string, projectSlug: string): Promise<AnalysisStatus> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/analysis-status`);

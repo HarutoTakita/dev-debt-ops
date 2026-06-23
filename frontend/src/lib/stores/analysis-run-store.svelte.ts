@@ -3,7 +3,8 @@ import {
   clusterFeatures,
   detectDebts,
   detectKnowledgeDebts,
-  generatePlan,
+  generateBaselinePlans,
+  generateBaselineQuizzes,
   getAnalysisStatus,
   getJob,
 } from "$lib/api/client";
@@ -11,10 +12,17 @@ import {
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
-export type StageId = "detect_code" | "detect_knowledge" | "analyze_galaxy" | "cluster_features" | "plan_learning";
+export type StageId =
+  | "detect_code"
+  | "detect_knowledge"
+  | "analyze_galaxy"
+  | "cluster_features"
+  | "plan_learning"
+  | "confirm_quizzes";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
-type EnqueueResult = { job_id: string; link?: string };
+// job_id を返さないステージ（baseline-plans / baseline-quizzes は N 件ファンアウト）は enqueue 完了で COMPLETED 扱い。
+type EnqueueResult = { job_id?: string; link?: string };
 type StageDef = {
   id: string;
   labelKey: string;
@@ -64,15 +72,28 @@ export const STAGES: StageDef[] = [
     deepLink: (c) => _path(c, "/learning"),
   },
   {
+    // 機能ごとの学習プランを全機能分まとめて生成（issue 064）。生成導線は「解析」に集約。
     id: "plan_learning",
     labelKey: "analysis_stage_plan_learning",
     jobType: "learning_plan_generation",
     enqueue: async (c) => {
-      const { job_id, plan_id } = await generatePlan(c.orgSlug, c.projectSlug, {});
-      return { job_id, link: _path(c, `/learning?planId=${plan_id}`) };
+      await generateBaselinePlans(c.orgSlug, c.projectSlug);
+      return { link: _path(c, "/learning") };
     },
-    dependsOn: [],
+    dependsOn: ["cluster_features"],
     deepLink: (c) => _path(c, "/learning"),
+  },
+  {
+    // 機能ごとのベースライン確認クイズを生成（issue 054/064）。学習と同じく「解析」で一括生成。
+    id: "confirm_quizzes",
+    labelKey: "analysis_stage_confirm_quizzes",
+    jobType: "quiz_generation",
+    enqueue: async (c) => {
+      await generateBaselineQuizzes(c.orgSlug, c.projectSlug);
+      return { link: _path(c, "/quizzes") };
+    },
+    dependsOn: ["cluster_features"],
+    deepLink: (c) => _path(c, "/quizzes"),
   },
 ];
 
@@ -158,6 +179,11 @@ class AnalysisRunStore {
       return;
     }
     if (gen !== this.#generation) return; // cancelled mid-enqueue
+    if (!res.job_id) {
+      // ファンアウト系（学習プラン/確認クイズの一括生成）は単一 job を持たないため enqueue 完了で COMPLETED。
+      this.#set(id, { status: "COMPLETED", link: res.link ?? def.deepLink?.(ctx) ?? null });
+      return;
+    }
     this.#set(id, { jobId: res.job_id, link: res.link ?? null });
     await this.#poll(id, ctx, def, gen);
   }

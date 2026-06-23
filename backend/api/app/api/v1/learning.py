@@ -17,6 +17,7 @@ from sqlmodel import select as sm_select
 from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import InstallationIdDep
 from app.schemas.learning import (
+    BaselinePlansOut,
     GeneratePlanIn,
     LearningPlanJobOut,
     LearningPlanOut,
@@ -27,8 +28,16 @@ from app.schemas.learning import (
 from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
-from shared.enums import JobType
-from shared.models import LearningPlan, LearningResource, LearningStep, QuizResult, QuizSession
+from shared.enums import JobStatus, JobType
+from shared.models import (
+    AnalysisRun,
+    Feature,
+    LearningPlan,
+    LearningResource,
+    LearningStep,
+    QuizResult,
+    QuizSession,
+)
 from shared.queue import BlobClient, TaskDispatcher
 
 router = APIRouter(tags=["learning"])
@@ -151,6 +160,91 @@ async def create_learning_plan(
         project_id=project.id,
     )
     return LearningPlanJobOut(job_id=job.id, status=job.status, plan_id=plan.id)
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/baseline-plans",
+    response_model=BaselinePlansOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="機能ごとの学習プランを一括生成する（自分の分）",
+)
+async def generate_baseline_plans(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    org_membership: OrgScope,
+    installation_id: InstallationIdDep,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SessionDep,
+    dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
+    blob: Annotated[BlobClient, Depends(get_blob_client)],
+) -> BaselinePlansOut:
+    """Create one learning plan per clustered feature for the caller and enqueue generation (issue 064).
+
+    Consolidates generation under the single "解析" trigger: ``runAll`` calls this so every feature gets a
+    plan. Self-scoped + idempotent (a feature that already has a plan for the caller is skipped) so re-runs
+    don't fan out duplicates. 409 if feature clustering (issue 052) has not run yet. Mirrors
+    ``baseline-quizzes``.
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    run = (
+        await session.exec(
+            sm_select(AnalysisRun)
+            .where(
+                col(AnalysisRun.project_id) == project.id,
+                col(AnalysisRun.kind) == JobType.FEATURE_CLUSTERING.value,
+                col(AnalysisRun.status) == JobStatus.COMPLETED,
+            )
+            .order_by(col(AnalysisRun.created_at).desc())
+            .limit(1)
+        )
+    ).first()
+    if run is None:
+        raise HTTPException(status_code=409, detail="機能クラスタリングが未実行です")
+
+    features = (await session.exec(sm_select(Feature).where(col(Feature.run_id) == run.id))).all()
+    job_ids: list[str] = []
+    for feat in features:
+        existing = (
+            await session.exec(
+                sm_select(LearningPlan).where(
+                    col(LearningPlan.project_id) == project.id,
+                    col(LearningPlan.developer_id) == current_user.id,
+                    col(LearningPlan.feature_id) == feat.id,
+                )
+            )
+        ).first()
+        if existing is not None:
+            continue  # already has a plan for this feature
+        plan = LearningPlan(
+            project_id=project.id,
+            developer_id=current_user.id,
+            feature_id=feat.id,
+            gap_concepts=[],
+        )
+        session.add(plan)
+        await session.flush()
+        payload = {
+            "plan_id": str(plan.id),
+            "project_id": str(project.id),
+            "gap_concepts": [],
+            "quiz_session_id": None,
+            "repo_full_name": project.repo_full_name,
+            "branch": project.default_branch or "main",
+            "requested_by": str(current_user.id),
+            "github": {"installation_id": installation_id},
+        }
+        job = await enqueue_job(
+            session=session,
+            dispatcher=dispatcher,
+            blob_client=blob,
+            job_type=JobType.LEARNING_PLAN_GENERATION,
+            payload=payload,
+            created_by=current_user.id,
+            project_id=project.id,
+        )
+        job_ids.append(str(job.id))
+    return BaselinePlansOut(created=len(job_ids), job_ids=job_ids)
 
 
 @router.get(
