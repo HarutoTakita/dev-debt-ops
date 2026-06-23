@@ -6,9 +6,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- クイズを日本語生成・選択式のみに（記述式を廃止）: 生成プロンプト（`gemini_stack_service._QUIZ_GEN_PROMPT`）を、設問文・選択肢を**日本語**で生成し、自動採点が難しい記述式（`free_text`）を廃止して**選択式 2 種のみ**にする指示へ変更。`multiple_choice`（ラジオ＝正解 1 つ）と新設 `multiple_select`（チェックボックス＝正解 1 つ以上）。フロントの `quizQuestionSchema.kind` を更新し、`answer-input.svelte` をラジオ／チェックボックスで出し分け（複数選択はカンマ区切りの choice id で保持）。採点プロンプトも選択 id の照合 + 日本語ラベル出力に更新。
+
 ### Fixed
 
 - 解析対象からインストール済み依存・生成物を除外: `node_modules` / `.venv` / `dist` / `build` / `.svelte-kit` / `__pycache__` / `vendor` 等のディレクトリ配下は開発者が書いたコードではないため、コード品質（`code_debt_detection`）・理解度（`kc_analysis`）・理解負債（`knowledge_debt_detection`）・機能クラスタリング（`feature_clustering`）・学習プラン・テックスタック判定の各解析で一律に除外。`code_analysis.is_vendored_path()` を新設して `is_source_file` に組み込み、各パイプラインのファイル選別（`_is_source` / `_is_key_file` / blob 列挙）へ適用。
+- 知識ハブ（`/learning`）で「学習を開く」が無反応だった不具合を修正: `?planId` への同一ルート内クライアント遷移で `load` は再実行されるのに、`plan` が `untrack` 初期化のままで `data` 変化に追従していなかった。writable `$derived` へ変更し、単元一覧 ⇄ 学習プラン詳細の切替が反応するように。
 
 ### Removed
 

@@ -41,7 +41,7 @@ const SESSIONS: Record<string, QuizSession> = {
       },
       {
         id: "q2",
-        kind: "free_text",
+        kind: "multiple_choice",
         difficulty: "L2",
         prompt: "getUserById(123) を呼んだとき、内部でどのような処理が順に起こりますか？",
         code_snippet: { language: "ts", path: "src/services/user-service.ts", content: USER_SERVICE_SNIPPET },
@@ -60,7 +60,7 @@ const SESSIONS: Record<string, QuizSession> = {
       },
       {
         id: "q4",
-        kind: "free_text",
+        kind: "multiple_choice",
         difficulty: "L4",
         prompt: "isAdmin チェックを外すと、システム全体にどのような影響が出ますか？",
         code_snippet: null,
@@ -103,7 +103,7 @@ const SESSIONS: Record<string, QuizSession> = {
       },
       {
         id: "q2",
-        kind: "free_text",
+        kind: "multiple_choice",
         difficulty: "L2",
         prompt: "rotate() を呼ぶと、トークンはどう変化しますか？",
         code_snippet: { language: "ts", path: "src/auth/token-rotation.ts", content: TOKEN_ROTATION_SNIPPET },
@@ -122,14 +122,14 @@ const SESSIONS: Record<string, QuizSession> = {
       },
       {
         id: "q4",
-        kind: "free_text",
+        kind: "multiple_choice",
         difficulty: "L4",
         prompt: "再利用検出を外すと、どのような攻撃が成立しますか？",
         code_snippet: null,
       },
       {
         id: "q5",
-        kind: "free_text",
+        kind: "multiple_choice",
         difficulty: "L5",
         prompt: "rotate() と SessionStore・AuditLog の連携で気をつける不変条件は？",
         code_snippet: null,

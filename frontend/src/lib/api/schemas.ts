@@ -362,7 +362,7 @@ export const conceptSchema = z.object({ id: z.string(), label: z.string() });
 
 export const quizQuestionSchema = z.object({
   id: z.string(),
-  kind: z.enum(["multiple_choice", "free_text"]),
+  kind: z.enum(["multiple_choice", "multiple_select"]),
   prompt: z.string(),
   code_snippet: z.object({ language: z.string(), path: z.string(), content: z.string() }).nullable(),
   choices: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
