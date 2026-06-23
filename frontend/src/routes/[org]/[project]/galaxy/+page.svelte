@@ -23,7 +23,7 @@
     if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => galaxy.reset());
   });
 
-  // コックピットの星域解析完了で自動リフレッシュ（analyze_galaxy → galaxy.load、issue 049）。
+  // コックピットの理解度マップ解析完了で自動リフレッシュ（analyze_galaxy → galaxy.load、issue 049）。
   // 再取得失敗時は既存表示を保持（reset しない）。
   refreshOnStageComplete(["analyze_galaxy"], () => {
     if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => {});
@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-  <title>Knowledge Galaxy · Rosetta</title>
+  <title>{m.nav_galaxy()} · Rosetta</title>
 </svelte:head>
 
 {#if !galaxy.observed || !galaxy.galaxy}
