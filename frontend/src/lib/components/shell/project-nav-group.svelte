@@ -10,6 +10,7 @@
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { allNavItems, type NavContext } from "$lib/config/nav";
   import { projectSections } from "$lib/stores/project-sections.svelte";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import NavItem from "./nav-item.svelte";
@@ -34,6 +35,10 @@
   // アクティブ（選択中）プロジェクトは展開、それ以外は折りたたみで開始。ナビゲーションで切り替わったら追従。
   let open = $state(false);
   $effect(() => {
+    // アクティブなプロジェクトは展開する。さらにツアー開始（onboarding.active）でも、アクティブな
+    // プロジェクトの配下メニューを必ず展開し、nav 項目のハイライト対象が確実に存在するようにする
+    // （折りたたんでいると対象要素が DOM に無く、吹き出し位置が決まらない）。
+    if (onboarding.active && active) open = true;
     if (active) open = true;
   });
 
