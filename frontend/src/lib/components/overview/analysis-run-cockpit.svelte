@@ -15,6 +15,7 @@
     analysis_stage_analyze_galaxy: m.analysis_stage_analyze_galaxy,
     analysis_stage_cluster_features: m.analysis_stage_cluster_features,
     analysis_stage_plan_learning: m.analysis_stage_plan_learning,
+    analysis_stage_confirm_quizzes: m.analysis_stage_confirm_quizzes,
   };
 
   function statusLabel(s: StageStatus): string {
