@@ -16,6 +16,8 @@ export type TourStep = {
   placement: TourPlacement;
   /** 指定時、表示前にこのプロジェクト相対パスへ遷移する。 */
   route?: (ctx: { orgSlug: string; projectSlug: string }) => Pathname;
+  /** 指定時、表示前にこの data-tour 要素をクリックして target を出す（タブ切替などの隠れ要素対策）。 */
+  reveal?: string;
 };
 
 // 順序は左サイドバーの上から（ダッシュボード → 理解度マップ → クイズと学習 → コード品質マップ → コード改善）。
@@ -74,86 +76,159 @@ export const tourSteps: TourStep[] = [
 ];
 
 // 各メニューの「詳細を確認する」で開くページ別ガイド（issue 066）。メイン手順の id をキーにする。
-// 1 ステップ目で当該ページへ遷移して概要を説明（target 無し＝中央）、2 ステップ目で主要要素（data-tour）をハイライト。
+// 1 ステップ目で当該ページへ遷移して概要を説明（target 無し＝中央）、以降のステップで主要 UI 要素を
+// 順にハイライトして詳しく説明する。タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
 export const pageTours: Record<string, TourStep[]> = {
   overview: [
     {
       id: "overview-intro",
       title: m.tour_overview_title,
-      body: m.tour_overview_detail,
+      body: m.tour_ov_intro_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
     },
     {
       id: "overview-kc",
       target: "overview-kc",
-      title: m.tour_overview_title,
-      body: m.tour_overview_feature,
+      title: m.tour_ov_kc_title,
+      body: m.tour_ov_kc_body,
       placement: "bottom",
+    },
+    {
+      id: "overview-primary",
+      target: "overview-primary",
+      title: m.tour_ov_primary_title,
+      body: m.tour_ov_primary_body,
+      placement: "top",
+    },
+    {
+      id: "overview-stats",
+      target: "overview-stats",
+      title: m.tour_ov_stats_title,
+      body: m.tour_ov_stats_body,
+      placement: "top",
+    },
+    {
+      id: "overview-trend",
+      target: "overview-trend",
+      title: m.tour_ov_trend_title,
+      body: m.tour_ov_trend_body,
+      placement: "top",
+    },
+    {
+      id: "overview-priority",
+      target: "overview-priority",
+      title: m.tour_ov_priority_title,
+      body: m.tour_ov_priority_body,
+      placement: "top",
     },
   ],
   galaxy: [
     {
       id: "galaxy-intro",
       title: m.tour_galaxy_title,
-      body: m.tour_galaxy_detail,
+      body: m.tour_gx_intro_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
     },
     {
+      id: "galaxy-views",
+      target: "galaxy-views",
+      title: m.tour_gx_views_title,
+      body: m.tour_gx_views_body,
+      placement: "bottom",
+    },
+    {
       id: "galaxy-map",
       target: "galaxy-map",
-      title: m.tour_galaxy_title,
-      body: m.tour_galaxy_feature,
+      reveal: "galaxy-tab-map",
+      title: m.tour_gx_map_title,
+      body: m.tour_gx_map_body,
       placement: "left",
+    },
+    {
+      id: "galaxy-list",
+      target: "galaxy-list",
+      reveal: "galaxy-tab-list",
+      title: m.tour_gx_list_title,
+      body: m.tour_gx_list_body,
+      placement: "top",
     },
   ],
   "knowledge-hub": [
     {
       id: "knowledge-intro",
       title: m.tour_knowledge_title,
-      body: m.tour_knowledge_detail,
+      body: m.tour_kn_intro_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
       id: "knowledge-units",
       target: "units-list",
-      title: m.tour_knowledge_title,
-      body: m.tour_knowledge_feature,
+      title: m.tour_kn_units_title,
+      body: m.tour_kn_units_body,
       placement: "top",
+    },
+    {
+      id: "knowledge-learn",
+      target: "unit-learn",
+      title: m.tour_kn_learn_title,
+      body: m.tour_kn_learn_body,
+      placement: "bottom",
+    },
+    {
+      id: "knowledge-confirm",
+      target: "unit-confirm",
+      title: m.tour_kn_confirm_title,
+      body: m.tour_kn_confirm_body,
+      placement: "bottom",
     },
   ],
   matrix: [
     {
       id: "matrix-intro",
       title: m.tour_matrix_title,
-      body: m.tour_matrix_detail,
+      body: m.tour_mx_intro_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
     },
     {
       id: "matrix-search",
       target: "matrix-search",
-      title: m.tour_matrix_title,
-      body: m.tour_matrix_feature,
+      title: m.tour_mx_search_title,
+      body: m.tour_mx_search_body,
       placement: "bottom",
+    },
+    {
+      id: "matrix-list",
+      target: "matrix-list",
+      title: m.tour_mx_list_title,
+      body: m.tour_mx_list_body,
+      placement: "top",
     },
   ],
   repos: [
     {
       id: "repos-intro",
       title: m.tour_repos_title,
-      body: m.tour_repos_detail,
+      body: m.tour_rp_intro_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
     },
     {
       id: "repos-tree",
       target: "repos-tree",
-      title: m.tour_repos_title,
-      body: m.tour_repos_feature,
+      title: m.tour_rp_tree_title,
+      body: m.tour_rp_tree_body,
       placement: "right",
+    },
+    {
+      id: "repos-viewer",
+      target: "repos-viewer",
+      title: m.tour_rp_viewer_title,
+      body: m.tour_rp_viewer_body,
+      placement: "left",
     },
   ],
 };

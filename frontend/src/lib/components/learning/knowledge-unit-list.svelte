@@ -70,6 +70,7 @@
               <a
                 href={(resolve(`/${orgSlug}/${projectSlug}/learning`) +
                   `?planId=${u.learning_plan_id}`) as ResolvedPathname}
+                data-tour="unit-learn"
                 class="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent/40"
               >
                 {m.unit_learn_open()}
@@ -80,6 +81,7 @@
             {#if u.quiz_session_id}
               <a
                 href={resolve(`/${orgSlug}/${projectSlug}/quizzes/${u.quiz_session_id}`)}
+                data-tour="unit-confirm"
                 class="rounded-md border px-2.5 py-1 text-xs font-medium text-debt-knowledge hover:bg-accent/40"
               >
                 {m.unit_confirm()}
