@@ -1,14 +1,27 @@
 <script lang="ts">
   import type { ResolvedPathname } from "$app/types";
   import { Button } from "$lib/components/ui/button";
-  import { analysisRun, STAGES, type RunContext, type StageStatus } from "$lib/stores/analysis-run-store.svelte";
+  import {
+    analysisRun,
+    STAGES,
+    STAGE_GROUPS,
+    type RunContext,
+    type StageGroupDef,
+    type StageStatus,
+  } from "$lib/stores/analysis-run-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // 解析ラン・コックピット（issue 037）: 単一の主 CTA でコアループを段階起動し、各ステージの状態と
-  // 完了ステージの deep-link を提示する。状態は共有 analysis-run-store。
+  // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064）。表示は「検知 / 計測 / 用意」の
+  // 3 グループに集約し、各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
   type Props = { ctx: RunContext };
   const { ctx }: Props = $props();
 
+  const groupLabel: Record<string, () => string> = {
+    analysis_group_technical: m.analysis_group_technical,
+    analysis_group_knowledge: m.analysis_group_knowledge,
+    analysis_group_repay: m.analysis_group_repay,
+  };
+  // グループ内で実行中のサブステップ名を出すためのステージラベル。
   const stageLabel: Record<string, () => string> = {
     analysis_stage_detect_code: m.analysis_stage_detect_code,
     analysis_stage_detect_knowledge: m.analysis_stage_detect_knowledge,
@@ -37,12 +50,34 @@
     FAILED: "text-destructive",
   };
 
-  // 注意: analysisRun は複数ページが共有するシングルトン。cockpit unmount で cancel() すると
-  // 他ページ（Matrix/Galaxy 等）が起動したポーリングまで止めてしまうため、ここでは cancel しない。
-  // プロジェクト切替時のキャンセル/リセットは [org]/[project]/+layout のクリーンアップが担う（issue-044）。
+  // グループの集約状態と、実行中サブステージのラベルを内部ステージ群から導出する。
+  function groupView(g: StageGroupDef): { status: StageStatus; activeLabel: string | null } {
+    const members = g.stageIds.map((id) => analysisRun.stages[id]).filter(Boolean);
+    if (members.some((s) => s.status === "FAILED")) return { status: "FAILED", activeLabel: null };
+    const activeId = g.stageIds.find((id) => {
+      const s = analysisRun.stages[id];
+      return s && (s.status === "QUEUED" || s.status === "PROCESSING");
+    });
+    if (activeId) {
+      const def = STAGES.find((s) => s.id === activeId);
+      return { status: "PROCESSING", activeLabel: def ? stageLabel[def.labelKey]() : null };
+    }
+    if (members.length > 0 && members.every((s) => s.status === "COMPLETED")) {
+      return { status: "COMPLETED", activeLabel: null };
+    }
+    if (members.some((s) => s.status !== "idle")) return { status: "PROCESSING", activeLabel: null };
+    return { status: "idle", activeLabel: null };
+  }
 
-  // リロード後の状態復元: 一度でも解析したプロジェクトは、永続化済みジョブからステージ状態を
-  // 復元する（hydrate はプロジェクトごとに一度だけ・run 開始済みなら no-op）。
+  function retryGroup(g: StageGroupDef) {
+    for (const id of g.stageIds) {
+      if (analysisRun.stages[id]?.status === "FAILED") void analysisRun.runStage(id, ctx);
+    }
+  }
+
+  // 注意: analysisRun は複数ページが共有するシングルトン。cockpit unmount で cancel() すると
+  // 他ページが起動したポーリングまで止めてしまうため、ここでは cancel しない（issue-044）。
+  // リロード後の状態復元: 永続化済みジョブからステージ状態を復元（プロジェクトごとに一度だけ）。
   $effect(() => {
     if (ctx.orgSlug && ctx.projectSlug) void analysisRun.hydrate(ctx);
   });
@@ -69,25 +104,25 @@
         </Button>
       </div>
       <ul class="flex flex-col gap-1.5">
-        {#each STAGES as stage (stage.id)}
-          {@const s = analysisRun.stages[stage.id]}
+        {#each STAGE_GROUPS as group (group.id)}
+          {@const gv = groupView(group)}
           <li class="flex items-center gap-3 rounded-md border bg-background/40 px-3 py-2 text-sm">
-            <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[s.status]}`}>{statusLabel(s.status)}</span>
+            <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[gv.status]}`}>{statusLabel(gv.status)}</span>
             <span class="min-w-0 flex-1 truncate">
-              {stageLabel[stage.labelKey]()}
-              {#if s.step}<span class="text-xs text-muted-foreground"> · {s.step}</span>{/if}
+              {groupLabel[group.labelKey]()}
+              {#if gv.activeLabel}<span class="text-xs text-muted-foreground"> · {gv.activeLabel}</span>{/if}
             </span>
-            {#if s.status === "COMPLETED" && s.link}
+            {#if gv.status === "COMPLETED"}
               <a
-                href={s.link as ResolvedPathname}
+                href={group.deepLink(ctx) as ResolvedPathname}
                 class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
               >
                 {m.analysis_view()}
               </a>
-            {:else if s.status === "FAILED"}
+            {:else if gv.status === "FAILED"}
               <button
                 type="button"
-                onclick={() => analysisRun.runStage(stage.id, ctx)}
+                onclick={() => retryGroup(group)}
                 class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
               >
                 {m.analysis_retry_stage()}

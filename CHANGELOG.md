@@ -8,6 +8,7 @@
 
 ### Changed
 
+- 解析コックピットの表示を 3 グループに集約（裏の生成パイプラインは不変）: 6 ステージを「**技術負債を検知** / **理解負債を計測**（`knowledge_debt_detection` + `kc_analysis`）/ **学習・クイズを用意**（`feature_clustering` + 学習プラン + 確認クイズ）」の 3 行に集約。機能クラスタリングは単独行をやめ「用意」グループの内部サブステップへ畳み込み。各グループ行は内部ステージの集約状態と実行中サブステップ名を表示。`analysis-run-store` に `STAGE_GROUPS` を追加し、コックピットをグループ描画へ変更（`STAGES`／ジョブは個別実行のまま）。
 - クイズを日本語生成・選択式のみに（記述式を廃止）: 生成プロンプト（`gemini_stack_service._QUIZ_GEN_PROMPT`）を、設問文・選択肢を**日本語**で生成し、自動採点が難しい記述式（`free_text`）を廃止して**選択式 2 種のみ**にする指示へ変更。`multiple_choice`（ラジオ＝正解 1 つ）と新設 `multiple_select`（チェックボックス＝正解 1 つ以上）。フロントの `quizQuestionSchema.kind` を更新し、`answer-input.svelte` をラジオ／チェックボックスで出し分け（複数選択はカンマ区切りの choice id で保持）。採点プロンプトも選択 id の照合 + 日本語ラベル出力に更新。
 
 ### Fixed
