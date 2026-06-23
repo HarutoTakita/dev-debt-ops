@@ -93,7 +93,7 @@
   });
 
   const PAD = 6;
-  const BUBBLE_W = 300;
+  const BUBBLE_W = 320;
   // 吹き出し位置（rect + placement から。ビューポート内にクランプ）。rect 無しは中央。
   const bubble = $derived.by(() => {
     if (!rect) return { left: -9999, top: -9999, centered: true };
@@ -157,7 +157,7 @@
     role="dialog"
     aria-modal="true"
     aria-label={step.title()}
-    class="fixed z-[201] w-[300px] rounded-lg border bg-card p-4 shadow-xl"
+    class="fixed z-[201] w-[320px] rounded-lg border bg-card p-4 shadow-xl"
     style={bubble.centered
       ? "left: 50%; top: 50%; transform: translate(-50%, -50%);"
       : `left: ${bubble.left}px; top: ${bubble.top}px;`}
@@ -166,7 +166,7 @@
       <button
         type="button"
         onclick={() => onboarding.backToMain()}
-        class="mb-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        class="mb-1 text-xs font-medium whitespace-nowrap text-muted-foreground hover:text-foreground"
       >
         ← {m.tour_back_to_main()}
       </button>
@@ -178,13 +178,13 @@
         {m.tour_detail()} →
       </button>
     {/if}
-    <div class="mt-3 flex items-center justify-between gap-2">
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
       <span class="text-xs text-muted-foreground tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
-      <div class="flex items-center gap-1.5">
+      <div class="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onclick={() => onboarding.finish(orgSlug)}
-          class="rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          class="rounded-md px-2 py-1 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground"
         >
           {m.tour_skip()}
         </button>
@@ -192,7 +192,7 @@
           <button
             type="button"
             onclick={() => onboarding.prev()}
-            class="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent/40"
+            class="rounded-md border px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-accent/40"
           >
             {m.tour_prev()}
           </button>
@@ -200,7 +200,7 @@
         <button
           type="button"
           onclick={onNext}
-          class="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          class="rounded-md bg-primary px-2.5 py-1 text-xs font-medium whitespace-nowrap text-primary-foreground hover:bg-primary/90"
         >
           {isLast ? (onboarding.inDetail ? m.tour_back_to_main() : m.tour_finish()) : m.tour_next()}
         </button>

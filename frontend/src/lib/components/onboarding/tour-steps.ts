@@ -76,23 +76,17 @@ export const tourSteps: TourStep[] = [
 ];
 
 // 各メニューの「詳細を確認する」で開くページ別ガイド（issue 066）。メイン手順の id をキーにする。
-// 1 ステップ目で当該ページへ遷移して概要を説明（target 無し＝中央）、以降のステップで主要 UI 要素を
-// 順にハイライトして詳しく説明する。タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
+// 先頭ステップで当該ページへ遷移（route）し、各ページの主要 UI 要素を順にハイライトして詳しく説明する。
+// タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
 export const pageTours: Record<string, TourStep[]> = {
   overview: [
-    {
-      id: "overview-intro",
-      title: m.tour_overview_title,
-      body: m.tour_ov_intro_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
-    },
     {
       id: "overview-kc",
       target: "overview-kc",
       title: m.tour_ov_kc_title,
       body: m.tour_ov_kc_body,
       placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
     },
     {
       id: "overview-primary",
@@ -125,18 +119,12 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   galaxy: [
     {
-      id: "galaxy-intro",
-      title: m.tour_galaxy_title,
-      body: m.tour_gx_intro_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
-    },
-    {
       id: "galaxy-views",
       target: "galaxy-views",
       title: m.tour_gx_views_title,
       body: m.tour_gx_views_body,
       placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
     },
     {
       id: "galaxy-map",
@@ -157,18 +145,12 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   "knowledge-hub": [
     {
-      id: "knowledge-intro",
-      title: m.tour_knowledge_title,
-      body: m.tour_kn_intro_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
-    },
-    {
       id: "knowledge-units",
       target: "units-list",
       title: m.tour_kn_units_title,
       body: m.tour_kn_units_body,
       placement: "top",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
       id: "knowledge-learn",
@@ -187,18 +169,12 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   matrix: [
     {
-      id: "matrix-intro",
-      title: m.tour_matrix_title,
-      body: m.tour_mx_intro_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
-    },
-    {
       id: "matrix-search",
       target: "matrix-search",
       title: m.tour_mx_search_title,
       body: m.tour_mx_search_body,
       placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
     },
     {
       id: "matrix-list",
@@ -210,18 +186,12 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   repos: [
     {
-      id: "repos-intro",
-      title: m.tour_repos_title,
-      body: m.tour_rp_intro_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
-    },
-    {
       id: "repos-tree",
       target: "repos-tree",
       title: m.tour_rp_tree_title,
       body: m.tour_rp_tree_body,
       placement: "right",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
     },
     {
       id: "repos-viewer",
