@@ -255,29 +255,41 @@ Generate a 5-question comprehension quiz (difficulties L1..L5) for this file.
 === {path} ===
 {content}
 
+IMPORTANT — all learner-facing text (every "prompt" and every choice "label") MUST be written in
+Japanese (日本語). Do NOT write questions or choices in English.
+
+Every question MUST be objective and auto-gradable. Use ONLY these two kinds — never free text:
+- "multiple_choice": exactly ONE correct choice (rendered as radio buttons).
+- "multiple_select": one OR MORE correct choices (rendered as checkboxes).
+ALWAYS include a "choices" array of 3-5 options for every question.
+
 Return ONLY a valid JSON object — no markdown — with this exact schema:
 {{
   "questions": [
-    {{"id": "q1", "kind": "multiple_choice|free_text", "prompt": "...",
+    {{"id": "q1", "kind": "multiple_choice|multiple_select", "prompt": "（日本語の設問文）",
       "code_snippet": {{"language": "...", "path": "{path}", "content": "..."}} or null,
-      "choices": [{{"id": "a", "label": "..."}}] (only for multiple_choice),
+      "choices": [{{"id": "a", "label": "（日本語の選択肢）"}}],
       "difficulty": "L1|L2|L3|L4|L5"}}
   ],
-  "answer_key": {{"q1": {{"answer": "correct choice id or model answer", "rubric": "grading criteria"}}}}
+  "answer_key": {{"q1": {{"answer": "correct id(s)", "rubric": "grading criteria"}}}}
 }}
+For "answer": multiple_choice = the single correct choice id (e.g. a); multiple_select = a
+comma-separated list of correct ids (e.g. a,c).
 Provide exactly 5 questions with ids q1..q5 spanning L1..L5.
 """
 
 _QUIZ_GRADE_PROMPT = """\
-Grade this quiz semantically. For each question you have the prompt, the answer key, and the learner's answer.
+Grade this quiz. Every question is choice-based: compare the learner's selected choice id(s) against
+the answer key. For "multiple_select" the answer is correct only if the selected id set matches exactly.
 
 {payload}
 
-Return ONLY a valid JSON object — no markdown — with this exact schema:
+Return ONLY a valid JSON object — no markdown — with this exact schema
+(all "label" values MUST be in Japanese / 日本語):
 {{
   "score": 0.0,                  // fraction correct in [0,1]
-  "understood": [{{"id": "c1", "label": "concept the learner understood"}}],
-  "gap_concepts": [{{"id": "c2", "label": "concept to learn next"}}]
+  "understood": [{{"id": "c1", "label": "（理解できた概念・日本語）"}}],
+  "gap_concepts": [{{"id": "c2", "label": "（次に学ぶべき概念・日本語）"}}]
 }}
 """
 
