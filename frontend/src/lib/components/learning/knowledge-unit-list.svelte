@@ -5,6 +5,7 @@
   import type { KnowledgeUnit } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
   import * as m from "$lib/paraglide/messages";
 
   // 機能（feature）単位の単元ハブ（issue 063）。各単元で 学習 → 確認クイズ → KC 更新（理解済み）を回す。
@@ -47,7 +48,7 @@
 </script>
 
 <div class="mx-auto max-w-6xl space-y-4 p-4" data-tour="units-list">
-  <p class="text-xs text-muted-foreground">{m.units_subtitle()}</p>
+  <PageHeading title={m.nav_knowledge_hub()} description={m.units_subtitle()} />
 
   {#if loading}
     <p class="py-8 text-center text-sm text-muted-foreground">…</p>

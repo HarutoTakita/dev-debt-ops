@@ -12,6 +12,7 @@
   import PriorityList from "./priority-list.svelte";
   import GranularitySwitch, { type Granularity } from "./granularity-switch.svelte";
   import FeatureDebtList from "./feature-debt-list.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
 
   // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と将来の実データ表示で共用する。
   // isSample: 表示中のデータがモック由来である間「Sample / デモデータ」バッジを出す（誠実表示）。
@@ -47,6 +48,8 @@
       </span>
     </div>
   {/if}
+
+  <PageHeading title={m.nav_overview()} description={m.page_overview_desc()} />
 
   {#if onGranularity}
     <GranularitySwitch value={granularity} onChange={onGranularity} />
