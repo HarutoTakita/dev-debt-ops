@@ -20,8 +20,12 @@ class LearningResource(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     project_id: uuid.UUID = Field(index=True, nullable=False)
     origin: str = Field(nullable=False)  # team / external
+    section: str = Field(
+        default="code", nullable=False
+    )  # code（このコードを理解する）/ stack（技術スタックを学ぶ）issue 068
     kind: str = Field(nullable=False)  # adr / video / pr_comment / wiki / docs / book / article / code
     title: str = Field(nullable=False)
+    summary: str = Field(default="", nullable=False)  # 「何を・なぜ理解すべきか」の説明（issue 068）
     source_ref: str | None = Field(default=None)
     url: str | None = Field(default=None)
     estimated_minutes: int | None = Field(default=None)

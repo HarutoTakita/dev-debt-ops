@@ -101,6 +101,9 @@
       {/if}
     </div>
     {#if resource.source_ref}<p class="truncate text-xs text-muted-foreground">{resource.source_ref}</p>{/if}
+    {#if resource.summary}
+      <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{resource.summary}</p>
+    {/if}
     {#if dormantMonths != null}
       <p class="mt-1 text-xs text-debt-code">🕸 {m.learning_dormant({ months: dormantMonths })}</p>
     {/if}
