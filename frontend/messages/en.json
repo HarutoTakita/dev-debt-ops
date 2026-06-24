@@ -475,6 +475,8 @@
   "repo_error_server": "Server error. Please try again later.",
   "repo_error_login": "Sign in",
   "repo_not_installed": "The GitHub App is not installed.",
+  "repo_pick_missing": "Don't see your repository?",
+  "repo_add_more": "Add repositories",
   "repo_install_cta": "Install the GitHub App",
   "repo_install_browse": "Browse GitHub Apps",
   "repo_install_ask_admin": "Ask an org admin to install it.",

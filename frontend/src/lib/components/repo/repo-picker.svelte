@@ -55,6 +55,7 @@
       }
       page = nextPage;
       hasMore = result.has_more;
+      appSlug = result.app_slug;
       pickerState = "ready";
     } catch (err) {
       if (err instanceof AppNotInstalledError) {
@@ -166,6 +167,21 @@
         <button onclick={() => load(page + 1)} class="mt-3 w-full rounded-md border py-2 text-sm hover:bg-accent">
           もっと見る
         </button>
+      {/if}
+
+      {#if appSlug}
+        <!-- 目的の repo が一覧に無い（App 未グラント）場合に、GitHub でアクセスを追加する導線。 -->
+        <p class="mt-4 text-center text-xs text-muted-foreground">
+          {m.repo_pick_missing()}
+          <a
+            href="https://github.com/apps/{appSlug}/installations/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-medium text-primary hover:underline"
+          >
+            {m.repo_add_more()}
+          </a>
+        </p>
       {/if}
     </div>
   {/if}

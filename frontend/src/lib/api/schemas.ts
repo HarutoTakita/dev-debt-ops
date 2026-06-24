@@ -58,6 +58,7 @@ export const repositoryListSchema = z.object({
   repositories: z.array(repositorySchema),
   page: z.number(),
   has_more: z.boolean(),
+  app_slug: z.string().default(""), // 未グラントの repo を追加する導線（installations/new）用
 });
 
 export const branchSchema = z.object({
