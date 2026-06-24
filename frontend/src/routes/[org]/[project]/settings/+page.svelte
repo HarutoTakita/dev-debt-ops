@@ -1,5 +1,6 @@
 <script lang="ts">
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -7,6 +8,7 @@
   import type { Branch } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { project } from "$lib/stores/project-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -37,6 +39,13 @@
     void listBranches(c.repo_owner, c.repo_name)
       .then((r) => (branches = r.branches))
       .catch(() => (branches = []));
+  });
+
+  const defaultBranchName = $derived(branches.find((b) => b.is_default)?.name ?? "");
+  // 一覧に現在値が無い場合も選べるよう先頭に補う（取得前・別ブランチ設定済みなど）。
+  const branchNames = $derived.by(() => {
+    const names = branches.map((b) => b.name);
+    return !branch || names.includes(branch) ? names : [branch, ...names];
   });
 
   async function save() {
@@ -85,20 +94,26 @@
         <Input bind:value={name} />
       </label>
 
-      <label class="flex flex-col gap-1.5">
+      <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_branch_label()}</span>
-        <select
-          bind:value={branch}
-          class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          {#each branches as b (b.name)}
-            <option value={b.name}>{b.name}{b.is_default ? " (default)" : ""}</option>
-          {/each}
-          {#if !branches.some((b) => b.name === branch)}
-            <option value={branch}>{branch}</option>
-          {/if}
-        </select>
-      </label>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span class="truncate">{branch}{defaultBranchName === branch ? " (default)" : ""}</span>
+            <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="start" class="max-h-72 min-w-56 overflow-y-auto">
+            <DropdownMenu.RadioGroup bind:value={branch}>
+              {#each branchNames as b (b)}
+                <DropdownMenu.RadioItem value={b}
+                  >{b}{defaultBranchName === b ? " (default)" : ""}</DropdownMenu.RadioItem
+                >
+              {/each}
+            </DropdownMenu.RadioGroup>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      </div>
 
       <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_repo_label()}</span>
