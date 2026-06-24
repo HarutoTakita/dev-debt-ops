@@ -104,10 +104,10 @@
     {/each}
   </div>
 
-  <!-- 右: 現在 step の解説 + ナビ -->
+  <!-- 右: 現在 step の解説 + ナビ。固定高 + 解説をスクロール領域にして移動ボタンを毎ステップ同じ位置に固定。 -->
   <div class="lg:sticky lg:top-4">
-    <div class="rounded-lg border bg-card p-4">
-      <div class="flex items-center justify-between gap-2">
+    <div class="flex min-h-[18rem] flex-col rounded-lg border bg-card p-4 lg:h-[72vh]">
+      <div class="flex shrink-0 items-center justify-between gap-2">
         <span class="text-xs font-medium text-muted-foreground tabular-nums">
           {m.walkthrough_step({ current: total === 0 ? 0 : idx + 1, total })}
         </span>
@@ -117,15 +117,17 @@
           </span>
         {/if}
       </div>
-      {#if active}
-        {#if active.title}
-          <h3 class="mt-2 font-display text-sm font-semibold text-debt-knowledge">{active.title}</h3>
+      <div class="mt-2 flex-1 overflow-auto">
+        {#if active}
+          {#if active.title}
+            <h3 class="font-display text-sm font-semibold text-debt-knowledge">{active.title}</h3>
+          {/if}
+          <p class="mt-1.5 text-sm leading-relaxed">{active.explanation}</p>
+        {:else}
+          <p class="text-sm text-muted-foreground">{m.walkthrough_empty()}</p>
         {/if}
-        <p class="mt-1.5 text-sm leading-relaxed">{active.explanation}</p>
-      {:else}
-        <p class="mt-2 text-sm text-muted-foreground">{m.walkthrough_empty()}</p>
-      {/if}
-      <div class="mt-4 flex items-center justify-between gap-2">
+      </div>
+      <div class="mt-3 flex shrink-0 items-center justify-between gap-2 border-t pt-3">
         <button
           type="button"
           onclick={() => go(idx - 1)}
