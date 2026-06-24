@@ -48,26 +48,6 @@
     </div>
   {/if}
 
-  <!-- ヒーロー: 理解度（KC）を主役に、返済導線（Galaxy）を前面化（issue 059 リポジション） -->
-  <div
-    class="flex flex-col gap-3 rounded-lg border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
-    data-tour="overview-kc"
-  >
-    <div class="min-w-0">
-      <div class="flex items-baseline gap-2">
-        <span class="font-display text-3xl font-bold">{latestKc}%</span>
-        <span class="text-sm font-medium text-muted-foreground">{m.overview_stat_kc()}</span>
-      </div>
-      <p class="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">{m.overview_hero_desc()}</p>
-    </div>
-    <a
-      href={galaxyHref}
-      class="shrink-0 self-start rounded-md border px-3 py-1.5 text-sm font-medium text-primary hover:bg-accent/40 sm:self-auto"
-    >
-      {m.overview_hero_galaxy_cta()} →
-    </a>
-  </div>
-
   {#if onGranularity}
     <GranularitySwitch value={granularity} onChange={onGranularity} />
   {/if}
