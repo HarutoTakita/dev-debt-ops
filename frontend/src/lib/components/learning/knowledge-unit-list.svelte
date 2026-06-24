@@ -46,7 +46,7 @@
   }
 </script>
 
-<div class="mx-auto max-w-2xl space-y-4 p-4" data-tour="units-list">
+<div class="mx-auto max-w-6xl space-y-4 p-4" data-tour="units-list">
   <p class="text-xs text-muted-foreground">{m.units_subtitle()}</p>
 
   {#if loading}

@@ -39,7 +39,7 @@
   const kcChange = $derived(latestKc - firstKc);
 </script>
 
-<div class="mx-auto flex max-w-5xl flex-col gap-4 p-4">
+<div class="mx-auto flex max-w-6xl flex-col gap-4 p-4">
   {#if isSample}
     <div class="flex items-center gap-2">
       <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
