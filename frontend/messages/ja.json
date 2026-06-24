@@ -475,6 +475,8 @@
   "repo_error_server": "サーバーエラーです。時間を置いて再試行してください。",
   "repo_error_login": "ログインへ",
   "repo_not_installed": "GitHub App がインストールされていません。",
+  "repo_pick_missing": "目的のリポジトリがありませんか？",
+  "repo_add_more": "リポジトリを追加",
   "repo_install_cta": "GitHub App をインストール",
   "repo_install_browse": "GitHub Apps を開く",
   "repo_install_ask_admin": "Org 管理者にインストールを依頼してください。",
