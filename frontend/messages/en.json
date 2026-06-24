@@ -181,6 +181,7 @@
   "overview_stat_repaid": "Repaid this week",
   "overview_stat_repaid_unit": "",
   "overview_trend_title": "Code quality & understanding trend",
+  "overview_trend_empty": "Run analyses over time to see the weekly trend of code quality and understanding here.",
   "overview_trend_legend_debt": "Code quality",
   "overview_trend_legend_kc": "Understanding",
   "overview_priority_title": "Priority list",
