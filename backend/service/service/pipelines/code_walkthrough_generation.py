@@ -1,8 +1,9 @@
-"""code-walkthrough-generation pipeline.
+"""code-walkthrough-generation pipeline (on-demand fallback).
 
 Generates an ordered, line-anchored walkthrough (line ranges + Japanese explanations) for one
-"understand this code" learning resource. Triggered on demand when the learner opens a file's
-walkthrough page, so only opened files are ever generated. The result is persisted on
+"understand this code" learning resource. Walkthroughs are normally pre-generated during learning-plan
+generation; this pipeline is the on-demand fallback for files that were not pre-generated (e.g. plans
+created before pre-generation, or files that failed). The result is persisted on
 ``learning_resources.walkthrough`` and the build is idempotent (skip if already generated).
 ``shared.worker.run_task`` owns the terminal commit (issue 042).
 """
@@ -14,7 +15,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from service import config
-from service.services import gemini_stack_service
+from service.services.code_walkthrough import build_walkthrough
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -31,52 +32,6 @@ async def _mint_installation_token(github: GitHubRef) -> str:
         return github.access_token.get_secret_value()
     app_service = GitHubAppService(app_id=config.github_app_id(), private_key=config.github_app_private_key())
     return await app_service.get_installation_token(github.installation_id)
-
-
-def _clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
-    """Validate steps, re-anchor line numbers to the real file via ``start_text``, clamp, keep order.
-
-    LLMs miscount line numbers, so we snap ``start_line`` to the file line whose content matches the
-    returned ``start_text`` (closest occurrence to the claim) and shift ``end_line`` by the same delta.
-    This keeps the highlighted range aligned with the explanation. Falls back to the clamped claim.
-    """
-    n = len(lines)
-    stripped = [ln.strip() for ln in lines]
-    out: list[dict] = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        start_raw = item.get("start_line")
-        end_raw = item.get("end_line")
-        if start_raw is None or end_raw is None:
-            continue
-        try:
-            start = int(start_raw)
-            end = int(end_raw)
-        except (TypeError, ValueError):
-            continue
-        explanation = str(item.get("explanation") or "").strip()
-        if not explanation:
-            continue
-        # Re-anchor by matching the exact start-line text to the real file (corrects LLM line drift).
-        anchor = str(item.get("start_text") or "").strip()
-        if anchor:
-            matches = [i + 1 for i, s in enumerate(stripped) if s and s == anchor]
-            if matches:
-                best = min(matches, key=lambda line_no: abs(line_no - start))
-                end += best - start
-                start = best
-        start = max(1, min(start, n))
-        end = max(start, min(end, n))
-        out.append(
-            {
-                "start_line": start,
-                "end_line": end,
-                "title": str(item.get("title") or "").strip(),
-                "explanation": explanation,
-            }
-        )
-    return out
 
 
 def _result(request: CodeWalkthroughGenerationRequest, *, step_count: int) -> CodeWalkthroughGenerationResult:
@@ -112,20 +67,10 @@ async def process(request: CodeWalkthroughGenerationRequest, ctx: PipelineContex
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        file = await client.get_file_content(owner, repo, resource.source_ref, request.ref)
+        steps = await build_walkthrough(client, owner, repo, resource.source_ref, request.ref)
     finally:
         await client.aclose()
 
-    if not file.content:
-        return _result(request, step_count=0)
-
-    try:
-        raw = await gemini_stack_service.generate_code_walkthrough(resource.source_ref, file.content)
-    except ValueError:
-        logger.warning("Gemini code-walkthrough unavailable for %s", resource.source_ref)
-        return _result(request, step_count=0)
-
-    steps = _clean_steps(raw, file.content.split("\n"))
     resource.walkthrough = steps
     session.add(resource)
     await session.flush()  # run_task owns the terminal commit (issue 042)
