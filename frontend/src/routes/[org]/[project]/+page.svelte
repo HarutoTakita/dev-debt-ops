@@ -56,7 +56,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_overview()} · Rosetta</title>
+  <title>{m.nav_overview()} · DevDebtOps</title>
 </svelte:head>
 
 {#if !repo.connected}

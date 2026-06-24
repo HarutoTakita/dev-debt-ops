@@ -48,7 +48,7 @@ body {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  /* Rosetta: シェル（サイドバー / topbar）用の沈んだ面。本文より一段控えめに */
+  /* DevDebtOps: シェル（サイドバー / topbar）用の沈んだ面。本文より一段控えめに */
   --surface-sunken: oklch(0.97 0 0);
 }
 
@@ -84,7 +84,7 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-  /* Rosetta: near-black 本文（0.185）より一段暗い沈んだ面 */
+  /* DevDebtOps: near-black 本文（0.185）より一段暗い沈んだ面 */
   --surface-sunken: oklch(0.16 0 0);
 }
 
@@ -93,7 +93,7 @@ body {
   /* UI 全体をサイドバー＝本文と同じサンセリフ（Inter）に統一。見出し専用フォント（Fraunces）は廃止し、
      font-display ユーティリティは sans へ集約（クラス名は各所で維持）。 */
   --font-display: "Inter Variable", "Vazirmatn", sans-serif;
-  /* Rosetta: コード / kbd など等幅は JetBrains Mono を明示バインド（既定の ui-monospace から差し替え） */
+  /* DevDebtOps: コード / kbd など等幅は JetBrains Mono を明示バインド（既定の ui-monospace から差し替え） */
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Menlo", monospace;
   --color-surface-sunken: var(--surface-sunken);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -166,7 +166,7 @@ body {
   --color-background-dark: oklch(0.185 0 0); /* #171717 — OWUI dark body */
 }
 
-/* Rosetta Twin パレット — additive。地層（アンバー）× 天文台（ティール）の双対。
+/* DevDebtOps Twin パレット — additive。地層（アンバー）× 天文台（ティール）の双対。
    shadcn 意味トークンは温存し、負債 / 理解度の意味色だけを追加する */
 @theme {
   --color-success: oklch(0.72 0.15 165); /* ティール寄りグリーン: 返済 / 改善 */

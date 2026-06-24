@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.quiz_result_title()} · Rosetta</title>
+  <title>{m.quiz_result_title()} · DevDebtOps</title>
 </svelte:head>
 
 <ConstructiveResult result={data.result} {learningHref} />

@@ -73,7 +73,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.auth_signing_in()} · Rosetta</title>
+  <title>{m.auth_signing_in()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="flex min-h-screen items-center justify-center p-6">

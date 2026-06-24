@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
 
-  // 汎用 Coming Soon プレースホルダ（GlEmptyState の構図を Rosetta ブランドで）。
+  // 汎用 Coming Soon プレースホルダ（GlEmptyState の構図を DevDebtOps ブランドで）。
   type Props = { title: string; description: string; eyebrow?: string; action?: Snippet };
   const { title, description, eyebrow, action }: Props = $props();
 </script>

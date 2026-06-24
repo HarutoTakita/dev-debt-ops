@@ -1,1 +1,1 @@
-"""Rosetta heavy-processing service (async pipelines, Cloud Tasks HTTP target)."""
+"""DevDebtOps heavy-processing service (async pipelines, Cloud Tasks HTTP target)."""

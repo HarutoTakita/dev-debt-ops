@@ -30,7 +30,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_galaxy()} · Rosetta</title>
+  <title>{m.nav_galaxy()} · DevDebtOps</title>
 </svelte:head>
 
 {#if !galaxy.observed || !galaxy.galaxy}

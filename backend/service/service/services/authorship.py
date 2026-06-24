@@ -1,4 +1,4 @@
-"""Authorship resolution: map a GitHub commit/blame author to a Rosetta ``users.id``.
+"""Authorship resolution: map a GitHub commit/blame author to a DevDebtOps ``users.id``.
 
 fastapi-users' ``oauth_accounts`` table stores **no login column** — GitHub identity is the
 numeric ``account_id`` (the GitHub user-node id) plus ``account_email``; the login is only
@@ -7,7 +7,7 @@ resolved at request time by calling ``/user`` with the stored token
 therefore keys on ``account_id`` first (stable and unambiguous — it is exactly what the REST
 ``author.id`` / GraphQL ``databaseId`` fields provide) and falls back to ``account_email``.
 
-When no Rosetta user is linked (external committer), the caller gets ``None`` and is expected
+When no DevDebtOps user is linked (external committer), the caller gets ``None`` and is expected
 to keep the raw GitHub handle — see ADR ``docs/adr/0002-git-history-access-and-authorship.md``.
 
 The lookup runs against the api-owned ``oauth_accounts`` table via raw SQL on the pipeline's
@@ -52,10 +52,10 @@ def _as_uuid(value: object) -> uuid.UUID | None:
 
 
 async def resolve_author_user_id(session: AsyncSession, identity: AuthorIdentity) -> uuid.UUID | None:
-    """Return the Rosetta ``users.id`` linked to ``identity``, or ``None`` if unlinked.
+    """Return the DevDebtOps ``users.id`` linked to ``identity``, or ``None`` if unlinked.
 
     Matches on the GitHub ``account_id`` first (precise), then ``account_email`` (case-insensitive)
-    as a fallback. ``None`` means no linked Rosetta user — keep the raw GitHub handle.
+    as a fallback. ``None`` means no linked DevDebtOps user — keep the raw GitHub handle.
     """
     if identity.github_user_id is not None:
         row = (await session.execute(_BY_ACCOUNT_ID, {"account_id": str(identity.github_user_id)})).first()
