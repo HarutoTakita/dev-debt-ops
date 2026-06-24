@@ -169,6 +169,7 @@ def _stack_resources(raw: list[dict]) -> list[dict]:
                 "kind": item.get("kind") if item.get("kind") in _VALID_KINDS else "docs",
                 "title": str(item.get("title") or "External resource"),
                 "summary": str(item.get("summary") or ""),
+                "tech": str(item.get("tech") or ""),
                 "source_ref": None,
                 "url": url,
                 "estimated_minutes": item.get("estimated_minutes")
@@ -275,6 +276,7 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
             kind=r["kind"],
             title=r["title"],
             summary=r["summary"],
+            tech=r.get("tech", ""),
             source_ref=r["source_ref"],
             url=r["url"],
             estimated_minutes=r["estimated_minutes"],

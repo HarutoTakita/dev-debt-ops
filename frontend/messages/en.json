@@ -319,6 +319,7 @@
   "learning_priority_supplementary": "Supplementary",
   "learning_priority_hands_on": "Hands-on",
   "learning_dormant": "Unread for {months} months (dormant)",
+  "learning_code_load_error": "Could not load the source.",
   "members_kc_tooltip": "Contribution to org-wide understanding — coming soon",
   "stack_title": "Tech stack",
   "stack_analyze": "Analyze",
