@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.session.file.path} · Rosetta</title>
+  <title>{data.session.file.path} · DevDebtOps</title>
 </svelte:head>
 
 <div class="h-full">

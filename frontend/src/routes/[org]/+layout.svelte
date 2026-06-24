@@ -35,7 +35,7 @@
     <!-- モバイル: Sheet によるオーバーレイ表示 -->
     <Sheet.Root bind:open={sidebar.mobileOpen}>
       <Sheet.Content side="left" class="w-72 bg-surface-sunken p-0">
-        <Sheet.Title class="sr-only">Rosetta</Sheet.Title>
+        <Sheet.Title class="sr-only">DevDebtOps</Sheet.Title>
         <SuperSidebar />
       </Sheet.Content>
     </Sheet.Root>

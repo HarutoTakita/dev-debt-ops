@@ -1,4 +1,4 @@
-# Rosetta — Knowledge Debt Twin Agent
+# DevDebtOps — Knowledge Debt Twin Agent
 
 ## プロジェクト概要
 **理解負債（Knowledge / Understanding Debt）を主役に据えたプラットフォーム**（issue 058 リポジション）。

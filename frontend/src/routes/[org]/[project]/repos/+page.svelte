@@ -123,7 +123,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_repos()} · Rosetta</title>
+  <title>{m.nav_repos()} · DevDebtOps</title>
 </svelte:head>
 
 {#if !repo.connected}

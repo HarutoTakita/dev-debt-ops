@@ -15,7 +15,7 @@
 </script>
 
 <svelte:head>
-  <title>{debt.file_path} · Rosetta</title>
+  <title>{debt.file_path} · DevDebtOps</title>
 </svelte:head>
 
 <Tooltip.Provider delayDuration={150}>

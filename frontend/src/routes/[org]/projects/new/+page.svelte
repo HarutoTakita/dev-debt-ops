@@ -50,7 +50,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.project_create_title()} · Rosetta</title>
+  <title>{m.project_create_title()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-2xl px-6 py-10">

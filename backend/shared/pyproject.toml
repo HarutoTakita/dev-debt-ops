@@ -1,7 +1,7 @@
 [project]
 name = "rosetta-shared"
 version = "0.0.5"
-description = "Rosetta shared data layer — enums / schemas / queue Protocols / ORM models (Job)"
+description = "DevDebtOps shared data layer — enums / schemas / queue Protocols / ORM models (Job)"
 requires-python = ">=3.13"
 # 共有データ層: enum・共有 pydantic スキーマ・queue/Blob Protocol・共有 ORM モデル(Job)。
 # 統合クライアント(github / gemini / httpx / PyJWT)は shared に置かない。

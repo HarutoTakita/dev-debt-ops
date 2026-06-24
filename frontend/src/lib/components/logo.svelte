@@ -8,7 +8,7 @@
   let { class: className }: Props = $props();
 </script>
 
-<!-- Rosetta のレターマーク（R）。currentColor で着色し利用側のテキスト色を継承する。
+<!-- DevDebtOps のレターマーク（R）。currentColor で着色し利用側のテキスト色を継承する。
      static/favicon.svg の「R」マークとブランド整合。 -->
 <svg
   xmlns="http://www.w3.org/2000/svg"
@@ -24,6 +24,6 @@
     font-size="26"
     font-weight="bold"
     text-anchor="middle"
-    fill="currentColor">R</text
+    fill="currentColor">D</text
   >
 </svg>

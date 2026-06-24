@@ -2,7 +2,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip";
   import * as m from "$lib/paraglide/messages";
 
-  // GitLab には無い Rosetta 独自列。後続 issue で member.kcContribution（0..1）を 4 段階バーで描く。
+  // GitLab には無い DevDebtOps 独自列。後続 issue で member.kcContribution（0..1）を 4 段階バーで描く。
   // 本 issue は枠のみ（プレースホルダ + Coming Soon ツールチップ）。
 </script>
 
