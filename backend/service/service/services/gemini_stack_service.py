@@ -267,12 +267,16 @@ Return ONLY a valid JSON object — no markdown — with this exact schema:
 {{
   "questions": [
     {{"id": "q1", "kind": "multiple_choice|multiple_select", "prompt": "（日本語の設問文）",
-      "code_snippet": {{"language": "...", "path": "{path}", "content": "..."}} or null,
+      "code_snippet": {{"language": "<上のファイルの言語>", "path": "{path}",
+        "content": "<上のファイルから、その設問が対象とする該当コードをそのまま数行コピー>"}},
       "choices": [{{"id": "a", "label": "（日本語の選択肢）"}}],
       "difficulty": "L1|L2|L3|L4|L5"}}
   ],
   "answer_key": {{"q1": {{"answer": "correct id(s)", "rubric": "grading criteria"}}}}
 }}
+各設問には必ず "code_snippet" を付け、"content" には上のファイルから設問が対象とする該当コードを
+そのまま（最大 25 行程度に）コピーすること。プレースホルダ（"..." 等）や空文字は禁止。各設問は必ずその
+該当コードについて問うこと。"language" はファイル拡張子に対応する言語、"path" は引用元ファイルのパス。
 For "answer": multiple_choice = the single correct choice id (e.g. a); multiple_select = a
 comma-separated list of correct ids (e.g. a,c).
 Provide exactly 5 questions with ids q1..q5 spanning L1..L5.
