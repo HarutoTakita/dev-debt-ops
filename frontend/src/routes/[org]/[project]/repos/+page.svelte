@@ -8,7 +8,6 @@
   import CodeDebtPanel from "$lib/components/repo/code-debt-panel.svelte";
   import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
-  import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
   import PageHeading from "$lib/components/shell/page-heading.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
@@ -67,15 +66,28 @@
   // 解析（コード負債検知）の完了で密度バッジ／パネルを再取得（issue 049 の仕組みを流用）。
   refreshOnStageComplete(["detect_code"], loadDebts);
 
+  // stale-while-revalidate: キャッシュがあれば即表示（スピナーなし）し、裏で最新を取得して差し替える。
+  // 同一リポジトリへ再訪したときの「リポジトリ表示が遅い」を解消する。初回のみ GitHub 取得を待つ。
   async function loadTree(branch: string) {
     if (!repo.connected) return;
-    treeLoading = true;
+    const { owner, name } = repo.connected;
+    const key = `${owner}/${name}@${branch}`;
+    const cached = repo.treeCache.get(key);
     selectedPath = null;
     fileContent = null;
-    try {
-      tree = await getRepositoryTree(repo.connected.owner, repo.connected.name, branch);
-    } catch {
+    if (cached) {
+      tree = cached;
+      treeLoading = false;
+    } else {
       tree = null;
+      treeLoading = true;
+    }
+    try {
+      const fresh = await getRepositoryTree(owner, name, branch);
+      repo.treeCache.set(key, fresh);
+      tree = fresh;
+    } catch {
+      if (!cached) tree = null; // キャッシュがあれば表示は維持
     } finally {
       treeLoading = false;
     }
@@ -83,11 +95,15 @@
 
   async function loadBranches() {
     if (!repo.connected) return;
+    const { owner, name } = repo.connected;
+    const cached = repo.branchCache.get(`${owner}/${name}`);
+    if (cached) branches = cached;
     try {
-      const result = await listBranches(repo.connected.owner, repo.connected.name);
+      const result = await listBranches(owner, name);
+      repo.branchCache.set(`${owner}/${name}`, result.branches);
       branches = result.branches;
     } catch {
-      branches = [];
+      if (!cached) branches = [];
     }
   }
 
@@ -156,7 +172,6 @@
 
     <div class="flex flex-1 overflow-hidden">
       <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r" data-tour="repos-tree">
-        <TechStackPanel owner={repo.connected.owner} repo={repo.connected.name} />
         {#if treeLoading}
           <div class="flex flex-col gap-2 p-3" aria-busy="true">
             {#each ghostTree as w (w)}
