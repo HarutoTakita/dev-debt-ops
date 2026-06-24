@@ -181,7 +181,7 @@
   "overview_stat_repaid": "今週の返済",
   "overview_stat_repaid_unit": "件",
   "overview_trend_title": "コード品質と理解度の推移",
-  "overview_trend_empty": "解析を重ねると、コード品質と理解度の週ごとの推移がここに表示されます。",
+  "overview_trend_empty": "「解析」を実行すると、コード品質と理解度の推移がここに表示されます（解析するたびに 1 点増えます）。",
   "overview_trend_legend_debt": "コード品質",
   "overview_trend_legend_kc": "理解度",
   "overview_priority_title": "優先対応リスト",
