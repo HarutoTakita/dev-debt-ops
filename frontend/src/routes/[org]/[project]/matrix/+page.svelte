@@ -78,7 +78,7 @@
   <title>{m.matrix_title()} · DevDebtOps</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-4xl flex-col gap-3 p-4">
+<div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
   <div class="flex items-baseline justify-end gap-2">
     <span class="text-xs text-muted-foreground">
       {m.matrix_target_quadrant()}: <span class="text-foreground">{cellLabel(data.cell)}</span>

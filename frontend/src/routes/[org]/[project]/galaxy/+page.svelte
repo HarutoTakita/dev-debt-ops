@@ -36,7 +36,7 @@
 {#if !galaxy.observed || !galaxy.galaxy}
   <ComingSoonPlaceholder />
 {:else}
-  <div class="mx-auto flex h-full max-w-5xl flex-col gap-3 p-4">
+  <div class="mx-auto flex h-full max-w-6xl flex-col gap-3 p-4">
     <Tabs.Root bind:value={tab} class="flex min-h-0 flex-1 flex-col">
       <div class="flex items-center justify-between gap-2">
         <Tabs.List data-tour="galaxy-views">
