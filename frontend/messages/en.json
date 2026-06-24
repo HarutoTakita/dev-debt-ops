@@ -137,7 +137,7 @@
   "project_switcher_new": "New project",
   "project_switcher_hint": "The sidebar menus are scoped per project. Select or create a project to begin.",
   "project_home_title": "Projects",
-  "project_home_subtitle": "Pick a repository to measure and repay your team's knowledge debt (technical debt is a hotspot signal).",
+  "project_home_subtitle": "Create a project for each repository to analyze and improve your code's understanding and quality.",
   "project_home_new": "New project",
   "project_home_org_settings": "Org settings",
   "project_home_empty_title": "Create your first project",
