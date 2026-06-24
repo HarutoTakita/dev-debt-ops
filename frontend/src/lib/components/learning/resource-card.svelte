@@ -7,6 +7,10 @@
   import Code from "@lucide/svelte/icons/code";
   import Newspaper from "@lucide/svelte/icons/newspaper";
   import Check from "@lucide/svelte/icons/check";
+  import ExternalLink from "@lucide/svelte/icons/external-link";
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
+  import type { ResolvedPathname } from "$app/types";
   import type { LearningResource, ResourceKind, ResourcePriority } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
@@ -47,13 +51,39 @@
   };
 
   const dormantMonths = $derived(resource.dormant_days != null ? Math.round(resource.dormant_days / 30) : null);
+
+  // 教材を開くリンク: 外部資源は URL（別タブ）、チーム資産はリポジトリビューアの該当ファイルへ。
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+  const isExternal = $derived(Boolean(resource.url));
+  const href = $derived.by((): string | null => {
+    if (resource.url) return resource.url;
+    if (resource.source_ref)
+      return `${resolve(`/${orgSlug}/${projectSlug}/repos`)}?path=${encodeURIComponent(resource.source_ref)}` as ResolvedPathname;
+    return null;
+  });
 </script>
 
 <div class="flex items-start gap-3 rounded-lg border bg-card p-3">
   <Icon class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
   <div class="min-w-0 flex-1">
     <div class="flex items-center gap-2">
-      <span class="truncate text-sm font-medium">{resource.title}</span>
+      {#if href}
+        <!-- href は外部資源 URL もしくは resolve() 済みのリポジトリパス（混在のため動的） -->
+        <!-- eslint-disable svelte/no-navigation-without-resolve -->
+        <a
+          {href}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          class="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <span class="truncate">{resource.title}</span>
+          {#if isExternal}<ExternalLink class="size-3 shrink-0" />{/if}
+        </a>
+        <!-- eslint-enable svelte/no-navigation-without-resolve -->
+      {:else}
+        <span class="truncate text-sm font-medium">{resource.title}</span>
+      {/if}
       {#if ontoggle && order != null}
         <button
           type="button"
