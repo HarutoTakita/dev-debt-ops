@@ -182,7 +182,6 @@
   "overview_stat_repaid_unit": "",
   "overview_trend_title": "Code quality & understanding trend",
   "overview_trend_empty": "Run \"Analyze\" to see the code-quality and understanding trend here (each analysis adds a point).",
-  "overview_trend_hint": "Vertical axis: percentage (0–100%). Higher is better.",
   "overview_trend_legend_debt": "Code quality",
   "overview_trend_legend_kc": "Understanding",
   "overview_priority_title": "Priority list",
