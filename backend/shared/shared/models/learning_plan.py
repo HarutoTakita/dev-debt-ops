@@ -26,6 +26,7 @@ class LearningResource(SQLModel, table=True):
     kind: str = Field(nullable=False)  # adr / video / pr_comment / wiki / docs / book / article / code
     title: str = Field(nullable=False)
     summary: str = Field(default="", nullable=False)  # 「何を・なぜ理解すべきか」の説明（issue 068）
+    tech: str = Field(default="", nullable=False)  # 学べるテックスタックのタグ（stack 資源のみ・issue 068）
     source_ref: str | None = Field(default=None)
     url: str | None = Field(default=None)
     estimated_minutes: int | None = Field(default=None)

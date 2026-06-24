@@ -319,6 +319,7 @@
   "learning_priority_supplementary": "補助",
   "learning_priority_hands_on": "ハンズオン",
   "learning_dormant": "{months} か月読まれていない（死蔵）",
+  "learning_code_load_error": "ソースを取得できませんでした",
   "members_kc_tooltip": "組織全体の理解度への寄与 — Coming Soon",
   "stack_title": "テックスタック",
   "stack_analyze": "解析する",
