@@ -8,9 +8,6 @@
   import Newspaper from "@lucide/svelte/icons/newspaper";
   import Check from "@lucide/svelte/icons/check";
   import ExternalLink from "@lucide/svelte/icons/external-link";
-  import { page } from "$app/state";
-  import { resolve } from "$app/paths";
-  import type { ResolvedPathname } from "$app/types";
   import type { LearningResource, ResourceKind, ResourcePriority } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
@@ -52,16 +49,10 @@
 
   const dormantMonths = $derived(resource.dormant_days != null ? Math.round(resource.dormant_days / 30) : null);
 
-  // 教材を開くリンク: 外部資源は URL（別タブ）、チーム資産はリポジトリビューアの該当ファイルへ。
-  const orgSlug = $derived(page.params.org ?? "");
-  const projectSlug = $derived(page.params.project ?? "");
+  // 外部リンクは「技術スタックを学ぶ」（外部資源）のみ。コード理解（チーム資産）は「クイズと学習」内で
+  // 説明（summary）を読んで完結させ、コード品質側のビューアへは飛ばさない（理解負債/技術負債の棲み分け）。
   const isExternal = $derived(Boolean(resource.url));
-  const href = $derived.by((): string | null => {
-    if (resource.url) return resource.url;
-    if (resource.source_ref)
-      return `${resolve(`/${orgSlug}/${projectSlug}/repos`)}?path=${encodeURIComponent(resource.source_ref)}` as ResolvedPathname;
-    return null;
-  });
+  const href = $derived(resource.url ?? null);
 </script>
 
 <div class="flex items-start gap-3 rounded-lg border bg-card p-3">
@@ -69,7 +60,7 @@
   <div class="min-w-0 flex-1">
     <div class="flex items-center gap-2">
       {#if href}
-        <!-- href は外部資源 URL もしくは resolve() 済みのリポジトリパス（混在のため動的） -->
+        <!-- href は外部資源 URL（技術スタックの学習リンク・動的・別タブ） -->
         <!-- eslint-disable svelte/no-navigation-without-resolve -->
         <a
           {href}
