@@ -185,6 +185,10 @@ class AnalysisRunStore {
   async runAll(ctx: RunContext) {
     if (this.#runAllActive) return; // a run is already orchestrating; don't interleave a second loop
     this.#runAllActive = true;
+    // 解析開始時に全フェーズを idle へリセットする。前回ランの COMPLETED 表示を引きずると、再解析で
+    // 1 つ目だけ「処理中」で 2・3 つ目が「完了」のまま見え分かりづらいため、毎回クリーンな状態から始める。
+    this.#generation += 1; // 直前ランの残ポーリングを中断
+    this.stages = _initial();
     try {
       for (const def of STAGES) {
         const depsOk = def.dependsOn.every((d) => this.stages[d]?.status === "COMPLETED");
