@@ -81,19 +81,12 @@ export const tourSteps: TourStep[] = [
 export const pageTours: Record<string, TourStep[]> = {
   overview: [
     {
-      id: "overview-kc",
-      target: "overview-kc",
-      title: m.tour_ov_kc_title,
-      body: m.tour_ov_kc_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
-    },
-    {
       id: "overview-primary",
       target: "overview-primary",
       title: m.tour_ov_primary_title,
       body: m.tour_ov_primary_body,
       placement: "top",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
     },
     {
       id: "overview-stats",
