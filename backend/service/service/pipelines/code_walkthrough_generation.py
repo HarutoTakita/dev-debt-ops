@@ -33,8 +33,15 @@ async def _mint_installation_token(github: GitHubRef) -> str:
     return await app_service.get_installation_token(github.installation_id)
 
 
-def _clean_steps(raw: list[dict], line_count: int) -> list[dict]:
-    """Validate + clamp Gemini steps to 1..line_count; drop malformed entries, keep order."""
+def _clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
+    """Validate steps, re-anchor line numbers to the real file via ``start_text``, clamp, keep order.
+
+    LLMs miscount line numbers, so we snap ``start_line`` to the file line whose content matches the
+    returned ``start_text`` (closest occurrence to the claim) and shift ``end_line`` by the same delta.
+    This keeps the highlighted range aligned with the explanation. Falls back to the clamped claim.
+    """
+    n = len(lines)
+    stripped = [ln.strip() for ln in lines]
     out: list[dict] = []
     for item in raw:
         if not isinstance(item, dict):
@@ -51,8 +58,16 @@ def _clean_steps(raw: list[dict], line_count: int) -> list[dict]:
         explanation = str(item.get("explanation") or "").strip()
         if not explanation:
             continue
-        start = max(1, min(start, line_count))
-        end = max(start, min(end, line_count))
+        # Re-anchor by matching the exact start-line text to the real file (corrects LLM line drift).
+        anchor = str(item.get("start_text") or "").strip()
+        if anchor:
+            matches = [i + 1 for i, s in enumerate(stripped) if s and s == anchor]
+            if matches:
+                best = min(matches, key=lambda line_no: abs(line_no - start))
+                end += best - start
+                start = best
+        start = max(1, min(start, n))
+        end = max(start, min(end, n))
         out.append(
             {
                 "start_line": start,
@@ -110,7 +125,7 @@ async def process(request: CodeWalkthroughGenerationRequest, ctx: PipelineContex
         logger.warning("Gemini code-walkthrough unavailable for %s", resource.source_ref)
         return _result(request, step_count=0)
 
-    steps = _clean_steps(raw, len(file.content.split("\n")))
+    steps = _clean_steps(raw, file.content.split("\n"))
     resource.walkthrough = steps
     session.add(resource)
     await session.flush()  # run_task owns the terminal commit (issue 042)
