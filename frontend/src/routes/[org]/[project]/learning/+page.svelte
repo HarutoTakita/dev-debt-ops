@@ -56,7 +56,6 @@
         <p class="mt-0.5 text-xs text-debt-knowledge">{m.learning_from_quiz()}</p>
       {/if}
       <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span>{m.learning_gap()}:</span>
         {#each Array.from(new Set(plan.gap_concepts)) as concept (concept)}
           <a
             href={resolve(`/${orgSlug}/${projectSlug}/galaxy`)}
