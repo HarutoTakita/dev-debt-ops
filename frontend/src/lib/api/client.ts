@@ -556,16 +556,29 @@ export async function saveQuizAnswer(
 }
 
 // submit は 202 化（issue 034）: job を返し、getJob ポーリング後に getQuizResult で結果を取得する。
-export async function submitQuiz(orgSlug: string, projectSlug: string, sessionId: string): Promise<AnalyzeStackJob> {
+// 既に提出済み（採点中/採点済み）のセッションを再提出すると 409 になるため、その場合は再提出せず
+// 結果取得へ進めるよう null を返す（結果ページの load がリロード等で再実行されても 500 にしない）。
+export async function submitQuiz(
+  orgSlug: string,
+  projectSlug: string,
+  sessionId: string,
+): Promise<AnalyzeStackJob | null> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/submit`, {
     method: "POST",
   });
+  if (response.status === 409) return null; // 既に提出済み → 再提出しない
   if (!response.ok) throw new Error(await errorDetail(response, "採点の開始に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
 
-export async function getQuizResult(orgSlug: string, projectSlug: string, sessionId: string): Promise<QuizResult> {
+// 採点中はまだ結果が無く 404。その場合は null を返し、呼び出し側で完了までポーリングする。
+export async function getQuizResult(
+  orgSlug: string,
+  projectSlug: string,
+  sessionId: string,
+): Promise<QuizResult | null> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/result`);
+  if (response.status === 404) return null; // 採点中（結果未確定）
   if (!response.ok) throw new Error(await errorDetail(response, "採点結果の取得に失敗しました"));
   return quizResultSchema.parse(await response.json());
 }
