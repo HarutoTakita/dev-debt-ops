@@ -10,6 +10,7 @@
   import { Input } from "$lib/components/ui/input";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import { project } from "$lib/stores/project-store.svelte";
+  import { repo } from "$lib/stores/repo-store.svelte";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -38,6 +39,10 @@
     error = null;
     try {
       const created = await createProject(orgSlug, name.trim(), selectedRepo);
+      // 遷移前に現在プロジェクト/リポジトリを確定する。これにより遷移直後のダッシュボードが「接続済み」で
+      // 表示され（接続リポジトリ選択へ戻らない）、サイドバーで当該プロジェクトが選択中＝展開状態になる。
+      project.setCurrent(created);
+      repo.connect(selectedRepo);
       await project.loadList(orgSlug);
       // 初回プロジェクト（作成後の一覧が 1 件のみ）ならオンボーディングツアーを自動開始する（issue 066）。
       if (project.list.length <= 1) onboarding.requestAutoStart(orgSlug);
