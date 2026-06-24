@@ -173,7 +173,6 @@
   "priority_p3": "Low",
   "overview_legend_title": "How to read the quadrants",
   "overview_matrix_title": "Where to focus learning",
-  "overview_matrix_lens_note": "Read understanding (x-axis) as the main signal; low code quality (y-axis) — technical debt — rides along as a hotspot weighting urgency.",
   "overview_hero_desc": "Measure your team's understanding and repay it with learning and quizzes. Technical debt is a hotspot signal for which knowledge debt is most urgent.",
   "overview_hero_galaxy_cta": "Open the Understanding Map",
   "overview_stat_kc": "Team understanding",
