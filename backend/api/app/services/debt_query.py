@@ -9,7 +9,7 @@ not import the ``service`` package).
 
 import posixpath
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +31,9 @@ from shared.models import (
 )
 
 SEVERITY_RANK = {"critical": 3, "high": 2, "medium": 1, "low": 0}
+
+# 推移ブロックに表示する直近スナップショット数（issue 067, 解析ごとに 1 点）。
+_TREND_LIMIT = 12
 
 _LANG_BY_EXT = {
     ".py": "Python",
@@ -308,7 +311,14 @@ async def build_overview(
         )
 
     trend_rows = (
-        (await session.execute(select(DebtTrendPoint).where(col(DebtTrendPoint.project_id) == project.id)))
+        (
+            await session.execute(
+                select(DebtTrendPoint)
+                .where(col(DebtTrendPoint.project_id) == project.id)
+                .order_by(col(DebtTrendPoint.created_at).desc())
+                .limit(_TREND_LIMIT)
+            )
+        )
         .scalars()
         .all()
     )
@@ -317,7 +327,7 @@ async def build_overview(
             DebtTrendPointOut(week=t.week, code_debt_score=t.code_debt_score, knowledge_coverage=t.knowledge_coverage)
             for t in trend_rows
         ),
-        key=lambda p: p.week,
+        key=lambda p: p.week,  # ISO タイムスタンプ文字列なので辞書順 = 時系列順
     )
 
     activity = WeeklyActivityOut(
@@ -339,21 +349,24 @@ async def build_overview(
     )
 
 
-def _current_week() -> str:
-    """This week's Monday as an ISO date (e.g. ``2026-06-22``) — the weekly snapshot key and label."""
-    today = datetime.now(UTC).date()
-    monday = today - timedelta(days=today.weekday())
-    return monday.isoformat()
+def _snapshot_key() -> str:
+    """Per-run snapshot key/label: the current UTC timestamp in ISO form (issue 067).
+
+    One point is recorded per analysis run. Stored in the generic ``week`` column; ISO ordering is
+    chronological and microsecond precision keeps successive runs distinct (the ``(project_id, week)``
+    unique constraint effectively never collides; an exact-same-instant re-run merely upserts).
+    """
+    return datetime.now(UTC).isoformat()
 
 
 async def record_trend_snapshot(
     session: AsyncSession, project: Project, org_slug: str = ""
 ) -> DebtTrendPointOut | None:
-    """Upsert this week's trend point from the current project aggregates (issue 067).
+    """Append a trend point from the current project aggregates (issue 067).
 
-    Called after the "Analyze" run completes so history grows the more you analyse; re-running in the
-    same week overwrites that week's point. Aggregates are the mean ``code_debt_score`` / mean
-    ``knowledge_coverage`` over the analysed files. Returns ``None`` (records nothing) when unanalysed.
+    Records one point per analysis run (keyed by run timestamp) so the trend grows each time you
+    analyse. Aggregates are the mean ``code_debt_score`` / mean ``knowledge_coverage`` over the
+    analysed files. Returns ``None`` (records nothing) when nothing has been analysed yet.
     """
     overview = await build_overview(session, project, org_slug, granularity="file")
     files = overview.files
@@ -362,7 +375,7 @@ async def record_trend_snapshot(
     n = len(files)
     code = sum(f.code_debt_score for f in files) / n
     kc = sum(f.knowledge_coverage for f in files) / n
-    week = _current_week()
+    week = _snapshot_key()
     existing = (
         await session.execute(
             select(DebtTrendPoint).where(col(DebtTrendPoint.project_id) == project.id, col(DebtTrendPoint.week) == week)
