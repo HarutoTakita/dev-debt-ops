@@ -9,6 +9,7 @@ into ``shared`` or ``api``. ``shared.worker.run_task`` resolves the active pipel
 
 from service.pipelines import (
     code_debt_detection,
+    code_walkthrough_generation,
     feature_clustering,
     kc_analysis,
     knowledge_debt_detection,
@@ -24,7 +25,12 @@ from shared.schemas.code_debt_detection import CodeDebtDetectionRequest, CodeDeb
 from shared.schemas.feature_clustering import FeatureClusteringRequest, FeatureClusteringResult
 from shared.schemas.kc_analysis import KcAnalysisRequest, KcAnalysisResult
 from shared.schemas.knowledge_debt_detection import KnowledgeDebtDetectionRequest, KnowledgeDebtDetectionResult
-from shared.schemas.learning_plan import LearningPlanGenerationRequest, LearningPlanGenerationResult
+from shared.schemas.learning_plan import (
+    CodeWalkthroughGenerationRequest,
+    CodeWalkthroughGenerationResult,
+    LearningPlanGenerationRequest,
+    LearningPlanGenerationResult,
+)
 from shared.schemas.quiz import (
     QuizGenerationRequest,
     QuizGenerationResult,
@@ -59,6 +65,11 @@ PIPELINES = {
         LearningPlanGenerationRequest,
         LearningPlanGenerationResult,
         learning_plan_generation.process,
+    ),
+    JobType.CODE_WALKTHROUGH_GENERATION.value: (
+        CodeWalkthroughGenerationRequest,
+        CodeWalkthroughGenerationResult,
+        code_walkthrough_generation.process,
     ),
     JobType.FEATURE_CLUSTERING.value: (
         FeatureClusteringRequest,
