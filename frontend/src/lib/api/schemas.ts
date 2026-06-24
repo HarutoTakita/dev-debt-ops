@@ -384,7 +384,11 @@ export const quizQuestionSchema = z.object({
   id: z.string(),
   kind: z.enum(["multiple_choice", "multiple_select"]),
   prompt: z.string(),
-  code_snippet: z.object({ language: z.string(), path: z.string(), content: z.string() }).nullable(),
+  code_snippet: z
+    .object({ language: z.string().default(""), path: z.string().default(""), content: z.string() })
+    .nullable()
+    .catch(null), // 不正な形なら null に落として、クイズ全体のパース失敗を防ぐ
+
   choices: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
   difficulty: z.enum(["L1", "L2", "L3", "L4", "L5"]),
 });

@@ -41,13 +41,27 @@ from shared.queue import BlobClient, TaskDispatcher
 router = APIRouter(tags=["quizzes"])
 
 
+def _clean_snippet(snippet: dict | None) -> dict | None:
+    """Keep a code snippet only if it has real content; drop placeholder/empty/malformed ones to None."""
+    if not isinstance(snippet, dict):
+        return None
+    content = snippet.get("content")
+    if not isinstance(content, str) or not content.strip() or content.strip() == "...":
+        return None
+    return {
+        "language": str(snippet.get("language") or ""),
+        "path": str(snippet.get("path") or ""),
+        "content": content,
+    }
+
+
 def _normalize_questions(questions: list) -> list[dict]:
     """Ensure each stored question has the keys the frontend ``quizQuestionSchema`` requires."""
     out: list[dict] = []
     for q in questions:
         if isinstance(q, dict):
             q = dict(q)
-            q.setdefault("code_snippet", None)
+            q["code_snippet"] = _clean_snippet(q.get("code_snippet"))
             out.append(q)
     return out
 
