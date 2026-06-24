@@ -36,9 +36,9 @@
     <!-- 解析が一度も実行されていないときだけ空状態を案内（解析ごとに 1 点記録、issue 067）。 -->
     <p class="mt-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">{m.overview_trend_empty()}</p>
   {:else}
-    <p class="mt-0.5 text-[10px] text-muted-foreground">{m.overview_trend_hint()}</p>
-    <!-- グループ化縦棒グラフ: スナップショットごとにコード品質 / 理解度の 2 本。左→右が時系列、高いほど良い。 -->
-    <div class="mt-2 flex gap-2">
+    <!-- グループ化縦棒グラフ: スナップショットごとにコード品質 / 理解度の 2 本。左→右が時系列、高いほど良い。
+         各棒はホバーで % 値をツールチップ表示。 -->
+    <div class="mt-3 flex gap-2">
       <!-- 縦軸ラベル（0〜100% の割合） -->
       <div
         class="flex h-40 w-7 shrink-0 flex-col justify-between text-right text-[9px] text-muted-foreground tabular-nums"
@@ -56,15 +56,31 @@
             {#each trend as p (p.week)}
               <div class="flex h-full min-w-0 flex-1 items-end justify-center gap-1">
                 <div
-                  class="w-3.5 rounded-t bg-debt-code"
-                  style="height: {quality(p)}%"
-                  title="{m.overview_trend_legend_debt()} {quality(p)}%（{weekLabel(p.week)}）"
-                ></div>
+                  class="group/q relative flex h-full w-3.5 items-end"
+                  role="img"
+                  aria-label="{m.overview_trend_legend_debt()} {quality(p)}%（{weekLabel(p.week)}）"
+                >
+                  <div class="w-full rounded-t bg-debt-code" style="height: {quality(p)}%"></div>
+                  <span
+                    class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/q:opacity-100"
+                    style="bottom: calc({quality(p)}% + 3px)"
+                  >
+                    {quality(p)}%
+                  </span>
+                </div>
                 <div
-                  class="w-3.5 rounded-t bg-debt-knowledge"
-                  style="height: {pct(p.knowledge_coverage)}%"
-                  title="{m.overview_trend_legend_kc()} {pct(p.knowledge_coverage)}%（{weekLabel(p.week)}）"
-                ></div>
+                  class="group/k relative flex h-full w-3.5 items-end"
+                  role="img"
+                  aria-label="{m.overview_trend_legend_kc()} {pct(p.knowledge_coverage)}%（{weekLabel(p.week)}）"
+                >
+                  <div class="w-full rounded-t bg-debt-knowledge" style="height: {pct(p.knowledge_coverage)}%"></div>
+                  <span
+                    class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/k:opacity-100"
+                    style="bottom: calc({pct(p.knowledge_coverage)}% + 3px)"
+                  >
+                    {pct(p.knowledge_coverage)}%
+                  </span>
+                </div>
               </div>
             {/each}
           </div>
