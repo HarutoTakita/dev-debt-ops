@@ -143,4 +143,19 @@ describe("AnalysisRunStore", () => {
     await store.hydrate(CTX);
     expect(mocks.getAnalysisStatus).not.toHaveBeenCalled();
   });
+
+  it("runAll resets stale stages so a skipped (failed-dependency) stage isn't shown as stale-completed", async () => {
+    mocks.getJob.mockImplementation(async (id: string) =>
+      id === "j-fc" ? job("FAILED", { error: "boom" }) : job("COMPLETED"),
+    );
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    // 前回ランの残り表示: plan_learning が COMPLETED のまま。
+    store.stages = { ...store.stages, plan_learning: { status: "COMPLETED", jobId: "old", step: "", link: "/old" } };
+    await store.runAll(CTX);
+    // cluster_features が失敗 → 依存する plan_learning はスキップ。開始時リセットで idle へ戻り、
+    // 前回の COMPLETED 表示を引きずらない。
+    expect(store.stages.cluster_features.status).toBe("FAILED");
+    expect(store.stages.plan_learning.status).toBe("idle");
+  });
 });
