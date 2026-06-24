@@ -8,8 +8,10 @@
   type Props = { trend: DebtTrendPoint[] };
   const { trend }: Props = $props();
 
-  const layers = $derived([...trend].reverse()); // 今週（最新）を最上層へ
+  const layers = $derived([...trend].reverse()); // 最新を最上層へ
   const pct = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
+  // week は保存時その週の月曜 ISO 日付（例 2026-06-22）。狭い列に収まるよう M/D へ整形（モックの "今週" 等はそのまま）。
+  const weekLabel = (w: string) => (/^\d{4}-\d{2}-\d{2}$/.test(w) ? `${+w.slice(5, 7)}/${+w.slice(8, 10)}` : w);
 </script>
 
 <div>
@@ -25,19 +27,27 @@
     </div>
   </div>
 
-  <div class="mt-3 space-y-1">
-    {#each layers as p (p.week)}
-      <div class="flex items-center gap-2 text-xs">
-        <span class="w-12 shrink-0 text-right text-muted-foreground">{p.week}</span>
-        <div class="relative h-4 flex-1 overflow-hidden rounded-sm bg-debt-knowledge/15">
-          <div class="absolute inset-y-0 left-0 bg-debt-code/55" style="width: {100 - pct(p.code_debt_score)}%"></div>
+  {#if layers.length < 2}
+    <!-- 推移は 2 点以上で初めて意味を持つため、たまるまでは空状態を案内（issue 067）。 -->
+    <p class="mt-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">{m.overview_trend_empty()}</p>
+  {:else}
+    <div class="mt-3 space-y-1">
+      {#each layers as p (p.week)}
+        <div class="flex items-center gap-2 text-xs">
+          <span class="w-12 shrink-0 text-right text-muted-foreground">{weekLabel(p.week)}</span>
+          <div class="relative h-4 flex-1 overflow-hidden rounded-sm bg-debt-knowledge/15">
+            <div
+              class="absolute inset-y-0 left-0 bg-debt-code/55"
+              style="width: {100 - pct(p.code_debt_score)}%"
+            ></div>
+          </div>
+          <span class="w-32 shrink-0 text-right text-muted-foreground tabular-nums">
+            {m.overview_trend_legend_debt()}
+            {100 - pct(p.code_debt_score)} / {m.overview_trend_legend_kc()}
+            {pct(p.knowledge_coverage)}
+          </span>
         </div>
-        <span class="w-32 shrink-0 text-right text-muted-foreground tabular-nums">
-          {m.overview_trend_legend_debt()}
-          {100 - pct(p.code_debt_score)} / {m.overview_trend_legend_kc()}
-          {pct(p.knowledge_coverage)}
-        </span>
-      </div>
-    {/each}
-  </div>
+      {/each}
+    </div>
+  {/if}
 </div>
