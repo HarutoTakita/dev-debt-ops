@@ -11,7 +11,7 @@
   const stackSteps = $derived(steps.filter((s) => s.resource.section === "stack").sort((a, b) => a.order - b.order));
 </script>
 
-<div class="space-y-5">
+<div class="grid gap-5 lg:grid-cols-2 lg:items-start">
   {#if codeSteps.length > 0}
     <section>
       <h3 class="font-display text-sm font-semibold text-debt-knowledge">{m.learning_code_heading()}</h3>
