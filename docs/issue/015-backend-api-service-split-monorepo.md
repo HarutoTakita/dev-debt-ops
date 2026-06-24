@@ -123,7 +123,7 @@ backend/
       shared に置かない** — これらは api / service 各自が持つ）
 - [ ] `backend/shared/shared/__init__.py`
 - [ ] `backend/shared/shared/enums.py` — `JobType` / `JobStatus` の `StrEnum`（app_ref の
-      `shared/enums.py` を踏襲。Rosetta 用に `JobType.STACK_ANALYSIS` 等を定義。
+      `shared/enums.py` を踏襲。DevDebtOps 用に `JobType.STACK_ANALYSIS` 等を定義。
       `JobStatus` の値は **大文字**（QUEUED / PROCESSING / COMPLETED / FAILED / CANCELLED）。
       値の確定・拡張は 016 / 018）
 - [ ] `backend/shared/shared/queue.py` — キュー / Blob クライアントの **Protocol** を置く枠
@@ -484,7 +484,7 @@ from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Rosetta Service", summary="Heavy-processing worker (async pipelines)")
+app = FastAPI(title="DevDebtOps Service", summary="Heavy-processing worker (async pipelines)")
 
 
 @app.get("/health")
