@@ -153,7 +153,7 @@
   "project_settings_title": "Project settings",
   "project_settings_name_label": "Project name",
   "project_settings_branch_label": "Default branch",
-  "project_settings_repo_label": "Bound repository",
+  "project_settings_repo_label": "Connected repository",
   "project_settings_save": "Save changes",
   "project_settings_saved": "Saved",
   "project_settings_save_failed": "Failed to save",
