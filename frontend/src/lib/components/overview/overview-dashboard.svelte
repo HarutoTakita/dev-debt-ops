@@ -108,18 +108,21 @@
     </StatCard>
   </div>
 
-  <!-- 推移地層グラフ -->
-  <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
-    <DebtTrendStrata trend={overview.trend} />
-  </div>
+  <!-- 推移グラフ + 優先対応リストを横並び（広い画面）。狭い画面では縦積み。 -->
+  <div class="grid gap-4 lg:grid-cols-2">
+    <!-- 推移グラフ -->
+    <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
+      <DebtTrendStrata trend={overview.trend} />
+    </div>
 
-  <!-- 二次ビュー: 優先対応リスト -->
-  <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
-    <PriorityList {orgSlug} {projectSlug} files={overview.files} />
-    {#if dangerCount > 0}
-      <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
-        >{m.overview_view_all_danger({ count: dangerCount })} →</a
-      >
-    {/if}
+    <!-- 二次ビュー: 優先対応リスト -->
+    <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
+      <PriorityList {orgSlug} {projectSlug} files={overview.files} />
+      {#if dangerCount > 0}
+        <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+          >{m.overview_view_all_danger({ count: dangerCount })} →</a
+        >
+      {/if}
+    </div>
   </div>
 </div>
