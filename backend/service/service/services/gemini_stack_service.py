@@ -342,11 +342,13 @@ JSON object — no markdown — with this exact schema:
 {{
   "resources": [
     {{"kind": "docs|book|article", "title": "...", "url": "https://...",
+      "tech": "<the single technology/concept from the list above that this resource teaches>",
       "summary": "（日本語で1文: この資料で何を学べるか）",
       "estimated_minutes": 30, "priority": "required|recommended|supplementary|hands_on"}}
   ]
 }}
-Prefer authoritative sources. Use https URLs. Keep to at most 6 resources. Write "summary" in Japanese.
+Prefer authoritative sources. Use https URLs. Keep to at most 6 resources. Write "summary" in Japanese. \
+Set "tech" to one short label chosen from the technologies/concepts listed above.
 """
 
 

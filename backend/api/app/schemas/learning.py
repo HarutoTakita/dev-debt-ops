@@ -16,6 +16,7 @@ class LearningResourceOut(BaseModel):
     kind: str
     title: str
     summary: str  # 「何を・なぜ理解すべきか」の説明（issue 068）
+    tech: str  # 学べるテックスタックのタグ（stack 資源のみ・issue 068）
     source_ref: str | None
     url: str | None
     estimated_minutes: int | None
