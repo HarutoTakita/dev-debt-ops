@@ -18,6 +18,9 @@ from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import InstallationIdDep
 from app.schemas.learning import (
     BaselinePlansOut,
+    CodeWalkthroughJobOut,
+    CodeWalkthroughOut,
+    CodeWalkthroughStepOut,
     GeneratePlanIn,
     LearningPlanJobOut,
     LearningPlanOut,
@@ -331,3 +334,79 @@ async def patch_learning_step(
             dormant_days=resource.dormant_days,
         ),
     )
+
+
+async def _get_code_resource(session, service, org, project_slug: str, resource_id: uuid.UUID):
+    """Resolve a code learning resource within the project boundary (404 otherwise)."""
+    project = await service.get_by_slug(org, project_slug)
+    resource = (
+        await session.execute(select(LearningResource).where(col(LearningResource.id) == resource_id))
+    ).scalar_one_or_none()
+    if resource is None or resource.project_id != project.id:
+        raise HTTPException(status_code=404, detail="学習リソースが見つかりません")
+    return project, resource
+
+
+@router.get(
+    "/orgs/{slug}/projects/{project_slug}/learning/resources/{resource_id}/walkthrough",
+    response_model=CodeWalkthroughOut,
+    summary="コード理解の行ごと解説（保存済み）を返す。未生成なら status=empty",
+)
+async def get_code_walkthrough(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    resource_id: uuid.UUID,
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> CodeWalkthroughOut:
+    """Return the resource's persisted walkthrough; ``status="empty"`` until it has been generated."""
+    org, _ = org_membership
+    _, resource = await _get_code_resource(session, service, org, project_slug, resource_id)
+    steps = [CodeWalkthroughStepOut(**s) for s in resource.walkthrough if isinstance(s, dict)]
+    return CodeWalkthroughOut(
+        source_ref=resource.source_ref,
+        title=resource.title,
+        summary=resource.summary,
+        status="ready" if steps else "empty",
+        steps=steps,
+    )
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/learning/resources/{resource_id}/walkthrough",
+    response_model=CodeWalkthroughJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="コード理解の行ごと解説生成を enqueue する（生成済みなら job 無しで ready）",
+)
+async def generate_code_walkthrough_route(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    resource_id: uuid.UUID,
+    org_membership: OrgScope,
+    installation_id: InstallationIdDep,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SessionDep,
+    dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
+    blob: Annotated[BlobClient, Depends(get_blob_client)],
+) -> CodeWalkthroughJobOut:
+    """Enqueue walkthrough generation for one code resource (idempotent; ``ready`` if already done)."""
+    org, _ = org_membership
+    project, resource = await _get_code_resource(session, service, org, project_slug, resource_id)
+    if resource.walkthrough:
+        return CodeWalkthroughJobOut(job_id=None, status="ready")
+    payload = {
+        "resource_id": str(resource.id),
+        "repo_full_name": project.repo_full_name,
+        "ref": project.default_branch or "main",
+        "github": {"installation_id": installation_id},
+    }
+    job = await enqueue_job(
+        session=session,
+        dispatcher=dispatcher,
+        blob_client=blob,
+        job_type=JobType.CODE_WALKTHROUGH_GENERATION,
+        payload=payload,
+        created_by=current_user.id,
+        project_id=project.id,
+    )
+    return CodeWalkthroughJobOut(job_id=job.id, status=str(job.status))

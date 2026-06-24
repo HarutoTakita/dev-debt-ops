@@ -1,6 +1,7 @@
 """Learning-plan delivery schemas (issue 035) — snake_case, matching ``learningPlanSchema``."""
 
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -67,3 +68,29 @@ class StepPatchIn(BaseModel):
     """Body for ``PATCH .../learning/plans/{id}/steps/{order}``."""
 
     completed: bool
+
+
+class CodeWalkthroughStepOut(BaseModel):
+    """One line-anchored walkthrough step for a code resource."""
+
+    start_line: int
+    end_line: int
+    title: str
+    explanation: str
+
+
+class CodeWalkthroughOut(BaseModel):
+    """A code resource's stored walkthrough (``status="empty"`` until generated)."""
+
+    source_ref: str | None
+    title: str
+    summary: str
+    status: Literal["ready", "empty"]
+    steps: list[CodeWalkthroughStepOut]
+
+
+class CodeWalkthroughJobOut(BaseModel):
+    """``POST .../walkthrough`` response: enqueued job, or ``status="ready"`` when already generated."""
+
+    job_id: uuid.UUID | None
+    status: str

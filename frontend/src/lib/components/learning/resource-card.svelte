@@ -9,10 +9,10 @@
   import Check from "@lucide/svelte/icons/check";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
-  import { getFileContent } from "$lib/api/client";
-  import type { FileContent, LearningResource, ResourceKind, ResourcePriority } from "$lib/api/schemas";
-  import { repo } from "$lib/stores/repo-store.svelte";
-  import FileViewer from "$lib/components/repo/file-viewer.svelte";
+  import { page } from "$app/state";
+  import { resolve } from "$app/paths";
+  import type { ResolvedPathname } from "$app/types";
+  import type { LearningResource, ResourceKind, ResourcePriority } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
@@ -57,36 +57,19 @@
   const isExternal = $derived(Boolean(resource.url));
   const href = $derived(resource.url ?? null);
 
-  // コード理解（チーム資産）はカードをクリックすると「クイズと学習」内でソースコードをその場展開する
+  // コード理解（チーム資産）はクリックでウォークスルー専用ページ（行ごとにハイライト＋解説）へ遷移する
   // （理解負債/技術負債の棲み分け — コード品質ページへは飛ばさない）。source_ref がファイルパス
-  // （拡張子 or スラッシュを含む）のときのみ展開可能にし、ADR 番号などは対象外とする。
+  // （拡張子 or スラッシュを含む）のときのみリンク化し、ADR 番号などは対象外とする。
   const isCodeFile = $derived(
     !isExternal && !!resource.source_ref && (resource.kind === "code" || /[./]/.test(resource.source_ref)),
   );
-
-  let expanded = $state(false);
-  let content = $state<FileContent | null>(null);
-  let loading = $state(false);
-  let error = $state(false);
-
-  async function toggleExpand() {
-    expanded = !expanded;
-    if (!expanded || content || loading) return; // 取得済み/取得中は再取得しない（未取得なら再展開で再試行）
-    const connected = repo.connected;
-    if (!connected || !resource.source_ref) {
-      error = true;
-      return;
-    }
-    loading = true;
-    error = false;
-    try {
-      content = await getFileContent(connected.owner, connected.name, resource.source_ref, connected.default_branch);
-    } catch {
-      error = true;
-    } finally {
-      loading = false;
-    }
-  }
+  const orgSlug = $derived(page.params.org ?? "");
+  const projectSlug = $derived(page.params.project ?? "");
+  const planId = $derived(page.url.searchParams.get("planId"));
+  const walkthroughHref = $derived.by((): ResolvedPathname => {
+    const base = resolve(`/${orgSlug}/${projectSlug}/learning/code/${resource.id}`);
+    return (planId ? `${base}?planId=${planId}` : base) as ResolvedPathname;
+  });
 </script>
 
 <div class="flex items-start gap-3 rounded-lg border bg-card p-3">
@@ -107,15 +90,13 @@
         </a>
         <!-- eslint-enable svelte/no-navigation-without-resolve -->
       {:else if isCodeFile}
-        <button
-          type="button"
-          onclick={toggleExpand}
-          aria-expanded={expanded}
-          class="inline-flex min-w-0 items-center gap-1 text-left text-sm font-medium hover:text-debt-knowledge"
+        <a
+          href={walkthroughHref}
+          class="inline-flex min-w-0 items-center gap-1 text-sm font-medium hover:text-debt-knowledge"
         >
-          <ChevronRight class={cn("size-3.5 shrink-0 transition-transform", expanded && "rotate-90")} />
           <span class="truncate">{resource.title}</span>
-        </button>
+          <ChevronRight class="size-3.5 shrink-0" />
+        </a>
       {:else}
         <span class="truncate text-sm font-medium">{resource.title}</span>
       {/if}
@@ -146,22 +127,6 @@
     {/if}
     {#if dormantMonths != null}
       <p class="mt-1 text-xs text-debt-code">🕸 {m.learning_dormant({ months: dormantMonths })}</p>
-    {/if}
-    {#if isCodeFile && expanded}
-      <div class="mt-2 overflow-hidden rounded-lg border bg-card">
-        {#if error}
-          <p class="px-3 py-2 text-xs text-muted-foreground">{m.learning_code_load_error()}</p>
-        {:else}
-          <div class="max-h-80 overflow-auto">
-            <FileViewer
-              path={resource.source_ref}
-              content={content?.content ?? null}
-              size={content?.size ?? 0}
-              {loading}
-            />
-          </div>
-        {/if}
-      </div>
     {/if}
   </div>
   <div class="flex shrink-0 flex-col items-end gap-1">

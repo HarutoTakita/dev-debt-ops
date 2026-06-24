@@ -8,6 +8,8 @@ import {
   debtListSchema,
   fileDebtSchema,
   fileContentSchema,
+  codeWalkthroughSchema,
+  codeWalkthroughJobSchema,
   learningPlanSchema,
   learningStepSchema,
   overviewSchema,
@@ -33,6 +35,7 @@ import {
   type FileDebt,
   type LearningPlan,
   type LearningStep,
+  type CodeWalkthrough,
   type Overview,
   type PersonalGalaxy,
   type FileContent,
@@ -353,6 +356,33 @@ export async function patchStep(
   );
   if (!response.ok) throw new Error(await errorDetail(response, "ステップの更新に失敗しました"));
   return learningStepSchema.parse(await response.json());
+}
+
+// コード理解ウォークスルー（行ごと解説）: 保存済みを取得 / 未生成ならジョブを enqueue（オンデマンド生成）。
+export async function getCodeWalkthrough(
+  orgSlug: string,
+  projectSlug: string,
+  resourceId: string,
+): Promise<CodeWalkthrough> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/resources/${resourceId}/walkthrough`,
+  );
+  if (response.status === 404) throw new Error("学習リソースが見つかりません");
+  if (!response.ok) throw new Error(await errorDetail(response, "コード解説の取得に失敗しました"));
+  return codeWalkthroughSchema.parse(await response.json());
+}
+
+export async function generateCodeWalkthrough(
+  orgSlug: string,
+  projectSlug: string,
+  resourceId: string,
+): Promise<{ job_id: string | null; status: string }> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/learning/resources/${resourceId}/walkthrough`,
+    { method: "POST" },
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "コード解説の生成開始に失敗しました"));
+  return codeWalkthroughJobSchema.parse(await response.json());
 }
 
 // Knowledge Galaxy（issue 032）: GET .../galaxy を personalGalaxySchema で検証 / analyze-galaxy は enqueue。
