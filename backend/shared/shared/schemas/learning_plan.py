@@ -31,3 +31,19 @@ class LearningPlanGenerationResult(JobResultBase):
     step_count: int = 0
     team_count: int = 0
     external_count: int = 0
+
+
+class CodeWalkthroughGenerationRequest(JobRequestBase):
+    """Queue payload to generate the line-by-line walkthrough for one code learning resource."""
+
+    resource_id: str
+    repo_full_name: str = ""
+    ref: str = "main"
+    github: GitHubRef
+
+
+class CodeWalkthroughGenerationResult(JobResultBase):
+    """Pipeline result (steps written to ``learning_resources.walkthrough``)."""
+
+    resource_id: str
+    step_count: int = 0

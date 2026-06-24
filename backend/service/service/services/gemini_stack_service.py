@@ -417,6 +417,46 @@ async def generate_code_learning_steps(
     return steps if isinstance(steps, list) else []
 
 
+_CODE_WALKTHROUGH_PROMPT = """\
+あなたは、このリポジトリに参加した開発者へファイル「{path}」を1行ずつ読み解かせるメンターです。
+以下はそのファイルの全文（行番号つき）です。
+
+{numbered}
+
+このファイルを「読む順」に意味のまとまり（関数・ブロック・重要な数行）へ区切り、各区切りについて
+学習者向けの解説を作ってください。ONLY valid JSON（no markdown）:
+{{
+  "steps": [
+    {{"start_line": <開始行・1始まり>, "end_line": <終了行・1始まり>,
+      "title": "<その区切りの短い見出し>",
+      "explanation": "（日本語 2-3 文: そのコードが何をしているか / なぜ重要か / 注目点）"}}
+  ]
+}}
+行番号は上記の全文に厳密に対応させ、区切りは読む順（上から下）に並べてください。最大 {max_steps} 区切り。
+"""
+
+
+async def generate_code_walkthrough(path: str, content: str, *, max_steps: int = 12) -> list[dict]:
+    """Generate an ordered line-anchored walkthrough (line ranges + explanations) for a file via Gemini."""
+    if not content.strip():
+        return []
+    client = _build_client()
+    lines = content.split("\n")
+    numbered = "\n".join(f"{i + 1}: {line}" for i, line in enumerate(lines))
+    prompt = _CODE_WALKTHROUGH_PROMPT.format(path=path, numbered=numbered, max_steps=max_steps)
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return []
+    steps = raw.get("steps") if isinstance(raw, dict) else None
+    return steps if isinstance(steps, list) else []
+
+
 _AGENT_NARRATIVE_PROMPT = """\
 You are a "{kind}" twin agent narrating your autonomous debt-repayment loop in the FIRST PERSON \
 (Japanese), warmly and concisely. Findings:

@@ -477,9 +477,32 @@ export const learningPlanSchema = z.object({
   estimated_total_minutes: z.number(),
 });
 
+// コード理解ウォークスルー（行ごと解説）。オンデマンド生成 → learning_resources.walkthrough に保存。
+export const codeWalkthroughStepSchema = z.object({
+  start_line: z.number(),
+  end_line: z.number(),
+  title: z.string().default(""),
+  explanation: z.string(),
+});
+
+export const codeWalkthroughSchema = z.object({
+  source_ref: z.string().nullable(),
+  title: z.string(),
+  summary: z.string().default(""),
+  status: z.enum(["ready", "empty"]),
+  steps: z.array(codeWalkthroughStepSchema),
+});
+
+export const codeWalkthroughJobSchema = z.object({
+  job_id: z.string().nullable(),
+  status: z.string(),
+});
+
 export type ResourceOrigin = z.infer<typeof resourceOriginSchema>;
 export type ResourceKind = z.infer<typeof resourceKindSchema>;
 export type ResourcePriority = z.infer<typeof resourcePrioritySchema>;
 export type LearningResource = z.infer<typeof learningResourceSchema>;
 export type LearningStep = z.infer<typeof learningStepSchema>;
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
+export type CodeWalkthroughStep = z.infer<typeof codeWalkthroughStepSchema>;
+export type CodeWalkthrough = z.infer<typeof codeWalkthroughSchema>;
