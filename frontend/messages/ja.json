@@ -137,7 +137,7 @@
   "project_switcher_new": "新規プロジェクト",
   "project_switcher_hint": "サイドバーのメニューはプロジェクト単位です。プロジェクトを選択するか作成してください。",
   "project_home_title": "プロジェクト",
-  "project_home_subtitle": "観測対象のリポジトリを選び、チームの理解負債を実測・返済します（技術負債はホットスポット信号）。",
+  "project_home_subtitle": "リポジトリごとにプロジェクトを作成し、コードの理解度と品質を解析・改善します。",
   "project_home_new": "新規プロジェクト",
   "project_home_org_settings": "組織設定",
   "project_home_empty_title": "最初のプロジェクトを作成",
