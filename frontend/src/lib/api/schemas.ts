@@ -445,11 +445,16 @@ export const resourcePrioritySchema = z
   .enum(["required", "recommended", "supplementary", "hands_on"])
   .catch("recommended");
 
+// 学習プランのセクション（issue 068）: code=このコードを理解する / stack=技術スタックを学ぶ。
+export const resourceSectionSchema = z.enum(["code", "stack"]).catch("code");
+
 export const learningResourceSchema = z.object({
   id: z.string(),
   origin: resourceOriginSchema, // "team" を最優先で上に表示
+  section: resourceSectionSchema.default("code"), // code / stack（issue 068）
   kind: resourceKindSchema,
   title: z.string(),
+  summary: z.string().default(""), // 「何を・なぜ理解すべきか」の説明（issue 068）
   source_ref: z.string().nullable(), // ADR-0012 / PR #4523 / @alice 勉強会 等
   url: z.string().nullable(),
   estimated_minutes: z.number().nullable(),

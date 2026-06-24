@@ -1,4 +1,4 @@
-"""issue 035: learning-plan generation — team-first ordering + idempotency (GitHub/Gemini mocked)."""
+"""issue 035/068: learning-plan generation — code/stack sections + idempotency (GitHub/Gemini mocked)."""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -38,12 +38,35 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_mint(github: GitHubRef) -> str:
         return "tok"
 
+    async def _fake_code_steps(
+        feature_name: str, feature_description: str, file_paths: list[str], *, max_steps: int = 8
+    ) -> list[dict]:
+        # Section A: concept マッチで拾った 2 ファイルに説明つきステップを返す。
+        return [
+            {
+                "source_ref": "docs/adr/0001-cache.md",
+                "title": "ADR 0001",
+                "summary": "キャッシュ方針の決定",
+                "estimated_minutes": 15,
+                "priority": "required",
+            },
+            {
+                "source_ref": "src/cache.py",
+                "title": "cache.py",
+                "summary": "キャッシュ実装の要点",
+                "estimated_minutes": 20,
+                "priority": "required",
+            },
+        ]
+
     async def _fake_external(gap_concepts: list[str]) -> list[dict]:
+        # Section B: tech_stack 由来の一般リソース（mock は入力を無視）。
         return [
             {
                 "kind": "docs",
                 "title": "Caching docs",
                 "url": "https://example.com/cache",
+                "summary": "公式ドキュメント",
                 "estimated_minutes": 30,
                 "priority": "recommended",
             },
@@ -53,12 +76,13 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
                 "url": None,
                 "estimated_minutes": 60,
                 "priority": "supplementary",
-            },  # dropped
+            },  # dropped (no url)
         ]
 
     monkeypatch.setattr(learning_plan_generation, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(learning_plan_generation, "GitHubGitClient", lambda access_token: _FakeClient())
     monkeypatch.setattr(gemini_stack_service, "generate_external_resources", _fake_external)
+    monkeypatch.setattr(gemini_stack_service, "generate_code_learning_steps", _fake_code_steps)
 
 
 async def _seed_plan(session_maker: async_sessionmaker) -> uuid.UUID:
@@ -92,9 +116,9 @@ async def test_generation_team_first_and_minutes(
         result = await learning_plan_generation.process(_request(plan_id), PipelineContext(session=session))
         await session.commit()  # run_task owns the commit in production (issue-042)
 
-    # team = adr(0001-cache.md) + code(src/cache.py); external = 1 valid (no-url dropped)
-    assert result.team_count == 2
-    assert result.external_count == 1
+    # Section A (code) = adr(0001-cache.md) + code(src/cache.py); Section B (stack) = 1 valid (no-url dropped)
+    assert result.team_count == 2  # code section
+    assert result.external_count == 1  # stack section
     assert result.step_count == 3
 
     async with session_maker() as session:
@@ -108,8 +132,11 @@ async def test_generation_team_first_and_minutes(
             .all()
         )
         resources = {r.id: r for r in (await session.execute(select(LearningResource))).scalars().all()}
-        origins = [resources[s.resource_id].origin for s in steps]
-        assert origins == ["team", "team", "external"]  # team first
+        sections = [resources[s.resource_id].section for s in steps]
+        assert sections == ["code", "code", "stack"]  # A (code) then B (stack)
+        # code ステップは Gemini の説明（summary）を持つ
+        code_summaries = [resources[s.resource_id].summary for s in steps if resources[s.resource_id].section == "code"]
+        assert "キャッシュ実装の要点" in code_summaries
         plan = (await session.execute(select(LearningPlan).where(LearningPlan.id == plan_id))).scalar_one()
         assert plan.estimated_total_minutes == 15 + 20 + 30
 

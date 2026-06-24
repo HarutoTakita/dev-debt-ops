@@ -335,22 +335,23 @@ async def grade_quiz(payload: str) -> dict:
 
 
 _EXTERNAL_RESOURCES_PROMPT = """\
-A developer needs to learn these concepts: {concepts}
+A developer needs to learn these technologies/concepts: {concepts}
 
-Suggest external learning resources (official docs, books, articles). Return ONLY a valid JSON object \
-— no markdown — with this exact schema:
+Suggest general external learning resources (official docs, books, articles) for them. Return ONLY a valid \
+JSON object — no markdown — with this exact schema:
 {{
   "resources": [
     {{"kind": "docs|book|article", "title": "...", "url": "https://...",
+      "summary": "（日本語で1文: この資料で何を学べるか）",
       "estimated_minutes": 30, "priority": "required|recommended|supplementary|hands_on"}}
   ]
 }}
-Prefer authoritative sources. Use https URLs. Keep to at most 6 resources.
+Prefer authoritative sources. Use https URLs. Keep to at most 6 resources. Write "summary" in Japanese.
 """
 
 
 async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
-    """Return external learning resources for gap concepts (Gemini). Empty on parse failure."""
+    """Return external learning resources for gap concepts / tech terms (Gemini). Empty on parse failure."""
     if not gap_concepts:
         return []
     client = _build_client()
@@ -366,6 +367,52 @@ async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
         return []
     resources = raw.get("resources") if isinstance(raw, dict) else None
     return resources if isinstance(resources, list) else []
+
+
+_CODE_LEARNING_PROMPT = """\
+あなたは、このリポジトリに参加した開発者へ機能「{feature_name}」のコードを理解させるメンターです。
+機能の説明: {feature_description}
+構成ファイル:
+{files}
+
+この機能のコードを理解するための学習ステップを、読む順に作ってください。各ステップで対象ファイルの
+「何をするコードか」「理解のために注目すべき点」を日本語で簡潔に説明します。ONLY valid JSON（no markdown）:
+{{
+  "steps": [
+    {{"source_ref": "<上記の構成ファイルのいずれか>", "title": "<ファイル名や扱う話題>",
+      "summary": "（日本語 2-3 文: 何をするコードか / 理解のポイント）",
+      "estimated_minutes": 15, "priority": "required|recommended|supplementary|hands_on"}}
+  ]
+}}
+"source_ref" は必ず上記の構成ファイルのいずれかにしてください。最大 {max_steps} ステップ。
+"""
+
+
+async def generate_code_learning_steps(
+    feature_name: str, feature_description: str, file_paths: list[str], *, max_steps: int = 8
+) -> list[dict]:
+    """Generate code-understanding learning steps (with explanations) for a feature's files via Gemini (issue 068)."""
+    if not file_paths:
+        return []
+    client = _build_client()
+    files_block = "\n".join(f"- {p}" for p in file_paths)
+    prompt = _CODE_LEARNING_PROMPT.format(
+        feature_name=feature_name,
+        feature_description=feature_description or "（説明なし）",
+        files=files_block,
+        max_steps=max_steps,
+    )
+    response = await client.aio.models.generate_content(
+        model=config.gemini_model(),
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
+    )
+    try:
+        raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
+    except (json.JSONDecodeError, AttributeError):
+        return []
+    steps = raw.get("steps") if isinstance(raw, dict) else None
+    return steps if isinstance(steps, list) else []
 
 
 _AGENT_NARRATIVE_PROMPT = """\
