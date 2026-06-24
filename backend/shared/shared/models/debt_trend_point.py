@@ -1,8 +1,8 @@
 """Shared ``DebtTrendPoint`` ORM — a weekly debt-trend snapshot (issue 031).
 
 ``debtTrendPointSchema``（``frontend/src/lib/api/schemas.ts``）= 地層グラフの 1 週分。Overview 配信（031）が
-``project_id`` でスコープして読む。**書き込み（週次スナップショット生成）は 037**（定期スキャンが
-``analysis_run`` 時系列から生成）が所有し、本 issue は読み取りのみ。``project_id`` は索引のみ（FK 無し）。
+``project_id`` でスコープして読む。**書き込み（解析時スナップショット）は 067**（「解析」完了後に
+``debt_query.record_trend_snapshot`` が今週の集計を upsert）が所有する。``project_id`` は索引のみ（FK 無し）。
 """
 
 import uuid

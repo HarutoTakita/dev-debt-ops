@@ -7,6 +7,7 @@ import {
   generateBaselineQuizzes,
   getAnalysisStatus,
   getJob,
+  recordTrendSnapshot,
 } from "$lib/api/client";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
@@ -188,6 +189,12 @@ class AnalysisRunStore {
       for (const def of STAGES) {
         const depsOk = def.dependsOn.every((d) => this.stages[d]?.status === "COMPLETED");
         if (depsOk) await this.runStage(def.id, ctx);
+      }
+      // 解析完了時点のコード品質・理解度を週次の推移点として記録（失敗してもランは壊さない、issue 067）。
+      try {
+        await recordTrendSnapshot(ctx.orgSlug, ctx.projectSlug);
+      } catch {
+        /* 記録失敗は無視（推移は次回の解析で更新される） */
       }
     } finally {
       this.#runAllActive = false;

@@ -410,6 +410,15 @@ export async function generateBaselinePlans(orgSlug: string, projectSlug: string
   return { created: Number(data.created ?? 0) };
 }
 
+// 解析完了時に、現在のコード品質・理解度を週次の推移点として記録（upsert）する（issue 067）。
+// 返り値（記録した点 or null）は使わない（記録のみ）。
+export async function recordTrendSnapshot(orgSlug: string, projectSlug: string): Promise<void> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/trend-snapshot`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "推移スナップショットの記録に失敗しました"));
+}
+
 // 解析ステージの最新ジョブ状態（リロード後の状態復元用）: GET .../analysis-status。
 export async function getAnalysisStatus(orgSlug: string, projectSlug: string): Promise<AnalysisStatus> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/analysis-status`);
