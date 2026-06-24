@@ -11,6 +11,7 @@ A → B の順、各セクション内は priority 順で ``learning_resources``
 if the plan already has steps, skip (the whole build commits once, so a failed run leaves no partial steps).
 """
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from sqlmodel import col
 from service import config
 from service.services import gemini_stack_service
 from service.services.code_analysis import is_vendored_path
+from service.services.code_walkthrough import build_walkthrough
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -206,6 +208,37 @@ async def _stack_terms(session: AsyncSession, request: LearningPlanGenerationReq
     return out[:limit]
 
 
+async def _pregenerate_walkthroughs(
+    session: AsyncSession,
+    request: LearningPlanGenerationRequest,
+    code_to_walk: list[tuple[LearningResource, str]],
+) -> None:
+    """Pre-generate + persist line-anchored walkthroughs for the plan's code files (concurrent, capped).
+
+    Network/Gemini work runs concurrently (semaphore-capped); the session is only touched serially after.
+    Per-file failures are swallowed (the resource keeps an empty walkthrough; the on-demand path can retry).
+    """
+    if not code_to_walk:
+        return
+    owner, _, repo = request.repo_full_name.partition("/")
+    if not owner or not repo:
+        return
+    token = await _mint_installation_token(request.github)
+    client = GitHubGitClient(access_token=token)
+    sem = asyncio.Semaphore(5)
+
+    async def _walk(resource: LearningResource, path: str) -> None:
+        async with sem:
+            resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
+
+    try:
+        await asyncio.gather(*(_walk(res, path) for res, path in code_to_walk), return_exceptions=True)
+    finally:
+        await client.aclose()
+    for resource, _path in code_to_walk:
+        session.add(resource)
+
+
 async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) -> LearningPlanGenerationResult:
     """Generate the plan's resources + ordered steps (team-first)."""
     if ctx.session is None:
@@ -268,6 +301,7 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
     )
 
     total_minutes = 0
+    code_to_walk: list[tuple[LearningResource, str]] = []
     for order, r in enumerate(ordered):
         resource = LearningResource(
             project_id=plan.project_id,
@@ -287,6 +321,12 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
         await session.flush()
         session.add(LearningStep(plan_id=plan_id, order=order, completed=False, resource_id=resource.id))
         total_minutes += r["estimated_minutes"] or 0
+        if r["section"] == "code" and r["kind"] == "code" and isinstance(r["source_ref"], str):
+            code_to_walk.append((resource, r["source_ref"]))
+
+    # 解析時に各コードファイルの行ごと解説（walkthrough）を事前生成し保存する（ユーザーが開いた瞬間に即表示）。
+    # GitHub 取得 + Gemini 生成はファイルごとに独立なので、セマフォで上限を設けつつ並行実行して待ち時間を抑える。
+    await _pregenerate_walkthroughs(session, request, code_to_walk)
 
     plan.estimated_total_minutes = total_minutes
     session.add(plan)
