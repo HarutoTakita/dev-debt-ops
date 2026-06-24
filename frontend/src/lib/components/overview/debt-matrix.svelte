@@ -33,8 +33,6 @@
     <span class="text-sm font-medium">{m.overview_matrix_title()}</span>
     <AxisLegend />
   </div>
-  <!-- 理解負債レンズ: 理解度を主軸に読み、コード負債は緊急度の重み（ホットスポット）として添える（issue 059）。 -->
-  <p class="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{m.overview_matrix_lens_note()}</p>
 
   <div class="mt-3 flex gap-2">
     <!-- 縦軸ラベル（上＝コード品質が高い）。矢印は明示的な上向きアイコンで示す。 -->
