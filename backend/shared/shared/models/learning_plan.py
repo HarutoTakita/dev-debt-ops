@@ -33,6 +33,8 @@ class LearningResource(SQLModel, table=True):
     priority: str = Field(nullable=False)  # required / recommended / supplementary / hands_on
     dormant_days: int | None = Field(default=None)
     origin_meta: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # コード理解の行ごと解説（オンデマンド生成・保存）。list[{start_line,end_line,title,explanation}]
+    walkthrough: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
 
 
 class LearningPlan(SQLModel, table=True):
