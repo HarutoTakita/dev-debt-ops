@@ -49,7 +49,7 @@
 </svelte:head>
 
 {#if plan}
-  <div class="mx-auto max-w-2xl space-y-4 p-4">
+  <div class="mx-auto max-w-6xl space-y-4 p-4">
     <a href={unitsHref} class="text-xs text-muted-foreground hover:text-foreground">{m.unit_back()}</a>
     <div>
       {#if data.from === "quiz"}

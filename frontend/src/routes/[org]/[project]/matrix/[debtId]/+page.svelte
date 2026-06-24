@@ -19,7 +19,7 @@
 </svelte:head>
 
 <Tooltip.Provider delayDuration={150}>
-  <div class="mx-auto flex max-w-5xl flex-col gap-3 p-4">
+  <div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
     <!-- 上部: 戻る + パス + ステータス -->
     <div class="flex flex-wrap items-center gap-2">
       <a
