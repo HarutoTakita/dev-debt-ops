@@ -120,6 +120,16 @@
       fileContent = null;
     }
   });
+
+  // 学習プランの「チーム内資産」リンク（?path=...）から該当ファイルを開く（ツリー読込後に適用）。
+  let appliedPath: string | null = null;
+  $effect(() => {
+    const path = page.url.searchParams.get("path");
+    if (path && path !== appliedPath && tree && repo.connected) {
+      appliedPath = path;
+      void onFileSelect(path);
+    }
+  });
 </script>
 
 <svelte:head>
