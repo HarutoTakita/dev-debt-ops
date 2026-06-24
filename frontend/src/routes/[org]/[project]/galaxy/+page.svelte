@@ -7,7 +7,6 @@
   import StarMap from "$lib/components/galaxy/star-map.svelte";
   import GalaxyLegend from "$lib/components/galaxy/galaxy-legend.svelte";
   import MasteryList from "$lib/components/galaxy/mastery-list.svelte";
-  import AxisLegend from "$lib/components/overview/axis-legend.svelte";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -47,7 +46,6 @@
         {#if galaxy.myKc !== null}
           <span class="flex items-center gap-1.5 text-sm text-muted-foreground">
             {m.galaxy_my_kc()}: <span class="font-medium text-foreground">{galaxy.myKc}%</span>
-            <AxisLegend />
           </span>
         {/if}
       </div>
