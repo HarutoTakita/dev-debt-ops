@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import { resolve } from "$app/paths";
   import type { ResolvedPathname } from "$app/types";
   import type { FileDebt } from "$lib/api/schemas";
@@ -36,10 +37,11 @@
   <p class="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{m.overview_matrix_lens_note()}</p>
 
   <div class="mt-3 flex gap-2">
-    <!-- 縦軸ラベル（コード品質 ↑） -->
-    <div class="flex w-4 shrink-0 items-center justify-center">
-      <span class="rotate-180 text-[10px] whitespace-nowrap text-muted-foreground [writing-mode:vertical-rl]">
-        {m.overview_axis_quality()} ↑
+    <!-- 縦軸ラベル（上＝コード品質が高い）。矢印は明示的な上向きアイコンで示す。 -->
+    <div class="flex w-4 shrink-0 flex-col items-center justify-center gap-1 text-muted-foreground">
+      <ArrowUp class="size-3" />
+      <span class="text-[10px] whitespace-nowrap [writing-mode:vertical-rl]">
+        {m.overview_axis_quality()}
       </span>
     </div>
 
