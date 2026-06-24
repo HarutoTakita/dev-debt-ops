@@ -74,8 +74,10 @@ async def _plan_out(db, plan: LearningPlan) -> LearningPlanOut:
                 resource=LearningResourceOut(
                     id=str(r.id),
                     origin=r.origin,
+                    section=r.section,
                     kind=r.kind,
                     title=r.title,
+                    summary=r.summary,
                     source_ref=r.source_ref,
                     url=r.url,
                     estimated_minutes=r.estimated_minutes,
@@ -316,8 +318,10 @@ async def patch_learning_step(
         resource=LearningResourceOut(
             id=str(resource.id),
             origin=resource.origin,
+            section=resource.section,
             kind=resource.kind,
             title=resource.title,
+            summary=resource.summary,
             source_ref=resource.source_ref,
             url=resource.url,
             estimated_minutes=resource.estimated_minutes,
