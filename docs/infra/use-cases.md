@@ -1,6 +1,6 @@
 # ユースケース図
 
-Rosetta（Tech Debt Twin Agent）のアクターと主要ユースケースを Mermaid で示す。
+DevDebtOps（Tech Debt Twin Agent）のアクターと主要ユースケースを Mermaid で示す。
 Mermaid に UML ユースケース図の専用記法は無いため、**アクター → ユースケース（システム境界）** を
 flowchart で表現する。機能は `frontend/` のルートと `backend/api` のルータ、`backend/service` のパイプラインに対応する。
 
@@ -17,7 +17,7 @@ flowchart LR
     gh["🐙 GitHub<br/>(外部システム)"]:::actor
     twin["🤖 Twin Agent<br/>(自律ループ)"]:::actor
 
-    subgraph SYS["🛰️ Rosetta システム"]
+    subgraph SYS["🛰️ DevDebtOps システム"]
         direction TB
 
         subgraph ACC["アカウント / 組織"]

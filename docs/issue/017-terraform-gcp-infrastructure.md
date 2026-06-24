@@ -32,7 +32,7 @@ worker / キュー / Job モデルの概念を持たない。これは現行 `ba
 あることの素直な反映である（`backend/app/core/config.py` の `Settings` にもキューやジョブの
 設定は存在しない）。
 
-Rosetta の方向性は **api コンテナ と service コンテナ への分割**であり、重い処理（ADK スタック解析等）を
+DevDebtOps の方向性は **api コンテナ と service コンテナ への分割**であり、重い処理（ADK スタック解析等）を
 service 側で非同期実行する（issue-018）。この構成を GCP で動かすための Terraform が本 issue の対象である。
 
 ### 目的

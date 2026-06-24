@@ -1,6 +1,6 @@
 # シーケンス図
 
-Rosetta の主要フローを Mermaid シーケンス図で示す。すべて `backend/` / `frontend/` / `infra/` の実コードに基づく。
+DevDebtOps の主要フローを Mermaid シーケンス図で示す。すべて `backend/` / `frontend/` / `infra/` の実コードに基づく。
 
 - [1. 非同期ジョブのライフサイクル（汎用）](#1-非同期ジョブのライフサイクル汎用)
 - [2. スタック解析（stack-analysis・具体例）](#2-スタック解析stack-analysis具体例)

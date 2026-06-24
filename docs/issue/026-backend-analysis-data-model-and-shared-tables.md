@@ -262,7 +262,7 @@ camelCase とは別系統）を後続 issue が踏襲する。これも本 issue
       （独立仕様書が存在しないため、推測でなく**決定として明示**する）：
   - **File 同一性:** File は `(run_id, path)` で同定し、run/repo 横断の同一性は `repo_file.path` で近似する
     （git rename 追跡は本 issue 範囲外。必要なら 027 の履歴拡張で扱う）。
-  - **dev 識別子:** 解析（authorship/blame）は GitHub author（login / email）単位で発生するが、Rosetta の
+  - **dev 識別子:** 解析（authorship/blame）は GitHub author（login / email）単位で発生するが、DevDebtOps の
     ユーザは `users.id`。両者の突合方針（`api/app/api/v1/github.py` の `resolve_installation_id` が user→github_login を
     解決する経路を参照）を決め、後続テーブル（`file_kc.dev_id` 等、029/030）が `users.id` を主、GitHub login を
     マッピング経由とする旨を確定する。

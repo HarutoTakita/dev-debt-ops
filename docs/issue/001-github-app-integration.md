@@ -2,16 +2,16 @@
 
 ## 概要
 
-GitHub App の作成・設定、OAuth ログイン、インストールトークン管理サービス、Git クライアントを一括で実装し、Rosetta が GitHub リポジトリにアクセスできる基盤を整える。後続のリポジトリ一覧 API・ファイルツリー取得 API の前提となる。
+GitHub App の作成・設定、OAuth ログイン、インストールトークン管理サービス、Git クライアントを一括で実装し、DevDebtOps が GitHub リポジトリにアクセスできる基盤を整える。後続のリポジトリ一覧 API・ファイルツリー取得 API の前提となる。
 
 ## 背景・目的
 
-Rosetta は GitHub リポジトリを対象にコード負債を検知する。そのためには GitHub App 経由でリポジトリを読み取る権限が必要で、開発者は GitHub アカウントでサインインして自分のリポジトリにアクセスできる必要がある。本 issue でその認証・アクセス基盤を一通り実装する。
+DevDebtOps は GitHub リポジトリを対象にコード負債を検知する。そのためには GitHub App 経由でリポジトリを読み取る権限が必要で、開発者は GitHub アカウントでサインインして自分のリポジトリにアクセスできる必要がある。本 issue でその認証・アクセス基盤を一通り実装する。
 
 ## タスク
 
 ### 設定・環境
-- [x] GitHub.com で Rosetta 用の GitHub App を作成する
+- [x] GitHub.com で DevDebtOps 用の GitHub App を作成する
 - [x] `config.py` に GitHub App 用の設定項目を追加する（`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `FRONTEND_ORIGIN`）
 - [x] `.env.example` / `.env.dev` に変数を追加する
 - [x] `pyproject.toml` に `PyJWT`・`cryptography`・`httpx`・`httpx-oauth` を追加する
