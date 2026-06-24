@@ -33,7 +33,7 @@ Understanding Debt）中心**」へ再構成する（コード負債は捨てず
 ## 要決定（本 issue 内で確定させる）
 
 - [ ] **副題 / タグライン**: 現 `Tech Debt Twin Agent`（`CLAUDE.md` / ブランディング）は技術負債前提。候補：
-      「Knowledge Debt Twin」「理解負債を実測し返済するエージェント」等。プロダクト名 `Rosetta`（言語＝理解の
+      「Knowledge Debt Twin」「理解負債を実測し返済するエージェント」等。プロダクト名 `DevDebtOps`（言語＝理解の
       メタファー、Galaxy/Rマーク）は理解負債とも整合するため維持を推奨。**最終決定はオーナー判断**。
 - [ ] **コード負債の呼称**: プロダクト内で「コード負債」を“競合機能”でなく“リスク信号（hotspot lens）”として
       語る用語を統一（例：「危険度シグナル」「ホットスポット」）。
@@ -63,7 +63,7 @@ Understanding Debt）中心**」へ再構成する（コード負債は捨てず
 ## 対象外・保留
 - **UI / API の再構成**（Overview のヒーロー差し替え、コード軸の降格、フィルタ化）→ **059**。
 - **コード負債検知ロジックの削除**（行わない。信号として維持）。
-- **プロダクト名 `Rosetta` の変更**（原則維持。副題のみ見直し）。
+- **プロダクト名 `DevDebtOps` の変更**（原則維持。副題のみ見直し）。
 
 ## 参考
 - 対象成果物：`README.md`、`rosetta-pitch-deck.html`、`仕様書.md`、`CLAUDE.md`、`docs/index.md`、`docs/tutorials/`、`docs/guides/`。
