@@ -8,9 +8,9 @@
   import KcMeter from "./kc-meter.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // 「正解/不正解」を出さない建設的フレーミング。理解していたこと / 学ぶ余地 + KC カウントアップ。
-  type Props = { result: QuizResult; learningHref: string };
-  const { result, learningHref }: Props = $props();
+  // 「正解/不正解」を出さない建設的フレーミング。理解していたこと / 学ぶ余地 + 理解度カウントアップ。
+  type Props = { result: QuizResult; backHref: string };
+  const { result, backHref }: Props = $props();
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
@@ -56,6 +56,6 @@
   </div>
 
   <div class="text-center">
-    <Button href={learningHref}>{m.quiz_result_cta()} →</Button>
+    <Button href={backHref}>{m.quiz_result_cta()}</Button>
   </div>
 </div>
