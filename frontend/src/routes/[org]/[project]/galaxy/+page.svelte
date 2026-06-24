@@ -7,6 +7,7 @@
   import StarMap from "$lib/components/galaxy/star-map.svelte";
   import GalaxyLegend from "$lib/components/galaxy/galaxy-legend.svelte";
   import MasteryList from "$lib/components/galaxy/mastery-list.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -37,6 +38,7 @@
   <ComingSoonPlaceholder />
 {:else}
   <div class="mx-auto flex h-full max-w-6xl flex-col gap-3 p-4">
+    <PageHeading title={m.nav_galaxy()} description={m.page_galaxy_desc()} />
     <Tabs.Root bind:value={tab} class="flex min-h-0 flex-1 flex-col">
       <div class="flex items-center justify-between gap-2">
         <Tabs.List data-tour="galaxy-views">

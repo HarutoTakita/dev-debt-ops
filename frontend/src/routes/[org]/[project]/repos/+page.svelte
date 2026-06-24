@@ -9,6 +9,7 @@
   import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
   import TechStackPanel from "$lib/components/repo/tech-stack-panel.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
@@ -142,6 +143,9 @@
   </div>
 {:else}
   <div class="flex h-full flex-col">
+    <div class="shrink-0 px-4 pt-3 pb-1">
+      <PageHeading title={m.nav_repos()} description={m.page_repos_desc()} />
+    </div>
     <RepoHeader
       {branches}
       selectedBranch={repo.selectedBranch}
