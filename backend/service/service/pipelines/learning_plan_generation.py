@@ -1,14 +1,14 @@
-"""learning-plan-generation pipeline (issue 035) — 3 stages.
+"""learning-plan-generation pipeline (issue 035, redesigned in 068) — 2 sections.
 
-1. internal_asset_search: scan the repo tree for ADRs and concept-matching code via ``GitHubGitClient``
-   (method B token), compute ``dormant_days`` from the latest commit age → ``origin="team"`` resources.
-2. external_resource_search: ask Gemini for external docs/books/articles → ``origin="external"`` resources
-   (https URLs only).
-3. plan_generator: team assets first (issue 012 §5.4), then external, ordered by priority; build
-   ``learning_resources`` + ``learning_steps`` and sum ``estimated_total_minutes``.
+A. code  — このリポジトリのコードを理解する具体ステップ。機能の代表ファイル（機能スコープ）または concept
+   マッチ（概念スコープ）を素材に、Gemini が「何を・なぜ理解すべきか」の説明つきステップを生成
+   （``origin="team"`` / ``section="code"``、リンクはリポジトリ内ファイル）。
+B. stack — テックスタック解析（``tech_stacks``）の言語/フレームワーク/DB を素材に、Gemini が一般的な学習
+   リソース（外部 https URL + 説明）を生成（``origin="external"`` / ``section="stack"``）。
 
-``shared.worker.run_task`` owns the Job lifecycle. Idempotent: if the plan already has steps, skip
-(the whole build commits once, so a failed run leaves no partial steps).
+A → B の順、各セクション内は priority 順で ``learning_resources`` + ``learning_steps`` を作り
+``estimated_total_minutes`` を集計する。``shared.worker.run_task`` owns the Job lifecycle. Idempotent:
+if the plan already has steps, skip (the whole build commits once, so a failed run leaves no partial steps).
 """
 
 import logging
@@ -25,7 +25,7 @@ from service.services.code_analysis import is_vendored_path
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
-from shared.models import Feature, FeatureFile, LearningPlan, LearningResource, LearningStep
+from shared.models import Feature, FeatureFile, LearningPlan, LearningResource, LearningStep, TechStack
 from shared.pipelines.context import PipelineContext
 from shared.schemas.learning_plan import LearningPlanGenerationRequest, LearningPlanGenerationResult
 from shared.schemas.stack_analysis import GitHubRef
@@ -90,50 +90,21 @@ async def _internal_assets(
     return resources
 
 
-async def _feature_team_assets(
-    session: AsyncSession,
-    client: GitHubGitClient,
-    feature_id: uuid.UUID,
-    request: LearningPlanGenerationRequest,
-    now: datetime,
-) -> list[dict]:
-    """Feature-scoped baseline plan: the feature's representative files ARE the team assets to read.
-
-    The plan has no quiz-derived gap_concepts at analysis time, so concept-matching finds nothing.
-    Instead, surface the feature's own top files (by clustering confidence) as "read these" team code
-    resources, with dormant_days from each file's latest commit.
-    """
+async def _feature_file_paths(session: AsyncSession, feature_id: uuid.UUID, *, limit: int = _MAX_TEAM) -> list[str]:
+    """Representative file paths for a feature (top by clustering confidence) — Section A source (issue 068)."""
     files = (
         (
             await session.execute(
                 select(FeatureFile)
                 .where(col(FeatureFile.feature_id) == feature_id)
                 .order_by(col(FeatureFile.confidence).desc())
-                .limit(_MAX_TEAM)
+                .limit(limit)
             )
         )
         .scalars()
         .all()
     )
-    owner, _, repo = request.repo_full_name.partition("/")
-    resources: list[dict] = [
-        {
-            "origin": "team",
-            "kind": "code",
-            "title": ff.file_path.rsplit("/", 1)[-1],
-            "source_ref": ff.file_path,
-            "url": None,
-            "estimated_minutes": 20,
-            "priority": "hands_on",
-            "dormant_days": None,
-        }
-        for ff in files
-    ]
-    if owner and repo:
-        for r in resources:
-            commits = await client.list_commits(owner, repo, path=r["source_ref"], sha=request.branch, per_page=1)
-            r["dormant_days"] = _age_days(commits[0].authored_at, now=now) if commits else None
-    return resources
+    return [ff.file_path for ff in files]
 
 
 # フロントの resourceKindSchema と一致させる許可 kind。LLM が想定外の値（例: priority の "hands_on"）を
@@ -141,17 +112,63 @@ async def _feature_team_assets(
 _VALID_KINDS = frozenset({"adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"})
 
 
-def _external_resources(raw: list[dict]) -> list[dict]:
+def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
+    """Map Gemini code-learning steps to Section A (code) resources; fall back to listing files when empty."""
+    valid = set(code_files)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for s in steps:
+        sr = s.get("source_ref")
+        if not isinstance(sr, str) or sr not in valid or sr in seen:
+            continue
+        seen.add(sr)
+        out.append(
+            {
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": str(s.get("title") or sr.rsplit("/", 1)[-1]),
+                "summary": str(s.get("summary") or ""),
+                "source_ref": sr,
+                "url": None,
+                "estimated_minutes": s.get("estimated_minutes") if isinstance(s.get("estimated_minutes"), int) else 15,
+                "priority": s.get("priority") if s.get("priority") in _PRIORITY_RANK else "required",
+                "dormant_days": None,
+            }
+        )
+    if not out:  # フォールバック: 説明生成が無くても読む対象は提示する
+        out = [
+            {
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": sr.rsplit("/", 1)[-1],
+                "summary": "",
+                "source_ref": sr,
+                "url": None,
+                "estimated_minutes": 15,
+                "priority": "required",
+                "dormant_days": None,
+            }
+            for sr in code_files[:_MAX_TEAM]
+        ]
+    return out
+
+
+def _stack_resources(raw: list[dict]) -> list[dict]:
+    """Map Gemini stack-learning items to Section B (stack) resources (https URLs only)."""
     out: list[dict] = []
     for item in raw:
         url = item.get("url")
         if not (isinstance(url, str) and url.startswith(("http://", "https://"))):
-            continue  # validate URL (scheme); drop invalid
+            continue
         out.append(
             {
                 "origin": "external",
+                "section": "stack",
                 "kind": item.get("kind") if item.get("kind") in _VALID_KINDS else "docs",
                 "title": str(item.get("title") or "External resource"),
+                "summary": str(item.get("summary") or ""),
                 "source_ref": None,
                 "url": url,
                 "estimated_minutes": item.get("estimated_minutes")
@@ -162,6 +179,30 @@ def _external_resources(raw: list[dict]) -> list[dict]:
             }
         )
     return out
+
+
+async def _stack_terms(session: AsyncSession, request: LearningPlanGenerationRequest, *, limit: int = 10) -> list[str]:
+    """Tech terms (languages + categories) from the project's tech_stack — Section B source (issue 068)."""
+    owner, _, repo = request.repo_full_name.partition("/")
+    if not owner or not repo:
+        return []
+    ts = (
+        await session.execute(select(TechStack).where(col(TechStack.owner) == owner, col(TechStack.repo) == repo))
+    ).scalar_one_or_none()
+    if ts is None:
+        return []
+    terms: list[str] = [x["name"] for x in ts.languages if isinstance(x, dict) and x.get("name")]
+    if isinstance(ts.categories, dict):
+        for items in ts.categories.values():
+            if isinstance(items, list):
+                terms += [x["name"] for x in items if isinstance(x, dict) and x.get("name")]
+    seen: set[str] = set()
+    out: list[str] = []
+    for t in terms:
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out[:limit]
 
 
 async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) -> LearningPlanGenerationResult:
@@ -183,37 +224,46 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
     if existing:  # idempotent: already generated
         return _result(request, step_count=existing, team=0, external=0)
 
-    # 機能スコープのベースラインプラン（解析時生成・クイズ前で gap_concepts 無し）は、機能そのものから
-    # 教材を導出する: 代表ファイルを「読むべきチーム資産」にし、機能名を外部リソース検索の手がかりにする。
-    # 概念スコープのプラン（クイズの gap 由来）は従来どおり concept マッチで team 資産を探す。
+    # 学習プランを 2 セクションで構成する（issue 068）:
+    #  A. code  — このリポジトリのコードを理解する具体ステップ（機能の代表ファイル + Gemini の説明）
+    #  B. stack — 検出した技術スタックの一般学習リソース（外部 URL + 説明）
     feature = None
-    gaps = list(request.gap_concepts)
     if plan.feature_id is not None:
         feature = (
             await session.execute(select(Feature).where(col(Feature.id) == plan.feature_id))
         ).scalar_one_or_none()
-        if feature is not None and not gaps:
-            gaps = [feature.name]
 
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+    # Section A: 学習対象のコードファイル（機能なら代表ファイル、概念スコープなら concept マッチ）。
+    if feature is not None:
+        code_files = await _feature_file_paths(session, feature.id)
+        code_name, code_desc = feature.name, feature.description
+    else:
+        token = await _mint_installation_token(request.github)
+        client = GitHubGitClient(access_token=token)
+        try:
+            code_files = [r["source_ref"] for r in await _internal_assets(client, request, now) if r.get("source_ref")]
+        finally:
+            await client.aclose()
+        code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
+        code_desc = ""
     try:
-        team = (
-            await _feature_team_assets(session, client, feature.id, request, now)
-            if feature is not None
-            else await _internal_assets(client, request, now)
-        )
-    finally:
-        await client.aclose()
-    try:
-        external = _external_resources(await gemini_stack_service.generate_external_resources(gaps))
+        code_steps = await gemini_stack_service.generate_code_learning_steps(code_name, code_desc, code_files)
     except ValueError:
-        logger.warning("Gemini external-resource search unavailable; team assets only")
-        external = []
+        logger.warning("Gemini code-learning unavailable; listing files without explanations")
+        code_steps = []
+    code = _code_resources(code_steps, code_files)
 
-    # team first, then external; within each, by priority rank.
-    ordered = sorted(team, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)) + sorted(
-        external, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)
+    # Section B: 技術スタックの一般学習リソース。
+    try:
+        terms = await _stack_terms(session, request)
+        stack = _stack_resources(await gemini_stack_service.generate_external_resources(terms))
+    except ValueError:
+        logger.warning("Gemini stack-learning unavailable; code section only")
+        stack = []
+
+    # A（code）→ B（stack）の順。各セクション内は priority 順。
+    ordered = sorted(code, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)) + sorted(
+        stack, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)
     )
 
     total_minutes = 0
@@ -221,8 +271,10 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
         resource = LearningResource(
             project_id=plan.project_id,
             origin=r["origin"],
+            section=r["section"],
             kind=r["kind"],
             title=r["title"],
+            summary=r["summary"],
             source_ref=r["source_ref"],
             url=r["url"],
             estimated_minutes=r["estimated_minutes"],
@@ -239,13 +291,13 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
     await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
 
     logger.info(
-        "learning_plan_generation: %s steps (team=%s ext=%s) for plan %s",
+        "learning_plan_generation: %s steps (code=%s stack=%s) for plan %s",
         len(ordered),
-        len(team),
-        len(external),
+        len(code),
+        len(stack),
         request.plan_id,
     )
-    return _result(request, step_count=len(ordered), team=len(team), external=len(external))
+    return _result(request, step_count=len(ordered), team=len(code), external=len(stack))
 
 
 def _result(

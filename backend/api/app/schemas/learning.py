@@ -12,8 +12,10 @@ class LearningResourceOut(BaseModel):
 
     id: str
     origin: str
+    section: str  # code（このコードを理解する）/ stack（技術スタックを学ぶ）issue 068
     kind: str
     title: str
+    summary: str  # 「何を・なぜ理解すべきか」の説明（issue 068）
     source_ref: str | None
     url: str | None
     estimated_minutes: int | None
