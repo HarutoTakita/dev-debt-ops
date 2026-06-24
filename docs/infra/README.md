@@ -1,6 +1,6 @@
 # インフラ・アーキテクチャ構成図
 
-Rosetta（Tech Debt Twin Agent）の **Google Cloud インフラ構成**と**アプリケーション構成**を、
+DevDebtOps（Tech Debt Twin Agent）の **Google Cloud インフラ構成**と**アプリケーション構成**を、
 `infra/` の Terraform と `backend/` / `frontend/` の実コードを確認して図化したもの。
 
 > このディレクトリの図は **実コードに基づく**（2026-06 時点）。出典は各セクションにファイルパスで明記する。
