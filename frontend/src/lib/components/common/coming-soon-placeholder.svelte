@@ -3,7 +3,7 @@
   import Logo from "$lib/components/logo.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // 汎用 Coming Soon 空状態（GlEmptyState 構図を Rosetta ブランドで）。
+  // 汎用 Coming Soon 空状態（GlEmptyState 構図を DevDebtOps ブランドで）。
   type Props = { title: string; description: string; eta?: string; class?: string };
   const { title, description, eta, class: className }: Props = $props();
 </script>

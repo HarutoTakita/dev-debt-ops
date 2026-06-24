@@ -1,7 +1,7 @@
 [project]
 name = "rosetta-backend"
 version = "0.0.5"
-description = "Rosetta backend — uv workspace root (shared / api / service)"
+description = "DevDebtOps backend — uv workspace root (shared / api / service)"
 requires-python = ">=3.13"
 
 # Workspace root is a coordinator, not an installable package.

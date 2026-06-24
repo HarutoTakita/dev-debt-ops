@@ -63,7 +63,7 @@ tags_metadata: list[dict[str, str]] = [
 ]
 
 app = FastAPI(
-    title="Rosetta",
+    title="DevDebtOps",
     summary="Tech Debt Twin Agent — SvelteKit + FastAPI + PostgreSQL",
     version="0.1.0",
     docs_url=None,

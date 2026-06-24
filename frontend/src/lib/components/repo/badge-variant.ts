@@ -1,5 +1,5 @@
 // confidence（解析の確信度）→ バッジクラスの写像。
-// Rosetta Twin パレットの「地層アンバー（debt-code）」で濃淡を表現し、GitLab 紫は使わない。
+// DevDebtOps Twin パレットの「地層アンバー（debt-code）」で濃淡を表現し、GitLab 紫は使わない。
 // high = 実線・濃色 / medium = 淡色 / low = 点線枠 の三段階で確信度が一目で分かるようにする。
 export type Confidence = "high" | "medium" | "low";
 
