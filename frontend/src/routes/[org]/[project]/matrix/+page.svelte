@@ -75,7 +75,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.matrix_title()} · Rosetta</title>
+  <title>{m.matrix_title()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto flex max-w-4xl flex-col gap-3 p-4">

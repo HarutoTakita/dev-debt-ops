@@ -22,12 +22,12 @@
 </script>
 
 <svelte:head>
-  <title>Rosetta</title>
+  <title>DevDebtOps</title>
 </svelte:head>
 
 <div class="flex min-h-screen flex-col items-center justify-center gap-6 p-8 text-center">
   <div class="space-y-3">
-    <h1 class="text-4xl font-bold">Rosetta</h1>
+    <h1 class="text-4xl font-bold">DevDebtOps</h1>
     <p class="max-w-md text-lg text-muted-foreground">{m.root_tagline()}</p>
   </div>
   <Button href={resolve("/login")}>{m.root_cta_signin()}</Button>

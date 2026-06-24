@@ -45,7 +45,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_knowledge_hub()} · Rosetta</title>
+  <title>{m.nav_knowledge_hub()} · DevDebtOps</title>
 </svelte:head>
 
 {#if plan}

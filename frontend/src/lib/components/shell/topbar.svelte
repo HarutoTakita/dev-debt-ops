@@ -34,7 +34,7 @@
     </div>
     <a href={resolve(`/${orgSlug}`)} class="flex items-center gap-2 text-foreground">
       <Logo class="size-5 text-debt-code" />
-      <span class="font-display text-base font-semibold tracking-tight">Rosetta</span>
+      <span class="font-display text-base font-semibold tracking-tight">DevDebtOps</span>
     </a>
   </div>
 

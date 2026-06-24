@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.admin_members_title()} · Rosetta</title>
+  <title>{m.admin_members_title()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="space-y-4">

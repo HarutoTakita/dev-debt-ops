@@ -1,1 +1,1 @@
-"""Rosetta shared data layer (enums, schemas, queue Protocols, ORM models)."""
+"""DevDebtOps shared data layer (enums, schemas, queue Protocols, ORM models)."""
