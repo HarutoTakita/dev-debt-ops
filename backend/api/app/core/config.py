@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         default=False,
         description="If True, the auth cookie is set with the Secure flag; must be True in non-dev environments.",
     )
-    JWT_LIFETIME_SECONDS: int = Field(default=300, description="Access-token lifetime in seconds (5 min).")
+    JWT_LIFETIME_SECONDS: int = Field(default=1800, description="Access-token lifetime in seconds (30 min).")
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
 
     # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
