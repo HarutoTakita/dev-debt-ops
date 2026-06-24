@@ -10,8 +10,15 @@
 
   const layers = $derived([...trend].reverse()); // 最新を最上層へ
   const pct = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
-  // week は保存時その週の月曜 ISO 日付（例 2026-06-22）。狭い列に収まるよう M/D へ整形（モックの "今週" 等はそのまま）。
-  const weekLabel = (w: string) => (/^\d{4}-\d{2}-\d{2}$/.test(w) ? `${+w.slice(5, 7)}/${+w.slice(8, 10)}` : w);
+  // week は保存時その解析の ISO タイムスタンプ（例 2026-06-24T11:53:…）。狭い列に収まるよう M/D HH:MM へ
+  // 整形（日付のみは M/D、モックの "今週" 等はそのまま）。
+  function weekLabel(w: string): string {
+    const t = w.match(/^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (t) return `${+t[1]}/${+t[2]} ${t[3]}:${t[4]}`;
+    const d = w.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (d) return `${+d[1]}/${+d[2]}`;
+    return w;
+  }
 </script>
 
 <div>
@@ -27,14 +34,14 @@
     </div>
   </div>
 
-  {#if layers.length < 2}
-    <!-- 推移は 2 点以上で初めて意味を持つため、たまるまでは空状態を案内（issue 067）。 -->
+  {#if layers.length < 1}
+    <!-- 解析が一度も実行されていないときだけ空状態を案内（解析ごとに 1 点記録、issue 067）。 -->
     <p class="mt-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">{m.overview_trend_empty()}</p>
   {:else}
     <div class="mt-3 space-y-1">
       {#each layers as p (p.week)}
         <div class="flex items-center gap-2 text-xs">
-          <span class="w-12 shrink-0 text-right text-muted-foreground">{weekLabel(p.week)}</span>
+          <span class="w-20 shrink-0 text-right whitespace-nowrap text-muted-foreground">{weekLabel(p.week)}</span>
           <div class="relative h-4 flex-1 overflow-hidden rounded-sm bg-debt-knowledge/15">
             <div
               class="absolute inset-y-0 left-0 bg-debt-code/55"

@@ -6,7 +6,6 @@ and empty-state 200s.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 
@@ -219,13 +218,8 @@ async def test_patch_dismiss_code_and_reject_knowledge_dismissed(authenticated_c
     assert res.status_code == 422
 
 
-def _expected_week() -> str:
-    today = datetime.now(UTC).date()
-    return (today - timedelta(days=today.weekday())).isoformat()
-
-
-async def test_trend_snapshot_records_and_upserts(authenticated_client: AsyncClient) -> None:
-    """POST trend-snapshot records this week's averaged code/KC point and upserts on re-run (issue 067)."""
+async def test_trend_snapshot_appends_per_run(authenticated_client: AsyncClient) -> None:
+    """POST trend-snapshot records the averaged code/KC point; each run appends a new point (issue 067)."""
     org_slug, project_slug, project_id = await _seed_project(authenticated_client)
     await _seed_analysis(project_id)
     base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}"
@@ -234,19 +228,17 @@ async def test_trend_snapshot_records_and_upserts(authenticated_client: AsyncCli
     res = await authenticated_client.post(f"{base}/trend-snapshot")
     assert res.status_code == 200
     point = res.json()
-    assert point["week"] == _expected_week()
     assert point["code_debt_score"] == 0.8
     assert point["knowledge_coverage"] == 0.3
+    assert point["week"]  # non-empty ISO timestamp label
 
-    # Overview now carries exactly that one trend point.
     body = (await authenticated_client.get(f"{base}/overview")).json()
     assert len(body["trend"]) == 1
-    assert body["trend"][0]["week"] == _expected_week()
 
-    # Re-running in the same week upserts (no duplicate row).
+    # One point per analysis run → a second run appends another point (not an upsert).
     assert (await authenticated_client.post(f"{base}/trend-snapshot")).status_code == 200
     body = (await authenticated_client.get(f"{base}/overview")).json()
-    assert len(body["trend"]) == 1
+    assert len(body["trend"]) == 2
 
 
 async def test_trend_snapshot_noop_when_unanalysed(authenticated_client: AsyncClient) -> None:
