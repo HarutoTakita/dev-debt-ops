@@ -3,7 +3,8 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { deleteProject, patchProject } from "$lib/api/client";
+  import { deleteProject, listBranches, patchProject } from "$lib/api/client";
+  import type { Branch } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { project } from "$lib/stores/project-store.svelte";
@@ -15,6 +16,7 @@
 
   let name = $state("");
   let branch = $state("");
+  let branches = $state<Branch[]>([]);
   let saving = $state(false);
   let savedAt = $state(false);
   let error = $state<string | null>(null);
@@ -26,6 +28,15 @@
       name = current.name;
       branch = current.default_branch;
     }
+  });
+
+  // 既定ブランチをプルダウンで選べるよう、リポジトリのブランチ一覧を取得する。
+  $effect(() => {
+    const c = current;
+    if (!c) return;
+    void listBranches(c.repo_owner, c.repo_name)
+      .then((r) => (branches = r.branches))
+      .catch(() => (branches = []));
   });
 
   async function save() {
@@ -76,7 +87,17 @@
 
       <label class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_branch_label()}</span>
-        <Input bind:value={branch} />
+        <select
+          bind:value={branch}
+          class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {#each branches as b (b.name)}
+            <option value={b.name}>{b.name}{b.is_default ? " (default)" : ""}</option>
+          {/each}
+          {#if !branches.some((b) => b.name === branch)}
+            <option value={branch}>{branch}</option>
+          {/if}
+        </select>
       </label>
 
       <div class="flex flex-col gap-1.5">
