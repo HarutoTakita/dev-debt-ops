@@ -455,6 +455,7 @@ export const learningResourceSchema = z.object({
   kind: resourceKindSchema,
   title: z.string(),
   summary: z.string().default(""), // 「何を・なぜ理解すべきか」の説明（issue 068）
+  tech: z.string().default(""), // 学べるテックスタックのタグ（stack 資源のみ）
   source_ref: z.string().nullable(), // ADR-0012 / PR #4523 / @alice 勉強会 等
   url: z.string().nullable(),
   estimated_minutes: z.number().nullable(),
