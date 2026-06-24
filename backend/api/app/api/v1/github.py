@@ -44,6 +44,7 @@ class RepositoryListOut(BaseModel):
     repositories: list[RepositoryOut]
     page: int
     has_more: bool
+    app_slug: str = ""  # GitHub App のスラッグ。未グラントの repo を追加する導線（installations/new）に使う
 
 
 class BranchOut(BaseModel):
@@ -180,6 +181,7 @@ async def list_repositories(
         ],
         page=page,
         has_more=has_more,
+        app_slug=settings.GITHUB_APP_SLUG,
     )
 
 
