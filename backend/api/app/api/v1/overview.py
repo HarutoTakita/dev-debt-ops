@@ -24,13 +24,15 @@ router = APIRouter(tags=["overview"])
 _GRANULARITIES = {"feature", "folder", "file"}
 
 # Analysis stages whose latest Job status we surface so the frontend cockpit can rehydrate after a
-# reload (the run store is in-memory). One JobType per cockpit stage (issue 037 stages).
+# reload (the run store is in-memory). One JobType per cockpit stage. QUIZ_GENERATION is included so
+# the "用意" group's confirm_quizzes stage rehydrates as COMPLETED instead of staying idle → PROCESSING.
 _ANALYSIS_JOB_TYPES = [
     JobType.CODE_DEBT_DETECTION,
     JobType.KNOWLEDGE_DEBT_DETECTION,
     JobType.KC_ANALYSIS,
     JobType.FEATURE_CLUSTERING,
     JobType.LEARNING_PLAN_GENERATION,
+    JobType.QUIZ_GENERATION,
 ]
 
 
