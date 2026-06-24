@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   clusterFeatures: vi.fn(),
   generateBaselinePlans: vi.fn(),
   generateBaselineQuizzes: vi.fn(),
+  recordTrendSnapshot: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
 }));

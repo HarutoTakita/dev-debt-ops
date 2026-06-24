@@ -1,8 +1,9 @@
 """Overview aggregation API (issue 031).
 
 ``GET .../overview`` aggregates the latest code-debt + KC runs (issues 028/029) and the
-``debt_trend_points`` snapshots into the ``overviewSchema`` payload. Read-only; returns an empty
-(200) payload when nothing has been analysed yet. Project-scoped under ``OrgScope``.
+``debt_trend_points`` snapshots into the ``overviewSchema`` payload; returns an empty
+(200) payload when nothing has been analysed yet. ``POST .../trend-snapshot`` records this week's
+trend point after an analysis run (issue 067). Project-scoped under ``OrgScope``.
 """
 
 from typing import Annotated
@@ -12,8 +13,8 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from app.api.deps import OrgScope, SASessionDep
-from app.schemas.overview import AnalysisJobStatusOut, AnalysisStatusOut, FileDebtOut, OverviewOut
-from app.services.debt_query import build_feature_drilldown, build_overview
+from app.schemas.overview import AnalysisJobStatusOut, AnalysisStatusOut, DebtTrendPointOut, FileDebtOut, OverviewOut
+from app.services.debt_query import build_feature_drilldown, build_overview, record_trend_snapshot
 from app.services.project import ProjectServiceDep
 from shared.enums import JobType
 from shared.models import Job
@@ -73,6 +74,27 @@ async def get_feature_drilldown(
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     return await build_feature_drilldown(session, project, feature_key)
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/trend-snapshot",
+    response_model=DebtTrendPointOut | None,
+    summary="解析時点のコード品質・理解度を週次推移点として記録する（upsert・issue 067）",
+)
+async def record_trend_snapshot_route(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> DebtTrendPointOut | None:
+    """Record/upsert this week's trend point from current aggregates (issue 067).
+
+    Called after the "Analyze" run completes so history accumulates over weeks. Returns the recorded
+    point, or ``null`` when nothing has been analysed yet (no files → no snapshot).
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    return await record_trend_snapshot(session, project, org.slug)
 
 
 @router.get(

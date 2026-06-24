@@ -9,7 +9,7 @@ not import the ``service`` package).
 
 import posixpath
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -337,6 +337,53 @@ async def build_overview(
         trend=trend,
         activity=activity,
     )
+
+
+def _current_week() -> str:
+    """This week's Monday as an ISO date (e.g. ``2026-06-22``) — the weekly snapshot key and label."""
+    today = datetime.now(UTC).date()
+    monday = today - timedelta(days=today.weekday())
+    return monday.isoformat()
+
+
+async def record_trend_snapshot(
+    session: AsyncSession, project: Project, org_slug: str = ""
+) -> DebtTrendPointOut | None:
+    """Upsert this week's trend point from the current project aggregates (issue 067).
+
+    Called after the "Analyze" run completes so history grows the more you analyse; re-running in the
+    same week overwrites that week's point. Aggregates are the mean ``code_debt_score`` / mean
+    ``knowledge_coverage`` over the analysed files. Returns ``None`` (records nothing) when unanalysed.
+    """
+    overview = await build_overview(session, project, org_slug, granularity="file")
+    files = overview.files
+    if not files:
+        return None
+    n = len(files)
+    code = sum(f.code_debt_score for f in files) / n
+    kc = sum(f.knowledge_coverage for f in files) / n
+    week = _current_week()
+    existing = (
+        await session.execute(
+            select(DebtTrendPoint).where(col(DebtTrendPoint.project_id) == project.id, col(DebtTrendPoint.week) == week)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.code_debt_score = code
+        existing.knowledge_coverage = kc
+        session.add(existing)
+    else:
+        session.add(
+            DebtTrendPoint(
+                project_id=project.id,
+                week=week,
+                code_debt_score=code,
+                knowledge_coverage=kc,
+                created_at=datetime.now(UTC),
+            )
+        )
+    await session.commit()
+    return DebtTrendPointOut(week=week, code_debt_score=code, knowledge_coverage=kc)
 
 
 async def list_debts(
