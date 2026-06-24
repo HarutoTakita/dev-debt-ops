@@ -141,26 +141,28 @@
           {repos.length === 0 ? "アクセス可能なリポジトリがありません" : "一致するリポジトリがありません"}
         </p>
       {:else}
-        <ul class="divide-y rounded-md border">
-          {#each filtered as r (r.full_name)}
-            <li>
-              <button
-                onclick={() => onselect(r)}
-                class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent"
-              >
-                <div>
-                  <span class="text-sm font-medium">{r.full_name}</span>
-                  {#if r.private}
-                    <span class="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">Private</span>
-                  {/if}
-                </div>
-                <span class="text-xs text-muted-foreground">
-                  {new Date(r.updated_at).toLocaleDateString("ja-JP")}
-                </span>
-              </button>
-            </li>
-          {/each}
-        </ul>
+        <div class="max-h-80 overflow-y-auto rounded-md border">
+          <ul class="divide-y">
+            {#each filtered as r (r.full_name)}
+              <li>
+                <button
+                  onclick={() => onselect(r)}
+                  class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent"
+                >
+                  <div>
+                    <span class="text-sm font-medium">{r.full_name}</span>
+                    {#if r.private}
+                      <span class="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs">Private</span>
+                    {/if}
+                  </div>
+                  <span class="text-xs text-muted-foreground">
+                    {new Date(r.updated_at).toLocaleDateString("ja-JP")}
+                  </span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
       {/if}
 
       {#if hasMore}
