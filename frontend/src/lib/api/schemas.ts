@@ -435,9 +435,15 @@ export type QuizListItem = z.infer<typeof quizListItemSchema>;
 export type QuizList = z.infer<typeof quizListSchema>;
 
 // Learning Plan（§5.4）。origin で「チーム資産(team)」を外部資源(external)より上に浮上させる。
-export const resourceOriginSchema = z.enum(["team", "external"]);
-export const resourceKindSchema = z.enum(["adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"]);
-export const resourcePrioritySchema = z.enum(["required", "recommended", "supplementary", "hands_on"]);
+// .catch: 生成（LLM）が想定外の値を返しても 1 リソースで学習プラン全体が parse 失敗→500 にならないよう、
+// 不明値は安全な既定値へフォールバックする（例: LLM が kind に "hands_on" を混入させても docs 扱い）。
+export const resourceOriginSchema = z.enum(["team", "external"]).catch("external");
+export const resourceKindSchema = z
+  .enum(["adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"])
+  .catch("docs");
+export const resourcePrioritySchema = z
+  .enum(["required", "recommended", "supplementary", "hands_on"])
+  .catch("recommended");
 
 export const learningResourceSchema = z.object({
   id: z.string(),

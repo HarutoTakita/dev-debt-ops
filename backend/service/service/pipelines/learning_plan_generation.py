@@ -136,6 +136,11 @@ async def _feature_team_assets(
     return resources
 
 
+# フロントの resourceKindSchema と一致させる許可 kind。LLM が想定外の値（例: priority の "hands_on"）を
+# kind に混入させても保存しないよう、許可外は "docs" に丸める（フロントの parse 失敗→500 を防ぐ）。
+_VALID_KINDS = frozenset({"adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"})
+
+
 def _external_resources(raw: list[dict]) -> list[dict]:
     out: list[dict] = []
     for item in raw:
@@ -145,7 +150,7 @@ def _external_resources(raw: list[dict]) -> list[dict]:
         out.append(
             {
                 "origin": "external",
-                "kind": item.get("kind") or "docs",
+                "kind": item.get("kind") if item.get("kind") in _VALID_KINDS else "docs",
                 "title": str(item.get("title") or "External resource"),
                 "source_ref": None,
                 "url": url,
