@@ -4,6 +4,7 @@
   import * as Sheet from "$lib/components/ui/sheet";
   import Topbar from "$lib/components/shell/topbar.svelte";
   import SuperSidebar from "$lib/components/shell/super-sidebar.svelte";
+  import CreateProjectDialog from "$lib/components/shell/create-project-dialog.svelte";
   import OnboardingTour from "$lib/components/onboarding/onboarding-tour.svelte";
   import { tourSteps } from "$lib/components/onboarding/tour-steps";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
@@ -48,4 +49,5 @@
   </div>
 </div>
 
+<CreateProjectDialog />
 <OnboardingTour />

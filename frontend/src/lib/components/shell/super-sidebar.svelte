@@ -10,7 +10,6 @@
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { cn } from "$lib/utils";
   import * as Tooltip from "$lib/components/ui/tooltip";
@@ -20,6 +19,7 @@
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
   import { project } from "$lib/stores/project-store.svelte";
+  import { projectCreate } from "$lib/stores/project-create.svelte";
   import {
     projectSections,
     STARRED_KEY,
@@ -128,7 +128,7 @@
   }
 
   function newProject() {
-    goto(resolve(`/${orgSlug}/projects/new`));
+    projectCreate.open = true;
   }
 
   // ドラッグ&ドロップでプロジェクトをグループ間移動。dragOverKey はドロップ先のハイライト用。

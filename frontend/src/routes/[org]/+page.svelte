@@ -7,6 +7,7 @@
   import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
   import { project } from "$lib/stores/project-store.svelte";
+  import { projectCreate } from "$lib/stores/project-create.svelte";
   import type { Project } from "$lib/api/schemas";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -21,8 +22,6 @@
   });
 
   const projects = $derived(project.list);
-  // 最近開いたプロジェクト（[org]/[project] レイアウトの touch() で記録、新しい順）。
-  const recent = $derived(project.recentProjects(orgSlug));
 </script>
 
 {#snippet projectCard(p: Project)}
@@ -59,7 +58,7 @@
         {m.project_home_org_settings()}
       </Button>
       {#if projects.length > 0}
-        <Button href={resolve(`/${orgSlug}/projects/new`)}>
+        <Button onclick={() => (projectCreate.open = true)}>
           <Plus class="size-4" />
           {m.project_home_new()}
         </Button>
@@ -88,24 +87,12 @@
       </span>
       <h2 class="font-display text-lg">{m.project_home_empty_title()}</h2>
       <p class="max-w-xs text-sm text-muted-foreground">{m.project_home_empty_desc()}</p>
-      <Button href={resolve(`/${orgSlug}/projects/new`)}>
+      <Button onclick={() => (projectCreate.open = true)}>
         <Plus class="size-4" />
         {m.project_home_new()}
       </Button>
     </div>
   {:else}
-    {#if recent.length > 0}
-      <section class="mt-8">
-        <h2 class="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {m.project_home_recent()}
-        </h2>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {#each recent as p (p.id)}
-            {@render projectCard(p)}
-          {/each}
-        </div>
-      </section>
-    {/if}
     <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {#each projects as p (p.id)}
         {@render projectCard(p)}
