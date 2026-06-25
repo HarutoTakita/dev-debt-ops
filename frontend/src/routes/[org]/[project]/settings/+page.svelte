@@ -4,12 +4,15 @@
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { deleteProject, listBranches, patchProject } from "$lib/api/client";
+  import { deleteProject, getMyMembership, listBranches, patchProject } from "$lib/api/client";
   import type { Branch } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { project } from "$lib/stores/project-store.svelte";
+  import { members } from "$lib/stores/members-store.svelte";
+  import InviteMemberForm from "$lib/components/members/invite-member-form.svelte";
+  import MemberList from "$lib/components/members/member-list.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -46,6 +49,15 @@
   const branchNames = $derived.by(() => {
     const names = branches.map((b) => b.name);
     return !branch || names.includes(branch) ? names : [branch, ...names];
+  });
+
+  // メンバー管理（組織メンバーシップを流用。プロジェクト設定上で「このプロジェクトにアクセスできる人」を管理）。
+  $effect(() => {
+    if (!orgSlug) return;
+    void getMyMembership(orgSlug)
+      .then((me) => (members.myRole = me?.role ?? null))
+      .catch(() => {});
+    void members.load(orgSlug);
   });
 
   async function save() {
@@ -133,6 +145,18 @@
           {m.project_settings_save()}
         </Button>
         {#if savedAt}<span class="text-sm text-success">{m.project_settings_saved()}</span>{/if}
+      </div>
+
+      <!-- メンバー（組織メンバーシップを流用。プロジェクトにアクセスできるユーザーを管理） -->
+      <div class="mt-2 border-t pt-5">
+        <h2 class="font-display text-sm font-semibold">{m.project_settings_members_label()}</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.project_settings_members_desc()}</p>
+        <div class="mt-3 space-y-4">
+          {#if members.canManage}
+            <InviteMemberForm {orgSlug} />
+          {/if}
+          <MemberList {orgSlug} />
+        </div>
       </div>
 
       <div class="mt-6 rounded-lg border border-danger/40 p-4">

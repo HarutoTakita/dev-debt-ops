@@ -154,6 +154,8 @@
   "project_settings_name_label": "プロジェクト名",
   "project_settings_branch_label": "既定ブランチ",
   "project_settings_repo_label": "接続リポジトリ",
+  "project_settings_members_label": "メンバー",
+  "project_settings_members_desc": "このプロジェクトにアクセスできるユーザーを管理します。",
   "project_settings_save": "変更を保存",
   "project_settings_saved": "保存しました",
   "project_settings_save_failed": "保存に失敗しました",

@@ -2,7 +2,6 @@
   import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
   import Lock from "@lucide/svelte/icons/lock";
   import Plus from "@lucide/svelte/icons/plus";
-  import Settings from "@lucide/svelte/icons/settings";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
@@ -52,18 +51,12 @@
       <h1 class="font-display text-2xl font-semibold tracking-tight">{m.project_home_title()}</h1>
       <p class="mt-1 text-sm text-muted-foreground">{m.project_home_subtitle()}</p>
     </div>
-    <div class="flex items-center gap-2">
-      <Button variant="ghost" size="sm" href={resolve(`/${orgSlug}/settings`)}>
-        <Settings class="size-4" />
-        {m.project_home_org_settings()}
+    {#if projects.length > 0}
+      <Button onclick={() => (projectCreate.open = true)}>
+        <Plus class="size-4" />
+        {m.project_home_new()}
       </Button>
-      {#if projects.length > 0}
-        <Button onclick={() => (projectCreate.open = true)}>
-          <Plus class="size-4" />
-          {m.project_home_new()}
-        </Button>
-      {/if}
-    </div>
+    {/if}
   </div>
 
   {#if project.loading && projects.length === 0}
