@@ -6,14 +6,19 @@ call now runs inside the ``service`` container. Project / region come from ``ser
 service runtime SA must hold ``roles/aiplatform.user``.
 """
 
+import asyncio
 import json
+import logging
 
 import google.auth
 import google.auth.exceptions
+import httpx
 from google import genai
 from google.genai import types
 
 from service import config
+
+logger = logging.getLogger(__name__)
 
 _PROMPT_TEMPLATE = """\
 You are analysing a software repository. Based on the configuration files below, \
@@ -110,6 +115,30 @@ def _build_client() -> genai.Client:
     )
 
 
+async def _generate(
+    client: genai.Client, *, model: str, contents: str, config: types.GenerateContentConfig
+) -> types.GenerateContentResponse:
+    """Call Gemini generate_content, retrying transient transport errors (e.g. server disconnect/timeout).
+
+    Vertex/Gemini occasionally drops the connection ("Server disconnected without sending a response."),
+    which previously failed a whole analysis stage (e.g. feature_clustering). Retry a few times with
+    backoff so a transient blip does not fail the run. Non-transient errors propagate unchanged.
+    """
+    attempts = 3
+    last: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return await client.aio.models.generate_content(model=model, contents=contents, config=config)
+        except httpx.TransportError as e:  # disconnect / connect / read / timeout
+            last = e
+            logger.warning("Gemini generate_content transient error (attempt %s/%s): %s", attempt + 1, attempts, e)
+            if attempt < attempts - 1:
+                await asyncio.sleep(1.5 * (attempt + 1))
+    if last is not None:
+        raise last
+    raise RuntimeError("Gemini generate_content failed without an exception")
+
+
 async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
     """Return a tech-stack classification dict produced by Gemini via Vertex AI.
 
@@ -122,7 +151,8 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
 
     prompt = _PROMPT_TEMPLATE.format(file_section=_build_file_section(file_map))
 
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(
@@ -154,7 +184,8 @@ async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
     client = _build_client()
     prompt = _AI_GENERATION_PROMPT.format(file_section=_build_file_section(file_map))
 
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(
@@ -228,7 +259,8 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
     client = _build_client()
     prompt = _REFACTOR_PROMPT.format(notes=notes or "(none)", path=path, content=content[:_MAX_FILE_CHARS])
 
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2),
@@ -302,7 +334,8 @@ async def generate_quiz(path: str, content: str) -> dict:
     """Return ``{questions, answer_key}`` for a file (Gemini via Vertex AI). Empty on parse failure."""
     client = _build_client()
     prompt = _QUIZ_GEN_PROMPT.format(path=path, content=content[:_MAX_FILE_CHARS])
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
@@ -320,7 +353,8 @@ async def grade_quiz(payload: str) -> dict:
     """Return ``{score, understood, gap_concepts}`` from a serialized grading payload (Gemini)."""
     client = _build_client()
     prompt = _QUIZ_GRADE_PROMPT.format(payload=payload)
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
@@ -362,7 +396,8 @@ async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
         return []
     client = _build_client()
     prompt = _EXTERNAL_RESOURCES_PROMPT.format(concepts=", ".join(gap_concepts))
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
@@ -408,7 +443,8 @@ async def generate_code_learning_steps(
         files=files_block,
         max_steps=max_steps,
     )
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
@@ -451,7 +487,8 @@ async def generate_code_walkthrough(path: str, content: str, *, max_steps: int =
     lines = content.split("\n")
     numbered = "\n".join(f"{i + 1}: {line}" for i, line in enumerate(lines))
     prompt = _CODE_WALKTHROUGH_PROMPT.format(path=path, numbered=numbered, max_steps=max_steps)
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.3),
@@ -486,7 +523,8 @@ async def generate_agent_narrative(kind: str, summary: str) -> dict:
     """Return ``{headline, steps:[{status,message}]}`` for an agent loop (Gemini). Empty on failure."""
     client = _build_client()
     prompt = _AGENT_NARRATIVE_PROMPT.format(kind=kind, summary=summary or "(no findings)")
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.4),
@@ -548,7 +586,8 @@ async def cluster_features(paths: list[str], edges: list[tuple[str, str]]) -> li
     edges_block = "\n".join(f"{a} -> {b}" for a, b in edges) or "(none)"
     prompt = _FEATURE_CLUSTERING_PROMPT.format(files=files_block, edges=edges_block)
 
-    response = await client.aio.models.generate_content(
+    response = await _generate(
+        client,
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2),
