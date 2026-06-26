@@ -232,6 +232,12 @@ variable "domain" {
   default     = ""
 }
 
+variable "lp_domain" {
+  description = "Optional separate domain/subdomain for the static landing page (LP), served by a GCS backend bucket on the SAME LB (host-routed). Requires var.domain to be set (the LB HTTPS frontend is gated on it). Empty = no LP hosting."
+  type        = string
+  default     = ""
+}
+
 # NOTE: there is intentionally NO `pubsub_push_source_ranges` and NO `container_image_functions`
 # variable — the online path has no Pub/Sub push receiver (service writes results straight to
 # Cloud SQL) and scheduled-scan Cloud Functions are out of scope for this issue.
