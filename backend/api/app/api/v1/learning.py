@@ -363,12 +363,16 @@ async def get_code_walkthrough(
     org, _ = org_membership
     _, resource = await _get_code_resource(session, service, org, project_slug, resource_id)
     steps = [CodeWalkthroughStepOut(**s) for s in resource.walkthrough if isinstance(s, dict)]
+    # Inline source for resources seeded with code that can't be fetched from GitHub (guest demo).
+    meta = resource.origin_meta if isinstance(resource.origin_meta, dict) else {}
+    content = meta.get("demo_source")
     return CodeWalkthroughOut(
         source_ref=resource.source_ref,
         title=resource.title,
         summary=resource.summary,
         status="ready" if steps else "empty",
         steps=steps,
+        content=content if isinstance(content, str) else None,
     )
 
 

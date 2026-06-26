@@ -9,7 +9,7 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
-from app.api.v1.github import resolve_installation_id
+from app.api.v1.github import resolve_installation_id, resolve_installation_id_optional
 from app.core import db as app_db
 from app.main import app
 from app.models.project import Project
@@ -29,9 +29,12 @@ def _reset_singletons():
 
 @pytest.fixture
 def _stub_installation():
+    # submit_quiz uses the optional variant (returns None for demo); other routes use the strict one.
     app.dependency_overrides[resolve_installation_id] = lambda: 12345678
+    app.dependency_overrides[resolve_installation_id_optional] = lambda: 12345678
     yield 12345678
     app.dependency_overrides.pop(resolve_installation_id, None)
+    app.dependency_overrides.pop(resolve_installation_id_optional, None)
 
 
 async def _project(client: AsyncClient) -> tuple[str, str, uuid.UUID, uuid.UUID]:

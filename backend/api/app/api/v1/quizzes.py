@@ -17,7 +17,7 @@ from sqlmodel import col
 from sqlmodel import select as sm_select
 
 from app.api.deps import CurrentUser, OrgScope, SASessionDep, SessionDep
-from app.api.v1.github import InstallationIdDep
+from app.api.v1.github import InstallationIdDep, OptionalInstallationIdDep
 from app.models.user import User
 from app.schemas.job import JobEnqueuedOut
 from app.schemas.quiz import (
@@ -347,7 +347,7 @@ async def submit_quiz(
     project_slug: Annotated[str, Path(description="Project slug within the org.")],
     session_id: uuid.UUID,
     org_membership: OrgScope,
-    installation_id: InstallationIdDep,
+    installation_id: OptionalInstallationIdDep,
     current_user: CurrentUser,
     service: ProjectServiceDep,
     session: SessionDep,
@@ -371,7 +371,8 @@ async def submit_quiz(
         "session_id": str(session_id),
         "project_id": str(project.id),
         "requested_by": str(current_user.id),
-        "github": {"installation_id": installation_id},
+        # Demo users have no installation (None) → 0 sentinel; quiz_grading then grades offline.
+        "github": {"installation_id": installation_id or 0},
     }
     job = await enqueue_job(
         session=session,

@@ -129,6 +129,76 @@ async def test_grading_writes_result_and_completes(
         assert qr.gap_concepts[0]["id"] == "c2"
 
 
+async def test_grading_offline_choice_quiz_without_github(session_maker: async_sessionmaker) -> None:
+    """A choice-only quiz with no GitHub installation (id=0) is graded deterministically (issue 069).
+
+    Nothing is patched: no token mint, no file fetch, no Gemini. If the offline branch were skipped,
+    the un-patched GitHub/Gemini calls would blow up — so a clean pass proves the demo path is offline.
+    """
+    questions = [
+        {"id": "q1", "kind": "multiple_choice", "prompt": "P1", "difficulty": "L1"},
+        {"id": "q2", "kind": "multiple_select", "prompt": "P2", "difficulty": "L2"},
+    ]
+    answer_key = {"q1": {"answer": "a", "rubric": ""}, "q2": {"answer": ["a", "b"], "rubric": ""}}
+    sid = await _seed_session(session_maker, questions=questions, answer_key=answer_key, status="grading")
+    async with session_maker() as session:
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="a"))
+        session.add(QuizAnswer(session_id=sid, question_id="q2", value="b,a"))  # order-insensitive set match
+        await session.commit()
+
+    req = QuizGradingRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GRADING,
+        session_id=str(sid),
+        project_id=str(uuid.uuid4()),
+        github=GitHubRef(installation_id=0),
+        requested_by="u",
+    )
+    async with session_maker() as session:
+        result = await quiz_grading.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.score == 1.0
+    async with session_maker() as session:
+        qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
+        assert qs.status == "completed"
+        assert qs.score == 1.0
+        qr = (await session.execute(select(QuizResult).where(QuizResult.session_id == sid))).scalar_one()
+        assert qr.gap_concepts == []  # all correct
+        assert {c["id"] for c in qr.understood} == {"q1", "q2"}
+
+
+async def test_grading_offline_partial_score(session_maker: async_sessionmaker) -> None:
+    """Offline grading scores the fraction correct and records the missed question as a gap."""
+    questions = [
+        {"id": "q1", "kind": "multiple_choice", "prompt": "P1", "difficulty": "L1"},
+        {"id": "q2", "kind": "multiple_choice", "prompt": "P2", "difficulty": "L1"},
+    ]
+    answer_key = {"q1": {"answer": "a", "rubric": ""}, "q2": {"answer": "b", "rubric": ""}}
+    sid = await _seed_session(session_maker, questions=questions, answer_key=answer_key, status="grading")
+    async with session_maker() as session:
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="a"))  # correct
+        session.add(QuizAnswer(session_id=sid, question_id="q2", value="c"))  # wrong
+        await session.commit()
+
+    req = QuizGradingRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GRADING,
+        session_id=str(sid),
+        project_id=str(uuid.uuid4()),
+        github=GitHubRef(installation_id=0),
+        requested_by="u",
+    )
+    async with session_maker() as session:
+        result = await quiz_grading.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.score == 0.5
+    async with session_maker() as session:
+        qr = (await session.execute(select(QuizResult).where(QuizResult.session_id == sid))).scalar_one()
+        assert [c["id"] for c in qr.gap_concepts] == ["q2"]
+
+
 async def test_grading_idempotent_when_completed(
     monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
 ) -> None:

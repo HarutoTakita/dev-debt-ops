@@ -142,6 +142,24 @@ async def resolve_installation_id(
 InstallationIdDep = Annotated[int, Depends(resolve_installation_id)]
 
 
+async def resolve_installation_id_optional(
+    current_user: CurrentUser,
+    session: SASessionDep,
+    github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
+) -> int | None:
+    """Like ``resolve_installation_id`` but returns ``None`` for demo users instead of 403.
+
+    Demo quizzes are choice-only and graded offline (no GitHub — issue 069), so quiz submission
+    must not be blocked by the GitHub chokepoint. Non-demo users still resolve a real id.
+    """
+    if current_user.is_demo:
+        return None
+    return await resolve_installation_id(current_user, session, github_app)
+
+
+OptionalInstallationIdDep = Annotated[int | None, Depends(resolve_installation_id_optional)]
+
+
 async def resolve_github_client(
     github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
     installation_id: InstallationIdDep,
