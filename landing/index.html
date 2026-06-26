@@ -79,50 +79,58 @@
       window.__APP_URL__ = "APP_URL_PLACEHOLDER".startsWith("APP_URL") ? "/login" : "APP_URL_PLACEHOLDER";
     </script>
 
-    <header class="grad">
-      <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <div class="flex items-center gap-2 font-semibold tracking-tight">
+    <header class="sticky top-0 z-30 border-b border-white/5 bg-ink/70 backdrop-blur-md">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <a href="#top" class="flex items-center gap-2 font-semibold tracking-tight">
           <span class="inline-block size-3 rounded-sm bg-know"></span>
           <span class="inline-block size-3 -ml-1 rounded-sm bg-code"></span>
           <span class="ml-1">DevDebtOps</span>
-        </div>
-        <div class="hidden gap-6 text-sm text-slate-300 md:flex">
-          <a href="#features" class="hover:text-white">機能</a>
-          <a href="#infra" class="hover:text-white">インフラ</a>
-          <a href="#security" class="hover:text-white">セキュリティ</a>
+        </a>
+        <div class="hidden gap-7 text-sm text-slate-300 md:flex">
+          <a href="#features" class="transition hover:text-white">機能</a>
+          <a href="#infra" class="transition hover:text-white">インフラ</a>
+          <a href="#security" class="transition hover:text-white">セキュリティ</a>
         </div>
         <a
           id="nav-cta"
           href="/login"
-          class="rounded-md border border-white/15 px-4 py-2 text-sm font-medium hover:bg-white/10"
+          class="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium ring-1 ring-white/15 ring-inset transition hover:bg-white/15"
           >アプリを開く</a
         >
       </nav>
+    </header>
 
-      <section class="mx-auto max-w-6xl px-6 pt-10 pb-20 text-center">
-        <p class="mb-4 inline-block rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs text-know">
-          Knowledge Debt Twin Agent
+    <section id="top" class="grad">
+      <div class="mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
+        <p
+          class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
+        >
+          <span class="size-1.5 rounded-full bg-know"></span>
+          コードベースの理解度を実測する開発プラットフォーム
         </p>
-        <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-tight sm:text-6xl">
-          コードの<span class="text-know">“わかってなさ”</span>を、<br class="hidden sm:block" />
-          測って<span class="text-code">返す</span>。
+        <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
+          誰も理解していないコードを、<br class="hidden sm:block" />
+          <span class="text-know">可視化</span>して<span class="text-code">返済</span>する。
         </h1>
-        <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-300">
-          理解度を<strong class="text-white">クイズで実測</strong>（git blame 非依存・単独開発でも計測可）し、
-          <strong class="text-white">学習で返済</strong>する閉ループ。技術負債はリファクタ PR で返す。
-          理解負債と技術負債を、一枚のダッシュボードで。
+        <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300">
+          GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
+          技術負債は AI が<strong class="font-semibold text-white">リファクタ PR</strong>で返す。
+          属人化と技術負債を、ひとつのダッシュボードで管理します。
         </p>
         <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
           <a
             id="hero-cta"
             href="/login"
-            class="rounded-md bg-know px-6 py-3 font-semibold text-ink hover:brightness-110"
-            >無料で始める</a
+            class="rounded-lg bg-know px-6 py-3 font-semibold text-ink shadow-lg shadow-know/20 transition hover:brightness-110"
+            >リポジトリを接続して解析</a
           >
-          <a href="#how" class="rounded-md border border-white/15 px-6 py-3 font-medium hover:bg-white/10"
+          <a
+            href="#how"
+            class="rounded-lg px-6 py-3 font-medium text-slate-200 ring-1 ring-white/15 ring-inset transition hover:bg-white/10"
             >仕組みを見る</a
           >
         </div>
+        <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
 
         <!-- ヒーローの製品ビジュアル（アプリの構成を模したフレーム） -->
         <div class="mx-auto mt-14 max-w-4xl rounded-xl border border-white/10 bg-[#0f161d]/80 text-left shadow-2xl backdrop-blur">
@@ -173,16 +181,41 @@
             </div>
           </div>
         </div>
-      </section>
-    </header>
+      </div>
+    </section>
 
     <!-- 課題 -->
-    <section class="mx-auto max-w-6xl px-6 py-16">
-      <h2 class="text-center text-2xl font-bold sm:text-3xl">負債は「コード」だけじゃない</h2>
-      <p class="mx-auto mt-3 max-w-2xl text-center text-slate-400">
-        書いた本人が抜け、AI 生成が増えるほど「誰も中身を理解していないコード」が積み上がる。
-        これは技術負債とは別の<strong class="text-know">理解負債</strong>。放置すると変更速度も品質も落ちる。
-      </p>
+    <section class="mx-auto max-w-6xl px-6 py-20">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">負債は「コード」だけじゃない</h2>
+        <p class="mt-4 leading-relaxed text-slate-400">
+          動くが誰も中身を理解していないコードは、技術負債とは別の<strong class="text-white">理解負債</strong>。
+          変更速度・レビュー品質・オンボーディングを静かに蝕みます。
+        </p>
+      </div>
+      <div class="mt-12 grid gap-5 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">01</span>
+          <h3 class="mt-4 font-semibold text-white">書いた人しか分からない</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            担当者の異動・退職でコードが事実上ブラックボックスに。レビューも改修も止まる。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">02</span>
+          <h3 class="mt-4 font-semibold text-white">AI 生成コードの増殖</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            生成量が増えるほど、誰にも理解されないまま本番へ。レビューが追いつかない。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
+          <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            技術負債は山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
+          </p>
+        </div>
+      </div>
     </section>
 
     <!-- 2×2 解決 -->
@@ -211,24 +244,37 @@
     </section>
 
     <!-- 閉ループ -->
-    <section class="mx-auto max-w-6xl px-6 py-12">
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
-        <h2 class="text-2xl font-bold sm:text-3xl">実測 → 返済の閉ループ</h2>
-        <div class="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm font-medium">
-          <span class="rounded-md bg-white/10 px-4 py-2">① 解析（検知・理解度・機能）</span>
-          <span class="text-slate-500">→</span>
-          <span class="rounded-md bg-know/15 px-4 py-2 text-know">② クイズで実測</span>
-          <span class="text-slate-500">→</span>
-          <span class="rounded-md bg-know/15 px-4 py-2 text-know">③ 学習で返済</span>
-          <span class="text-slate-500">→</span>
-          <span class="rounded-md bg-code/15 px-4 py-2 text-code">④ リファクタ PR</span>
-          <span class="text-slate-500">↺</span>
-        </div>
-        <p class="mx-auto mt-6 max-w-2xl text-slate-400">
-          コード負債の検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。
-          主役はあくまで<strong class="text-white">理解度の実測と返済</strong>です。
+    <section class="mx-auto max-w-6xl px-6 py-20">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">実測 → 返済の閉ループ</h2>
+        <p class="mt-4 leading-relaxed text-slate-400">
+          検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。主役は<strong class="text-white"
+            >理解度の実測と返済</strong
+          >です。
         </p>
       </div>
+      <ol class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <li class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <span class="text-xs font-bold text-slate-500">01</span>
+          <h3 class="mt-1 font-semibold text-white">解析する</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">検知・理解度・機能クラスタリングをまとめて実行。</p>
+        </li>
+        <li class="rounded-2xl border border-know/20 bg-know/[0.04] p-5">
+          <span class="text-xs font-bold text-know">02</span>
+          <h3 class="mt-1 font-semibold text-white">クイズで実測</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">git blame に頼らず、理解度を能動的に計測する。</p>
+        </li>
+        <li class="rounded-2xl border border-know/20 bg-know/[0.04] p-5">
+          <span class="text-xs font-bold text-know">03</span>
+          <h3 class="mt-1 font-semibold text-white">学習で返済</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">チーム資産を優先した学習プランで理解度を引き上げる。</p>
+        </li>
+        <li class="rounded-2xl border border-code/20 bg-code/[0.04] p-5">
+          <span class="text-xs font-bold text-code">04</span>
+          <h3 class="mt-1 font-semibold text-white">リファクタ PR</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に返済 PR を作成する。</p>
+        </li>
+      </ol>
     </section>
 
     <!-- 機能詳細 -->
