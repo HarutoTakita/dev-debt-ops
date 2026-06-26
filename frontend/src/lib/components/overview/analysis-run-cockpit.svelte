@@ -108,16 +108,23 @@
     <div class="rounded-lg border bg-card p-4">
       <div class="mb-3 flex items-center justify-between gap-2">
         <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          class="h-7 px-2 text-xs"
-          disabled={analysisRun.running || auth.isDemo}
-          title={auth.isDemo ? demoBlockTitle : undefined}
-          onclick={() => analysisRun.runAll(ctx)}
-        >
-          {analysisRun.running ? m.analysis_run_running() : m.analysis_regenerate()}
-        </Button>
+        <div class="flex items-center gap-2">
+          {#if analysisRun.running}
+            <Button variant="outline" size="sm" class="h-7 px-2 text-xs" onclick={() => analysisRun.cancelRun(ctx)}>
+              {m.common_cancel()}
+            </Button>
+          {/if}
+          <Button
+            variant="outline"
+            size="sm"
+            class="h-7 px-2 text-xs"
+            disabled={analysisRun.running || auth.isDemo}
+            title={auth.isDemo ? demoBlockTitle : undefined}
+            onclick={() => analysisRun.runAll(ctx)}
+          >
+            {analysisRun.running ? m.analysis_run_running() : m.analysis_regenerate()}
+          </Button>
+        </div>
       </div>
       <ul class="flex flex-col gap-1.5">
         {#each STAGE_GROUPS as group (group.id)}
