@@ -1,5 +1,6 @@
 import {
   analyzeGalaxy,
+  cancelAnalysis,
   clusterFeatures,
   detectDebts,
   detectKnowledgeDebts,
@@ -257,6 +258,21 @@ class AnalysisRunStore {
 
   cancel() {
     this.#generation += 1;
+  }
+
+  /** Cancel the current run from the UI: tell the server to CANCEL in-progress jobs, abort local
+   * polls, and return to an idle state. Unblocks a cockpit stuck on a never-dispatched QUEUED job.
+   * Resilient: the local state is cleared even if the server call fails. */
+  async cancelRun(ctx: RunContext) {
+    this.#generation += 1; // abort in-flight polls
+    this.#runAllActive = false;
+    try {
+      await cancelAnalysis(ctx.orgSlug, ctx.projectSlug);
+    } catch {
+      /* clear locally regardless so the UI never stays locked */
+    }
+    this.stages = _initial(); // → started/running become false (derived from stages)
+    this.#hydrated = true; // don't immediately re-pull the now-cancelled statuses
   }
 
   reset() {
