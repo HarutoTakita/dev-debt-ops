@@ -118,6 +118,20 @@ export async function listOrgs(): Promise<Org[]> {
   return z.array(orgSchema).parse(await response.json());
 }
 
+// 公開ランタイム設定（認証前に SPA が参照）: デモボタンの出し分けに使う（issue 069）。
+export async function getPublicConfig(): Promise<{ demo_mode_enabled: boolean }> {
+  const response = await apiFetch("/api/v1/config");
+  if (!response.ok) return { demo_mode_enabled: false };
+  const data = (await response.json()) as { demo_mode_enabled?: boolean };
+  return { demo_mode_enabled: Boolean(data.demo_mode_enabled) };
+}
+
+// ゲストデモログイン（issue 069）: GitHub 不要。共有デモユーザーとして cookie を発行する（204）。
+export async function demoLogin(): Promise<void> {
+  const response = await apiFetch("/api/v1/auth/demo", { method: "POST" });
+  if (!response.ok) throw new Error(await errorDetail(response, "デモの開始に失敗しました"));
+}
+
 export async function createOrg(name: string, slug: string): Promise<Org> {
   const response = await apiFetch("/api/v1/orgs", {
     method: "POST",
