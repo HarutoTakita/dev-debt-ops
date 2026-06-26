@@ -16,7 +16,7 @@ terraform {
   # The bootstrap stack uses `gcp/bootstrap/` so the two never lock each other
   # (mirrors azure's separate `key` and aws's separate state path).
   backend "gcs" {
-    bucket = "fullstack-app-tfstate"
+    bucket = "dev-debt-ops"
     prefix = "gcp/"
   }
 }
