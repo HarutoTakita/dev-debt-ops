@@ -199,6 +199,16 @@ resource "google_cloud_run_v2_service" "service" {
   depends_on = [google_secret_manager_secret_iam_member.accessors]
 }
 
+# The external HTTPS LB forwards requests to the api's serverless NEG WITHOUT credentials,
+# so the api service must allow unauthenticated invocation or every request gets a 403.
+# Access is still gated by the app's own auth (cookies) and Cloud Armor at the edge.
+resource "google_cloud_run_v2_service_iam_member" "api_public" {
+  name     = google_cloud_run_v2_service.api.name
+  location = google_cloud_run_v2_service.api.location
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
 # Only the Cloud Tasks invoker SA may call service (OIDC). Never allUsers — external reach
 # is the LB-fronted api only.
 resource "google_cloud_run_v2_service_iam_member" "service_tasks_invoker" {
