@@ -35,9 +35,14 @@
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
-  // ヘルプ（オンボーディングガイドの再生 / LP は今後追加予定）。「...」と同様のドロップダウンから選ぶ。
+  // ヘルプ（オンボーディングガイドの再生 / LP）。「...」と同様のドロップダウンから選ぶ。
   function startGuide() {
     onboarding.start(tourSteps);
+  }
+  // LP は別ホスト（別デプロイ）なのでビルド時の公開 env で URL を渡す。未設定なら項目は無効のまま。
+  const lpUrl = import.meta.env.VITE_LP_URL as string | undefined;
+  function openLp() {
+    if (lpUrl) window.open(lpUrl, "_blank", "noopener,noreferrer");
   }
 
   // アクティブなプロジェクトが属するグループキー（スター優先 → セクション → 既定）。
@@ -341,7 +346,7 @@
             <CircleHelp class="size-4" />
             <span>{m.help_view_guide()}</span>
           </DropdownMenu.Item>
-          <DropdownMenu.Item disabled>
+          <DropdownMenu.Item disabled={!lpUrl} onSelect={openLp}>
             <span>{m.help_view_lp()}</span>
           </DropdownMenu.Item>
         </DropdownMenu.Content>

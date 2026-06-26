@@ -13,6 +13,16 @@ output "lb_ip" {
   value       = google_compute_global_address.lb_ip.address
 }
 
+output "landing_url" {
+  description = "Public LP URL (empty unless var.lp_domain is set). Create a DNS A record for it → lb_ip."
+  value       = var.lp_domain != "" ? "https://${var.lp_domain}" : ""
+}
+
+output "landing_bucket" {
+  description = "GCS bucket for the static LP — CI uploads landing/ here (empty unless var.lp_domain set)."
+  value       = local.lp_enabled ? google_storage_bucket.landing[0].name : ""
+}
+
 output "service_url" {
   description = "Internal service (worker) Cloud Run URL — Cloud Tasks HTTP target."
   value       = google_cloud_run_v2_service.service.uri
