@@ -45,7 +45,7 @@
         inset: 0;
         z-index: 0;
         pointer-events: none;
-        opacity: 0.55;
+        opacity: 0.3;
       }
       /* 中央（テキスト帯）を少し沈めて可読性を確保するヴェール。 */
       .graph-veil {
@@ -63,7 +63,7 @@
       }
       @media (prefers-reduced-motion: reduce) {
         .graph-bg {
-          opacity: 0.4;
+          opacity: 0.2;
         }
       }
     </style>
@@ -133,7 +133,7 @@
         <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
 
         <!-- ヒーローの製品ビジュアル（アプリの構成を模したフレーム） -->
-        <div class="mx-auto mt-14 max-w-4xl rounded-xl border border-white/10 bg-[#0f161d]/80 text-left shadow-2xl backdrop-blur">
+        <div class="mx-auto mt-14 max-w-4xl rounded-xl border border-white/10 bg-[#0f161d] text-left shadow-2xl backdrop-blur">
           <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
             <span class="size-2.5 rounded-full bg-red-400/60"></span>
             <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
@@ -194,21 +194,21 @@
         </p>
       </div>
       <div class="mt-12 grid gap-5 md:grid-cols-3">
-        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
           <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">01</span>
           <h3 class="mt-4 font-semibold text-white">書いた人しか分からない</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
             担当者の異動・退職でコードが事実上ブラックボックスに。レビューも改修も止まる。
           </p>
         </div>
-        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
           <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">02</span>
           <h3 class="mt-4 font-semibold text-white">AI 生成コードの増殖</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
             生成量が増えるほど、誰にも理解されないまま本番へ。レビューが追いつかない。
           </p>
         </div>
-        <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
           <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
           <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
@@ -222,7 +222,7 @@
     <section id="how" class="mx-auto max-w-6xl px-6 py-12">
       <h2 class="text-center text-2xl font-bold sm:text-3xl">2つの負債を、可視化して返済する</h2>
       <div class="mt-10 grid gap-6 md:grid-cols-2">
-        <div class="rounded-2xl border border-know/25 bg-know/5 p-6">
+        <div class="rounded-2xl border border-know/25 bg-[#131a22] p-6">
           <h3 class="flex items-center gap-2 text-xl font-semibold text-know">
             <span class="size-2.5 rounded-full bg-know"></span> 理解負債
           </h3>
@@ -231,7 +231,7 @@
             <li><strong class="text-white">返済｜クイズと学習</strong> — クイズで実測し、学習プランで埋める。合格で理解度↑。</li>
           </ul>
         </div>
-        <div class="rounded-2xl border border-code/25 bg-code/5 p-6">
+        <div class="rounded-2xl border border-code/25 bg-[#131a22] p-6">
           <h3 class="flex items-center gap-2 text-xl font-semibold text-code">
             <span class="size-2.5 rounded-full bg-code"></span> 技術負債
           </h3>
@@ -254,22 +254,22 @@
         </p>
       </div>
       <ol class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <li class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <li class="rounded-2xl border border-white/10 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-slate-500">01</span>
           <h3 class="mt-1 font-semibold text-white">解析する</h3>
           <p class="mt-1 text-sm leading-relaxed text-slate-400">検知・理解度・機能クラスタリングをまとめて実行。</p>
         </li>
-        <li class="rounded-2xl border border-know/20 bg-know/[0.04] p-5">
+        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-know">02</span>
           <h3 class="mt-1 font-semibold text-white">クイズで実測</h3>
           <p class="mt-1 text-sm leading-relaxed text-slate-400">git blame に頼らず、理解度を能動的に計測する。</p>
         </li>
-        <li class="rounded-2xl border border-know/20 bg-know/[0.04] p-5">
+        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-know">03</span>
           <h3 class="mt-1 font-semibold text-white">学習で返済</h3>
           <p class="mt-1 text-sm leading-relaxed text-slate-400">チーム資産を優先した学習プランで理解度を引き上げる。</p>
         </li>
-        <li class="rounded-2xl border border-code/20 bg-code/[0.04] p-5">
+        <li class="rounded-2xl border border-code/20 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-code">04</span>
           <h3 class="mt-1 font-semibold text-white">リファクタ PR</h3>
           <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に返済 PR を作成する。</p>
@@ -476,7 +476,7 @@
     </section>
 
     <!-- インフラ構成 -->
-    <section id="infra" class="border-t border-white/10 bg-white/[0.02]">
+    <section id="infra" class="border-t border-white/10 bg-[#0b1016]">
       <div class="mx-auto max-w-6xl px-6 py-16">
         <div class="text-center">
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
@@ -499,27 +499,27 @@
         </div>
 
         <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">アプリ実行 — Cloud Run</h3>
             <p class="mt-2 text-sm text-slate-400">api（外部公開・SPA 同梱）と service（内部・重い解析の Cloud Tasks ターゲット）を分離。</p>
           </div>
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">データ — Cloud SQL</h3>
             <p class="mt-2 text-sm text-slate-400">PostgreSQL ＋ pgvector。Alembic でスキーマ管理。</p>
           </div>
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">非同期ジョブ — Cloud Tasks</h3>
             <p class="mt-2 text-sm text-slate-400">検知・理解度・クラスタリング等の重処理をワーカーへ委譲。冪等・再配送前提の設計。</p>
           </div>
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">公開・防御 — LB / Cloud Armor</h3>
             <p class="mt-2 text-sm text-slate-400">外部 HTTPS ロードバランサ＋マネージド証明書。レート制限はエッジで強制。</p>
           </div>
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">機密・レジストリ</h3>
             <p class="mt-2 text-sm text-slate-400">Secret Manager（平文環境変数は不可）／Artifact Registry でコンテナ管理。</p>
           </div>
-          <div class="rounded-xl border border-white/10 p-5">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">IaC — Terraform</h3>
             <p class="mt-2 text-sm text-slate-400">全リソースをコード化。LP も同一 LB のバックエンドバケットとして独立配信。</p>
           </div>
@@ -534,36 +534,36 @@
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">セキュリティでこだわっていること</h2>
       </div>
       <div class="mt-10 grid gap-4 md:grid-cols-2">
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">認証・セッション</h3>
           <p class="mt-2 text-sm text-slate-400">
             アクセス JWT（5 分）とリフレッシュ（7 日・DB 管理）の Cookie を分離。ローテーション＋再利用検出、`token_epoch`
             による即時ログアウト無効化。
           </p>
         </div>
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">CSRF / オリジン</h3>
           <p class="mt-2 text-sm text-slate-400">
             SameSite=Lax ＋ Origin 検証ミドルウェア、トークンに固有 audience を付与して用途を分離。
           </p>
         </div>
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">鍵を持たない設計</h3>
           <p class="mt-2 text-sm text-slate-400">
             Workload Identity Federation で長期クレデンシャルを排除。秘密は Secret Manager に集約（平文環境変数なし）。
           </p>
         </div>
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">ジョブ分離（方式 B）</h3>
           <p class="mt-2 text-sm text-slate-400">
             キューには秘密を載せず、ワーカーが実行時に Secret Manager から GitHub トークンを mint。キュー無効時はフェイルクローズ。
           </p>
         </div>
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">エッジでのレート制限</h3>
           <p class="mt-2 text-sm text-slate-400">Cloud Armor によりアプリ手前で制限。アプリ内のレート制御に依存しません。</p>
         </div>
-        <div class="rounded-xl border border-white/10 p-5">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">LLM の安全策</h3>
           <p class="mt-2 text-sm text-slate-400">
             リポジトリ内容は「データ（指示ではない）」として境界を明示。生成物を検証（空・巨大な改変を拒否）し、PR は未レビュー明示。
@@ -573,7 +573,7 @@
     </section>
 
     <!-- 技術スタック -->
-    <section class="border-t border-white/10 bg-white/[0.02]">
+    <section class="border-t border-white/10 bg-[#0b1016]">
       <div class="mx-auto max-w-6xl px-6 py-12 text-center">
         <h2 class="text-lg font-semibold text-slate-300">技術スタック</h2>
         <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-slate-400">
