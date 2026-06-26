@@ -18,6 +18,10 @@ locals {
     USE_MOCK_QUEUE        = "false"
     USE_MOCK_WORKER       = "false"
     USE_MOCK_BLOB         = "false"
+    GITHUB_APP_ID         = var.github_app_id
+    GITHUB_APP_SLUG       = var.github_app_slug
+    GITHUB_CLIENT_ID      = var.github_client_id
+    FRONTEND_ORIGIN       = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
   }
 
   api_secret_env = {
@@ -38,10 +42,14 @@ locals {
     JOB_PAYLOAD_BUCKET    = google_storage_bucket.job_payloads.name
     TASKS_INVOKER_SA      = google_service_account.tasks_invoker.email
     USE_MOCK_QUEUE        = "false"
+    GITHUB_APP_ID         = var.github_app_id
   }
 
+  # service mints GitHub App installation tokens (method B) in the analysis pipelines,
+  # so it needs the App private key — not just the api.
   service_secret_env = {
-    DATABASE_URL = "database-url"
+    DATABASE_URL           = "database-url"
+    GITHUB_APP_PRIVATE_KEY = "github-app-private-key"
   }
 }
 

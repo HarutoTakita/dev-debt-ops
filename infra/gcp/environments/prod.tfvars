@@ -1,4 +1,14 @@
-environment = "prod"
+project_name = "dev-debt-ops"
+environment  = "prod"
+
+# 公開ドメイン（Google マネージド証明書 + OAuth コールバックのオリジン）。
+domain = "devdebtops.harutotakita.dev"
+
+# GitHub App / OAuth の非機密識別子。本番用に作成した GitHub App の値を入れる。
+# 秘密鍵 / client secret は GitHub Actions secrets 側（ここではない）。
+# github_app_id    = "<numeric app id>"
+# github_app_slug  = "<app slug>"
+# github_client_id = "<Iv23... client id>"
 
 api_cpu           = "2"
 api_memory        = "1Gi"
