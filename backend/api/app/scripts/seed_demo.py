@@ -87,14 +87,40 @@ _RUN_KINDS = (
 # scatter / Galaxy file universe; code_debt_score is the static-quality (vertical) axis. The mix
 # spreads points across the two-axis matrix so every quadrant is represented.
 _FILES: list[tuple[str, str, int, float, float]] = [
-    ("src/checkout/payment.py", "Python", 412, 0.18, 0.82),  # P0: low KC + high code debt (hotspot)
-    ("src/checkout/cart.py", "Python", 233, 0.34, 0.55),  # P1
-    ("src/auth/session.py", "Python", 188, 0.27, 0.41),  # P1: low KC (knowledge hotspot)
-    ("src/auth/oauth.py", "Python", 145, 0.62, 0.30),  # P2
+    # checkout（決済・カート）
+    ("src/checkout/payment.py", "Python", 412, 0.18, 0.82),  # P0: 低 KC + 高コード負債（ホットスポット）
+    ("src/checkout/cart.py", "Python", 233, 0.34, 0.55),
+    ("src/checkout/order.py", "Python", 201, 0.45, 0.40),
+    ("src/checkout/coupon.py", "Python", 96, 0.66, 0.28),
+    ("src/ui/checkout-form.svelte", "Svelte", 98, 0.81, 0.12),
+    # auth（認証）
+    ("src/auth/session.py", "Python", 188, 0.27, 0.41),  # 知識ホットスポット
+    ("src/auth/oauth.py", "Python", 145, 0.62, 0.30),
+    ("src/auth/password.py", "Python", 88, 0.49, 0.35),
+    ("src/auth/jwt.py", "Python", 76, 0.71, 0.15),
+    ("src/ui/login.svelte", "Svelte", 120, 0.58, 0.22),
+    # catalog（商品カタログ）
     ("src/catalog/search.ts", "TypeScript", 320, 0.21, 0.71),  # P0
-    ("src/catalog/product.ts", "TypeScript", 176, 0.74, 0.22),  # P3: well-understood, clean
-    ("src/ui/checkout-form.svelte", "Svelte", 98, 0.81, 0.12),  # P3
-    ("src/lib/db.py", "Python", 64, 0.55, 0.18),  # P3
+    ("src/catalog/product.ts", "TypeScript", 176, 0.74, 0.22),  # 理解済み・クリーン
+    ("src/catalog/category.ts", "TypeScript", 110, 0.63, 0.26),
+    ("src/ui/product-card.svelte", "Svelte", 84, 0.78, 0.10),
+    ("src/lib/db.py", "Python", 64, 0.55, 0.18),
+    # inventory（在庫）
+    ("src/inventory/stock.py", "Python", 167, 0.31, 0.58),
+    ("src/inventory/warehouse.py", "Python", 142, 0.40, 0.47),
+    ("src/inventory/reservation.py", "Python", 119, 0.24, 0.64),
+    # user（ユーザー）
+    ("src/user/profile.py", "Python", 134, 0.69, 0.20),
+    ("src/user/address.py", "Python", 92, 0.57, 0.24),
+    ("src/ui/profile-page.svelte", "Svelte", 110, 0.80, 0.11),
+    # shipping（配送）
+    ("src/shipping/shipping.py", "Python", 158, 0.37, 0.52),
+    ("src/shipping/tracking.ts", "TypeScript", 124, 0.52, 0.33),
+    ("src/shipping/carrier.py", "Python", 101, 0.46, 0.39),
+    # notifications（通知）
+    ("src/notifications/email.py", "Python", 113, 0.61, 0.29),
+    ("src/notifications/push.ts", "TypeScript", 97, 0.44, 0.42),
+    ("src/notifications/templates.py", "Python", 78, 0.72, 0.16),
 ]
 
 # Feature clusters (key, name, description, [member file paths]).
@@ -103,29 +129,106 @@ _FEATURES: list[tuple[str, str, str, list[str]]] = [
         "checkout",
         "決済・カート",
         "カート操作から決済確定までの中核フロー。最も理解負債が集中するホットスポット。",
-        ["src/checkout/payment.py", "src/checkout/cart.py", "src/ui/checkout-form.svelte"],
+        [
+            "src/checkout/payment.py",
+            "src/checkout/cart.py",
+            "src/checkout/order.py",
+            "src/checkout/coupon.py",
+            "src/ui/checkout-form.svelte",
+        ],
     ),
     (
         "auth",
         "認証",
-        "ログイン・セッション・OAuth 連携。セッション管理に理解の空白が残る。",
-        ["src/auth/session.py", "src/auth/oauth.py"],
+        "ログイン・セッション・OAuth・トークン発行。セッション管理に理解の空白が残る。",
+        [
+            "src/auth/session.py",
+            "src/auth/oauth.py",
+            "src/auth/password.py",
+            "src/auth/jwt.py",
+            "src/ui/login.svelte",
+        ],
     ),
     (
         "catalog",
         "商品カタログ",
-        "商品検索と一覧表示。検索ロジックにコード負債が溜まっている。",
-        ["src/catalog/search.ts", "src/catalog/product.ts", "src/lib/db.py"],
+        "商品検索・一覧・カテゴリ。検索ロジックにコード負債が溜まっている。",
+        [
+            "src/catalog/search.ts",
+            "src/catalog/product.ts",
+            "src/catalog/category.ts",
+            "src/ui/product-card.svelte",
+            "src/lib/db.py",
+        ],
+    ),
+    (
+        "inventory",
+        "在庫",
+        "在庫・倉庫・引当。決済と密結合で、引当ロジックの理解が薄い。",
+        ["src/inventory/stock.py", "src/inventory/warehouse.py", "src/inventory/reservation.py"],
+    ),
+    (
+        "user",
+        "ユーザー",
+        "プロフィール・住所管理。認証と連携する。",
+        ["src/user/profile.py", "src/user/address.py", "src/ui/profile-page.svelte"],
+    ),
+    (
+        "shipping",
+        "配送",
+        "配送・追跡・キャリア連携。決済完了後のフロー。",
+        ["src/shipping/shipping.py", "src/shipping/tracking.ts", "src/shipping/carrier.py"],
+    ),
+    (
+        "notifications",
+        "通知",
+        "メール・プッシュ通知とテンプレート。各機能から呼ばれる横断機能。",
+        ["src/notifications/email.py", "src/notifications/push.ts", "src/notifications/templates.py"],
     ),
 ]
 
-# Intra-repo import edges (wormholes) for the galaxy.
+# Intra-repo import edges (wormholes) for the galaxy. Mix of intra-feature (L2 のファイルグラフ) と
+# 機能をまたぐ依存（L1 の機能間エッジになる）を持たせて、グラフらしい接続にする。
 _DEPENDENCIES: list[tuple[str, str]] = [
+    # checkout 内部
     ("src/checkout/payment.py", "src/checkout/cart.py"),
-    ("src/checkout/cart.py", "src/lib/db.py"),
-    ("src/checkout/payment.py", "src/auth/session.py"),
-    ("src/catalog/search.ts", "src/catalog/product.ts"),
+    ("src/checkout/cart.py", "src/checkout/order.py"),
+    ("src/checkout/payment.py", "src/checkout/coupon.py"),
+    ("src/checkout/order.py", "src/checkout/payment.py"),
+    ("src/ui/checkout-form.svelte", "src/checkout/cart.py"),
+    # auth 内部
+    ("src/ui/login.svelte", "src/auth/session.py"),
     ("src/auth/oauth.py", "src/auth/session.py"),
+    ("src/auth/session.py", "src/auth/jwt.py"),
+    ("src/auth/password.py", "src/auth/session.py"),
+    # catalog 内部
+    ("src/catalog/search.ts", "src/catalog/product.ts"),
+    ("src/catalog/product.ts", "src/catalog/category.ts"),
+    ("src/catalog/search.ts", "src/lib/db.py"),
+    ("src/ui/product-card.svelte", "src/catalog/product.ts"),
+    # inventory 内部
+    ("src/inventory/reservation.py", "src/inventory/stock.py"),
+    ("src/inventory/warehouse.py", "src/inventory/stock.py"),
+    # user 内部
+    ("src/user/profile.py", "src/user/address.py"),
+    ("src/ui/profile-page.svelte", "src/user/profile.py"),
+    # shipping 内部
+    ("src/shipping/shipping.py", "src/shipping/carrier.py"),
+    ("src/shipping/tracking.ts", "src/shipping/shipping.py"),
+    # notifications 内部
+    ("src/notifications/email.py", "src/notifications/templates.py"),
+    ("src/notifications/push.ts", "src/notifications/templates.py"),
+    # 機能をまたぐ依存（L1 の機能間エッジ）
+    ("src/checkout/payment.py", "src/auth/session.py"),
+    ("src/checkout/payment.py", "src/inventory/reservation.py"),
+    ("src/checkout/cart.py", "src/inventory/stock.py"),
+    ("src/checkout/cart.py", "src/catalog/product.ts"),
+    ("src/checkout/order.py", "src/shipping/shipping.py"),
+    ("src/checkout/order.py", "src/notifications/email.py"),
+    ("src/catalog/product.ts", "src/inventory/stock.py"),
+    ("src/user/profile.py", "src/auth/session.py"),
+    ("src/shipping/shipping.py", "src/user/address.py"),
+    ("src/notifications/email.py", "src/user/profile.py"),
 ]
 
 # Code-debt findings (file_path, type, severity, score, ai_prob, repay_hours, notes).
