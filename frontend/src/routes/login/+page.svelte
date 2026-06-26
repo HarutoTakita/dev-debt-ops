@@ -4,6 +4,7 @@
   import { resolve } from "$app/paths";
   import { apiFetch, demoLogin, getPublicConfig, listOrgs } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
+  import * as Tooltip from "$lib/components/ui/tooltip";
 
   let loading = $state(false);
   let demoEnabled = $state(false);
@@ -75,16 +76,25 @@
     </button>
 
     {#if demoEnabled}
-      <button
-        onclick={startDemo}
-        disabled={demoLoading}
-        class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-      >
-        {demoLoading ? "準備中..." : "お試しはこちら（GitHub 不要）"}
-      </button>
-      <p class="max-w-xs text-center text-xs text-muted-foreground">
-        GitHub アカウントなしで、サンプルプロジェクトをすぐに体験できます。
-      </p>
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger>
+            {#snippet child({ props })}
+              <button
+                {...props}
+                onclick={startDemo}
+                disabled={demoLoading}
+                class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                {demoLoading ? "準備中..." : "お試しはこちら"}
+              </button>
+            {/snippet}
+          </Tooltip.Trigger>
+          <Tooltip.Content class="max-w-xs text-center">
+            GitHub アカウントなしで、サンプルプロジェクトをすぐに体験できます。
+          </Tooltip.Content>
+        </Tooltip.Root>
+      </Tooltip.Provider>
       {#if demoError}
         <p class="text-xs text-destructive">デモの開始に失敗しました。時間をおいて再度お試しください。</p>
       {/if}
