@@ -66,7 +66,7 @@ _NS = uuid.UUID("0de0b6b3-7c1e-4f8a-9d2e-069000000069")
 DEMO_ORG_SLUG = "demo"
 DEMO_ORG_NAME = "お試しデモ"
 DEMO_PROJECT_SLUG = "sample-shop"
-DEMO_PROJECT_NAME = "Sample Shop"
+DEMO_PROJECT_NAME = "sample project"
 DEMO_REPO_OWNER = "devdebtops"
 DEMO_REPO_NAME = "sample-shop"
 DEMO_REPO_FULL_NAME = "devdebtops/sample-shop"
@@ -170,6 +170,60 @@ _KNOWLEDGE_DEBTS: list[tuple[str, str, str, float, float, float, float, str]] = 
         "セッション失効ロジックがレビューなしでマージされている。",
     ),
 ]
+
+# Realistic-looking dummy source per file, shown on the code-quality detail page
+# (CodeDebt / KnowledgeDebt.code_snippet → matrix/[debtId] の file-viewer)。デモ用ダミー。
+_DEMO_SNIPPETS: dict[str, str] = {
+    "src/checkout/payment.py": (
+        "def confirm_payment(order, user, *, retries=3):\n"
+        "    if order.total > 0:\n"
+        "        if user.is_active:\n"
+        "            if reserve_stock(order):\n"
+        "                if charge(order.total, user.card):\n"
+        "                    if not mark_paid(order):\n"
+        "                        rollback_charge(order)  # 6 段ネスト / 循環的複雑度 31\n"
+        "                        return False\n"
+        "                else:\n"
+        "                    release_stock(order)\n"
+        "    return True\n"
+    ),
+    "src/catalog/search.ts": (
+        "export function buildFilters(q: Query): Filter[] {\n"
+        "  const f: Filter[] = [];\n"
+        "  if (q.category) f.push({ field: 'category', op: 'eq', value: q.category });\n"
+        "  if (q.minPrice) f.push({ field: 'price', op: 'gte', value: q.minPrice });\n"
+        "  if (q.maxPrice) f.push({ field: 'price', op: 'lte', value: q.maxPrice });\n"
+        "  if (q.brand) f.push({ field: 'brand', op: 'eq', value: q.brand });\n"
+        "  return f; // ほぼ同一の組み立てが 4 箇所に重複（duplicate cluster）\n"
+        "}\n"
+    ),
+    "src/checkout/cart.py": (
+        "def allocate_inventory(cart):\n"
+        "    for item in cart.items:\n"
+        "        if item.qty <= 0:\n"
+        "            continue\n"
+        "        if item.sku in RESERVED and not backorder_allowed(item):\n"
+        "            raise OutOfStock(item.sku)  # 分岐過多（複雑度 18）\n"
+        "        reserve(item)\n"
+    ),
+    "src/auth/session.py": (
+        "def validate_session(token):\n"
+        "    claims = decode(token)\n"
+        "    return claims if not claims.expired else None\n"
+        "\n"
+        "def _legacy_cookie_check(req):  # どこからも呼ばれない未到達パス（dead）\n"
+        "    return req.cookies.get('sid_v1')\n"
+    ),
+    "src/lib/db.py": (
+        "def fetch_one(query, params):\n"
+        "    try:\n"
+        "        return conn.execute(query, params).first()\n"
+        "    except Exception:\n"
+        "        pass  # 例外の握り潰し / 戻り値の型ヒント欠落\n"
+    ),
+}
+_DEFAULT_SNIPPET = "# 該当コード断片（デモ用ダミー）"
+
 
 # Assigned developers per debt (debt natural key → list of (handle, coverage, certified_via)).
 _ASSIGNEES: dict[tuple[str, str], list[tuple[str, float, str | None]]] = {
@@ -519,7 +573,7 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     status="open",
                     detected_at=now,
                     archaeology_notes=notes,
-                    code_snippet="# 該当コード断片（デモ用ダミー）\n...",
+                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
                     code_debt_score=score,
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=ai_prob,
@@ -548,7 +602,7 @@ async def _ensure_knowledge_debts(session: AsyncSession, project: Project, run_i
                     severity=severity,
                     status="open",
                     detected_at=now,
-                    code_snippet="# 該当コード断片（デモ用ダミー）\n...",
+                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
                     code_debt_score=score,
                     knowledge_coverage=kc,
                     ai_generation_prob=ai_prob,
