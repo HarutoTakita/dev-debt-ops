@@ -13,7 +13,9 @@
   import * as m from "$lib/paraglide/messages";
 
   // 解析は GitHub リポジトリの読み取りを伴うため、ゲストデモでは実行不可（issue 069）。
-  const demoBlockTitle = "デモでは解析を実行できません（GitHub サインインが必要です）";
+  const demoBlockMain = "デモでは解析を実行できません";
+  const demoBlockHint = "（GitHub サインインが必要です）";
+  const demoBlockTitle = `${demoBlockMain}${demoBlockHint}`;
 
   // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064）。表示は「検知 / 計測 / 用意」の
   // 3 グループに集約し、各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
@@ -97,7 +99,9 @@
         onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button
       >
       {#if auth.isDemo}
-        <p class="text-xs text-muted-foreground">{demoBlockTitle}</p>
+        <p class="text-xs leading-snug text-muted-foreground">
+          {demoBlockMain}<br />{demoBlockHint}
+        </p>
       {/if}
     </div>
   {:else}
