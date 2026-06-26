@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     JWT_LIFETIME_SECONDS: int = Field(default=1800, description="Access-token lifetime in seconds (30 min).")
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
 
+    # Guest demo (issue 069). When true, expose POST /api/v1/auth/demo + the login-screen
+    # "お試しはこちら" button so visitors without a GitHub account can browse seeded sample data.
+    # Keep false in real production; enable only for the hackathon showcase / stg.
+    DEMO_MODE_ENABLED: bool = Field(
+        default=False, description="Enable the GitHub-less guest demo login + sample data (issue 069)."
+    )
+
     # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
     # (issue 016/017) — default aligned to issue-017's region to avoid splitting regions.
     GOOGLE_CLOUD_PROJECT: str = Field(default="", description="GCP project ID (Vertex AI / Cloud Tasks / GCS).")

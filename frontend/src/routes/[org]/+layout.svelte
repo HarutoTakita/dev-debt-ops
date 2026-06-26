@@ -3,6 +3,7 @@
   import { cn } from "$lib/utils";
   import * as Sheet from "$lib/components/ui/sheet";
   import Topbar from "$lib/components/shell/topbar.svelte";
+  import DemoBanner from "$lib/components/shell/demo-banner.svelte";
   import SuperSidebar from "$lib/components/shell/super-sidebar.svelte";
   import CreateProjectDialog from "$lib/components/shell/create-project-dialog.svelte";
   import OnboardingTour from "$lib/components/onboarding/onboarding-tour.svelte";
@@ -20,6 +21,7 @@
 </script>
 
 <div class="flex h-screen flex-col">
+  <DemoBanner />
   <Topbar />
 
   <div class="flex min-h-0 flex-1">
