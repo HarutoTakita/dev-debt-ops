@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     SERVICE_TASKS_URL: str = Field(
         default="http://localhost:8001", description="Cloud Tasks HTTP target — the service container base URL."
     )
+    SERVICE_OIDC_AUDIENCE: str = Field(
+        default="",
+        description=(
+            "OIDC token audience for Cloud Tasks → service. Decoupled from SERVICE_TASKS_URL "
+            "because the service can't self-reference its own run.app URL in Terraform; a stable "
+            "value is wired via the service's custom_audiences. Empty = fall back to SERVICE_TASKS_URL."
+        ),
+    )
     TASKS_INVOKER_SA: str = Field(
         default="", description="Service account email for the Cloud Tasks → service OIDC token."
     )
