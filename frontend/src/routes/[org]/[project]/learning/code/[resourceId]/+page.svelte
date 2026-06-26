@@ -25,6 +25,11 @@
 
   onMount(async () => {
     try {
+      // 0. インラインのソースを持つリソース（ゲストデモ等）は GitHub を読まずそのまま表示する。
+      if (wt.content != null) {
+        content = wt.content;
+        return;
+      }
       // 1. 未生成ならオンデマンド生成 → ジョブ完了までポーリング → 再取得（開いたファイルのみ生成）。
       if (wt.status === "empty") {
         const { job_id } = await generateCodeWalkthrough(data.orgSlug, data.projectSlug, data.resourceId);

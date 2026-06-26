@@ -497,6 +497,8 @@ export const codeWalkthroughSchema = z.object({
   summary: z.string().default(""),
   status: z.enum(["ready", "empty"]),
   steps: z.array(codeWalkthroughStepSchema),
+  // インラインのソース（GitHub から取得できないリソース用 — ゲストデモ）。あればこれを直接表示する。
+  content: z.string().nullable().default(null),
 });
 
 export const codeWalkthroughJobSchema = z.object({
