@@ -9,6 +9,7 @@ export const userSchema = z.object({
   is_verified: z.boolean(),
   created_at: z.iso.datetime({ offset: true }).nullable().optional(),
   last_active_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  is_demo: z.boolean().default(false),
 });
 
 export const orgSchema = z.object({
@@ -496,6 +497,8 @@ export const codeWalkthroughSchema = z.object({
   summary: z.string().default(""),
   status: z.enum(["ready", "empty"]),
   steps: z.array(codeWalkthroughStepSchema),
+  // インラインのソース（GitHub から取得できないリソース用 — ゲストデモ）。あればこれを直接表示する。
+  content: z.string().nullable().default(null),
 });
 
 export const codeWalkthroughJobSchema = z.object({
