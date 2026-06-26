@@ -26,6 +26,23 @@ resource "google_compute_backend_service" "api" {
 resource "google_compute_url_map" "api" {
   name            = "${local.name_prefix}-urlmap"
   default_service = google_compute_backend_service.api.id
+
+  # Host-route the LP domain to the static backend bucket; everything else → the app (default).
+  dynamic "host_rule" {
+    for_each = local.lp_enabled ? [1] : []
+    content {
+      hosts        = [var.lp_domain]
+      path_matcher = "landing"
+    }
+  }
+
+  dynamic "path_matcher" {
+    for_each = local.lp_enabled ? [1] : []
+    content {
+      name            = "landing"
+      default_service = google_compute_backend_bucket.landing[0].id
+    }
+  }
 }
 
 resource "google_compute_global_address" "lb_ip" {
@@ -37,7 +54,8 @@ resource "google_compute_managed_ssl_certificate" "api" {
   name  = "${local.name_prefix}-cert"
 
   managed {
-    domains = [var.domain]
+    # Single managed cert covers the app domain and (when set) the LP domain.
+    domains = compact([var.domain, var.lp_domain])
   }
 }
 
