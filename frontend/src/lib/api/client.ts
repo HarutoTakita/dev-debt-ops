@@ -470,6 +470,15 @@ export async function getAnalysisStatus(orgSlug: string, projectSlug: string): P
   return analysisStatusSchema.parse(await response.json());
 }
 
+// 進行中（QUEUED/PROCESSING）の解析ジョブをキャンセルし、更新後の最新状態を返す。
+export async function cancelAnalysis(orgSlug: string, projectSlug: string): Promise<AnalysisStatus> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/cancel-analysis`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "解析のキャンセルに失敗しました"));
+  return analysisStatusSchema.parse(await response.json());
+}
+
 // 機能ドリルダウン（issue 055/056）: GET .../features/{feature_key} で機能配下ファイルの理解負債を取得。
 export async function getFeatureDrilldown(
   orgSlug: string,

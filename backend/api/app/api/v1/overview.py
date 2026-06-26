@@ -6,17 +6,18 @@
 trend point after an analysis run (issue 067). Project-scoped under ``OrgScope``.
 """
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Query
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlmodel import col
 
 from app.api.deps import OrgScope, SASessionDep
 from app.schemas.overview import AnalysisJobStatusOut, AnalysisStatusOut, DebtTrendPointOut, FileDebtOut, OverviewOut
 from app.services.debt_query import build_feature_drilldown, build_overview, record_trend_snapshot
 from app.services.project import ProjectServiceDep
-from shared.enums import JobType
+from shared.enums import JobStatus, JobType
 from shared.models import Job
 
 router = APIRouter(tags=["overview"])
@@ -132,5 +133,54 @@ async def get_analysis_status(
     for j in rows:
         key = str(j.job_type)  # JobType is a StrEnum → value string
         if key not in jobs:  # rows are newest-first → first seen is the latest per type
+            jobs[key] = AnalysisJobStatusOut(status=str(j.status), job_id=str(j.id))
+    return AnalysisStatusOut(jobs=jobs)
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/cancel-analysis",
+    response_model=AnalysisStatusOut,
+    summary="進行中（QUEUED/PROCESSING）の解析ジョブをキャンセルし、最新状態を返す",
+)
+async def cancel_analysis(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    org_membership: OrgScope,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> AnalysisStatusOut:
+    """Cancel the project's in-progress analysis jobs so the cockpit can be unblocked.
+
+    A QUEUED job that never dispatched (e.g. a stuck run) otherwise keeps the run store in a
+    permanent "running" state, disabling the Analyze button with no way out from the UI. Marks
+    QUEUED / PROCESSING analysis jobs CANCELLED; an already in-flight worker may still write its
+    own terminal status afterward (best effort — we don't hard-kill a running pipeline).
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    await session.execute(
+        update(Job)
+        .where(
+            col(Job.project_id) == project.id,
+            col(Job.job_type).in_(_ANALYSIS_JOB_TYPES),
+            col(Job.status).in_([JobStatus.QUEUED, JobStatus.PROCESSING]),
+        )
+        .values(status=JobStatus.CANCELLED, completed_at=datetime.now(UTC))
+    )
+    await session.commit()
+    rows = (
+        (
+            await session.execute(
+                select(Job)
+                .where(col(Job.project_id) == project.id, col(Job.job_type).in_(_ANALYSIS_JOB_TYPES))
+                .order_by(col(Job.created_at).desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    jobs: dict[str, AnalysisJobStatusOut] = {}
+    for j in rows:
+        key = str(j.job_type)
+        if key not in jobs:
             jobs[key] = AnalysisJobStatusOut(status=str(j.status), job_id=str(j.id))
     return AnalysisStatusOut(jobs=jobs)
