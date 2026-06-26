@@ -23,6 +23,10 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
         default=None,
         description="Timestamp of the user's last authenticated activity; nullable due to pre-migration rows.",
     )
+    is_demo: bool = Field(
+        default=False,
+        description="True for the shared guest-demo user (read-only, no GitHub); drives demo UI gating.",
+    )
 
 
 class UserCreate(schemas.BaseUserCreate):

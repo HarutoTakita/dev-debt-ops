@@ -9,6 +9,7 @@ export const userSchema = z.object({
   is_verified: z.boolean(),
   created_at: z.iso.datetime({ offset: true }).nullable().optional(),
   last_active_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  is_demo: z.boolean().default(false),
 });
 
 export const orgSchema = z.object({

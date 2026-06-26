@@ -9,6 +9,11 @@ class AuthStore {
     return this.user !== null;
   }
 
+  /** True for the shared guest-demo user (issue 069): gates GitHub/write UI + shows the banner. */
+  get isDemo() {
+    return this.user?.is_demo ?? false;
+  }
+
   async init() {
     this.loading = true;
     try {
