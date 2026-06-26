@@ -39,9 +39,40 @@
         background: radial-gradient(1200px 600px at 70% -10%, rgba(34, 184, 196, 0.18), transparent 60%),
           radial-gradient(900px 500px at 10% 10%, rgba(224, 162, 58, 0.12), transparent 55%);
       }
+      /* 背景のグラフ（ノード‐リンク）レイヤー。固定で薄く敷き、内容はその上に重ねる。 */
+      .graph-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.55;
+      }
+      /* 中央（テキスト帯）を少し沈めて可読性を確保するヴェール。 */
+      .graph-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background: radial-gradient(1000px 700px at 50% 28%, rgba(12, 17, 22, 0.6), rgba(12, 17, 22, 0) 72%);
+      }
+      body > header,
+      body > section,
+      body > footer {
+        position: relative;
+        z-index: 1;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .graph-bg {
+          opacity: 0.4;
+        }
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
+    <!-- 背景: ノード‐リンクのネットワークを薄く敷く（装飾・スクリプトで生成）。 -->
+    <svg class="graph-bg" id="graph" aria-hidden="true"></svg>
+    <div class="graph-veil" aria-hidden="true"></div>
+
     <!-- App CTA リンクはデプロイ時に置換（同一 LB の app ホスト）。既定は /login。 -->
     <!-- prettier-ignore -->
     <script>
@@ -180,7 +211,75 @@
       </div>
     </footer>
 
+    <!-- 背景グラフ生成: ジッタ付きグリッドにノードを置き、近傍だけをエッジで結ぶ（密度は spacing で調整）。 -->
     <script>
+      (function () {
+        const svg = document.getElementById("graph");
+        const NS = "http://www.w3.org/2000/svg";
+        const TEAL = "#22b8c4";
+        const AMBER = "#e0a23a";
+
+        function build() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+          while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+          const spacing = w < 640 ? 120 : 160; // 細かすぎず雑過ぎず
+          const cols = Math.ceil(w / spacing) + 1;
+          const rows = Math.ceil(h / spacing) + 1;
+          const nodes = [];
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              nodes.push({
+                x: c * spacing + (Math.random() - 0.5) * spacing * 0.7,
+                y: r * spacing + (Math.random() - 0.5) * spacing * 0.7,
+                amber: Math.random() < 0.28,
+                r: 2 + Math.random() * 3,
+              });
+            }
+          }
+
+          // エッジ（近傍のみ・一部間引き）を先に描いてノードを上に重ねる。
+          const edges = document.createElementNS(NS, "g");
+          const maxd = spacing * 1.5;
+          for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+              const d = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
+              if (d < maxd && Math.random() < 0.55) {
+                const line = document.createElementNS(NS, "line");
+                line.setAttribute("x1", nodes[i].x.toFixed(1));
+                line.setAttribute("y1", nodes[i].y.toFixed(1));
+                line.setAttribute("x2", nodes[j].x.toFixed(1));
+                line.setAttribute("y2", nodes[j].y.toFixed(1));
+                line.setAttribute("stroke", "#3a8088");
+                line.setAttribute("stroke-width", "1");
+                line.setAttribute("opacity", (0.22 * (1 - d / maxd) + 0.05).toFixed(2));
+                edges.appendChild(line);
+              }
+            }
+          }
+          svg.appendChild(edges);
+
+          for (const n of nodes) {
+            const cir = document.createElementNS(NS, "circle");
+            cir.setAttribute("cx", n.x.toFixed(1));
+            cir.setAttribute("cy", n.y.toFixed(1));
+            cir.setAttribute("r", n.r.toFixed(1));
+            cir.setAttribute("fill", n.amber ? AMBER : TEAL);
+            cir.setAttribute("opacity", (0.35 + Math.random() * 0.35).toFixed(2));
+            svg.appendChild(cir);
+          }
+        }
+
+        build();
+        let t;
+        window.addEventListener("resize", function () {
+          clearTimeout(t);
+          t = setTimeout(build, 200);
+        });
+      })();
+
       document.getElementById("year").textContent = new Date().getFullYear();
       // App への導線をまとめて差し替え（デプロイで __APP_URL__ を実 URL に置換）。
       for (const id of ["nav-cta", "hero-cta", "foot-cta"]) {
