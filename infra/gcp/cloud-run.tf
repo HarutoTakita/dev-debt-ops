@@ -6,6 +6,11 @@
 # USE_MOCK_* are forced false so prod uses real Cloud Tasks / GCS (the app defaults are
 # mock=true for local dev — they MUST be overridden here or api would never dispatch).
 locals {
+  # Stable OIDC audience for Cloud Tasks → service. Decoupled from the service's run.app URL
+  # (which can't be self-referenced in Terraform); the service accepts it via custom_audiences,
+  # and its app-level verify_oidc expects it via SERVICE_TASKS_URL.
+  service_oidc_audience = "https://${local.name_prefix}-service"
+
   api_plain_env = {
     ENVIRONMENT           = var.environment
     COOKIE_SECURE         = "true"
@@ -22,6 +27,7 @@ locals {
     GITHUB_APP_SLUG       = var.github_app_slug
     GITHUB_CLIENT_ID      = var.github_client_id
     FRONTEND_ORIGIN       = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
+    SERVICE_OIDC_AUDIENCE = local.service_oidc_audience
   }
 
   api_secret_env = {
@@ -32,21 +38,20 @@ locals {
     DATABASE_URL           = "database-url"
   }
 
-  # service does not get SERVICE_TASKS_URL from its own .uri (that would be a cycle). The
-  # deploy workflow sets the service's OIDC audience post-create (or via custom_audiences);
-  # TASKS_INVOKER_SA lets it check the token principal.
+  # service can't reference its own run.app .uri in Terraform (self-cycle), so SERVICE_TASKS_URL
+  # here is the stable OIDC audience (accepted via the service's custom_audiences, and the api
+  # mints tokens with the same value). TASKS_INVOKER_SA lets verify_oidc check the token principal.
   service_plain_env = {
     ENVIRONMENT           = var.environment
     GOOGLE_CLOUD_PROJECT  = var.gcp_project_id
     GOOGLE_CLOUD_LOCATION = var.region
     JOB_PAYLOAD_BUCKET    = google_storage_bucket.job_payloads.name
     TASKS_INVOKER_SA      = google_service_account.tasks_invoker.email
-    # stg: the worker is already gated by Cloud Run IAM (internal-only ingress +
-    # tasks_invoker-only run.invoker), so skip the redundant app-level OIDC check, whose
-    # expected audience can't be wired without a self-referential service URL. prod keeps
-    # fail-closed app-level OIDC (issue-038) and needs the audience wired before prod deploy.
-    USE_MOCK_QUEUE = var.environment == "prod" ? "false" : "true"
-    GITHUB_APP_ID  = var.github_app_id
+    # verify_oidc expects this exact audience; the api mints the OIDC token with the same
+    # stable value (SERVICE_OIDC_AUDIENCE) and the service accepts it via custom_audiences.
+    SERVICE_TASKS_URL = local.service_oidc_audience
+    USE_MOCK_QUEUE    = "false"
+    GITHUB_APP_ID     = var.github_app_id
   }
 
   # service mints GitHub App installation tokens (method B) in the analysis pipelines,
@@ -134,6 +139,10 @@ resource "google_cloud_run_v2_service" "service" {
   name     = "${local.name_prefix}-service"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+  # Accept Cloud Tasks OIDC tokens minted with this stable audience (the api uses the same
+  # value). Avoids the service needing to know its own run.app URL (Terraform self-cycle).
+  custom_audiences = [local.service_oidc_audience]
 
   deletion_protection = var.environment == "prod"
 
