@@ -85,44 +85,45 @@ _RUN_KINDS = (
     JobType.FEATURE_CLUSTERING,
 )
 
-# Sample repository files (path → (language, loc, kc, code_debt_score)). KC drives the Overview
-# scatter / Galaxy file universe; code_debt_score is the static-quality (vertical) axis. The mix
-# spreads points across the two-axis matrix so every quadrant is represented.
+# Sample repository files (path → (language, loc, kc, code_debt_score)). KC は Overview 散布図の
+# 横軸 / Galaxy file universe を、code_debt_score は縦軸（静的品質）を駆動する。両軸とも [0.1,0.9]
+# に広く散らし、4 象限すべてに点が乗るよう調整（上端=低負債=クリーンへの偏りを解消）。各ファイルは
+# _ensure_code_debts で 1 件の CodeDebt を持つため、散布図の縦位置は code_debt_score を直接反映する。
 _FILES: list[tuple[str, str, int, float, float]] = [
-    # checkout（決済・カート）
-    ("src/checkout/payment.py", "Python", 412, 0.18, 0.82),  # P0: 低 KC + 高コード負債（ホットスポット）
-    ("src/checkout/cart.py", "Python", 233, 0.34, 0.55),
+    # checkout（決済・カート）— ホットスポット機能
+    ("src/checkout/payment.py", "Python", 412, 0.18, 0.86),  # 最危険: 低 KC × 高コード負債
+    ("src/checkout/cart.py", "Python", 233, 0.34, 0.60),
     ("src/checkout/order.py", "Python", 201, 0.45, 0.40),
-    ("src/checkout/coupon.py", "Python", 96, 0.66, 0.28),
-    ("src/ui/checkout-form.svelte", "Svelte", 98, 0.81, 0.12),
+    ("src/checkout/coupon.py", "Python", 96, 0.66, 0.30),
+    ("src/ui/checkout-form.svelte", "Svelte", 98, 0.81, 0.14),  # 理想: 高 KC × クリーン
     # auth（認証）
-    ("src/auth/session.py", "Python", 188, 0.27, 0.41),  # 知識ホットスポット
-    ("src/auth/oauth.py", "Python", 145, 0.62, 0.30),
-    ("src/auth/password.py", "Python", 88, 0.49, 0.35),
-    ("src/auth/jwt.py", "Python", 76, 0.71, 0.15),
-    ("src/ui/login.svelte", "Svelte", 120, 0.58, 0.22),
+    ("src/auth/session.py", "Python", 188, 0.27, 0.50),  # 知識ホットスポット
+    ("src/auth/oauth.py", "Python", 145, 0.62, 0.34),
+    ("src/auth/password.py", "Python", 88, 0.49, 0.56),
+    ("src/auth/jwt.py", "Python", 76, 0.71, 0.20),
+    ("src/ui/login.svelte", "Svelte", 120, 0.58, 0.12),
     # catalog（商品カタログ）
-    ("src/catalog/search.ts", "TypeScript", 320, 0.21, 0.71),  # P0
-    ("src/catalog/product.ts", "TypeScript", 176, 0.74, 0.22),  # 理解済み・クリーン
-    ("src/catalog/category.ts", "TypeScript", 110, 0.63, 0.26),
+    ("src/catalog/search.ts", "TypeScript", 320, 0.21, 0.74),  # 危険: 低 KC × 高負債
+    ("src/catalog/product.ts", "TypeScript", 176, 0.74, 0.26),  # 理解済み・クリーン
+    ("src/catalog/category.ts", "TypeScript", 110, 0.63, 0.54),  # 要リファクタ: 高 KC × 高負債
     ("src/ui/product-card.svelte", "Svelte", 84, 0.78, 0.10),
-    ("src/lib/db.py", "Python", 64, 0.55, 0.18),
+    ("src/lib/db.py", "Python", 64, 0.55, 0.22),
     # inventory（在庫）
-    ("src/inventory/stock.py", "Python", 167, 0.31, 0.58),
-    ("src/inventory/warehouse.py", "Python", 142, 0.40, 0.47),
-    ("src/inventory/reservation.py", "Python", 119, 0.24, 0.64),
+    ("src/inventory/stock.py", "Python", 167, 0.31, 0.66),
+    ("src/inventory/warehouse.py", "Python", 142, 0.40, 0.38),
+    ("src/inventory/reservation.py", "Python", 119, 0.24, 0.44),
     # user（ユーザー）
-    ("src/user/profile.py", "Python", 134, 0.69, 0.20),
-    ("src/user/address.py", "Python", 92, 0.57, 0.24),
-    ("src/ui/profile-page.svelte", "Svelte", 110, 0.80, 0.11),
+    ("src/user/profile.py", "Python", 134, 0.69, 0.46),
+    ("src/user/address.py", "Python", 92, 0.57, 0.28),
+    ("src/ui/profile-page.svelte", "Svelte", 110, 0.80, 0.18),
     # shipping（配送）
-    ("src/shipping/shipping.py", "Python", 158, 0.37, 0.52),
-    ("src/shipping/tracking.ts", "TypeScript", 124, 0.52, 0.33),
-    ("src/shipping/carrier.py", "Python", 101, 0.46, 0.39),
+    ("src/shipping/shipping.py", "Python", 158, 0.37, 0.58),
+    ("src/shipping/tracking.ts", "TypeScript", 124, 0.52, 0.70),  # 要リファクタ
+    ("src/shipping/carrier.py", "Python", 101, 0.46, 0.42),
     # notifications（通知）
-    ("src/notifications/email.py", "Python", 113, 0.61, 0.29),
-    ("src/notifications/push.ts", "TypeScript", 97, 0.44, 0.42),
-    ("src/notifications/templates.py", "Python", 78, 0.72, 0.16),
+    ("src/notifications/email.py", "Python", 113, 0.61, 0.32),
+    ("src/notifications/push.ts", "TypeScript", 97, 0.44, 0.62),
+    ("src/notifications/templates.py", "Python", 78, 0.72, 0.36),
 ]
 
 # Feature clusters (key, name, description, [member file paths]).
@@ -235,11 +236,11 @@ _DEPENDENCIES: list[tuple[str, str]] = [
 
 # Code-debt findings (file_path, type, severity, score, ai_prob, repay_hours, notes).
 _CODE_DEBTS: list[tuple[str, str, str, float, float, float, str]] = [
-    ("src/checkout/payment.py", "complexity", "critical", 0.82, 0.71, 6.0, "循環的複雑度 31 / 分岐の入れ子 6 段"),
-    ("src/catalog/search.ts", "duplicate", "high", 0.71, 0.44, 3.5, "検索フィルタ構築の重複クラスタ 4 箇所"),
-    ("src/checkout/cart.py", "complexity", "medium", 0.55, 0.33, 2.0, "在庫引当ロジックの分岐過多（複雑度 18）"),
-    ("src/auth/session.py", "dead", "medium", 0.41, 0.12, 1.5, "未到達のレガシー cookie 検証パス"),
-    ("src/lib/db.py", "other", "low", 0.18, 0.05, 0.5, "型ヒント欠落 / 例外の握り潰し 1 箇所"),
+    ("src/checkout/payment.py", "complexity", "critical", 0.86, 0.71, 6.0, "循環的複雑度 31 / 分岐の入れ子 6 段"),
+    ("src/catalog/search.ts", "duplicate", "high", 0.74, 0.44, 3.5, "検索フィルタ構築の重複クラスタ 4 箇所"),
+    ("src/checkout/cart.py", "complexity", "medium", 0.60, 0.33, 2.0, "在庫引当ロジックの分岐過多（複雑度 18）"),
+    ("src/auth/session.py", "dead", "medium", 0.50, 0.12, 1.5, "未到達のレガシー cookie 検証パス"),
+    ("src/lib/db.py", "other", "low", 0.22, 0.05, 0.5, "型ヒント欠落 / 例外の握り潰し 1 箇所"),
 ]
 
 # Knowledge-debt findings (file_path, reason, severity, score, kc, ai_prob, repay_hours, notes).
@@ -834,6 +835,46 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=ai_prob,
                     estimated_repay_hours=repay,
+                    metrics={"cyclomatic_complexity": int(score * 40)},
+                    created_at=now,
+                )
+            )
+
+    # Every other analysed file gets one synthesized finding so the Overview scatter plots it at its
+    # real code_debt_score. build_overview reads code_debt_score from CodeDebt rows only — files with
+    # no row collapse to 0.0 and pile on the clean top edge. Severity/type derive from the score; the
+    # curated findings above keep their richer notes.
+    curated = {fp for fp, *_ in _CODE_DEBTS}
+    _types = ("complexity", "duplicate", "dead", "other")
+    _notes = {
+        "complexity": "条件分岐が深く循環的複雑度が高め",
+        "duplicate": "近接した重複ブロックが数箇所",
+        "dead": "未参照の関数 / 到達不能な分岐あり",
+        "other": "型ヒント欠落・軽微な例外握り潰し",
+    }
+    for idx, (file_path, _language, _loc, _kc, score) in enumerate(_FILES):
+        if file_path in curated:
+            continue
+        dtype = _types[idx % len(_types)]
+        severity = "critical" if score >= 0.7 else "high" if score >= 0.5 else "medium" if score >= 0.3 else "low"
+        row_id = _u("code_debt", run_id, file_path, dtype)
+        if await _get(session, CodeDebt, row_id) is None:
+            session.add(
+                CodeDebt(
+                    id=row_id,
+                    project_id=project.id,
+                    run_id=run_id,
+                    file_path=file_path,
+                    type=dtype,
+                    severity=severity,
+                    status="open",
+                    detected_at=now,
+                    archaeology_notes=_notes[dtype],
+                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_debt_score=score,
+                    knowledge_coverage=kc_by_path.get(file_path, 0.0),
+                    ai_generation_prob=round(score * 0.6, 2),
+                    estimated_repay_hours=round(score * 4, 1),
                     metrics={"cyclomatic_complexity": int(score * 40)},
                     created_at=now,
                 )
