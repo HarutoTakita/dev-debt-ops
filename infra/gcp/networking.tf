@@ -28,6 +28,9 @@ resource "google_vpc_access_connector" "main" {
   region        = var.region
   network       = google_compute_network.main.name
   ip_cidr_range = "10.8.0.0/28"
+  # The API requires either instances or throughput bounds; use the smallest valid pair.
+  min_instances = 2
+  max_instances = 3
 
   depends_on = [google_project_service.services]
 }
