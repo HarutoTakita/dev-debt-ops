@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DevDebtOps — 理解負債を、測って返す</title>
+    <meta
+      name="description"
+      content="チームの『コードのわかってなさ（理解負債）』をクイズで実測し、学習で返済する閉ループ。技術負債はリファクタで返す。理解度とコード品質を一枚で。"
+    />
+    <meta property="og:title" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta
+      property="og:description"
+      content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
+    />
+    <meta property="og:type" content="website" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              know: "#22b8c4", // 理解（ティール）
+              code: "#e0a23a", // コード（アンバー）
+              ink: "#0c1116",
+            },
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://rsms.me" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      .grad {
+        background: radial-gradient(1200px 600px at 70% -10%, rgba(34, 184, 196, 0.18), transparent 60%),
+          radial-gradient(900px 500px at 10% 10%, rgba(224, 162, 58, 0.12), transparent 55%);
+      }
+    </style>
+  </head>
+  <body class="bg-ink text-slate-100 antialiased">
+    <!-- App CTA リンクはデプロイ時に置換（同一 LB の app ホスト）。既定は /login。 -->
+    <!-- prettier-ignore -->
+    <script>
+      window.__APP_URL__ = "APP_URL_PLACEHOLDER".startsWith("APP_URL") ? "/login" : "APP_URL_PLACEHOLDER";
+    </script>
+
+    <header class="grad">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+        <div class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="inline-block size-3 rounded-sm bg-know"></span>
+          <span class="inline-block size-3 -ml-1 rounded-sm bg-code"></span>
+          <span class="ml-1">DevDebtOps</span>
+        </div>
+        <a
+          id="nav-cta"
+          href="/login"
+          class="rounded-md border border-white/15 px-4 py-2 text-sm font-medium hover:bg-white/10"
+          >アプリを開く</a
+        >
+      </nav>
+
+      <section class="mx-auto max-w-6xl px-6 pt-10 pb-20 text-center">
+        <p class="mb-4 inline-block rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs text-know">
+          Knowledge Debt Twin Agent
+        </p>
+        <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-tight sm:text-6xl">
+          コードの<span class="text-know">“わかってなさ”</span>を、<br class="hidden sm:block" />
+          測って<span class="text-code">返す</span>。
+        </h1>
+        <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-300">
+          理解度を<strong class="text-white">クイズで実測</strong>（git blame 非依存・単独開発でも計測可）し、
+          <strong class="text-white">学習で返済</strong>する閉ループ。技術負債はリファクタ PR で返す。
+          理解負債と技術負債を、一枚のダッシュボードで。
+        </p>
+        <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <a
+            id="hero-cta"
+            href="/login"
+            class="rounded-md bg-know px-6 py-3 font-semibold text-ink hover:brightness-110"
+            >無料で始める</a
+          >
+          <a href="#how" class="rounded-md border border-white/15 px-6 py-3 font-medium hover:bg-white/10"
+            >仕組みを見る</a
+          >
+        </div>
+      </section>
+    </header>
+
+    <!-- 課題 -->
+    <section class="mx-auto max-w-6xl px-6 py-16">
+      <h2 class="text-center text-2xl font-bold sm:text-3xl">負債は「コード」だけじゃない</h2>
+      <p class="mx-auto mt-3 max-w-2xl text-center text-slate-400">
+        書いた本人が抜け、AI 生成が増えるほど「誰も中身を理解していないコード」が積み上がる。
+        これは技術負債とは別の<strong class="text-know">理解負債</strong>。放置すると変更速度も品質も落ちる。
+      </p>
+    </section>
+
+    <!-- 2×2 解決 -->
+    <section id="how" class="mx-auto max-w-6xl px-6 py-12">
+      <h2 class="text-center text-2xl font-bold sm:text-3xl">2つの負債を、可視化して返済する</h2>
+      <div class="mt-10 grid gap-6 md:grid-cols-2">
+        <div class="rounded-2xl border border-know/25 bg-know/5 p-6">
+          <h3 class="flex items-center gap-2 text-xl font-semibold text-know">
+            <span class="size-2.5 rounded-full bg-know"></span> 理解負債
+          </h3>
+          <ul class="mt-4 space-y-3 text-slate-300">
+            <li><strong class="text-white">可視化｜理解度マップ</strong> — 誰がどこを理解しているかを星図で俯瞰。</li>
+            <li><strong class="text-white">返済｜クイズと学習</strong> — クイズで実測し、学習プランで埋める。合格で理解度↑。</li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-code/25 bg-code/5 p-6">
+          <h3 class="flex items-center gap-2 text-xl font-semibold text-code">
+            <span class="size-2.5 rounded-full bg-code"></span> 技術負債
+          </h3>
+          <ul class="mt-4 space-y-3 text-slate-300">
+            <li><strong class="text-white">可視化｜コード品質マップ</strong> — 重複・複雑度・AI 生成痕跡を検知。</li>
+            <li><strong class="text-white">返済｜コード改善</strong> — AI がリファクタ案を生成し、返済 PR を作成。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 閉ループ -->
+    <section class="mx-auto max-w-6xl px-6 py-12">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+        <h2 class="text-2xl font-bold sm:text-3xl">実測 → 返済の閉ループ</h2>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm font-medium">
+          <span class="rounded-md bg-white/10 px-4 py-2">① 解析（検知・理解度・機能）</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md bg-know/15 px-4 py-2 text-know">② クイズで実測</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md bg-know/15 px-4 py-2 text-know">③ 学習で返済</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md bg-code/15 px-4 py-2 text-code">④ リファクタ PR</span>
+          <span class="text-slate-500">↺</span>
+        </div>
+        <p class="mx-auto mt-6 max-w-2xl text-slate-400">
+          コード負債の検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。
+          主役はあくまで<strong class="text-white">理解度の実測と返済</strong>です。
+        </p>
+      </div>
+    </section>
+
+    <!-- 特徴 -->
+    <section class="mx-auto max-w-6xl px-6 py-12">
+      <div class="grid gap-6 sm:grid-cols-3">
+        <div class="rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold text-white">blame 非依存の実測</h3>
+          <p class="mt-2 text-sm text-slate-400">推測ではなくクイズで能動計測。単独開発もコードを書かない PM も対象。</p>
+        </div>
+        <div class="rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold text-white">GitHub 連携で自動化</h3>
+          <p class="mt-2 text-sm text-slate-400">リポジトリを接続して解析。返済はそのまま GitHub PR に。</p>
+        </div>
+        <div class="rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold text-white">機能（feature）単位の単元</h3>
+          <p class="mt-2 text-sm text-slate-400">ファイルを機能に束ね、学習 → 確認クイズで理解を積み上げる。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="mx-auto max-w-6xl px-6 py-20 text-center">
+      <h2 class="text-3xl font-bold">チームの理解負債を、今日から見える化</h2>
+      <a
+        id="foot-cta"
+        href="/login"
+        class="mt-8 inline-block rounded-md bg-know px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
+        >無料で始める</a
+      >
+    </section>
+
+    <footer class="border-t border-white/10">
+      <div class="mx-auto max-w-6xl px-6 py-8 text-sm text-slate-500">
+        © <span id="year"></span> DevDebtOps
+      </div>
+    </footer>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+      // App への導線をまとめて差し替え（デプロイで __APP_URL__ を実 URL に置換）。
+      for (const id of ["nav-cta", "hero-cta", "foot-cta"]) {
+        const el = document.getElementById(id);
+        if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
+      }
+    </script>
+  </body>
+</html>
