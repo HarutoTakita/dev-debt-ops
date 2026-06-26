@@ -34,5 +34,5 @@ variable "environments" {
 variable "state_bucket" {
   description = "GCS bucket name for tfstate (shared by app + bootstrap under different prefixes)."
   type        = string
-  default     = "fullstack-app-tfstate"
+  default     = "dev-debt-ops"
 }
