@@ -101,6 +101,14 @@ async def resolve_installation_id(
     ``analyze-stack`` route (issue 018, method B — only the ``installation_id`` is enqueued
     and the ``service`` container mints the token itself).
     """
+    # Guest demo users (issue 069) have no GitHub OAuth account and must not reach GitHub.
+    # Blocking here gates every GitHub-requiring route (project create, analysis triggers,
+    # repo listing/tree/contents, analyze-stack, repayment PR) in one chokepoint.
+    if current_user.is_demo:
+        raise HTTPException(
+            status_code=403,
+            detail={"reason": "demo_readonly", "message": "GitHub 連携が必要な操作はデモでは利用できません。"},
+        )
     result = await session.execute(
         sa_select(OAuthAccount).where(
             OAuthAccount.user_id == current_user.id,
@@ -132,6 +140,24 @@ async def resolve_installation_id(
 
 
 InstallationIdDep = Annotated[int, Depends(resolve_installation_id)]
+
+
+async def resolve_installation_id_optional(
+    current_user: CurrentUser,
+    session: SASessionDep,
+    github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
+) -> int | None:
+    """Like ``resolve_installation_id`` but returns ``None`` for demo users instead of 403.
+
+    Demo quizzes are choice-only and graded offline (no GitHub — issue 069), so quiz submission
+    must not be blocked by the GitHub chokepoint. Non-demo users still resolve a real id.
+    """
+    if current_user.is_demo:
+        return None
+    return await resolve_installation_id(current_user, session, github_app)
+
+
+OptionalInstallationIdDep = Annotated[int | None, Depends(resolve_installation_id_optional)]
 
 
 async def resolve_github_client(

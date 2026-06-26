@@ -41,6 +41,51 @@ async def _mint_installation_token(github: GitHubRef) -> str:
     return await app_service.get_installation_token(github.installation_id)
 
 
+def _choice_matches(expected: object, given: object) -> bool:
+    """Match a stored answer (``str`` for single-choice, ``list`` for multi) against a saved value.
+
+    Multi-select answers are persisted as a comma-separated string of choice ids (issue 040).
+    """
+    if given is None:
+        return False
+    if isinstance(expected, list):
+        chosen = {p.strip() for p in str(given).split(",") if p.strip()}
+        return chosen == {str(e) for e in expected}
+    return str(given).strip() == str(expected)
+
+
+def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> dict:
+    """Deterministically grade a choice-only quiz with no GitHub/LLM (guest demo — issue 069).
+
+    Returns the same shape as ``gemini_stack_service.grade_quiz``: ``score`` (fraction correct) plus
+    ``understood`` / ``gap_concepts`` (the prompts of the correct / incorrect questions).
+    """
+    given = {a["question_id"]: a.get("value") for a in answers}
+    total = 0
+    correct = 0
+    # understood/gap_concepts are {id, label} dicts (concept shape the result UI renders).
+    understood: list[dict] = []
+    gap: list[dict] = []
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        qid = q.get("id")
+        key = answer_key.get(qid)
+        if not isinstance(key, dict):
+            continue
+        expected = key.get("answer")
+        if expected is None:
+            continue
+        total += 1
+        concept = {"id": str(qid), "label": q.get("prompt") or str(qid)}
+        if _choice_matches(expected, given.get(qid)):
+            correct += 1
+            understood.append(concept)
+        else:
+            gap.append(concept)
+    return {"score": (correct / total) if total else 0.0, "understood": understood, "gap_concepts": gap}
+
+
 async def _upsert_kc_row(
     session: AsyncSession,
     *,
@@ -164,26 +209,29 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
         )
 
     answers = (await session.execute(select(QuizAnswer).where(col(QuizAnswer.session_id) == sid))).scalars().all()
-    payload = json.dumps(
-        {
-            "questions": quiz.questions,
-            "answer_key": quiz.answer_key,
-            "answers": [{"question_id": a.question_id, "value": a.value} for a in answers],
-        },
-        ensure_ascii=False,
-    )
-    # File context for grading (best-effort; method B token).
-    owner, _, repo = quiz.repo_full_name.partition("/")
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
-    try:
-        if owner and repo:
-            fc = await client.get_file_content(owner, repo, quiz.file_path, "main")
-            payload = f"{payload}\n\n=== {quiz.file_path} ===\n{(fc.content or '')[:4000]}"
-    finally:
-        await client.aclose()
+    answer_dicts = [{"question_id": a.question_id, "value": a.value} for a in answers]
 
-    graded = await gemini_stack_service.grade_quiz(payload)
+    # Guest demo (issue 069) carries no GitHub installation (installation_id=0, no access_token).
+    # Demo quizzes are choice-only, so grade deterministically offline — no GitHub fetch, no Gemini.
+    offline = request.github.access_token is None and not request.github.installation_id
+    if offline:
+        graded = _grade_offline(quiz.questions, quiz.answer_key, answer_dicts)
+    else:
+        payload = json.dumps(
+            {"questions": quiz.questions, "answer_key": quiz.answer_key, "answers": answer_dicts},
+            ensure_ascii=False,
+        )
+        # File context for grading (best-effort; method B token).
+        owner, _, repo = quiz.repo_full_name.partition("/")
+        token = await _mint_installation_token(request.github)
+        client = GitHubGitClient(access_token=token)
+        try:
+            if owner and repo:
+                fc = await client.get_file_content(owner, repo, quiz.file_path, "main")
+                payload = f"{payload}\n\n=== {quiz.file_path} ===\n{(fc.content or '')[:4000]}"
+        finally:
+            await client.aclose()
+        graded = await gemini_stack_service.grade_quiz(payload)
     score = graded["score"]
 
     # Reflect the score into file_kc (certified_via="quiz", uncapped — issue 053 / ADR 0005).
