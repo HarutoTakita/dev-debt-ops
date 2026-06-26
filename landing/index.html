@@ -216,8 +216,6 @@
       (function () {
         const svg = document.getElementById("graph");
         const NS = "http://www.w3.org/2000/svg";
-        const TEAL = "#22b8c4";
-        const AMBER = "#e0a23a";
 
         function build() {
           const w = window.innerWidth;
@@ -225,89 +223,150 @@
           svg.setAttribute("viewBox", "0 0 " + w + " " + h);
           while (svg.firstChild) svg.removeChild(svg.firstChild);
 
-          const margin = 24;
-          const rnd = (min, max) => min + Math.random() * (max - min);
-          // ゆるい正規分布（クラスタの広がり用）。
-          const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
+          const margin = 28;
+          const N = Math.min(120, Math.max(36, Math.round((w * h) / 16000)));
 
-          // クラスタ中心を複数置き、その周りにノードを偏らせる＝密度に粗密（クラスタ感）をつける。
-          const area = w * h;
-          const nClusters = Math.max(3, Math.round(area / 280000));
-          const centers = [];
-          for (let i = 0; i < nClusters; i++) {
-            centers.push({ x: rnd(margin, w - margin), y: rnd(margin, h - margin) });
-          }
-
-          const nodeCount = Math.min(150, Math.max(34, Math.round(area / 13000)));
+          // --- スケールフリー網（優先的選択 / Barabási–Albert）でハブを生む ---
+          // 新規ノードは「既に次数の高いノード」へ繋がりやすい → 一部に接続が集中＝ハブができる。
           const nodes = [];
-          for (let i = 0; i < nodeCount; i++) {
-            let x, y;
-            if (Math.random() < 0.82) {
-              const c = centers[Math.floor(Math.random() * centers.length)];
-              const spread = rnd(60, 150);
-              x = c.x + gauss() * spread;
-              y = c.y + gauss() * spread;
-            } else {
-              x = rnd(margin, w - margin); // クラスタ外の散らばり（少量）
-              y = rnd(margin, h - margin);
+          const edges = [];
+          const pref = []; // 次数比例の抽選用（ノード id を次数ぶん重複格納）
+          const fam = () => (Math.random() < 0.3 ? "amber" : "teal");
+          function link(a, b) {
+            edges.push({ a: a, b: b });
+            nodes[a].deg++;
+            nodes[b].deg++;
+            pref.push(a, b);
+          }
+          for (let i = 0; i < 3; i++) nodes.push({ deg: 0, fam: fam() });
+          link(0, 1);
+          link(1, 2);
+          link(0, 2);
+          const m = 2; // 新規ノードが張る本数
+          for (let i = 3; i < N; i++) {
+            nodes.push({ deg: 0, fam: fam() });
+            const targets = new Set();
+            let guard = 0;
+            while (targets.size < m && guard++ < 60) {
+              const t =
+                Math.random() < 0.9 && pref.length ? pref[(Math.random() * pref.length) | 0] : (Math.random() * i) | 0;
+              if (t !== i) targets.add(t);
             }
-            x = Math.max(margin, Math.min(w - margin, x));
-            y = Math.max(margin, Math.min(h - margin, y));
-            nodes.push({ x: x, y: y, deg: 0, amber: Math.random() < 0.28 });
+            targets.forEach((t) => link(i, t));
+          }
+          // ハブ／既存間に追加エッジ（密度UP・優先的選択でハブに集まる）。
+          const extra = Math.round(N * 0.25);
+          for (let e = 0; e < extra; e++) {
+            const a = pref[(Math.random() * pref.length) | 0];
+            const b = pref[(Math.random() * pref.length) | 0];
+            if (a !== b) link(a, b);
           }
 
-          // エッジ: 各ノードを最近傍 k 本へ必ず接続（孤立点を無くす）＋近接ペアを確率的に追加して密にする。
-          const seen = new Set();
-          const edgeList = [];
-          const k = 3;
-          const linkDist = Math.min(w, h) < 700 ? 150 : 190;
-          for (let i = 0; i < nodes.length; i++) {
-            const dists = [];
-            for (let j = 0; j < nodes.length; j++) {
-              if (i === j) continue;
-              dists.push({ j: j, d: Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y) });
+          // --- 力学レイアウト（Fruchterman–Reingold）でハブ中心の自然な配置に ---
+          const kspring = Math.sqrt((w * h) / nodes.length) * 0.72;
+          for (const n of nodes) {
+            n.x = w / 2 + (Math.random() - 0.5) * w * 0.5;
+            n.y = h / 2 + (Math.random() - 0.5) * h * 0.5;
+          }
+          let temp = Math.min(w, h) * 0.16;
+          const iters = nodes.length > 90 ? 170 : 240;
+          for (let it = 0; it < iters; it++) {
+            for (const n of nodes) {
+              n.fx = 0;
+              n.fy = 0;
             }
-            dists.sort((a, b) => a.d - b.d);
-            for (let n = 0; n < dists.length; n++) {
-              const near = n < k; // 近傍 k 本は確定
-              const extra = dists[n].d < linkDist && Math.random() < 0.3; // 近接は追加で密に
-              if (!near && !extra) continue;
-              const j = dists[n].j;
-              const key = i < j ? i + "-" + j : j + "-" + i;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              edgeList.push({ a: i, b: j, d: dists[n].d });
-              nodes[i].deg++;
-              nodes[j].deg++;
+            for (let i = 0; i < nodes.length; i++) {
+              for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[i].x - nodes[j].x;
+                const dy = nodes[i].y - nodes[j].y;
+                const dist = Math.hypot(dx, dy) || 0.01;
+                const rep = (kspring * kspring) / dist;
+                nodes[i].fx += (dx / dist) * rep;
+                nodes[i].fy += (dy / dist) * rep;
+                nodes[j].fx -= (dx / dist) * rep;
+                nodes[j].fy -= (dy / dist) * rep;
+              }
             }
+            for (const e of edges) {
+              const a = nodes[e.a];
+              const b = nodes[e.b];
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const dist = Math.hypot(dx, dy) || 0.01;
+              const att = (dist * dist) / kspring;
+              a.fx -= (dx / dist) * att;
+              a.fy -= (dy / dist) * att;
+              b.fx += (dx / dist) * att;
+              b.fy += (dy / dist) * att;
+            }
+            for (const n of nodes) {
+              n.fx += (w / 2 - n.x) * 0.012; // 中央寄せ（フレーム外れ防止）
+              n.fy += (h / 2 - n.y) * 0.012;
+              const d = Math.hypot(n.fx, n.fy) || 0.01;
+              const lim = Math.min(d, temp);
+              n.x += (n.fx / d) * lim;
+              n.y += (n.fy / d) * lim;
+            }
+            temp *= 0.975; // 冷却
           }
 
-          const edges = document.createElementNS(NS, "g");
-          const maxd = linkDist * 1.6;
-          for (const e of edgeList) {
+          // --- ビューポートにフィット（アスペクト維持） ---
+          let minx = Infinity,
+            miny = Infinity,
+            maxx = -Infinity,
+            maxy = -Infinity;
+          for (const n of nodes) {
+            if (n.x < minx) minx = n.x;
+            if (n.x > maxx) maxx = n.x;
+            if (n.y < miny) miny = n.y;
+            if (n.y > maxy) maxy = n.y;
+          }
+          const s = Math.min((w - margin * 2) / Math.max(1, maxx - minx), (h - margin * 2) / Math.max(1, maxy - miny));
+          const ox = margin + (w - margin * 2 - (maxx - minx) * s) / 2;
+          const oy = margin + (h - margin * 2 - (maxy - miny) * s) / 2;
+          for (const n of nodes) {
+            n.x = ox + (n.x - minx) * s;
+            n.y = oy + (n.y - miny) * s;
+          }
+
+          let maxDeg = 1;
+          for (const n of nodes) if (n.deg > maxDeg) maxDeg = n.deg;
+
+          // --- 描画: エッジ → ノード（ハブ付近を太く・濃く） ---
+          const gEdges = document.createElementNS(NS, "g");
+          for (const e of edges) {
             const a = nodes[e.a];
             const b = nodes[e.b];
+            const hub = Math.max(a.deg, b.deg);
             const line = document.createElementNS(NS, "line");
             line.setAttribute("x1", a.x.toFixed(1));
             line.setAttribute("y1", a.y.toFixed(1));
             line.setAttribute("x2", b.x.toFixed(1));
             line.setAttribute("y2", b.y.toFixed(1));
-            line.setAttribute("stroke", "#3a8088");
-            line.setAttribute("stroke-width", e.d < linkDist ? "1.1" : "0.8");
-            line.setAttribute("opacity", (0.28 * (1 - Math.min(1, e.d / maxd)) + 0.06).toFixed(2));
-            edges.appendChild(line);
+            line.setAttribute("stroke", "hsl(190 28% 55%)");
+            line.setAttribute("stroke-width", (0.6 + Math.min(1.4, hub * 0.12)).toFixed(2));
+            line.setAttribute("opacity", (0.08 + Math.min(0.22, hub * 0.02)).toFixed(2));
+            gEdges.appendChild(line);
           }
-          svg.appendChild(edges);
+          svg.appendChild(gEdges);
 
-          // ノードサイズ・濃さは次数（接続数）に比例 → ハブが大きく目立ち「グラフらしさ」が出る。
+          // 色: ティール/アンバーの二系統を保ちつつ、次数で濃淡（明度・彩度）＋色相を少し揺らしてリッチに。
+          function color(n) {
+            const t = n.deg / maxDeg; // 0..1（ハブほど明るく・濃く）
+            const jit = (a) => (a + (Math.random() * 2 - 1) * 6).toFixed(0);
+            if (n.fam === "amber") {
+              return "hsl(" + jit(36) + " " + (66 + t * 24).toFixed(0) + "% " + (46 + t * 18).toFixed(0) + "%)";
+            }
+            return "hsl(" + jit(187 - t * 6) + " " + (50 + t * 30).toFixed(0) + "% " + (44 + t * 20).toFixed(0) + "%)";
+          }
           for (const n of nodes) {
             const cir = document.createElementNS(NS, "circle");
-            const r = Math.min(9, 2.2 + n.deg * 0.7);
+            const r = Math.max(2.2, Math.min(13, 2.4 + Math.sqrt(n.deg) * 1.7));
             cir.setAttribute("cx", n.x.toFixed(1));
             cir.setAttribute("cy", n.y.toFixed(1));
             cir.setAttribute("r", r.toFixed(1));
-            cir.setAttribute("fill", n.amber ? AMBER : TEAL);
-            cir.setAttribute("opacity", (0.4 + Math.min(0.4, n.deg * 0.06)).toFixed(2));
+            cir.setAttribute("fill", color(n));
+            cir.setAttribute("opacity", (0.45 + Math.min(0.45, (n.deg / maxDeg) * 0.5)).toFixed(2));
             svg.appendChild(cir);
           }
         }
