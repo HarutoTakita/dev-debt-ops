@@ -25,12 +25,17 @@ class CloudTasksDispatcher:
         queue: str,
         service_url: str,
         invoker_sa: str,
+        audience: str | None = None,
     ) -> None:
         self._project = project
         self._location = location
         self._queue = queue
         self._service_url = service_url.rstrip("/")
         self._invoker_sa = invoker_sa
+        # OIDC audience is decoupled from the POST URL: the POST must hit the service's real
+        # run.app URL, but the audience must be a stable value the service can verify (it can't
+        # self-reference its own URL in Terraform). Falls back to service_url when unset.
+        self._audience = (audience or self._service_url).rstrip("/")
         self._client = None  # lazily created tasks_v2.CloudTasksAsyncClient
 
     def _get_client(self):
@@ -56,7 +61,7 @@ class CloudTasksDispatcher:
                 "body": json.dumps(payload).encode(),
                 "oidc_token": {
                     "service_account_email": self._invoker_sa,
-                    "audience": self._service_url,
+                    "audience": self._audience,
                 },
             }
         }
@@ -74,4 +79,5 @@ class CloudTasksDispatcher:
             queue=settings.TASKS_QUEUE,
             service_url=settings.SERVICE_TASKS_URL,
             invoker_sa=settings.TASKS_INVOKER_SA,
+            audience=settings.SERVICE_OIDC_AUDIENCE or None,
         )
