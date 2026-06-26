@@ -61,3 +61,23 @@ resource "google_project_iam_member" "runtime_logging" {
   role     = "roles/logging.logWriter"
   member   = "serviceAccount:${each.value}"
 }
+
+data "google_project" "current" {
+  project_id = var.gcp_project_id
+}
+
+# api builds Cloud Tasks tasks carrying an OIDC token minted as tasks_invoker. Creating a task
+# with another SA's token requires actAs on that SA — without this, create_task → PERMISSION_DENIED.
+resource "google_service_account_iam_member" "api_actas_tasks_invoker" {
+  service_account_id = google_service_account.tasks_invoker.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.api.email}"
+}
+
+# At dispatch the Cloud Tasks service agent mints the OIDC token AS tasks_invoker, which needs
+# the Token Creator role on that SA — without this, delivery fails before reaching service.
+resource "google_service_account_iam_member" "cloudtasks_mint_tasks_invoker" {
+  service_account_id = google_service_account.tasks_invoker.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-cloudtasks.iam.gserviceaccount.com"
+}

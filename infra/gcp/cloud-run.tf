@@ -41,8 +41,12 @@ locals {
     GOOGLE_CLOUD_LOCATION = var.region
     JOB_PAYLOAD_BUCKET    = google_storage_bucket.job_payloads.name
     TASKS_INVOKER_SA      = google_service_account.tasks_invoker.email
-    USE_MOCK_QUEUE        = "false"
-    GITHUB_APP_ID         = var.github_app_id
+    # stg: the worker is already gated by Cloud Run IAM (internal-only ingress +
+    # tasks_invoker-only run.invoker), so skip the redundant app-level OIDC check, whose
+    # expected audience can't be wired without a self-referential service URL. prod keeps
+    # fail-closed app-level OIDC (issue-038) and needs the audience wired before prod deploy.
+    USE_MOCK_QUEUE = var.environment == "prod" ? "false" : "true"
+    GITHUB_APP_ID  = var.github_app_id
   }
 
   # service mints GitHub App installation tokens (method B) in the analysis pipelines,
