@@ -12,7 +12,10 @@ resource "google_sql_database_instance" "main" {
   deletion_protection = var.environment == "prod"
 
   settings {
-    tier              = var.db_tier
+    tier = var.db_tier
+    # ENTERPRISE edition allows shared-core (db-f1-micro, stg) and custom (db-custom-*, prod)
+    # tiers. The API now defaults new instances to ENTERPRISE_PLUS, which rejects db-f1-micro.
+    edition           = "ENTERPRISE"
     disk_size         = var.db_disk_size
     disk_autoresize   = true
     availability_type = var.environment == "prod" ? "REGIONAL" : "ZONAL"
