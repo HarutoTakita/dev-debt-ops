@@ -9,7 +9,11 @@
     type StageGroupDef,
     type StageStatus,
   } from "$lib/stores/analysis-run-store.svelte";
+  import { auth } from "$lib/stores/auth.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  // 解析は GitHub リポジトリの読み取りを伴うため、ゲストデモでは実行不可（issue 069）。
+  const demoBlockTitle = "デモでは解析を実行できません（GitHub サインインが必要です）";
 
   // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064）。表示は「検知 / 計測 / 用意」の
   // 3 グループに集約し、各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
@@ -87,7 +91,14 @@
   {#if !analysisRun.started}
     <div class="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
-      <Button disabled={analysisRun.running} onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button>
+      <Button
+        disabled={analysisRun.running || auth.isDemo}
+        title={auth.isDemo ? demoBlockTitle : undefined}
+        onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button
+      >
+      {#if auth.isDemo}
+        <p class="text-xs text-muted-foreground">{demoBlockTitle}</p>
+      {/if}
     </div>
   {:else}
     <div class="rounded-lg border bg-card p-4">
@@ -97,7 +108,8 @@
           variant="outline"
           size="sm"
           class="h-7 px-2 text-xs"
-          disabled={analysisRun.running}
+          disabled={analysisRun.running || auth.isDemo}
+          title={auth.isDemo ? demoBlockTitle : undefined}
           onclick={() => analysisRun.runAll(ctx)}
         >
           {analysisRun.running ? m.analysis_run_running() : m.analysis_regenerate()}

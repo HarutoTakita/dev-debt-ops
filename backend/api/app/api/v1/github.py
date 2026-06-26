@@ -101,6 +101,14 @@ async def resolve_installation_id(
     ``analyze-stack`` route (issue 018, method B — only the ``installation_id`` is enqueued
     and the ``service`` container mints the token itself).
     """
+    # Guest demo users (issue 069) have no GitHub OAuth account and must not reach GitHub.
+    # Blocking here gates every GitHub-requiring route (project create, analysis triggers,
+    # repo listing/tree/contents, analyze-stack, repayment PR) in one chokepoint.
+    if current_user.is_demo:
+        raise HTTPException(
+            status_code=403,
+            detail={"reason": "demo_readonly", "message": "GitHub 連携が必要な操作はデモでは利用できません。"},
+        )
     result = await session.execute(
         sa_select(OAuthAccount).where(
             OAuthAccount.user_id == current_user.id,
