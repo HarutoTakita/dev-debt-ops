@@ -80,6 +80,26 @@ variable "github_webhook_secret" {
   default     = ""
 }
 
+# Non-secret GitHub identifiers (safe to keep in tfvars). Required for the deployed app to
+# mint installation tokens (App ID, service-side) and run OAuth login (Client ID / slug, api-side).
+variable "github_app_id" {
+  description = "GitHub App numeric ID."
+  type        = string
+  default     = ""
+}
+
+variable "github_app_slug" {
+  description = "GitHub App slug (URL name)."
+  type        = string
+  default     = ""
+}
+
+variable "github_client_id" {
+  description = "GitHub OAuth client ID."
+  type        = string
+  default     = ""
+}
+
 # NOTE: there is intentionally NO `google_api_key` variable. AI uses Vertex AI via ADC
 # (the runtime SAs get roles/aiplatform.user), so no API key Secret is needed — the key
 # difference from infra/azure and infra/aws, which do create a google-api-key secret.

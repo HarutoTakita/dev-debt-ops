@@ -8,6 +8,11 @@ output "api_url" {
   value       = var.domain != "" ? "https://${var.domain}" : google_compute_global_address.lb_ip.address
 }
 
+output "lb_ip" {
+  description = "External LB IP — create a DNS A record for var.domain pointing at this."
+  value       = google_compute_global_address.lb_ip.address
+}
+
 output "service_url" {
   description = "Internal service (worker) Cloud Run URL — Cloud Tasks HTTP target."
   value       = google_cloud_run_v2_service.service.uri

@@ -37,7 +37,7 @@ resource "google_secret_manager_secret_version" "secrets" {
 # Grant each runtime SA accessor on exactly the secrets it needs.
 locals {
   api_secret_keys     = ["secret-key", "github-app-private-key", "github-client-secret", "github-webhook-secret", "database-url"]
-  service_secret_keys = ["database-url"]
+  service_secret_keys = ["database-url", "github-app-private-key"]
 
   secret_accessors = merge(
     { for k in local.api_secret_keys : "api-${k}" => { key = k, sa = google_service_account.api.email } },

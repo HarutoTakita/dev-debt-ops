@@ -17,7 +17,7 @@ terraform {
   #   2. terraform init && terraform apply   (creates the bucket via state.tf)
   #   3. uncomment the block, then: terraform init -migrate-state
   backend "gcs" {
-    bucket = "fullstack-app-tfstate"
+    bucket = "dev-debt-ops"
     prefix = "gcp/bootstrap/"
   }
 }
