@@ -15,10 +15,14 @@ locals {
     "roles/iam.serviceAccountAdmin",         # create runtime SAs
     "roles/iam.serviceAccountUser",          # actAs runtime SAs → Cloud Run
     "roles/storage.admin",                   # tfstate + payload buckets
-    "roles/compute.admin",                   # LB / Cloud Armor / VPC
-    "roles/serviceusage.serviceUsageAdmin",  # enable APIs
-    "roles/iam.workloadIdentityPoolAdmin",   # manage WIF if needed
-    "roles/resourcemanager.projectIamAdmin", # bind runtime SA project roles (iam.tf in app stack)
+    "roles/compute.admin",                     # LB / Cloud Armor / VPC
+    "roles/vpcaccess.admin",                   # Serverless VPC Access connector
+    "roles/servicenetworking.networksAdmin",   # private services access peering (Cloud SQL)
+    "roles/monitoring.editor",                 # alert policies + uptime checks (monitoring.tf)
+    "roles/logging.configWriter",              # log-based metrics (monitoring.tf)
+    "roles/serviceusage.serviceUsageAdmin",    # enable APIs
+    "roles/iam.workloadIdentityPoolAdmin",     # manage WIF if needed
+    "roles/resourcemanager.projectIamAdmin",   # bind runtime SA project roles (iam.tf in app stack)
   ])
 }
 
