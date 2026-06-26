@@ -446,6 +446,89 @@ _PLAN_RESOURCES: list[tuple[str, str, str, str, str, str, str, str | None, int, 
 ]
 
 
+def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict]:
+    """Return ``(questions, answer_key)`` for a feature's confirmation quiz.
+
+    Checkout reuses the rich payment-specific quiz; every other feature gets a generic but
+    valid two-question set so its 理解度チェック is takeable end-to-end in the demo.
+    """
+    if feature_key == "checkout":
+        return _QUIZ_QUESTIONS, _QUIZ_ANSWER_KEY
+    questions: list[dict] = [
+        {
+            "id": "q1",
+            "kind": "multiple_choice",
+            "prompt": f"「{feature_name}」のコードを安全に変更するため、最初に確認すべきことはどれ？",
+            "code_snippet": None,
+            "choices": [
+                {"id": "a", "label": "既存のテストと関連 PR / ドキュメントを読む"},
+                {"id": "b", "label": "まず実装してから挙動を確認する"},
+                {"id": "c", "label": "無関係なファイルを先に削除する"},
+                {"id": "d", "label": "検証せず本番へ直接デプロイする"},
+            ],
+            "difficulty": "L2",
+        },
+        {
+            "id": "q2",
+            "kind": "multiple_select",
+            "prompt": f"「{feature_name}」の理解を深めるうえで有効な行動をすべて選べ。",
+            "code_snippet": None,
+            "choices": [
+                {"id": "a", "label": "代表ファイルを読んで責務を把握する"},
+                {"id": "b", "label": "依存関係をたどって境界を確認する"},
+                {"id": "c", "label": "コミット履歴 / PR で背景を追う"},
+                {"id": "d", "label": "理由を確かめずコードを書き換える"},
+            ],
+            "difficulty": "L3",
+        },
+    ]
+    answer_key = {
+        "q1": {"answer": "a", "rubric": "変更前に既存資産を読むのが基本。"},
+        "q2": {"answer": ["a", "b", "c"], "rubric": "代表ファイル・依存・履歴の確認が有効。"},
+    }
+    return questions, answer_key
+
+
+def _feature_plan(
+    feature_key: str, feature_name: str, member_files: list[str]
+) -> tuple[list[str], list[tuple[str, str, str, str, str, str, str, str | None, int, str]]]:
+    """Return ``(gap_concepts, resources)`` for a feature's learning plan.
+
+    Checkout reuses the curated resource list; other features get a generic team-asset +
+    external-doc pair so every block has an openable, non-empty plan.
+    """
+    if feature_key == "checkout":
+        return _PLAN_GAP_CONCEPTS, _PLAN_RESOURCES
+    rep = member_files[0]
+    resources: list[tuple[str, str, str, str, str, str, str, str | None, int, str]] = [
+        (
+            "code",
+            "team",
+            "code",
+            "code",
+            f"代表ファイルを読む: {rep}",
+            f"{rep} を読み、「{feature_name}」の中核ロジックと責務を把握する。",
+            "",
+            None,
+            15,
+            "required",
+        ),
+        (
+            "stack",
+            "external",
+            "stack",
+            "docs",
+            f"「{feature_name}」に関わる技術の基礎",
+            f"「{feature_name}」で使う技術スタックの一般的な解説で前提知識を補う。",
+            "general",
+            "https://developer.mozilla.org/",
+            20,
+            "recommended",
+        ),
+    ]
+    return [f"「{feature_name}」全体の理解", "代表ファイルの責務", "依存関係の境界"], resources
+
+
 def _u(*parts: object) -> uuid.UUID:
     """Return a deterministic uuid5 from ``_NS`` and the given key parts.
 
@@ -788,87 +871,98 @@ async def _ensure_tech_stack(session: AsyncSession) -> None:
     await session.commit()
 
 
-async def _ensure_quiz(session: AsyncSession, project: Project, dev_id: uuid.UUID) -> None:
-    """Seed one UNANSWERED quiz session for the lowest-KC checkout file (idempotent).
+async def _ensure_quizzes(session: AsyncSession, project: Project, dev_id: uuid.UUID) -> None:
+    """Seed one UNANSWERED feature-scoped quiz per feature (idempotent).
 
-    Left in ``not_started`` so it appears in the 受験可能 list and the guest can take it end-to-end.
+    Each quiz is left ``not_started`` with ``granularity="feature"`` so build_knowledge_units
+    surfaces a takeable 理解度チェック for EVERY block (matched by feature_id + developer_id).
     """
-    row_id = _u("quiz_session", project.id, dev_id, _QUIZ_FILE)
-    if await _get(session, QuizSession, row_id) is None:
-        session.add(
-            QuizSession(
-                id=row_id,
-                project_id=project.id,
-                developer_id=dev_id,
-                file_path=_QUIZ_FILE,
-                repo_full_name=DEMO_REPO_FULL_NAME,
-                granularity="file",
-                status="not_started",
-                questions=_QUIZ_QUESTIONS,
-                answer_key=_QUIZ_ANSWER_KEY,
-                source_kc=0.18,
+    fc_run = _run_id(JobType.FEATURE_CLUSTERING)
+    for feature_key, feature_name, _description, paths in _FEATURES:
+        feature_id = _u("feature", fc_run, feature_key)
+        row_id = _u("quiz_session", project.id, dev_id, feature_key)
+        if await _get(session, QuizSession, row_id) is None:
+            questions, answer_key = _feature_quiz(feature_key, feature_name)
+            session.add(
+                QuizSession(
+                    id=row_id,
+                    project_id=project.id,
+                    developer_id=dev_id,
+                    file_path=paths[0],
+                    repo_full_name=DEMO_REPO_FULL_NAME,
+                    granularity="feature",
+                    feature_id=feature_id,
+                    is_baseline=True,
+                    status="not_started",
+                    questions=questions,
+                    answer_key=answer_key,
+                    source_kc=0.18,
+                )
             )
-        )
     await session.commit()
 
 
-async def _ensure_learning_plan(session: AsyncSession, project: Project, dev_id: uuid.UUID) -> None:
-    """Seed a LearningPlan with resources + ordered steps for the checkout feature (idempotent).
+async def _ensure_learning_plans(session: AsyncSession, project: Project, dev_id: uuid.UUID) -> None:
+    """Seed a LearningPlan (resources + ordered steps) for EVERY feature (idempotent).
 
-    Team assets are inserted before external ones so the plan reads "チーム資産が上段" — the
-    knowledge-debt repayment loop's payoff.
+    Team assets are inserted before external ones so each plan reads "チーム資産が上段" — the
+    knowledge-debt repayment loop's payoff. Resource ids are namespaced per feature so the same
+    generic resource key reused across features does not collide.
     """
-    checkout_feature_id = _u("feature", _run_id(JobType.FEATURE_CLUSTERING), "checkout")
-    plan_id = _u("learning_plan", project.id, dev_id, "checkout")
+    fc_run = _run_id(JobType.FEATURE_CLUSTERING)
+    for feature_key, feature_name, _description, paths in _FEATURES:
+        feature_id = _u("feature", fc_run, feature_key)
+        plan_id = _u("learning_plan", project.id, dev_id, feature_key)
+        gap_concepts, resources = _feature_plan(feature_key, feature_name, paths)
 
-    # Resources first (steps FK them).
-    resource_ids: dict[str, uuid.UUID] = {}
-    for key, origin, section, kind, title, summary, tech, url, minutes, priority in _PLAN_RESOURCES:
-        res_id = _u("learning_resource", project.id, key)
-        resource_ids[key] = res_id
-        if await _get(session, LearningResource, res_id) is None:
+        # Resources first (steps FK them).
+        resource_ids: dict[str, uuid.UUID] = {}
+        for key, origin, section, kind, title, summary, tech, url, minutes, priority in resources:
+            res_id = _u("learning_resource", project.id, feature_key, key)
+            resource_ids[key] = res_id
+            if await _get(session, LearningResource, res_id) is None:
+                session.add(
+                    LearningResource(
+                        id=res_id,
+                        project_id=project.id,
+                        origin=origin,
+                        section=section,
+                        kind=kind,
+                        title=title,
+                        summary=summary,
+                        tech=tech,
+                        source_ref=None,
+                        url=url,
+                        estimated_minutes=minutes,
+                        priority=priority,
+                    )
+                )
+
+        if await _get(session, LearningPlan, plan_id) is None:
+            total = sum(r[8] for r in resources)
             session.add(
-                LearningResource(
-                    id=res_id,
+                LearningPlan(
+                    id=plan_id,
                     project_id=project.id,
-                    origin=origin,
-                    section=section,
-                    kind=kind,
-                    title=title,
-                    summary=summary,
-                    tech=tech,
-                    source_ref=None,
-                    url=url,
-                    estimated_minutes=minutes,
-                    priority=priority,
+                    developer_id=dev_id,
+                    feature_id=feature_id,
+                    gap_concepts=gap_concepts,
+                    estimated_total_minutes=total,
                 )
             )
 
-    if await _get(session, LearningPlan, plan_id) is None:
-        total = sum(r[8] for r in _PLAN_RESOURCES)
-        session.add(
-            LearningPlan(
-                id=plan_id,
-                project_id=project.id,
-                developer_id=dev_id,
-                feature_id=checkout_feature_id,
-                gap_concepts=_PLAN_GAP_CONCEPTS,
-                estimated_total_minutes=total,
-            )
-        )
-
-    for order, (key, *_rest) in enumerate(_PLAN_RESOURCES):
-        step_id = _u("learning_step", plan_id, order)
-        if await _get(session, LearningStep, step_id) is None:
-            session.add(
-                LearningStep(
-                    id=step_id,
-                    plan_id=plan_id,
-                    order=order,
-                    completed=False,
-                    resource_id=resource_ids[key],
+        for order, (key, *_rest) in enumerate(resources):
+            step_id = _u("learning_step", plan_id, order)
+            if await _get(session, LearningStep, step_id) is None:
+                session.add(
+                    LearningStep(
+                        id=step_id,
+                        plan_id=plan_id,
+                        order=order,
+                        completed=False,
+                        resource_id=resource_ids[key],
+                    )
                 )
-            )
     await session.commit()
 
 
@@ -902,8 +996,8 @@ async def seed(session: AsyncSession) -> Project:
     await _ensure_assignees(session)
     await _ensure_trend(session, project)
     await _ensure_tech_stack(session)
-    await _ensure_quiz(session, project, user_id)
-    await _ensure_learning_plan(session, project, user_id)
+    await _ensure_quizzes(session, project, user_id)
+    await _ensure_learning_plans(session, project, user_id)
     return project
 
 
@@ -937,9 +1031,10 @@ async def reset_analysis(session: SAAsyncSession) -> None:
     if kn_debt_ids:
         await session.execute(delete(AssignedDeveloper).where(col(AssignedDeveloper.debt_id).in_(kn_debt_ids)))
 
-    # Learning plan + steps + resources (project-scoped).
-    plan_id = _u("learning_plan", project_id, dev_id, "checkout")
-    await session.execute(delete(LearningStep).where(col(LearningStep.plan_id) == plan_id))
+    # Learning plans + steps + resources (project-scoped; steps deleted per feature plan).
+    for feature_key, *_rest in _FEATURES:
+        plan_id = _u("learning_plan", project_id, dev_id, feature_key)
+        await session.execute(delete(LearningStep).where(col(LearningStep.plan_id) == plan_id))
     await session.execute(delete(LearningPlan).where(col(LearningPlan.project_id) == project_id))
     await session.execute(delete(LearningResource).where(col(LearningResource.project_id) == project_id))
 
