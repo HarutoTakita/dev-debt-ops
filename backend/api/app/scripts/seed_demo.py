@@ -32,7 +32,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession as SAAsyncSession
-from sqlmodel import col
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import db as app_db
@@ -53,6 +53,8 @@ from shared.models import (
     LearningPlan,
     LearningResource,
     LearningStep,
+    QuizAnswer,
+    QuizResult,
     QuizSession,
     RepoFile,
     TechStack,
@@ -324,6 +326,34 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "    except Exception:\n"
         "        pass  # 例外の握り潰し / 戻り値の型ヒント欠落\n"
     ),
+    "src/inventory/stock.py": (
+        "def reserve(sku, qty):\n"
+        "    level = STOCK.get(sku, 0)\n"
+        "    if level < qty:\n"
+        "        raise OutOfStock(sku)  # 在庫チェックと引当が非アトミック（競合の余地）\n"
+        "    STOCK[sku] = level - qty\n"
+        "    return Reservation(sku, qty)\n"
+    ),
+    "src/user/profile.py": (
+        "def update_profile(user_id, patch):\n"
+        "    user = load(user_id)\n"
+        "    for k, v in patch.items():\n"
+        "        setattr(user, k, v)  # 入力検証なしで全フィールドを上書き（mass assignment）\n"
+        "    save(user)\n"
+    ),
+    "src/shipping/shipping.py": (
+        "def create_shipment(order):\n"
+        "    carrier = pick_carrier(order.region)\n"
+        "    label = carrier.create_label(order)  # 失敗時のリトライ/補償が未実装\n"
+        "    order.tracking = label.tracking_no\n"
+        "    return label\n"
+    ),
+    "src/notifications/email.py": (
+        "def send_order_email(order):\n"
+        "    tpl = TEMPLATES['order_confirm']\n"
+        "    body = tpl.format(**order.__dict__)  # テンプレ変数の欠落で KeyError の恐れ\n"
+        "    smtp.send(order.email, body)\n"
+    ),
 }
 _DEFAULT_SNIPPET = "# 該当コード断片（デモ用ダミー）"
 
@@ -405,44 +435,49 @@ _QUIZ_ANSWER_KEY = {
 
 # Learning plan (gap concepts + ordered steps → resources). Team assets先頭の閉ループを表現する。
 _PLAN_GAP_CONCEPTS = ["決済の冪等性", "在庫引当のトランザクション境界", "セッション失効の設計"]
-# (resource key, origin, section, kind, title, summary, tech, url, minutes, priority)
-_PLAN_RESOURCES: list[tuple[str, str, str, str, str, str, str, str | None, int, str]] = [
-    (
-        "adr-checkout",
-        "team",
-        "code",
-        "adr",
-        "ADR: 決済フローの冪等性設計",
-        "なぜ冪等キーを導入したか、在庫引当と課金の順序の根拠を読む。",
-        "",
-        None,
-        15,
-        "required",
-    ),
-    (
-        "pr-stock",
-        "team",
-        "code",
-        "pr_comment",
-        "PR #142 レビューコメント: 在庫引当の競合",
-        "在庫引当のトランザクション境界を巡る議論。理解の空白を埋める一次情報。",
-        "",
-        None,
-        10,
-        "recommended",
-    ),
-    (
-        "fastapi-deps",
-        "external",
-        "stack",
-        "docs",
-        "FastAPI 公式: Dependencies",
-        "DI の依存解決順序を学び、セッション/認可の組み立てを理解する。",
-        "FastAPI",
-        "https://fastapi.tiangolo.com/tutorial/dependencies/",
-        20,
-        "supplementary",
-    ),
+# Resource dict keys: key / origin / section / kind / title / summary / tech / url / minutes / priority /
+# source_ref. section="code" + source_ref のリソースはクリックでコード理解ウォークスルーへ遷移する
+# （デモはシード済みのソース＝origin_meta["demo_source"] をその場で表示し GitHub を読まない）。
+_PLAN_RESOURCES: list[dict] = [
+    {
+        "key": "payment",
+        "origin": "team",
+        "section": "code",
+        "kind": "code",
+        "title": "決済確定フロー: payment.py を読む",
+        "summary": "課金と在庫引当の順序・冪等性の要。失敗時にどう巻き戻すかを読み解く。",
+        "tech": "",
+        "url": None,
+        "minutes": 15,
+        "priority": "required",
+        "source_ref": "src/checkout/payment.py",
+    },
+    {
+        "key": "cart",
+        "origin": "team",
+        "section": "code",
+        "kind": "code",
+        "title": "在庫引当ロジック: cart.py を読む",
+        "summary": "在庫引当の分岐とトランザクション境界。決済との密結合ポイントを把握する。",
+        "tech": "",
+        "url": None,
+        "minutes": 10,
+        "priority": "recommended",
+        "source_ref": "src/checkout/cart.py",
+    },
+    {
+        "key": "fastapi-deps",
+        "origin": "external",
+        "section": "stack",
+        "kind": "docs",
+        "title": "FastAPI 公式: Dependencies",
+        "summary": "DI の依存解決順序を学び、セッション/認可の組み立てを理解する。",
+        "tech": "FastAPI",
+        "url": "https://fastapi.tiangolo.com/tutorial/dependencies/",
+        "minutes": 20,
+        "priority": "supplementary",
+        "source_ref": None,
+    },
 ]
 
 
@@ -489,44 +524,79 @@ def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict
     return questions, answer_key
 
 
-def _feature_plan(
-    feature_key: str, feature_name: str, member_files: list[str]
-) -> tuple[list[str], list[tuple[str, str, str, str, str, str, str, str | None, int, str]]]:
+def _feature_plan(feature_key: str, feature_name: str, member_files: list[str]) -> tuple[list[str], list[dict]]:
     """Return ``(gap_concepts, resources)`` for a feature's learning plan.
 
-    Checkout reuses the curated resource list; other features get a generic team-asset +
-    external-doc pair so every block has an openable, non-empty plan.
+    Checkout reuses the curated resources; other features get a code-walkthrough team asset
+    (representative file) + an external stack doc so every block has an openable, non-empty plan.
+    Resource dicts use the keys documented at ``_PLAN_RESOURCES``.
     """
     if feature_key == "checkout":
         return _PLAN_GAP_CONCEPTS, _PLAN_RESOURCES
     rep = member_files[0]
-    resources: list[tuple[str, str, str, str, str, str, str, str | None, int, str]] = [
-        (
-            "code",
-            "team",
-            "code",
-            "code",
-            f"代表ファイルを読む: {rep}",
-            f"{rep} を読み、「{feature_name}」の中核ロジックと責務を把握する。",
-            "",
-            None,
-            15,
-            "required",
-        ),
-        (
-            "stack",
-            "external",
-            "stack",
-            "docs",
-            f"「{feature_name}」に関わる技術の基礎",
-            f"「{feature_name}」で使う技術スタックの一般的な解説で前提知識を補う。",
-            "general",
-            "https://developer.mozilla.org/",
-            20,
-            "recommended",
-        ),
+    resources: list[dict] = [
+        {
+            "key": "code",
+            "origin": "team",
+            "section": "code",
+            "kind": "code",
+            "title": f"代表ファイルを読む: {rep}",
+            "summary": f"{rep} を読み、「{feature_name}」の中核ロジックと責務を把握する。",
+            "tech": "",
+            "url": None,
+            "minutes": 15,
+            "priority": "required",
+            "source_ref": rep,
+        },
+        {
+            "key": "stack",
+            "origin": "external",
+            "section": "stack",
+            "kind": "docs",
+            "title": f"「{feature_name}」に関わる技術の基礎",
+            "summary": f"「{feature_name}」で使う技術スタックの一般的な解説で前提知識を補う。",
+            "tech": "general",
+            "url": "https://developer.mozilla.org/",
+            "minutes": 20,
+            "priority": "recommended",
+            "source_ref": None,
+        },
     ]
     return [f"「{feature_name}」全体の理解", "代表ファイルの責務", "依存関係の境界"], resources
+
+
+def _walkthrough_for(source_ref: str) -> tuple[str, list[dict]]:
+    """Return ``(source_content, walkthrough steps)`` for a demo code resource.
+
+    Uses the file's demo snippet (or the default) as inline source and splits it into a couple of
+    line-anchored steps, so the code-理解 walkthrough renders without fetching source from GitHub.
+    """
+    content = _DEMO_SNIPPETS.get(source_ref, _DEFAULT_SNIPPET)
+    total = max(1, len(content.rstrip("\n").split("\n")))
+    if total <= 2:
+        return content, [
+            {
+                "start_line": 1,
+                "end_line": total,
+                "title": "全体を読む",
+                "explanation": "このコード断片の全体に目を通し、何をしている処理かを把握する。",
+            }
+        ]
+    mid = total // 2
+    return content, [
+        {
+            "start_line": 1,
+            "end_line": mid,
+            "title": "前半: 入力と前提",
+            "explanation": "何を受け取り、どんな前提・分岐から処理が始まるかを読む。",
+        },
+        {
+            "start_line": mid + 1,
+            "end_line": total,
+            "title": "後半: 中核処理と副作用",
+            "explanation": "中核処理と副作用（DB 書き込み・例外・状態遷移）の流れを追う。理解負債が集まりやすい。",
+        },
+    ]
 
 
 def _u(*parts: object) -> uuid.UUID:
@@ -917,29 +987,40 @@ async def _ensure_learning_plans(session: AsyncSession, project: Project, dev_id
 
         # Resources first (steps FK them).
         resource_ids: dict[str, uuid.UUID] = {}
-        for key, origin, section, kind, title, summary, tech, url, minutes, priority in resources:
+        for res in resources:
+            key = res["key"]
             res_id = _u("learning_resource", project.id, feature_key, key)
             resource_ids[key] = res_id
             if await _get(session, LearningResource, res_id) is None:
+                source_ref = res.get("source_ref")
+                # Code-section resources get a seeded walkthrough + inline source so the code-理解
+                # ウォークスルー opens without fetching from GitHub (demo is GitHub-less — issue 069).
+                walkthrough: list[dict] = []
+                origin_meta: dict = {}
+                if res["section"] == "code" and source_ref:
+                    content, walkthrough = _walkthrough_for(source_ref)
+                    origin_meta = {"demo_source": content}
                 session.add(
                     LearningResource(
                         id=res_id,
                         project_id=project.id,
-                        origin=origin,
-                        section=section,
-                        kind=kind,
-                        title=title,
-                        summary=summary,
-                        tech=tech,
-                        source_ref=None,
-                        url=url,
-                        estimated_minutes=minutes,
-                        priority=priority,
+                        origin=res["origin"],
+                        section=res["section"],
+                        kind=res["kind"],
+                        title=res["title"],
+                        summary=res["summary"],
+                        tech=res["tech"],
+                        source_ref=source_ref,
+                        url=res["url"],
+                        estimated_minutes=res["minutes"],
+                        priority=res["priority"],
+                        walkthrough=walkthrough,
+                        origin_meta=origin_meta,
                     )
                 )
 
         if await _get(session, LearningPlan, plan_id) is None:
-            total = sum(r[8] for r in resources)
+            total = sum(r["minutes"] for r in resources)
             session.add(
                 LearningPlan(
                     id=plan_id,
@@ -951,7 +1032,7 @@ async def _ensure_learning_plans(session: AsyncSession, project: Project, dev_id
                 )
             )
 
-        for order, (key, *_rest) in enumerate(resources):
+        for order, res in enumerate(resources):
             step_id = _u("learning_step", plan_id, order)
             if await _get(session, LearningStep, step_id) is None:
                 session.add(
@@ -960,7 +1041,7 @@ async def _ensure_learning_plans(session: AsyncSession, project: Project, dev_id
                         plan_id=plan_id,
                         order=order,
                         completed=False,
-                        resource_id=resource_ids[key],
+                        resource_id=resource_ids[res["key"]],
                     )
                 )
     await session.commit()
@@ -1038,7 +1119,14 @@ async def reset_analysis(session: SAAsyncSession) -> None:
     await session.execute(delete(LearningPlan).where(col(LearningPlan.project_id) == project_id))
     await session.execute(delete(LearningResource).where(col(LearningResource.project_id) == project_id))
 
-    # Quiz session (project-scoped).
+    # Quiz sessions (project-scoped). Answers/results FK the sessions, so clear them first
+    # (a guest may have taken a quiz, leaving quiz_answers/quiz_results rows).
+    session_ids = (
+        (await session.execute(select(QuizSession.id).where(col(QuizSession.project_id) == project_id))).scalars().all()
+    )
+    if session_ids:
+        await session.execute(delete(QuizAnswer).where(col(QuizAnswer.session_id).in_(session_ids)))
+        await session.execute(delete(QuizResult).where(col(QuizResult.session_id).in_(session_ids)))
     await session.execute(delete(QuizSession).where(col(QuizSession.project_id) == project_id))
 
     # Run-scoped rows.
