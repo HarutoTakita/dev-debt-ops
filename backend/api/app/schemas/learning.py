@@ -87,6 +87,9 @@ class CodeWalkthroughOut(BaseModel):
     summary: str
     status: Literal["ready", "empty"]
     steps: list[CodeWalkthroughStepOut]
+    # Inline source for resources whose code can't be fetched from GitHub at view time (guest demo —
+    # issue 069). When set, the client renders it directly instead of calling get_file_content.
+    content: str | None = None
 
 
 class CodeWalkthroughJobOut(BaseModel):
