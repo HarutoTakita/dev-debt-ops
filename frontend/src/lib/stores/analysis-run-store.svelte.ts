@@ -21,7 +21,8 @@ export type StageId =
   | "analyze_galaxy"
   | "cluster_features"
   | "plan_learning"
-  | "confirm_quizzes";
+  | "confirm_quizzes"
+  | "agentic";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
 // job_id を返さないステージ（baseline-plans / baseline-quizzes は N 件ファンアウト）は enqueue 完了で COMPLETED 扱い。
@@ -98,6 +99,17 @@ export const STAGES: StageDef[] = [
     dependsOn: ["cluster_features"],
     deepLink: (c) => _path(c, "/quizzes"),
   },
+  {
+    // ADK Twin Agent による自律解析（issue 069）。検知/計測/生成の結果の上で横断的にリスクを判断し、
+    // 根拠と返済戦略（クイズ/学習/PR）を出す。画面を埋める実体は上記ステージが生成し、本ステージは
+    // その解析ランの中で自律エージェントを走らせる。
+    id: "agentic",
+    labelKey: "analysis_stage_agentic",
+    jobType: "agentic_analysis",
+    enqueue: (c) => runAgenticAnalysis(c.orgSlug, c.projectSlug),
+    dependsOn: [],
+    deepLink: null,
+  },
 ];
 
 // コックピット表示用グループ（解析ステージ UI の集約）。裏のジョブ/パイプラインは STAGES のまま個別に
@@ -107,7 +119,7 @@ export type StageGroupDef = {
   id: string;
   labelKey: string;
   stageIds: StageId[];
-  deepLink: (ctx: RunContext) => string;
+  deepLink: ((ctx: RunContext) => string) | null;
 };
 export const STAGE_GROUPS: StageGroupDef[] = [
   {
@@ -128,6 +140,13 @@ export const STAGE_GROUPS: StageGroupDef[] = [
     stageIds: ["cluster_features", "plan_learning", "confirm_quizzes"],
     deepLink: (c) => _path(c, "/learning"),
   },
+  {
+    // ADK Twin Agent 解析（issue 069）。専用の表示画面は無く、解析ランの一部として実行・進捗表示する。
+    id: "g_agent",
+    labelKey: "analysis_group_agent",
+    stageIds: ["agentic"],
+    deepLink: null,
+  },
 ];
 
 type StageState = { status: StageStatus; jobId: string | null; step: string; link: string | null };
@@ -143,13 +162,6 @@ class AnalysisRunStore {
 
   started = $derived(Object.values(this.stages).some((s) => s.status !== "idle"));
   running = $derived(Object.values(this.stages).some((s) => s.status === "QUEUED" || s.status === "PROCESSING"));
-
-  // ADK Twin Agent の agentic 解析（issue 069）。ステージ群とは独立した単一ジョブの起動 + ポーリング。
-  agentic = $state<{ status: StageStatus; jobId: string | null; step: string }>({
-    status: "idle",
-    jobId: null,
-    step: "",
-  });
 
   #set(id: string, patch: Partial<StageState>) {
     this.stages = { ...this.stages, [id]: { ...this.stages[id], ...patch } };
@@ -236,43 +248,6 @@ class AnalysisRunStore {
     }
     this.#set(id, { jobId: res.job_id, link: res.link ?? null });
     await this.#poll(id, ctx, def, gen);
-  }
-
-  /** Start the ADK Twin Agent run (issue 069) and poll it to terminal. Independent of the staged run. */
-  async runAgentic(ctx: RunContext) {
-    if (this.agentic.status === "QUEUED" || this.agentic.status === "PROCESSING") return;
-    const gen = this.#generation;
-    this.agentic = { status: "QUEUED", jobId: null, step: "" };
-    let res: EnqueueResult;
-    try {
-      res = await runAgenticAnalysis(ctx.orgSlug, ctx.projectSlug);
-    } catch (err) {
-      this.agentic = { status: "FAILED", jobId: null, step: err instanceof Error ? err.message : "" };
-      return;
-    }
-    if (gen !== this.#generation || !res.job_id) return;
-    this.agentic = { status: "PROCESSING", jobId: res.job_id, step: "" };
-    while (gen === this.#generation) {
-      let job;
-      try {
-        job = await getJob(res.job_id);
-      } catch (err) {
-        this.agentic = { status: "FAILED", jobId: res.job_id, step: err instanceof Error ? err.message : "" };
-        return;
-      }
-      if (gen !== this.#generation) return;
-      const step = job.agent_trace?.at(-1) ?? "";
-      if (job.status === "COMPLETED") {
-        this.agentic = { status: "COMPLETED", jobId: res.job_id, step };
-        return;
-      }
-      if (job.status === "FAILED" || job.status === "CANCELLED") {
-        this.agentic = { status: "FAILED", jobId: res.job_id, step: job.error ?? step };
-        return;
-      }
-      this.agentic = { status: "PROCESSING", jobId: res.job_id, step };
-      await new Promise((r) => setTimeout(r, this.pollIntervalMs));
-    }
   }
 
   async #poll(id: string, ctx: RunContext, def: StageDef, gen: number) {
