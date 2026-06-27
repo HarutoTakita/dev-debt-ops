@@ -43,3 +43,19 @@ resource "google_service_account_iam_member" "wif_env" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.environment/${each.value}"
 }
+
+# Least-privilege SA for the Gemini PR review CI (.github/workflows/pr-review.yml). Reuses the
+# same pool/provider and per-environment impersonation as the deploy SA, but carries only
+# roles/aiplatform.user (roles.tf) so the review agent can reach Vertex AI and nothing else.
+resource "google_service_account" "github_gemini" {
+  account_id   = "${var.project_name}-gh-gemini"
+  display_name = "GitHub Actions Gemini PR review"
+}
+
+resource "google_service_account_iam_member" "wif_gemini_env" {
+  for_each = toset(var.environments)
+
+  service_account_id = google_service_account.github_gemini.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.environment/${each.value}"
+}
