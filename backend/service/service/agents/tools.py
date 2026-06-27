@@ -16,7 +16,7 @@ from service.agents.budget import RunBudget
 from service.services import code_analysis
 from service.services.github_git_client import GitHubGitClient
 
-_MAX_AGENT_FILES = 50
+_MAX_AGENT_FILES = 20
 _MAX_FILE_CHARS = 5_000
 
 
