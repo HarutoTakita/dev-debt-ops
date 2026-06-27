@@ -15,10 +15,14 @@ locals {
     "roles/iam.serviceAccountAdmin",         # create runtime SAs
     "roles/iam.serviceAccountUser",          # actAs runtime SAs → Cloud Run
     "roles/storage.admin",                   # tfstate + payload buckets
-    "roles/compute.admin",                   # LB / Cloud Armor / VPC
-    "roles/serviceusage.serviceUsageAdmin",  # enable APIs
-    "roles/iam.workloadIdentityPoolAdmin",   # manage WIF if needed
-    "roles/resourcemanager.projectIamAdmin", # bind runtime SA project roles (iam.tf in app stack)
+    "roles/compute.admin",                     # LB / Cloud Armor / VPC
+    "roles/vpcaccess.admin",                   # Serverless VPC Access connector
+    "roles/servicenetworking.networksAdmin",   # private services access peering (Cloud SQL)
+    "roles/monitoring.editor",                 # alert policies + uptime checks (monitoring.tf)
+    "roles/logging.configWriter",              # log-based metrics (monitoring.tf)
+    "roles/serviceusage.serviceUsageAdmin",    # enable APIs
+    "roles/iam.workloadIdentityPoolAdmin",     # manage WIF if needed
+    "roles/resourcemanager.projectIamAdmin",   # bind runtime SA project roles (iam.tf in app stack)
   ])
 }
 
@@ -27,4 +31,13 @@ resource "google_project_iam_member" "deploy" {
   project  = var.gcp_project_id
   role     = each.value
   member   = "serviceAccount:${google_service_account.github_deploy.email}"
+}
+
+# The Gemini PR review CI gets its OWN least-privilege SA holding only Vertex AI access —
+# deliberately separate from the broad deploy SA above so an LLM agent reading PR content
+# can never wield deploy-grade credentials. SA + WIF binding live in wif.tf.
+resource "google_project_iam_member" "gemini" {
+  project = var.gcp_project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.github_gemini.email}"
 }

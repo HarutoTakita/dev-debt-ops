@@ -2,7 +2,7 @@
 
 ## 概要
 
-仕様書 §6.4「クイズ UI」を、Rosetta の**返済の瞬間（Re:Pay）**として実装する。
+仕様書 §6.4「クイズ UI」を、DevDebtOps の**返済の瞬間（Re:Pay）**として実装する。
 ナレッジ負債を「クイズ合格で Knowledge Coverage (KC) が上がる」というゲーミフィケーション体験に落とし込み、
 
 1. `[org]/quizzes` に受験可能クイズ一覧（サイドバー pill = 件数）
@@ -17,17 +17,17 @@
 
 ## 背景・目的
 
-GitLab では技術負債の返済は最終的に「MR（PR）マージ」という事務的なイベントに収束する。Rosetta はそこを差別化する。
+GitLab では技術負債の返済は最終的に「MR（PR）マージ」という事務的なイベントに収束する。DevDebtOps はそこを差別化する。
 **負債返済を、クイズに合格して KC スコアが上がる体験として演出する**（仕様書 §1「クイズに合格して、負債を返済する」、§5.2「クイズによる確証」）。
 結果画面は減点採点（◯×・スコア羅列）を避け、**「あなたが理解していたこと」と「学ぶ余地」**という建設的フレーミングで提示し、KC が `23% → 47%` へ繰り上がる瞬間を**会計帳簿のカウントアップアニメーション**で見せる。これが Re:Pay（返済）の含意である。
 
-この体験は GitLab には存在しない Rosetta 固有領域であり、UI クローン臭の心配が最も少ない。GitLab の資産は**部品としてのみ**借りる:
+この体験は GitLab には存在しない DevDebtOps 固有領域であり、UI クローン臭の心配が最も少ない。GitLab の資産は**部品としてのみ**借りる:
 
-- 受験前の空状態 → Pajamas `EmptyStateComponent`（`gl-empty-state` レイアウト）の構造を参考に、Rosetta ブランドの独自プレースホルダを作る
+- 受験前の空状態 → Pajamas `EmptyStateComponent`（`gl-empty-state` レイアウト）の構造を参考に、DevDebtOps ブランドの独自プレースホルダを作る
 - 途中保存・採点中などの**ステータス表現** → `ci_icon.vue` の `status` オブジェクト駆動パターン（`{ icon, text, variant }`）を参考にする
 - 結果画面の本文 + メタ情報の骨格 → 詳細ビュー（`last_commit.vue` 等）のヘッダ + 本文構成を参考にする
 
-これらは「設計の借用」であって、見た目・コピー・演出はすべて Rosetta 独自で作る。
+これらは「設計の借用」であって、見た目・コピー・演出はすべて DevDebtOps 独自で作る。
 
 ### 前提 Issue
 
@@ -68,7 +68,7 @@ GitLab では技術負債の返済は最終的に「MR（PR）マージ」とい
 
 ### コンポーネント（`frontend/src/lib/components/quiz/`）
 
-- [ ] `coming-soon-placeholder.svelte` — 場所だけ用意する汎用 Coming Soon プレースホルダ（Rosetta ブランド表現、props: `title` / `description` / `eyebrow?`）
+- [ ] `coming-soon-placeholder.svelte` — 場所だけ用意する汎用 Coming Soon プレースホルダ（DevDebtOps ブランド表現、props: `title` / `description` / `eyebrow?`）
 - [ ] `quiz-list.svelte` — 受験可能一覧（カード: ファイルパス・KC 低下理由・問題数・推定分）
 - [ ] `focus-mode.svelte` — 集中モードのシェル（最小限の chrome、進捗インジケータ、途中保存ステータス）
 - [ ] `code-snippet-panel.svelte` — コードスニペット表示（既存 `repo/file-viewer.svelte` の表示方針に合わせる）
@@ -83,7 +83,7 @@ GitLab では技術負債の返済は最終的に「MR（PR）マージ」とい
 ## 完了条件
 
 - **本 issue では機能本体（実受験・実採点・実 API）は実装しない** — ナビ枠・3 ルート・Coming Soon プレースホルダ（場所だけ）が用意されていること
-- `[org]/quizzes` にアクセスでき、受験前は **ComingSoonPlaceholder**（Rosetta ブランド表現）が表示されること
+- `[org]/quizzes` にアクセスでき、受験前は **ComingSoonPlaceholder**（DevDebtOps ブランド表現）が表示されること
 - `quiz-mock.ts` の `QuizSession` / `QuizResult` モックが対応する Zod スキーマ（`quizSessionSchema` / `quizResultSchema`）を `parse` で通過すること
 - 受験可能件数が 1 件以上のとき、サイドバー（または仮ナビ）に **pill（件数）** が表示されること（モック値で可）
 - `[org]/quizzes/[sessionId]` で集中モードのレイアウト枠（スニペット領域 + 解答領域 + 途中保存ステータス表示）が確認できること（モックデータ表示で可）
@@ -139,7 +139,7 @@ GitLab では技術負債の返済は最終的に「MR（PR）マージ」とい
 └─────────────────────────────┴───────────────────────────┘
 ```
 
-途中保存ステータスは `ci_icon.vue` の status オブジェクト駆動を参考に、Rosetta 独自表現にする:
+途中保存ステータスは `ci_icon.vue` の status オブジェクト駆動を参考に、DevDebtOps 独自表現にする:
 
 ```
 idle   → （非表示）
@@ -188,7 +188,7 @@ lib/api/quiz-mock.ts                    （QuizSession / QuizResult モック）
 
 ### Coming Soon プレースホルダの見た目（`coming-soon-placeholder.svelte`）
 
-GitLab Pajamas `EmptyStateComponent`（`gl-empty-state`: 中央寄せ縦並び、見出し + 説明 + ボタン）の**構造**を借りつつ、見た目は Rosetta ブランド独自にする。
+GitLab Pajamas `EmptyStateComponent`（`gl-empty-state`: 中央寄せ縦並び、見出し + 説明 + ボタン）の**構造**を借りつつ、見た目は DevDebtOps ブランド独自にする。
 
 ```
 ┌────────────────────────────────────────────────┐

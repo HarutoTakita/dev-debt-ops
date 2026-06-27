@@ -21,9 +21,9 @@
 
 <EmptyState title={m.shell_coming_soon({ feature })} {description}>
   {#snippet illustration()}
-    <!-- Rosetta 独自の Twin ビジュアル: アンバーの堆積層（コード負債 / 地層）の上に
+    <!-- DevDebtOps 独自の Twin ビジュアル: アンバーの堆積層（コード負債 / 地層）の上に
          ティールの星（ナレッジ負債 / 天文台）が 1 つ昇る。GitLab の汎用 illustration とは別物。 -->
-    <svg viewBox="0 0 120 80" class="size-32" role="img" aria-label="Rosetta">
+    <svg viewBox="0 0 120 80" class="size-32" role="img" aria-label="DevDebtOps">
       <!-- 星（ナレッジ / ティール） -->
       <path class="fill-debt-knowledge" d="M86 14l2.2 5.6L94 22l-5.8 2.4L86 30l-2.2-5.6L78 22l5.8-2.4z" />
       <!-- 地層（コード負債 / アンバー）— 下にいくほど濃い堆積 -->

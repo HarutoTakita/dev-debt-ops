@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from service import config
+from service.services.code_analysis import is_vendored_path
 from service.services.gemini_stack_service import analyze_tech_stack
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -90,7 +91,13 @@ _MAX_FILE_CHARS = 5_000
 
 
 def _is_key_file(path: str) -> bool:
-    """Return True if path is a key configuration file for tech-stack detection."""
+    """Return True if path is a key configuration file for tech-stack detection.
+
+    Vendored/installed paths (node_modules/*/package.json 等) are excluded — those configs
+    belong to dependencies, not the team's own stack.
+    """
+    if is_vendored_path(path):
+        return False
     filename = path.rsplit("/", 1)[-1]
     ext = ("." + filename.rsplit(".", 1)[-1]) if "." in filename else ""
     return (
@@ -228,7 +235,7 @@ def build_tools(github_client: GitHubGitClient, session: AsyncSession):
             },
         )
         await session.execute(stmt)
-        await session.commit()
+        await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
         logger.info("Saved tech stack for %s/%s@%s", owner, repo, branch)
         return f"Saved tech stack for {owner}/{repo}@{branch}"
 

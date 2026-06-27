@@ -9,9 +9,11 @@
   import SuperSidebarToggle from "./super-sidebar-toggle.svelte";
   import Breadcrumbs from "./breadcrumbs.svelte";
   import CommandPaletteTrigger from "./command-palette-trigger.svelte";
+  import AnalysisRunControl from "./analysis-run-control.svelte";
   import UserMenu from "./user-menu.svelte";
 
   const orgSlug = $derived(page.params.org ?? "");
+  const projectSelected = $derived(!!page.params.project);
 </script>
 
 <header class="flex h-14 shrink-0 items-center gap-3 border-b border-sidebar-border bg-surface-sunken px-3">
@@ -32,7 +34,7 @@
     </div>
     <a href={resolve(`/${orgSlug}`)} class="flex items-center gap-2 text-foreground">
       <Logo class="size-5 text-debt-code" />
-      <span class="font-display text-base font-semibold tracking-tight">Rosetta</span>
+      <span class="font-display text-base font-semibold tracking-tight">DevDebtOps</span>
     </a>
   </div>
 
@@ -44,6 +46,9 @@
     <div class="hidden sm:block">
       <CommandPaletteTrigger />
     </div>
+    {#if projectSelected}
+      <AnalysisRunControl />
+    {/if}
     <UserMenu />
   </div>
 </header>

@@ -51,8 +51,9 @@ class RobustGitHubOAuth2(GitHubOAuth2):
                         if entry.get("primary") and entry.get("verified"):
                             email = entry["email"]
                             break
-                    if not email and emails:
-                        email = emails[0].get("email")
+                    # Do NOT fall back to an unverified address (issue-041): with
+                    # associate_by_email, linking on an unverified email enables account
+                    # takeover. Fall through to the synthesized noreply form instead.
             except (httpx.HTTPStatusError, GetIdEmailError):
                 pass
 

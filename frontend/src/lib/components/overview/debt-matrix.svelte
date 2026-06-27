@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import { resolve } from "$app/paths";
   import type { ResolvedPathname } from "$app/types";
   import type { FileDebt } from "$lib/api/schemas";
@@ -20,6 +21,11 @@
   function isDanger(f: FileDebt): boolean {
     return f.code_debt_score > 0.5 && f.knowledge_coverage < 0.5;
   }
+
+  // 0..1 のスコアをパーセント座標へ。想定外の範囲外値でも点が枠外へ飛ばないようクランプ（issue-047）。
+  function pct(score: number): number {
+    return Math.max(0, Math.min(1, score)) * 100;
+  }
 </script>
 
 <div class="rounded-lg border bg-card p-4">
@@ -29,10 +35,11 @@
   </div>
 
   <div class="mt-3 flex gap-2">
-    <!-- 縦軸ラベル（コード品質 ↑） -->
-    <div class="flex w-4 shrink-0 items-center justify-center">
-      <span class="rotate-180 text-[10px] whitespace-nowrap text-muted-foreground [writing-mode:vertical-rl]">
-        {m.overview_axis_quality()} ↑
+    <!-- 縦軸ラベル（上＝コード品質が高い）。矢印は明示的な上向きアイコンで示す。 -->
+    <div class="flex w-4 shrink-0 flex-col items-center justify-center gap-1 text-muted-foreground">
+      <ArrowUp class="size-3" />
+      <span class="text-[10px] whitespace-nowrap [writing-mode:vertical-rl]">
+        {m.overview_axis_quality()}
       </span>
     </div>
 
@@ -67,29 +74,43 @@
           {m.overview_quadrant_refactor()}
         </span>
 
-        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下）。危険点→/matrix?cell=danger、他→/matrix。 -->
+        <!-- プロット件数チップ -->
+        <span
+          class="pointer-events-none absolute top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-background/70 px-1.5 text-[10px] text-muted-foreground tabular-nums"
+        >
+          {m.overview_scatter_count({ count: files.length })}
+        </span>
+
+        <!-- 点（ファイル）。left = KC, top = code_debt_score（汚いほど下）。危険点→/matrix?cell=danger、他→/matrix。
+             大きさ + 塗り濃度（code_debt_score）+ 危険の '!' グリフで色のみ依存を避ける（rank10/20）。 -->
         {#each files as f (f.path)}
           <a
             href={isDanger(f) ? dangerHref : matrixHref}
             class={cn(
-              "absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:z-10 hover:scale-150",
-              isDanger(f) ? "size-2.5 bg-destructive ring-2 ring-destructive/25" : "size-2 bg-debt-knowledge/70",
+              "absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-transform before:absolute before:-inset-2 before:rounded-full before:content-['']",
+              "hover:z-10 hover:scale-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:scale-100",
+              isDanger(f) ? "size-4 bg-destructive ring-2 ring-destructive/25" : "size-3 bg-debt-knowledge",
             )}
-            style="left: {f.knowledge_coverage * 100}%; top: {f.code_debt_score * 100}%;"
+            style="left: {pct(f.knowledge_coverage)}%; top: {pct(f.code_debt_score)}%;"
+            style:opacity={isDanger(f) ? 1 : 0.45 + Math.max(0, Math.min(1, f.code_debt_score)) * 0.55}
             onmouseenter={() => (hovered = f)}
             onmouseleave={() => (hovered = null)}
             onfocus={() => (hovered = f)}
             onblur={() => (hovered = null)}
             title={isDanger(f) ? m.overview_open_danger_matrix() : f.path}
             aria-label={f.path}
-          ></a>
+          >
+            {#if isDanger(f)}
+              <span class="text-destructive-foreground pointer-events-none text-[9px] leading-none font-bold">!</span>
+            {/if}
+          </a>
         {/each}
 
         <!-- ホバーツールチップ -->
         {#if hovered}
           <div
             class="pointer-events-none absolute z-20 max-w-[80%] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] whitespace-nowrap text-background"
-            style="left: {hovered.knowledge_coverage * 100}%; top: calc({hovered.code_debt_score * 100}% - 6px);"
+            style="left: {pct(hovered.knowledge_coverage)}%; top: calc({pct(hovered.code_debt_score)}% - 6px);"
           >
             <span class="font-mono">{hovered.path}</span>
             <span class="opacity-80">

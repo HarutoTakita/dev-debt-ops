@@ -9,13 +9,22 @@
   import DebtTrendStrata from "./debt-trend-strata.svelte";
   import StatCard from "./stat-card.svelte";
   import TrendIndicator from "./trend-indicator.svelte";
-  import WeeklyActivity from "./weekly-activity.svelte";
   import PriorityList from "./priority-list.svelte";
+  import GranularitySwitch, { type Granularity } from "./granularity-switch.svelte";
+  import FeatureDebtList from "./feature-debt-list.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
 
   // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と将来の実データ表示で共用する。
   // isSample: 表示中のデータがモック由来である間「Sample / デモデータ」バッジを出す（誠実表示）。
-  type Props = { overview: Overview; isSample?: boolean };
-  const { overview, isSample = false }: Props = $props();
+  // granularity / onGranularity: 粒度切替（issue 056）。onGranularity 提供時のみセグメントを出す
+  // （サンプル/モック表示では切替を出さない）。
+  type Props = {
+    overview: Overview;
+    isSample?: boolean;
+    granularity?: Granularity;
+    onGranularity?: (g: Granularity) => void;
+  };
+  const { overview, isSample = false, granularity = "file", onGranularity }: Props = $props();
 
   // 遷移先生成用の slug。ルートからではなく $app/state 経由で取得（mastery-list / constructive-result と同流儀）。
   const orgSlug = $derived(page.params.org ?? "");
@@ -31,7 +40,7 @@
   const kcChange = $derived(latestKc - firstKc);
 </script>
 
-<div class="mx-auto flex max-w-5xl flex-col gap-4 p-4">
+<div class="mx-auto flex max-w-6xl flex-col gap-4 p-4">
   {#if isSample}
     <div class="flex items-center gap-2">
       <span class="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-medium text-warning">
@@ -40,14 +49,26 @@
     </div>
   {/if}
 
-  <!-- 一次ビュー: 二軸負債マトリクス + 4 象限凡例 -->
-  <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-    <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-    <QuadrantLegend {orgSlug} {projectSlug} />
+  <PageHeading title={m.nav_overview()} description={m.page_overview_desc()} />
+
+  {#if onGranularity}
+    <GranularitySwitch value={granularity} onChange={onGranularity} />
+  {/if}
+
+  <!-- 一次ビュー: granularity=file は二軸負債マトリクス、feature/folder は機能/フォルダ単位の理解負債リスト -->
+  <div data-tour="overview-primary">
+    {#if granularity === "file"}
+      <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
+        <QuadrantLegend {orgSlug} {projectSlug} />
+      </div>
+    {:else}
+      <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
+    {/if}
   </div>
 
   <!-- stat-card（負債系は減少=緑に反転） -->
-  <div class="grid gap-3 sm:grid-cols-3">
+  <div class="grid gap-3 sm:grid-cols-3" data-tour="overview-stats">
     <div class="relative">
       <StatCard label={m.overview_stat_kc()} value={`${latestKc}%`}>
         {#snippet trend()}
@@ -70,15 +91,15 @@
     </StatCard>
   </div>
 
-  <!-- 推移地層グラフ -->
-  <div class="rounded-lg border bg-card p-4">
-    <DebtTrendStrata trend={overview.trend} />
-  </div>
+  <!-- 推移グラフ + 優先対応リストを横並び（広い画面）。狭い画面では縦積み。 -->
+  <div class="grid gap-4 lg:grid-cols-2">
+    <!-- 推移グラフ -->
+    <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
+      <DebtTrendStrata trend={overview.trend} />
+    </div>
 
-  <!-- 二次ビュー: 今週の活動 + 優先対応リスト -->
-  <div class="grid gap-4 sm:grid-cols-2">
-    <div class="rounded-lg border bg-card p-4"><WeeklyActivity activity={overview.activity} /></div>
-    <div class="rounded-lg border bg-card p-4">
+    <!-- 二次ビュー: 優先対応リスト -->
+    <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
       <PriorityList {orgSlug} {projectSlug} files={overview.files} />
       {#if dangerCount > 0}
         <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"

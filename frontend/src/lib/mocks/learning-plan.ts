@@ -1,7 +1,7 @@
 import type { LearningPlan } from "$lib/api/schemas";
 
-// 学習プランのモック（§5.4 の例）。段階 1: チーム内資産（最優先）→ 段階 2: 外部資源候補。
-// 実データ取得・Vector Search・進捗永続化は後続 issue。ここは UI レイアウト確認用。
+// 学習プランのモック（issue 068）。section=code: このコードを理解する（具体）/ section=stack: 技術スタックを学ぶ（一般）。
+// 実データ取得・進捗永続化はバックエンドの生成パイプライン。ここは UI レイアウト確認用。
 export const mockLearningPlan: LearningPlan = {
   id: "plan-001",
   gap_concepts: ["distributed_caching", "ADR-0012", "RedisClient"],
@@ -13,13 +13,15 @@ export const mockLearningPlan: LearningPlan = {
       resource: {
         id: "r1",
         origin: "team",
+        section: "code",
         kind: "adr",
         title: "ADR-0012 DB 死活独立性ポリシー",
+        summary: "DB が落ちてもキャッシュで耐える設計判断の背景。なぜこの方針かを理解する。",
+        tech: "",
         source_ref: "ADR-0012",
         url: null,
         estimated_minutes: 10,
         priority: "required",
-        dormant_days: 540, // 18 か月読まれていない（死蔵）
       },
     },
     {
@@ -28,13 +30,15 @@ export const mockLearningPlan: LearningPlan = {
       resource: {
         id: "r2",
         origin: "team",
-        kind: "video",
-        title: "勉強会「分散キャッシュ設計」",
-        source_ref: "@alice 2023-Q4",
+        section: "code",
+        kind: "code",
+        title: "redis-client.ts を読む",
+        summary: "キャッシュ接続・リトライ・TTL の実装。実際の使われ方を追う。",
+        tech: "",
+        source_ref: "src/lib/redis-client.ts",
         url: null,
-        estimated_minutes: 25,
+        estimated_minutes: 15,
         priority: "required",
-        dormant_days: 210,
       },
     },
     {
@@ -43,13 +47,15 @@ export const mockLearningPlan: LearningPlan = {
       resource: {
         id: "r3",
         origin: "team",
-        kind: "pr_comment",
-        title: "PR #4523 レビュー議論",
-        source_ref: "PR #4523 by @alice",
+        section: "code",
+        kind: "code",
+        title: "cache-middleware.ts を読む",
+        summary: "リクエスト経路でどうキャッシュを挟むか。無効化のタイミングに注目。",
+        tech: "",
+        source_ref: "src/lib/cache-middleware.ts",
         url: null,
-        estimated_minutes: 5,
+        estimated_minutes: 15,
         priority: "recommended",
-        dormant_days: 95,
       },
     },
     {
@@ -58,12 +64,15 @@ export const mockLearningPlan: LearningPlan = {
       resource: {
         id: "r4",
         origin: "external",
+        section: "stack",
         kind: "docs",
         title: "Redis 公式 Caching Patterns",
+        summary: "キャッシュの定番パターン（cache-aside 等）を公式ドキュメントで学ぶ。",
+        tech: "Redis",
         source_ref: null,
         url: "https://redis.io/docs/latest/develop/use/patterns/",
         estimated_minutes: 20,
-        priority: "supplementary",
+        priority: "recommended",
       },
     },
     {
@@ -72,26 +81,15 @@ export const mockLearningPlan: LearningPlan = {
       resource: {
         id: "r5",
         origin: "external",
+        section: "stack",
         kind: "book",
         title: '"Designing Data-Intensive Applications" Ch.7',
-        source_ref: "Kleppmann",
-        url: null,
+        summary: "分散システムの整合性・トランザクションを体系的に学ぶ定番書。",
+        tech: "分散システム",
+        source_ref: null,
+        url: "https://dataintensive.net/",
         estimated_minutes: null,
         priority: "supplementary",
-      },
-    },
-    {
-      order: 6,
-      completed: false,
-      resource: {
-        id: "r6",
-        origin: "team",
-        kind: "code",
-        title: "RedisClient.ts を読む",
-        source_ref: "src/lib/redis-client.ts",
-        url: null,
-        estimated_minutes: 10,
-        priority: "hands_on",
       },
     },
   ],

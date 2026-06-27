@@ -28,8 +28,15 @@ class Settings(BaseSettings):
         default=False,
         description="If True, the auth cookie is set with the Secure flag; must be True in non-dev environments.",
     )
-    JWT_LIFETIME_SECONDS: int = Field(default=300, description="Access-token lifetime in seconds (5 min).")
+    JWT_LIFETIME_SECONDS: int = Field(default=1800, description="Access-token lifetime in seconds (30 min).")
     REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
+
+    # Guest demo (issue 069). When true, expose POST /api/v1/auth/demo + the login-screen
+    # "お試しはこちら" button so visitors without a GitHub account can browse seeded sample data.
+    # Keep false in real production; enable only for the hackathon showcase / stg.
+    DEMO_MODE_ENABLED: bool = Field(
+        default=False, description="Enable the GitHub-less guest demo login + sample data (issue 069)."
+    )
 
     # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
     # (issue 016/017) — default aligned to issue-017's region to avoid splitting regions.
@@ -55,6 +62,14 @@ class Settings(BaseSettings):
     )
     SERVICE_TASKS_URL: str = Field(
         default="http://localhost:8001", description="Cloud Tasks HTTP target — the service container base URL."
+    )
+    SERVICE_OIDC_AUDIENCE: str = Field(
+        default="",
+        description=(
+            "OIDC token audience for Cloud Tasks → service. Decoupled from SERVICE_TASKS_URL "
+            "because the service can't self-reference its own run.app URL in Terraform; a stable "
+            "value is wired via the service's custom_audiences. Empty = fall back to SERVICE_TASKS_URL."
+        ),
     )
     TASKS_INVOKER_SA: str = Field(
         default="", description="Service account email for the Cloud Tasks → service OIDC token."

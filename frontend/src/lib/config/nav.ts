@@ -1,15 +1,10 @@
 import Activity from "@lucide/svelte/icons/activity";
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import Grid3x3 from "@lucide/svelte/icons/grid-3x3";
-import HelpCircle from "@lucide/svelte/icons/badge-question-mark";
-import Bot from "@lucide/svelte/icons/bot";
 import GraduationCap from "@lucide/svelte/icons/graduation-cap";
-import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
+import GitBranch from "@lucide/svelte/icons/git-branch";
 import Settings from "@lucide/svelte/icons/settings";
 import type { Pathname } from "$app/types";
-import { galaxy } from "$lib/stores/galaxy-store.svelte";
-import { quiz } from "$lib/stores/quiz-store.svelte";
-import { MOCK_DEBTS } from "$lib/api/mock/debts";
 import * as m from "$lib/paraglide/messages";
 
 // すべての lucide アイコンは同一のコンポーネント型を共有するため、1 つから型を借りる。
@@ -27,108 +22,63 @@ export interface NavItem {
   icon: IconComponent;
   /** プロジェクトルート（Overview）など完全一致でアクティブ判定する項目 */
   exact?: boolean;
-  /** 未実装機能: ナビ枠だけ用意し、ルートは Coming Soon プレースホルダへ向ける */
-  comingSoon?: boolean;
   /** 有効条件（例: Repos は接続済みのみ活性） */
   enabled?: (ctx: NavContext) => boolean;
-  /** KC% / 未返済負債残高など（本 issue ではダミー固定値） */
+  /** KC% / 未返済負債残高など（本 issue ではダミー固定値）。アクティブプロジェクトのみ表示。 */
   pill?: (ctx: NavContext) => string | null;
-  /** ピン留め可否（デフォルト true） */
-  pinnable?: boolean;
+  /** 負債の対：knowledge=理解負債（可視化/返済）、code=技術負債（可視化/返済）。サイドバーで対をまとめる。 */
+  group?: "knowledge" | "code";
 }
 
-export interface NavSection {
-  id: string;
-  /** null は見出しなしの最終セクション（Settings 等） */
-  label: (() => string) | null;
-  items: NavItem[];
-}
-
-// add_menu 順 = 表示順。understand 系（理解する / 返済する）を上位に、Repos（コード閲覧）は参照として末尾へ。
-// 各ルートは /[org]/[project]/... のプロジェクト相対パス。プロジェクト切替でメニューの主語が切り替わる。
-export const navSections: NavSection[] = [
+// プロジェクト 1 つ分のメニュー項目（表示順）。セクション見出し（理解する/知識負債/参照）は廃止し、
+// サイドバーはプロジェクト単位の開閉グループ（project-nav-group）でこの項目群を描画する。
+// 各ルートは /[org]/[project]/... のプロジェクト相対パス。プロジェクトごとに主語が切り替わる。
+export const allNavItems: NavItem[] = [
   {
-    id: "understand",
-    label: m.nav_section_understand,
-    items: [
-      {
-        id: "overview",
-        label: m.nav_overview,
-        icon: Activity,
-        exact: true,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
-      },
-      {
-        id: "galaxy",
-        label: m.nav_galaxy,
-        icon: Sparkles,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
-        comingSoon: true,
-        // 星域観測済み（モック有効）なら自分の KC% を pill 表示、未観測なら非表示
-        pill: () => (galaxy.myKc !== null ? `${galaxy.myKc}%` : null),
-      },
-      {
-        id: "matrix",
-        label: m.nav_matrix,
-        icon: Grid3x3,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
-        // 未返済の負債件数（モック）をデータから導出。0 件なら pill 非表示。
-        pill: () => (MOCK_DEBTS.length > 0 ? String(MOCK_DEBTS.length) : null),
-      },
-      {
-        id: "quizzes",
-        label: m.nav_quizzes,
-        icon: HelpCircle,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/quizzes`,
-        comingSoon: true,
-        // 受験可能件数（モック）が 1 件以上のとき pill 表示
-        pill: () => (quiz.availableCount > 0 ? String(quiz.availableCount) : null),
-      },
-      {
-        id: "agents",
-        label: m.nav_agents,
-        icon: Bot,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/agents`,
-        comingSoon: true,
-      },
-      {
-        id: "learning",
-        label: m.nav_learning,
-        icon: GraduationCap,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
-        comingSoon: true,
-      },
-    ],
+    id: "overview",
+    label: m.nav_overview,
+    icon: Activity,
+    exact: true,
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
+  },
+  // 理解負債の対: 可視化（理解度マップ）→ 返済（クイズと学習）。
+  {
+    id: "galaxy",
+    label: m.nav_galaxy,
+    icon: Sparkles,
+    group: "knowledge",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
   },
   {
-    id: "reference",
-    label: m.nav_section_reference,
-    items: [
-      {
-        id: "repos",
-        label: m.nav_repos,
-        icon: FolderGit2,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
-      },
-    ],
+    // クイズ（実測）と学習（返済）はループの両輪。1 メニュー = タブ統合ハブ（/learning）に集約。
+    id: "knowledge-hub",
+    label: m.nav_knowledge_hub,
+    icon: GraduationCap,
+    group: "knowledge",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+  },
+  // 技術負債の対: 可視化（コード品質マップ）→ 返済（コード改善）。
+  {
+    id: "matrix",
+    label: m.nav_matrix,
+    icon: Grid3x3,
+    group: "code",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
   },
   {
-    id: "system",
-    label: null,
-    items: [
-      {
-        id: "settings",
-        label: m.nav_settings,
-        icon: Settings,
-        route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
-        comingSoon: true,
-      },
-    ],
+    id: "repos",
+    label: m.nav_repos,
+    icon: GitBranch,
+    group: "code",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+  },
+  {
+    id: "settings",
+    label: m.nav_settings,
+    icon: Settings,
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
   },
 ];
-
-/** 全項目をフラットに（ピン留めの解決などに使う） */
-export const allNavItems: NavItem[] = navSections.flatMap((s) => s.items);
 
 /**
  * ルートのアクティブ判定。`exact`（Overview = プロジェクトルート）は完全一致、それ以外は前方一致。

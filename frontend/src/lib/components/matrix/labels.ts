@@ -42,7 +42,3 @@ export function statusLabel(status: string): string {
 export function kindLabel(kind: DebtItem["kind"]): string {
   return kind === "code" ? m.kind_code() : m.kind_knowledge();
 }
-
-export function agentLabel(agent: string): string {
-  return agent === "code_debt" ? m.agent_code_debt() : m.agent_knowledge_debt();
-}

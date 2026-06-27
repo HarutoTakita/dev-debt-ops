@@ -4,21 +4,52 @@ from app.models.project import Project
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 
-# Job + TechStack live in `shared` (single source of truth for api + service), but api owns
-# the Alembic migrations + DB engine. Import them here — AFTER the app models above, so
-# `app.models.base` has already reassigned `SQLModel.metadata` to the naming-convention
-# metadata — so Alembic autogenerate and the test `create_all` pick up the `jobs` /
-# `tech_stacks` tables. (issue 018 promoted TechStack from `app.models` to `shared.models`.)
-from shared.models import Job, TechStack
+# Job / TechStack / AnalysisRun / RepoFile live in `shared` (single source of truth for api +
+# service), but api owns the Alembic migrations + DB engine. Import them here — AFTER the app
+# models above, so `app.models.base` has already reassigned `SQLModel.metadata` to the
+# naming-convention metadata — so Alembic autogenerate and the test `create_all` pick up the
+# `jobs` / `tech_stacks` / `analysis_runs` / `repo_files` tables. (issue 018 / 026)
+from shared.models import (
+    AnalysisRun,
+    AssignedDeveloper,
+    CodeDebt,
+    DebtTrendPoint,
+    Dependency,
+    FileKc,
+    Job,
+    KnowledgeDebt,
+    LearningPlan,
+    LearningResource,
+    LearningStep,
+    QuizAnswer,
+    QuizResult,
+    QuizSession,
+    RepoFile,
+    TechStack,
+)
 
 __all__ = [
+    "AnalysisRun",
+    "AssignedDeveloper",
+    "CodeDebt",
+    "DebtTrendPoint",
+    "Dependency",
+    "FileKc",
     "Job",
+    "KnowledgeDebt",
+    "LearningPlan",
+    "LearningResource",
+    "LearningStep",
     "OAuthAccount",
     "Org",
     "OrgMember",
     "OrgRole",
     "Project",
+    "QuizAnswer",
+    "QuizResult",
+    "QuizSession",
     "RefreshToken",
+    "RepoFile",
     "TechStack",
     "User",
 ]

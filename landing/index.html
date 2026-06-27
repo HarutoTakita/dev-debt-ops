@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DevDebtOps — 理解負債を、測って返す</title>
+    <meta
+      name="description"
+      content="チームの『コードのわかってなさ（理解負債）』をクイズで実測し、学習で返済する閉ループ。技術負債はリファクタで返す。理解度とコード品質を一枚で。"
+    />
+    <meta property="og:title" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta
+      property="og:description"
+      content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
+    />
+    <meta property="og:type" content="website" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              know: "#22b8c4", // 理解（ティール）
+              code: "#e0a23a", // コード（アンバー）
+              ink: "#0c1116",
+            },
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://rsms.me" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <style>
+      html {
+        scroll-behavior: smooth;
+      }
+      .grad {
+        background: radial-gradient(1200px 600px at 70% -10%, rgba(34, 184, 196, 0.18), transparent 60%),
+          radial-gradient(900px 500px at 10% 10%, rgba(224, 162, 58, 0.12), transparent 55%);
+      }
+      /* 背景のグラフ（ノード‐リンク）レイヤー。固定で薄く敷き、内容はその上に重ねる。 */
+      .graph-bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.3;
+      }
+      /* 中央（テキスト帯）を少し沈めて可読性を確保するヴェール。 */
+      .graph-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background: radial-gradient(1000px 700px at 50% 28%, rgba(12, 17, 22, 0.6), rgba(12, 17, 22, 0) 72%);
+      }
+      body > header,
+      body > section,
+      body > footer {
+        position: relative;
+        z-index: 1;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .graph-bg {
+          opacity: 0.2;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-ink text-slate-100 antialiased">
+    <!-- 背景: ノード‐リンクのネットワークを薄く敷く（装飾・スクリプトで生成）。 -->
+    <svg class="graph-bg" id="graph" aria-hidden="true"></svg>
+    <div class="graph-veil" aria-hidden="true"></div>
+
+    <!-- App CTA リンクはデプロイ時に置換（同一 LB の app ホスト）。既定は /login。 -->
+    <!-- prettier-ignore -->
+    <script>
+      window.__APP_URL__ = "APP_URL_PLACEHOLDER".startsWith("APP_URL") ? "/login" : "APP_URL_PLACEHOLDER";
+    </script>
+
+    <header class="sticky top-0 z-30 border-b border-white/5 bg-ink/70 backdrop-blur-md">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <a href="#top" class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="inline-block size-3 rounded-sm bg-know"></span>
+          <span class="inline-block size-3 -ml-1 rounded-sm bg-code"></span>
+          <span class="ml-1">DevDebtOps</span>
+        </a>
+        <div class="hidden gap-7 text-sm text-slate-300 md:flex">
+          <a href="#features" class="transition hover:text-white">機能</a>
+          <a href="#infra" class="transition hover:text-white">インフラ</a>
+          <a href="#security" class="transition hover:text-white">セキュリティ</a>
+        </div>
+        <a
+          id="nav-cta"
+          href="/login"
+          class="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium ring-1 ring-white/15 ring-inset transition hover:bg-white/15"
+          >アプリを開く</a
+        >
+      </nav>
+    </header>
+
+    <section id="top" class="grad">
+      <div class="mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
+        <p
+          class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
+        >
+          <span class="size-1.5 rounded-full bg-know"></span>
+          コードベースの理解度を実測する開発プラットフォーム
+        </p>
+        <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
+          誰も理解していないコードを、<br class="hidden sm:block" />
+          <span class="text-know">可視化</span>して<span class="text-code">返済</span>する。
+        </h1>
+        <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300">
+          GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
+          技術負債は AI が<strong class="font-semibold text-white">リファクタ PR</strong>で返す。
+          属人化と技術負債を、ひとつのダッシュボードで管理します。
+        </p>
+        <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <a
+            id="hero-cta"
+            href="/login"
+            class="rounded-lg bg-know px-6 py-3 font-semibold text-ink shadow-lg shadow-know/20 transition hover:brightness-110"
+            >リポジトリを接続して解析</a
+          >
+          <a
+            href="#how"
+            class="rounded-lg px-6 py-3 font-medium text-slate-200 ring-1 ring-white/15 ring-inset transition hover:bg-white/10"
+            >仕組みを見る</a
+          >
+        </div>
+        <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
+
+        <!-- ヒーローの製品ビジュアル（アプリの構成を模したフレーム） -->
+        <div class="mx-auto mt-14 max-w-4xl rounded-xl border border-white/10 bg-[#0f161d] text-left shadow-2xl backdrop-blur">
+          <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+            <span class="size-2.5 rounded-full bg-red-400/60"></span>
+            <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
+            <span class="size-2.5 rounded-full bg-green-400/60"></span>
+            <span class="ml-3 text-xs text-slate-500">DevDebtOps — ダッシュボード</span>
+          </div>
+          <div class="flex">
+            <div class="hidden w-44 shrink-0 space-y-1 border-r border-white/10 p-3 text-xs text-slate-400 sm:block">
+              <div class="rounded bg-white/5 px-2 py-1 text-slate-200">ダッシュボード</div>
+              <div class="pt-1 text-[10px] tracking-wide text-know uppercase">理解負債</div>
+              <div class="px-2 py-1">理解度マップ</div>
+              <div class="px-2 py-1">クイズと学習</div>
+              <div class="pt-1 text-[10px] tracking-wide text-code uppercase">技術負債</div>
+              <div class="px-2 py-1">コード品質マップ</div>
+              <div class="px-2 py-1">コード改善</div>
+            </div>
+            <div class="flex-1 p-5">
+              <div class="flex items-center gap-5">
+                <div
+                  class="relative size-24 shrink-0 rounded-full"
+                  style="background: conic-gradient(#22b8c4 0 72%, rgba(255, 255, 255, 0.08) 0)"
+                >
+                  <div class="absolute inset-[9px] grid place-items-center rounded-full bg-[#0f161d] text-center">
+                    <div>
+                      <div class="text-xl font-bold">72%</div>
+                      <div class="text-[9px] text-slate-400">チーム理解度</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex-1 space-y-2">
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-20 text-slate-400">理解度</span>
+                    <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-know" style="width: 72%"></div></div>
+                  </div>
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-20 text-slate-400">コード品質</span>
+                    <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-code" style="width: 58%"></div></div>
+                  </div>
+                  <div class="flex gap-2 pt-1 text-xs">
+                    <span class="rounded bg-red-500/20 px-2 py-0.5 text-red-300">payment.ts · critical</span>
+                    <span class="rounded bg-know/15 px-2 py-0.5 text-know">認証フロー · 理解済み</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 課題 -->
+    <section class="mx-auto max-w-6xl px-6 py-20">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">負債は「コード」だけじゃない</h2>
+        <p class="mt-4 leading-relaxed text-slate-400">
+          動くが誰も中身を理解していないコードは、技術負債とは別の<strong class="text-white">理解負債</strong>。
+          変更速度・レビュー品質・オンボーディングを静かに蝕みます。
+        </p>
+      </div>
+      <div class="mt-12 grid gap-5 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">01</span>
+          <h3 class="mt-4 font-semibold text-white">書いた人しか分からない</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            担当者の異動・退職でコードが事実上ブラックボックスに。レビューも改修も止まる。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">02</span>
+          <h3 class="mt-4 font-semibold text-white">AI 生成コードの増殖</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            生成量が増えるほど、誰にも理解されないまま本番へ。レビューが追いつかない。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
+          <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            技術負債は山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2×2 解決 -->
+    <section id="how" class="mx-auto max-w-6xl px-6 py-12">
+      <h2 class="text-center text-2xl font-bold sm:text-3xl">2つの負債を、可視化して返済する</h2>
+      <div class="mt-10 grid gap-6 md:grid-cols-2">
+        <div class="rounded-2xl border border-know/25 bg-[#131a22] p-6">
+          <h3 class="flex items-center gap-2 text-xl font-semibold text-know">
+            <span class="size-2.5 rounded-full bg-know"></span> 理解負債
+          </h3>
+          <ul class="mt-4 space-y-3 text-slate-300">
+            <li><strong class="text-white">可視化｜理解度マップ</strong> — 誰がどこを理解しているかを星図で俯瞰。</li>
+            <li><strong class="text-white">返済｜クイズと学習</strong> — クイズで実測し、学習プランで埋める。合格で理解度↑。</li>
+          </ul>
+        </div>
+        <div class="rounded-2xl border border-code/25 bg-[#131a22] p-6">
+          <h3 class="flex items-center gap-2 text-xl font-semibold text-code">
+            <span class="size-2.5 rounded-full bg-code"></span> 技術負債
+          </h3>
+          <ul class="mt-4 space-y-3 text-slate-300">
+            <li><strong class="text-white">可視化｜コード品質マップ</strong> — 重複・複雑度・AI 生成痕跡を検知。</li>
+            <li><strong class="text-white">返済｜コード改善</strong> — AI がリファクタ案を生成し、返済 PR を作成。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 閉ループ -->
+    <section class="mx-auto max-w-6xl px-6 py-20">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">実測 → 返済の閉ループ</h2>
+        <p class="mt-4 leading-relaxed text-slate-400">
+          検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。主役は<strong class="text-white"
+            >理解度の実測と返済</strong
+          >です。
+        </p>
+      </div>
+      <ol class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <li class="rounded-2xl border border-white/10 bg-[#131a22] p-5">
+          <span class="text-xs font-bold text-slate-500">01</span>
+          <h3 class="mt-1 font-semibold text-white">解析する</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">検知・理解度・機能クラスタリングをまとめて実行。</p>
+        </li>
+        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
+          <span class="text-xs font-bold text-know">02</span>
+          <h3 class="mt-1 font-semibold text-white">クイズで実測</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">git blame に頼らず、理解度を能動的に計測する。</p>
+        </li>
+        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
+          <span class="text-xs font-bold text-know">03</span>
+          <h3 class="mt-1 font-semibold text-white">学習で返済</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">チーム資産を優先した学習プランで理解度を引き上げる。</p>
+        </li>
+        <li class="rounded-2xl border border-code/20 bg-[#131a22] p-5">
+          <span class="text-xs font-bold text-code">04</span>
+          <h3 class="mt-1 font-semibold text-white">リファクタ PR</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に返済 PR を作成する。</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 機能詳細 -->
+    <section id="features" class="mx-auto max-w-6xl px-6 py-16">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">FEATURES</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">アプリにできること</h2>
+        <p class="mx-auto mt-3 max-w-2xl text-slate-400">解析からダッシュボード、可視化、返済までを 1 つのワークスペースで。</p>
+      </div>
+
+      <div class="mt-14 space-y-20">
+        <!-- ダッシュボード -->
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-know uppercase">Dashboard</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">ダッシュボード — 全体像を一目で</h3>
+            <p class="mt-3 text-slate-300">
+              チーム理解度（KC）とコード品質を一枚で俯瞰。「学習を優先すべき領域」と推移を確認できます。閲覧専用に保ち、解析はトップバーから実行します。
+            </p>
+            <ul class="mt-4 space-y-2 text-sm text-slate-400">
+              <li>・理解度ヒーロー（チーム KC）＋最危険ファイル</li>
+              <li>・理解度 × コード品質の推移グラフ</li>
+              <li>・優先対応リスト</li>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#0f161d] shadow-2xl">
+            <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+              <span class="size-2.5 rounded-full bg-red-400/60"></span>
+              <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
+              <span class="size-2.5 rounded-full bg-green-400/60"></span>
+              <span class="ml-3 text-xs text-slate-500">ダッシュボード</span>
+            </div>
+            <div class="flex items-center gap-5 p-5">
+              <div
+                class="relative size-28 shrink-0 rounded-full"
+                style="background: conic-gradient(#22b8c4 0 72%, rgba(255, 255, 255, 0.08) 0)"
+              >
+                <div class="absolute inset-[10px] grid place-items-center rounded-full bg-[#0f161d] text-center">
+                  <div>
+                    <div class="text-2xl font-bold">72%</div>
+                    <div class="text-[10px] text-slate-400">チーム理解度</div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex-1 space-y-2">
+                <div class="flex gap-2">
+                  <div class="flex-1 rounded-md border border-white/10 p-2 text-center">
+                    <div class="text-lg font-bold text-code">5</div>
+                    <div class="text-[10px] text-slate-400">最危険ファイル</div>
+                  </div>
+                  <div class="flex-1 rounded-md border border-white/10 p-2 text-center">
+                    <div class="text-lg font-bold text-know">+8</div>
+                    <div class="text-[10px] text-slate-400">今週の改善</div>
+                  </div>
+                </div>
+                <div class="space-y-1 pt-1">
+                  <div class="h-1.5 rounded bg-know/70" style="width: 86%"></div>
+                  <div class="h-1.5 rounded bg-know/50" style="width: 64%"></div>
+                  <div class="h-1.5 rounded bg-code/60" style="width: 40%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 理解度マップ -->
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div class="md:order-2">
+            <p class="text-xs font-semibold tracking-wide text-know uppercase">Understanding Map</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">理解度マップ — 誰がどこを分かっているか</h3>
+            <p class="mt-3 text-slate-300">
+              機能（feature）をノード、依存をエッジにしたグラフで、チームの理解の濃淡を可視化。機能をクリックすると配下ファイルの依存グラフへドリルダウンします。
+            </p>
+            <ul class="mt-4 space-y-2 text-sm text-slate-400">
+              <li>・機能ノード（サイズ＝規模 / 色＝理解ステータス）</li>
+              <li>・機能 → ファイルの 2 段ドリルダウン</li>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#0f161d] shadow-2xl md:order-1">
+            <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
+              <span class="size-2.5 rounded-full bg-red-400/60"></span>
+              <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
+              <span class="size-2.5 rounded-full bg-green-400/60"></span>
+              <span class="ml-3 text-xs text-slate-500">理解度マップ</span>
+            </div>
+            <div class="p-3">
+              <svg viewBox="0 0 360 200" class="w-full">
+                <line x1="90" y1="100" x2="180" y2="60" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
+                <line x1="90" y1="100" x2="170" y2="150" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
+                <line x1="180" y1="60" x2="270" y2="90" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
+                <line x1="170" y1="150" x2="270" y2="90" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
+                <line x1="270" y1="90" x2="320" y2="150" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
+                <circle cx="90" cy="100" r="16" fill="#22b8c4" opacity="0.85" />
+                <circle cx="180" cy="60" r="11" fill="#2ec5a8" opacity="0.8" />
+                <circle cx="170" cy="150" r="9" fill="#e0a23a" opacity="0.8" />
+                <circle cx="270" cy="90" r="13" fill="#22b8c4" opacity="0.8" />
+                <circle cx="320" cy="150" r="7" fill="#e0a23a" opacity="0.75" />
+                <circle cx="40" cy="60" r="6" fill="#2a8f97" opacity="0.7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- コード品質マップ -->
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-code uppercase">Code Quality Map</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード品質マップ — 技術負債を一覧化</h3>
+            <p class="mt-3 text-slate-300">
+              重複・複雑度・dead code・AI 生成痕跡を検知し、深刻度と優先度で並べ替え。理解度 × コード品質のホットスポットから手をつけられます。
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#0f161d] p-3 shadow-2xl">
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
+                <span class="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-300">critical</span>
+                <span class="flex-1 truncate font-mono text-slate-300">src/api/handlers/payment.ts</span>
+                <span class="text-slate-500">最優先</span>
+              </div>
+              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
+                <span class="rounded bg-code/20 px-1.5 py-0.5 text-[10px] text-code">high</span>
+                <span class="flex-1 truncate font-mono text-slate-300">src/lib/legacy/parser.js</span>
+                <span class="text-slate-500">高</span>
+              </div>
+              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
+                <span class="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-300">medium</span>
+                <span class="flex-1 truncate font-mono text-slate-300">src/utils/format.ts</span>
+                <span class="text-slate-500">中</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- クイズと学習 -->
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div class="md:order-2">
+            <p class="text-xs font-semibold tracking-wide text-know uppercase">Quizzes &amp; Learning</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">クイズと学習 — 実測して返済する</h3>
+            <p class="mt-3 text-slate-300">
+              機能ごとの「単元」で、学習プランを読み → 確認クイズで実測 → 合格で理解度を引き上げ。git blame に頼らず能動的に計測します（単独開発・PM も対象）。
+            </p>
+            <ul class="mt-4 space-y-2 text-sm text-slate-400">
+              <li>・未学習 / 学習中 / 理解済み / 要復習 のステータス</li>
+              <li>・チーム資産（ADR・PR）を優先した学習プラン</li>
+            </ul>
+          </div>
+          <div class="space-y-3 rounded-xl border border-white/10 bg-[#0f161d] p-4 shadow-2xl md:order-1">
+            <div class="rounded-lg border border-white/10 p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">認証フロー</span>
+                <span class="rounded-full bg-know/15 px-2 py-0.5 text-[10px] text-know">理解済み</span>
+              </div>
+              <div class="mt-2 h-1.5 rounded bg-white/10"><div class="h-1.5 rounded bg-know" style="width: 88%"></div></div>
+            </div>
+            <div class="rounded-lg border border-white/10 p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">決済バッチ</span>
+                <span class="rounded-full bg-code/15 px-2 py-0.5 text-[10px] text-code">要復習</span>
+              </div>
+              <div class="mt-2 h-1.5 rounded bg-white/10"><div class="h-1.5 rounded bg-code" style="width: 34%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- コード改善 -->
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div>
+            <p class="text-xs font-semibold tracking-wide text-code uppercase">Code Improvement</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード改善 — リファクタ PR で返す</h3>
+            <p class="mt-3 text-slate-300">
+              コードを閲覧しながら、ファイル単位の技術負債を確認。AI がリファクタ案を生成し、ワンクリックで GitHub に返済 PR を作成します。
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#0f161d] p-3 shadow-2xl">
+            <div class="flex gap-3 text-xs">
+              <div class="w-28 shrink-0 space-y-1 border-r border-white/10 pr-2 font-mono text-slate-400">
+                <div>📁 src</div>
+                <div class="pl-3 text-slate-300">handlers</div>
+                <div class="flex items-center justify-between pl-5">
+                  <span>payment.ts</span><span class="rounded-full bg-code/20 px-1 text-[10px] text-code">3</span>
+                </div>
+                <div class="pl-3">utils</div>
+              </div>
+              <div class="flex-1">
+                <div class="rounded-md border border-white/10 p-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-300">複雑度 / 重複</span>
+                    <span class="rounded bg-red-500/20 px-1.5 text-[10px] text-red-300">critical</span>
+                  </div>
+                  <button class="mt-2 w-full rounded-md bg-code/20 py-1.5 text-[11px] font-medium text-code">
+                    返済 PR を作成
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- インフラ構成 -->
+    <section id="infra" class="border-t border-white/10 bg-[#0b1016]">
+      <div class="mx-auto max-w-6xl px-6 py-16">
+        <div class="text-center">
+          <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
+          <h2 class="mt-2 text-2xl font-bold sm:text-3xl">インフラ構成</h2>
+          <p class="mx-auto mt-3 max-w-2xl text-slate-400">
+            Google Cloud 上のコンテナ構成。重い解析は非同期ワーカーへ分離し、Webhook 駆動で自動スケールします。
+          </p>
+        </div>
+
+        <div class="mx-auto mt-8 flex max-w-3xl flex-wrap items-center justify-center gap-2 text-xs font-medium">
+          <span class="rounded-md border border-white/10 px-3 py-2">利用者</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md border border-know/30 bg-know/10 px-3 py-2 text-know">HTTPS LB ＋ Cloud Armor</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md border border-white/10 px-3 py-2">api (Cloud Run)</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md border border-white/10 px-3 py-2">Cloud Tasks</span>
+          <span class="text-slate-500">→</span>
+          <span class="rounded-md border border-code/30 bg-code/10 px-3 py-2 text-code">service (内部 Cloud Run)</span>
+        </div>
+
+        <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">アプリ実行 — Cloud Run</h3>
+            <p class="mt-2 text-sm text-slate-400">api（外部公開・SPA 同梱）と service（内部・重い解析の Cloud Tasks ターゲット）を分離。</p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">データ — Cloud SQL</h3>
+            <p class="mt-2 text-sm text-slate-400">PostgreSQL ＋ pgvector。Alembic でスキーマ管理。</p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">非同期ジョブ — Cloud Tasks</h3>
+            <p class="mt-2 text-sm text-slate-400">検知・理解度・クラスタリング等の重処理をワーカーへ委譲。冪等・再配送前提の設計。</p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">公開・防御 — LB / Cloud Armor</h3>
+            <p class="mt-2 text-sm text-slate-400">外部 HTTPS ロードバランサ＋マネージド証明書。レート制限はエッジで強制。</p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">機密・レジストリ</h3>
+            <p class="mt-2 text-sm text-slate-400">Secret Manager（平文環境変数は不可）／Artifact Registry でコンテナ管理。</p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">IaC — Terraform</h3>
+            <p class="mt-2 text-sm text-slate-400">全リソースをコード化。LP も同一 LB のバックエンドバケットとして独立配信。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- セキュリティ -->
+    <section id="security" class="mx-auto max-w-6xl px-6 py-16">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">SECURITY</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">セキュリティでこだわっていること</h2>
+      </div>
+      <div class="mt-10 grid gap-4 md:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">認証・セッション</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            アクセス JWT（5 分）とリフレッシュ（7 日・DB 管理）の Cookie を分離。ローテーション＋再利用検出、`token_epoch`
+            による即時ログアウト無効化。
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">CSRF / オリジン</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            SameSite=Lax ＋ Origin 検証ミドルウェア、トークンに固有 audience を付与して用途を分離。
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">鍵を持たない設計</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            Workload Identity Federation で長期クレデンシャルを排除。秘密は Secret Manager に集約（平文環境変数なし）。
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">ジョブ分離（方式 B）</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            キューには秘密を載せず、ワーカーが実行時に Secret Manager から GitHub トークンを mint。キュー無効時はフェイルクローズ。
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">エッジでのレート制限</h3>
+          <p class="mt-2 text-sm text-slate-400">Cloud Armor によりアプリ手前で制限。アプリ内のレート制御に依存しません。</p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">LLM の安全策</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            リポジトリ内容は「データ（指示ではない）」として境界を明示。生成物を検証（空・巨大な改変を拒否）し、PR は未レビュー明示。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 技術スタック -->
+    <section class="border-t border-white/10 bg-[#0b1016]">
+      <div class="mx-auto max-w-6xl px-6 py-12 text-center">
+        <h2 class="text-lg font-semibold text-slate-300">技術スタック</h2>
+        <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-slate-400">
+          <span class="rounded-full border border-white/10 px-3 py-1">SvelteKit 2 / Svelte 5</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">Tailwind CSS v4</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">FastAPI / SQLModel</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">PostgreSQL ＋ pgvector</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">Google Cloud Run</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">Cloud Tasks / Cloud SQL</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">Terraform</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">Gemini / Vertex AI</span>
+          <span class="rounded-full border border-white/10 px-3 py-1">GitHub App</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="cta" class="mx-auto max-w-6xl px-6 py-20 text-center">
+      <h2 class="text-3xl font-bold">チームの理解負債を、今日から見える化</h2>
+      <p class="mx-auto mt-4 max-w-xl text-slate-400">GitHub リポジトリを接続して解析するだけ。技術負債と理解負債の両輪を回し始めましょう。</p>
+      <a
+        id="foot-cta"
+        href="/login"
+        class="mt-8 inline-block rounded-md bg-know px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
+        >無料で始める</a
+      >
+    </section>
+
+    <footer class="border-t border-white/10">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-8 text-sm text-slate-500">
+        <span>© <span id="year"></span> DevDebtOps</span>
+        <nav class="flex gap-4">
+          <a href="#features" class="hover:text-slate-300">機能</a>
+          <a href="#infra" class="hover:text-slate-300">インフラ</a>
+          <a href="#security" class="hover:text-slate-300">セキュリティ</a>
+        </nav>
+      </div>
+    </footer>
+
+    <!-- 背景グラフ生成: ジッタ付きグリッドにノードを置き、近傍だけをエッジで結ぶ（密度は spacing で調整）。 -->
+    <script>
+      (function () {
+        const svg = document.getElementById("graph");
+        const NS = "http://www.w3.org/2000/svg";
+
+        function build() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+          while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+          const margin = 28;
+          const N = Math.min(120, Math.max(36, Math.round((w * h) / 16000)));
+
+          // --- スケールフリー網（優先的選択 / Barabási–Albert）でハブを生む ---
+          // 新規ノードは「既に次数の高いノード」へ繋がりやすい → 一部に接続が集中＝ハブができる。
+          const nodes = [];
+          const edges = [];
+          const pref = []; // 次数比例の抽選用（ノード id を次数ぶん重複格納）
+          const fam = () => (Math.random() < 0.3 ? "amber" : "teal");
+          function link(a, b) {
+            edges.push({ a: a, b: b });
+            nodes[a].deg++;
+            nodes[b].deg++;
+            pref.push(a, b);
+          }
+          for (let i = 0; i < 3; i++) nodes.push({ deg: 0, fam: fam() });
+          link(0, 1);
+          link(1, 2);
+          link(0, 2);
+          const m = 2; // 新規ノードが張る本数
+          for (let i = 3; i < N; i++) {
+            nodes.push({ deg: 0, fam: fam() });
+            const targets = new Set();
+            let guard = 0;
+            while (targets.size < m && guard++ < 60) {
+              const t =
+                Math.random() < 0.9 && pref.length ? pref[(Math.random() * pref.length) | 0] : (Math.random() * i) | 0;
+              if (t !== i) targets.add(t);
+            }
+            targets.forEach((t) => link(i, t));
+          }
+          // ハブ／既存間に追加エッジ（密度UP・優先的選択でハブに集まる）。
+          const extra = Math.round(N * 0.25);
+          for (let e = 0; e < extra; e++) {
+            const a = pref[(Math.random() * pref.length) | 0];
+            const b = pref[(Math.random() * pref.length) | 0];
+            if (a !== b) link(a, b);
+          }
+
+          // --- 力学レイアウト（Fruchterman–Reingold）でハブ中心の自然な配置に ---
+          const kspring = Math.sqrt((w * h) / nodes.length) * 0.72;
+          for (const n of nodes) {
+            n.x = w / 2 + (Math.random() - 0.5) * w * 0.5;
+            n.y = h / 2 + (Math.random() - 0.5) * h * 0.5;
+          }
+          let temp = Math.min(w, h) * 0.16;
+          const iters = nodes.length > 90 ? 170 : 240;
+          for (let it = 0; it < iters; it++) {
+            for (const n of nodes) {
+              n.fx = 0;
+              n.fy = 0;
+            }
+            for (let i = 0; i < nodes.length; i++) {
+              for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[i].x - nodes[j].x;
+                const dy = nodes[i].y - nodes[j].y;
+                const dist = Math.hypot(dx, dy) || 0.01;
+                const rep = (kspring * kspring) / dist;
+                nodes[i].fx += (dx / dist) * rep;
+                nodes[i].fy += (dy / dist) * rep;
+                nodes[j].fx -= (dx / dist) * rep;
+                nodes[j].fy -= (dy / dist) * rep;
+              }
+            }
+            for (const e of edges) {
+              const a = nodes[e.a];
+              const b = nodes[e.b];
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const dist = Math.hypot(dx, dy) || 0.01;
+              const att = (dist * dist) / kspring;
+              a.fx -= (dx / dist) * att;
+              a.fy -= (dy / dist) * att;
+              b.fx += (dx / dist) * att;
+              b.fy += (dy / dist) * att;
+            }
+            for (const n of nodes) {
+              n.fx += (w / 2 - n.x) * 0.012; // 中央寄せ（フレーム外れ防止）
+              n.fy += (h / 2 - n.y) * 0.012;
+              const d = Math.hypot(n.fx, n.fy) || 0.01;
+              const lim = Math.min(d, temp);
+              n.x += (n.fx / d) * lim;
+              n.y += (n.fy / d) * lim;
+            }
+            temp *= 0.975; // 冷却
+          }
+
+          // --- ビューポートにフィット（アスペクト維持） ---
+          let minx = Infinity,
+            miny = Infinity,
+            maxx = -Infinity,
+            maxy = -Infinity;
+          for (const n of nodes) {
+            if (n.x < minx) minx = n.x;
+            if (n.x > maxx) maxx = n.x;
+            if (n.y < miny) miny = n.y;
+            if (n.y > maxy) maxy = n.y;
+          }
+          const s = Math.min((w - margin * 2) / Math.max(1, maxx - minx), (h - margin * 2) / Math.max(1, maxy - miny));
+          const ox = margin + (w - margin * 2 - (maxx - minx) * s) / 2;
+          const oy = margin + (h - margin * 2 - (maxy - miny) * s) / 2;
+          for (const n of nodes) {
+            n.x = ox + (n.x - minx) * s;
+            n.y = oy + (n.y - miny) * s;
+          }
+
+          let maxDeg = 1;
+          for (const n of nodes) if (n.deg > maxDeg) maxDeg = n.deg;
+
+          // --- 描画: エッジ → ノード（ハブ付近を太く・濃く） ---
+          const gEdges = document.createElementNS(NS, "g");
+          for (const e of edges) {
+            const a = nodes[e.a];
+            const b = nodes[e.b];
+            const hub = Math.max(a.deg, b.deg);
+            const line = document.createElementNS(NS, "line");
+            line.setAttribute("x1", a.x.toFixed(1));
+            line.setAttribute("y1", a.y.toFixed(1));
+            line.setAttribute("x2", b.x.toFixed(1));
+            line.setAttribute("y2", b.y.toFixed(1));
+            line.setAttribute("stroke", "hsl(190 28% 55%)");
+            line.setAttribute("stroke-width", (0.6 + Math.min(1.4, hub * 0.12)).toFixed(2));
+            line.setAttribute("opacity", (0.08 + Math.min(0.22, hub * 0.02)).toFixed(2));
+            gEdges.appendChild(line);
+          }
+          svg.appendChild(gEdges);
+
+          // 色: ティール/アンバーの二系統を保ちつつ、次数で濃淡（明度・彩度）＋色相を少し揺らしてリッチに。
+          function color(n) {
+            const t = n.deg / maxDeg; // 0..1（ハブほど明るく・濃く）
+            const jit = (a) => (a + (Math.random() * 2 - 1) * 6).toFixed(0);
+            if (n.fam === "amber") {
+              return "hsl(" + jit(36) + " " + (66 + t * 24).toFixed(0) + "% " + (46 + t * 18).toFixed(0) + "%)";
+            }
+            return "hsl(" + jit(187 - t * 6) + " " + (50 + t * 30).toFixed(0) + "% " + (44 + t * 20).toFixed(0) + "%)";
+          }
+          for (const n of nodes) {
+            const cir = document.createElementNS(NS, "circle");
+            const r = Math.max(2.2, Math.min(13, 2.4 + Math.sqrt(n.deg) * 1.7));
+            cir.setAttribute("cx", n.x.toFixed(1));
+            cir.setAttribute("cy", n.y.toFixed(1));
+            cir.setAttribute("r", r.toFixed(1));
+            cir.setAttribute("fill", color(n));
+            cir.setAttribute("opacity", (0.45 + Math.min(0.45, (n.deg / maxDeg) * 0.5)).toFixed(2));
+            svg.appendChild(cir);
+          }
+        }
+
+        build();
+        let t;
+        window.addEventListener("resize", function () {
+          clearTimeout(t);
+          t = setTimeout(build, 200);
+        });
+      })();
+
+      document.getElementById("year").textContent = new Date().getFullYear();
+      // App への導線をまとめて差し替え（デプロイで __APP_URL__ を実 URL に置換）。
+      for (const id of ["nav-cta", "hero-cta", "foot-cta"]) {
+        const el = document.getElementById(id);
+        if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
+      }
+    </script>
+  </body>
+</html>

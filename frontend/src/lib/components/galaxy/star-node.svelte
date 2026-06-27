@@ -9,22 +9,24 @@
   import { formatKc } from "$lib/format/kc";
   import { masteryLabel } from "./galaxy-labels";
 
-  // 1 ファイル = 1 星。KC を発光強度に、mastery で見た目を分岐。要 Tooltip.Provider 祖先。
+  // グラフのノード（1 ファイル = 1 ノード）。サイズで理解度、色 + 形で理解ステータスを表す。要 Tooltip.Provider 祖先。
   const { file }: { file: FileMastery } = $props();
 
   // FileMastery は debt id を持たないため、返済導線はファイル絞りなしの quizzes へ（issue-019 rank 8/21）。
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
-  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/quizzes`));
+  const quizzesHref = $derived(resolve(`/${orgSlug}/${projectSlug}/learning`));
 
-  const glow = $derived(Math.max(0.25, file.kc));
-  // ティール = 知識（明るさ = 被覆度。発光は上の glow=opacity で KC 駆動）/ 赤(destructive) = 危険専用。
+  // 理解度に応じてノードサイズをスケール（大きいほど理解が進んでいる）。
+  const px = $derived(Math.round(10 + file.kc * 8)); // 10〜18px
+  // ティール = 理解（被覆度）/ 赤(destructive) = 未理解。色だけに頼らず形でも分岐:
+  // star=塗り / dim_star=内側リング / black_hole=中空リング / unexplored=破線。
   const cls = $derived(
     {
-      star: "bg-debt-knowledge shadow-[0_0_12px_4px_rgba(45,212,191,0.55)]",
-      dim_star: "bg-debt-knowledge/60 shadow-[0_0_6px_2px_rgba(45,212,191,0.35)]",
-      black_hole: "border border-destructive/80 bg-destructive/25 shadow-[0_0_10px_2px_rgba(239,68,68,0.5)]",
-      unexplored: "border border-dashed border-slate-600 bg-transparent",
+      star: "bg-debt-knowledge border border-debt-knowledge",
+      dim_star: "bg-debt-knowledge/40 ring-1 ring-inset ring-debt-knowledge",
+      black_hole: "border-2 border-destructive bg-destructive/10",
+      unexplored: "border border-dashed border-muted-foreground bg-background",
     }[file.mastery],
   );
 </script>
@@ -37,8 +39,14 @@
         type="button"
         aria-label={file.path}
         onclick={() => goto(quizzesHref)}
-        style:opacity={file.mastery === "unexplored" ? 1 : glow}
-        class={cn("size-3 rounded-full transition hover:scale-150", cls)}
+        style:width={`${px}px`}
+        style:height={`${px}px`}
+        class={cn(
+          // before:= 不可視の ~24px ヒットターゲット（見た目は変えない）。focus-visible でリング表示。
+          "relative rounded-full transition before:absolute before:-inset-2 before:rounded-full before:content-['']",
+          "hover:scale-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:scale-100",
+          cls,
+        )}
       ></button>
     {/snippet}
   </Tooltip.Trigger>

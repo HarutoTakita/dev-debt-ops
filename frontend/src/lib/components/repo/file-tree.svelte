@@ -10,9 +10,11 @@
     tree: TreeItem[];
     selectedPath: string | null;
     onfileselect: (path: string) => void;
+    /** ファイルパス → 技術負債件数（「コード改善」で密度バッジに使う）。 */
+    debtCountByPath?: Map<string, number>;
   };
 
-  const { tree, selectedPath, onfileselect }: Props = $props();
+  const { tree, selectedPath, onfileselect, debtCountByPath }: Props = $props();
 
   type TreeNode = {
     name: string;
@@ -62,6 +64,12 @@
   const rootNodes = $derived(buildTree(tree));
   const openDirs = new SvelteSet<string>();
 
+  // ファイルは自身の件数、ディレクトリは配下ファイルの合計（負債密度のロールアップ）。
+  function nodeDebtCount(node: TreeNode): number {
+    if (node.type === "blob") return debtCountByPath?.get(node.path) ?? 0;
+    return node.children.reduce((sum, c) => sum + nodeDebtCount(c), 0);
+  }
+
   function toggle(path: string) {
     if (openDirs.has(path)) {
       openDirs.delete(path);
@@ -73,12 +81,17 @@
   const rowClass = "flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-sm hover:bg-accent";
 </script>
 
-<!--
-  負債密度バッジ枠。GitLab ツリーの LOC / CI バッジ枠を Rosetta では「負債密度」に転用する。
-  本 issue では空（"—"）。後続 issue が二軸負債マトリクス(§2.3) / KC(§5.1) の密度をここへ流し込む。
--->
-{#snippet debtSlot(path: string)}
-  <span data-path={path} class="ml-auto shrink-0 text-xs text-muted-foreground/40 tabular-nums">—</span>
+<!-- 負債密度バッジ枠。技術負債の件数をここに表示（「コード改善」で密度を可視化）。0 件は控えめに "—"。 -->
+{#snippet debtSlot(count: number)}
+  {#if count > 0}
+    <span
+      class="ml-auto shrink-0 rounded-full bg-debt-code/15 px-1.5 text-[10px] font-medium text-debt-code tabular-nums"
+    >
+      {count}
+    </span>
+  {:else}
+    <span class="ml-auto shrink-0 text-xs text-muted-foreground/30 tabular-nums">—</span>
+  {/if}
 {/snippet}
 
 {#snippet nodeList(nodes: TreeNode[])}
@@ -93,7 +106,7 @@
               <Folder class="size-4 shrink-0 text-debt-code" />
             {/if}
             <span class="flex-1 truncate">{node.name}</span>
-            {@render debtSlot(node.path)}
+            {@render debtSlot(nodeDebtCount(node))}
           </button>
           {#if openDirs.has(node.path)}
             {@render nodeList(node.children)}
@@ -105,7 +118,7 @@
           >
             <FileText class="size-4 shrink-0 text-muted-foreground" />
             <span class="flex-1 truncate">{node.name}</span>
-            {@render debtSlot(node.path)}
+            {@render debtSlot(nodeDebtCount(node))}
           </button>
         {/if}
       </li>

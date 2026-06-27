@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
-from sqlalchemy import BigInteger, DateTime, String
+from sqlalchemy import BigInteger, Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, sa_created_at, sa_deleted_at, sa_updated_at
@@ -31,4 +31,6 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     updated_at: Mapped[datetime] = sa_updated_at()
     deleted_at: Mapped[datetime | None] = sa_deleted_at()
     token_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    # True for the shared guest-demo account (issue 069): read-only, no GitHub OAuth.
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", back_populates="user", lazy="joined")

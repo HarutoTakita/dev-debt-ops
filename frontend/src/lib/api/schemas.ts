@@ -9,6 +9,7 @@ export const userSchema = z.object({
   is_verified: z.boolean(),
   created_at: z.iso.datetime({ offset: true }).nullable().optional(),
   last_active_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  is_demo: z.boolean().default(false),
 });
 
 export const orgSchema = z.object({
@@ -58,6 +59,7 @@ export const repositoryListSchema = z.object({
   repositories: z.array(repositorySchema),
   page: z.number(),
   has_more: z.boolean(),
+  app_slug: z.string().default(""), // 未グラントの repo を追加する導線（installations/new）用
 });
 
 export const branchSchema = z.object({
@@ -199,16 +201,53 @@ export const weeklyActivitySchema = z.object({
   knowledge_agent_passed: z.number(),
 });
 
+// 機能 / フォルダ単位のロールアップノード（issue 055 配信、issue 056 が消費）。snake_case 維持。
+export const featureDebtSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  granularity: z.string(),
+  code_debt_score: z.number(),
+  knowledge_coverage: z.number(),
+  priority: debtPrioritySchema,
+  file_count: z.number(),
+  weakest_file: z.string().nullable().default(null),
+});
+
 export const overviewSchema = z.object({
   org: z.string(),
   generated_at: z.iso.datetime({ offset: true }),
+  granularity: z.string().default("file"), // issue 055
   files: z.array(fileDebtSchema), // 散布図の点
+  features: z.array(featureDebtSchema).default([]), // 機能/フォルダ単位ノード（issue 055）
   trend: z.array(debtTrendPointSchema), // 地層グラフ
   activity: weeklyActivitySchema, // 今週の活動
 });
 
+// 解析ステージごとの最新ジョブ状態（リロード後の状態復元用）。JobType 値でキー。
+export const analysisStatusSchema = z.object({
+  jobs: z.record(z.string(), z.object({ status: z.string(), job_id: z.string() })),
+});
+
+// 機能（feature）単位の学習×確認クイズ単元（issue 063）。
+export const knowledgeUnitSchema = z.object({
+  feature_id: z.string(),
+  feature_key: z.string(),
+  name: z.string(),
+  knowledge_coverage: z.number(),
+  code_debt_score: z.number(),
+  file_count: z.number(),
+  status: z.string(), // unstarted | in_progress | verified | needs_review
+  learning_plan_id: z.string().nullable().default(null),
+  quiz_session_id: z.string().nullable().default(null),
+  quiz_status: z.string().nullable().default(null),
+});
+export const knowledgeUnitsSchema = z.object({ units: z.array(knowledgeUnitSchema) });
+
 export type DebtPriority = z.infer<typeof debtPrioritySchema>;
 export type FileDebt = z.infer<typeof fileDebtSchema>;
+export type FeatureDebt = z.infer<typeof featureDebtSchema>;
+export type AnalysisStatus = z.infer<typeof analysisStatusSchema>;
+export type KnowledgeUnit = z.infer<typeof knowledgeUnitSchema>;
 export type DebtTrendPoint = z.infer<typeof debtTrendPointSchema>;
 export type WeeklyActivity = z.infer<typeof weeklyActivitySchema>;
 export type Overview = z.infer<typeof overviewSchema>;
@@ -293,6 +332,8 @@ export const fileMasterySchema = z.object({
   mastery: masteryStatusSchema,
   // §5.5 個人認定の簡易版: クイズ未連携のため mastery==="star" を「マスター済み」表示
   mastered: z.boolean().default(false),
+  // 所属機能の key 群（issue 065）。Level 2（機能内ファイルグラフ）の絞り込みに使う。未クラスタリング時は空。
+  feature_keys: z.array(z.string()).default([]),
 });
 
 export const wormholeSchema = z.object({
@@ -306,18 +347,36 @@ export const starSystemSchema = z.object({
   files: z.array(fileMasterySchema),
 });
 
+// 機能（feature）レベルのグラフ（issue 065）。Level 1 = 機能ノード + 機能間エッジ。
+export const featureNodeSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  kc: z.number().min(0).max(1),
+  mastery: masteryStatusSchema,
+  file_count: z.number().int().min(0),
+});
+
+export const featureEdgeSchema = z.object({
+  from: z.string(), // 依存元の機能 key
+  to: z.string(), // 依存先の機能 key
+});
+
 export const personalGalaxySchema = z.object({
   developer: z.string(),
   org_kc: z.number().min(0).max(1), // サイドバー pill 用の自分の KC%
   observed: z.boolean(), // false の場合は ComingSoonPlaceholder を出す
   systems: z.array(starSystemSchema),
   wormholes: z.array(wormholeSchema),
+  features: z.array(featureNodeSchema).default([]), // Level 1 機能ノード（issue 065）
+  feature_edges: z.array(featureEdgeSchema).default([]), // Level 1 機能間エッジ
 });
 
 export type MasteryStatus = z.infer<typeof masteryStatusSchema>;
 export type FileMastery = z.infer<typeof fileMasterySchema>;
 export type Wormhole = z.infer<typeof wormholeSchema>;
 export type StarSystem = z.infer<typeof starSystemSchema>;
+export type FeatureNode = z.infer<typeof featureNodeSchema>;
+export type FeatureEdge = z.infer<typeof featureEdgeSchema>;
 export type PersonalGalaxy = z.infer<typeof personalGalaxySchema>;
 
 // Quiz（返済体験 / §6.4・§7.1 QuizSession）。クイズ合格で KC が上がる Re:Pay の演出を担う。
@@ -325,9 +384,13 @@ export const conceptSchema = z.object({ id: z.string(), label: z.string() });
 
 export const quizQuestionSchema = z.object({
   id: z.string(),
-  kind: z.enum(["multiple_choice", "free_text"]),
+  kind: z.enum(["multiple_choice", "multiple_select"]),
   prompt: z.string(),
-  code_snippet: z.object({ language: z.string(), path: z.string(), content: z.string() }).nullable(),
+  code_snippet: z
+    .object({ language: z.string().default(""), path: z.string().default(""), content: z.string() })
+    .nullable()
+    .catch(null), // 不正な形なら null に落として、クイズ全体のパース失敗を防ぐ
+
   choices: z.array(z.object({ id: z.string(), label: z.string() })).optional(),
   difficulty: z.enum(["L1", "L2", "L3", "L4", "L5"]),
 });
@@ -377,94 +440,28 @@ export type QuizResult = z.infer<typeof quizResultSchema>;
 export type QuizListItem = z.infer<typeof quizListItemSchema>;
 export type QuizList = z.infer<typeof quizListSchema>;
 
-// Twin Agent 活動（§0.2 自律ループ / §4.2 考古学 / §6.5 ナラティブ）。
-export const agentKindSchema = z.enum(["code_debt", "knowledge_debt"]);
-
-export const agentProfileSchema = z.object({
-  kind: agentKindSchema,
-  name: z.string(), // 例: "アーキ考古学者"
-  role: z.string(), // 例: "Code Debt Agent"
-  accent: z.string(), // ブランドアクセント色トークン名
-  tagline: z.string(), // 一人称の自己紹介
-});
-
-// ライブステータス（CiIcon 写像）
-export const agentStatusSchema = z.enum([
-  "scanning",
-  "analyzing",
-  "creating_pr",
-  "running_quiz",
-  "succeeded",
-  "failed",
-  "pending",
-]);
-
-// 考古学的根拠（§4.2）
-export const narrativeEvidenceSchema = z.object({
-  type: z.enum(["first_commit", "ai_generated", "adr_reference", "pr_review"]),
-  label: z.string(),
-  detail: z.string().nullable(),
-  href: z.string().nullable(),
-});
-
-// 一人称の思考ステップ（§6.5）
-export const narrativeStepSchema = z.object({
-  id: z.string(),
-  status: agentStatusSchema,
-  message: z.string(),
-  evidence: z.array(narrativeEvidenceSchema),
-  created_at: z.iso.datetime({ offset: true }),
-});
-
-export const agentActivitySchema = z.object({
-  id: z.string(),
-  kind: agentKindSchema,
-  headline: z.string(),
-  steps: z.array(narrativeStepSchema),
-  pipeline_id: z.string(),
-  created_at: z.iso.datetime({ offset: true }),
-});
-
-// 実行パイプライン（検知 → 分析 → 計画 → 返済 → 検証）
-export const pipelineNodeSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  status: agentStatusSchema,
-  retryable: z.boolean(),
-});
-
-export const pipelineStageSchema = z.object({
-  key: z.enum(["detect", "analyze", "plan", "repay", "verify"]),
-  label: z.string(),
-  nodes: z.array(pipelineNodeSchema),
-});
-
-export const agentPipelineSchema = z.object({
-  id: z.string(),
-  kind: agentKindSchema,
-  stages: z.array(pipelineStageSchema),
-});
-
-export type AgentKind = z.infer<typeof agentKindSchema>;
-export type AgentProfile = z.infer<typeof agentProfileSchema>;
-export type AgentStatus = z.infer<typeof agentStatusSchema>;
-export type NarrativeEvidence = z.infer<typeof narrativeEvidenceSchema>;
-export type NarrativeStep = z.infer<typeof narrativeStepSchema>;
-export type AgentActivity = z.infer<typeof agentActivitySchema>;
-export type PipelineNode = z.infer<typeof pipelineNodeSchema>;
-export type PipelineStage = z.infer<typeof pipelineStageSchema>;
-export type AgentPipeline = z.infer<typeof agentPipelineSchema>;
-
 // Learning Plan（§5.4）。origin で「チーム資産(team)」を外部資源(external)より上に浮上させる。
-export const resourceOriginSchema = z.enum(["team", "external"]);
-export const resourceKindSchema = z.enum(["adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"]);
-export const resourcePrioritySchema = z.enum(["required", "recommended", "supplementary", "hands_on"]);
+// .catch: 生成（LLM）が想定外の値を返しても 1 リソースで学習プラン全体が parse 失敗→500 にならないよう、
+// 不明値は安全な既定値へフォールバックする（例: LLM が kind に "hands_on" を混入させても docs 扱い）。
+export const resourceOriginSchema = z.enum(["team", "external"]).catch("external");
+export const resourceKindSchema = z
+  .enum(["adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"])
+  .catch("docs");
+export const resourcePrioritySchema = z
+  .enum(["required", "recommended", "supplementary", "hands_on"])
+  .catch("recommended");
+
+// 学習プランのセクション（issue 068）: code=このコードを理解する / stack=技術スタックを学ぶ。
+export const resourceSectionSchema = z.enum(["code", "stack"]).catch("code");
 
 export const learningResourceSchema = z.object({
   id: z.string(),
   origin: resourceOriginSchema, // "team" を最優先で上に表示
+  section: resourceSectionSchema.default("code"), // code / stack（issue 068）
   kind: resourceKindSchema,
   title: z.string(),
+  summary: z.string().default(""), // 「何を・なぜ理解すべきか」の説明（issue 068）
+  tech: z.string().default(""), // 学べるテックスタックのタグ（stack 資源のみ）
   source_ref: z.string().nullable(), // ADR-0012 / PR #4523 / @alice 勉強会 等
   url: z.string().nullable(),
   estimated_minutes: z.number().nullable(),
@@ -486,9 +483,34 @@ export const learningPlanSchema = z.object({
   estimated_total_minutes: z.number(),
 });
 
+// コード理解ウォークスルー（行ごと解説）。オンデマンド生成 → learning_resources.walkthrough に保存。
+export const codeWalkthroughStepSchema = z.object({
+  start_line: z.number(),
+  end_line: z.number(),
+  title: z.string().default(""),
+  explanation: z.string(),
+});
+
+export const codeWalkthroughSchema = z.object({
+  source_ref: z.string().nullable(),
+  title: z.string(),
+  summary: z.string().default(""),
+  status: z.enum(["ready", "empty"]),
+  steps: z.array(codeWalkthroughStepSchema),
+  // インラインのソース（GitHub から取得できないリソース用 — ゲストデモ）。あればこれを直接表示する。
+  content: z.string().nullable().default(null),
+});
+
+export const codeWalkthroughJobSchema = z.object({
+  job_id: z.string().nullable(),
+  status: z.string(),
+});
+
 export type ResourceOrigin = z.infer<typeof resourceOriginSchema>;
 export type ResourceKind = z.infer<typeof resourceKindSchema>;
 export type ResourcePriority = z.infer<typeof resourcePrioritySchema>;
 export type LearningResource = z.infer<typeof learningResourceSchema>;
 export type LearningStep = z.infer<typeof learningStepSchema>;
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
+export type CodeWalkthroughStep = z.infer<typeof codeWalkthroughStepSchema>;
+export type CodeWalkthrough = z.infer<typeof codeWalkthroughSchema>;

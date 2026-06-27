@@ -14,6 +14,7 @@ from starlette.types import Scope
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.csrf import OriginCheckMiddleware
 from app.core.db import engine
 from app.core.exceptions import AppError
 
@@ -62,7 +63,7 @@ tags_metadata: list[dict[str, str]] = [
 ]
 
 app = FastAPI(
-    title="Rosetta",
+    title="DevDebtOps",
     summary="Tech Debt Twin Agent — SvelteKit + FastAPI + PostgreSQL",
     version="0.1.0",
     docs_url=None,
@@ -78,6 +79,10 @@ async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
     """Translate any `AppError` subclass into a JSON response with its `status_code`."""
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
+
+# CSRF defense-in-depth: reject unsafe-method requests with a cross-origin Origin header
+# (issue-041). Additive to the SameSite=Lax access cookie.
+app.add_middleware(OriginCheckMiddleware)
 
 app.include_router(api_router)
 

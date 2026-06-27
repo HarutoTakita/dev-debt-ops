@@ -2,13 +2,16 @@
   import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
   import Lock from "@lucide/svelte/icons/lock";
   import Plus from "@lucide/svelte/icons/plus";
-  import Settings from "@lucide/svelte/icons/settings";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
   import { project } from "$lib/stores/project-store.svelte";
+  import { projectCreate } from "$lib/stores/project-create.svelte";
   import type { Project } from "$lib/api/schemas";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  const skeletonCards = Array.from({ length: 6 }, (_v, i) => i);
 
   const orgSlug = $derived(page.params.org ?? "");
 
@@ -18,8 +21,6 @@
   });
 
   const projects = $derived(project.list);
-  // 最近開いたプロジェクト（[org]/[project] レイアウトの touch() で記録、新しい順）。
-  const recent = $derived(project.recentProjects(orgSlug));
 </script>
 
 {#snippet projectCard(p: Project)}
@@ -41,7 +42,7 @@
 {/snippet}
 
 <svelte:head>
-  <title>{m.project_home_title()} · Rosetta</title>
+  <title>{m.project_home_title()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-5xl px-6 py-10">
@@ -50,22 +51,26 @@
       <h1 class="font-display text-2xl font-semibold tracking-tight">{m.project_home_title()}</h1>
       <p class="mt-1 text-sm text-muted-foreground">{m.project_home_subtitle()}</p>
     </div>
-    <div class="flex items-center gap-2">
-      <Button variant="ghost" size="sm" href={resolve(`/${orgSlug}/settings`)}>
-        <Settings class="size-4" />
-        {m.project_home_org_settings()}
+    {#if projects.length > 0}
+      <Button onclick={() => (projectCreate.open = true)}>
+        <Plus class="size-4" />
+        {m.project_home_new()}
       </Button>
-      {#if projects.length > 0}
-        <Button href={resolve(`/${orgSlug}/projects/new`)}>
-          <Plus class="size-4" />
-          {m.project_home_new()}
-        </Button>
-      {/if}
-    </div>
+    {/if}
   </div>
 
   {#if project.loading && projects.length === 0}
-    <p class="py-16 text-center text-sm text-muted-foreground">…</p>
+    <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+      {#each skeletonCards as i (i)}
+        <div class="flex flex-col gap-2 rounded-lg border border-sidebar-border bg-surface-sunken p-4">
+          <div class="flex items-center gap-2">
+            <Skeleton class="size-8 rounded" />
+            <Skeleton class="h-4 flex-1" />
+          </div>
+          <Skeleton class="h-3 w-2/3" />
+        </div>
+      {/each}
+    </div>
   {:else if projects.length === 0}
     <div
       class="mx-auto mt-12 flex max-w-md flex-col items-center gap-4 rounded-lg border border-dashed border-sidebar-border py-16 text-center"
@@ -75,24 +80,12 @@
       </span>
       <h2 class="font-display text-lg">{m.project_home_empty_title()}</h2>
       <p class="max-w-xs text-sm text-muted-foreground">{m.project_home_empty_desc()}</p>
-      <Button href={resolve(`/${orgSlug}/projects/new`)}>
+      <Button onclick={() => (projectCreate.open = true)}>
         <Plus class="size-4" />
         {m.project_home_new()}
       </Button>
     </div>
   {:else}
-    {#if recent.length > 0}
-      <section class="mt-8">
-        <h2 class="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {m.project_home_recent()}
-        </h2>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {#each recent as p (p.id)}
-            {@render projectCard(p)}
-          {/each}
-        </div>
-      </section>
-    {/if}
     <div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {#each projects as p (p.id)}
         {@render projectCard(p)}
