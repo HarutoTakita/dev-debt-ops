@@ -52,8 +52,8 @@
     loadDebts();
   });
 
-  // コックピットの解析完了で自動リフレッシュ（detect_code / detect_knowledge → listDebts、issue 049）。
-  refreshOnStageComplete(["detect_code", "detect_knowledge"], loadDebts);
+  // コックピットの解析完了で自動リフレッシュ（agentic 解析が負債を生成 → listDebts、issue 049/069）。
+  refreshOnStageComplete(["agentic"], loadDebts);
 
   function onfilter(f: DebtFilter) {
     filter = f;

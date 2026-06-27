@@ -16,7 +16,13 @@ from service.agents.plugin import TraceRecorderPlugin
 from service.agents.remediation import build_remediation_tools
 from service.agents.tools import build_repo_tools
 from service.agents.twin import build_twin_loop
-from service.pipelines import agentic_analysis
+from service.pipelines import (
+    agentic_analysis,
+    code_debt_detection,
+    feature_clustering,
+    kc_analysis,
+    knowledge_debt_detection,
+)
 from service.services.github_git_client import FileContent, TreeItem
 from shared.enums import JobType, ResultStatus
 from shared.pipelines.context import PipelineContext
@@ -124,7 +130,11 @@ class TestPlugin:
 
 
 class TestProcess:
-    async def test_process_returns_result_with_trace(self, mocker) -> None:
+    async def test_process_runs_backbone_then_agent(self, mocker) -> None:
+        # Deterministic backbone pipelines are mocked (they upsert tables in real runs); assert
+        # each is invoked and that the agent judgement layer's trace/recommendations follow.
+        for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
+            mocker.patch.object(module, "process", AsyncMock())
         mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
         mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
         recs = [{"target": "auth.py", "debt_kind": "knowledge", "action": "quiz", "rationale": "属人化"}]
@@ -139,7 +149,15 @@ class TestProcess:
 
         assert result.status == ResultStatus.COMPLETED
         assert result.job_type == JobType.AGENTIC_ANALYSIS
-        assert result.agent_trace == ["[summary] 危険な機能を特定"]
+        assert feature_clustering.process.await_count == 1
+        assert knowledge_debt_detection.process.await_count == 1
+        assert result.agent_trace == [
+            "[backbone] feature_clustering done",
+            "[backbone] code_debt_detection done",
+            "[backbone] kc_analysis done",
+            "[backbone] knowledge_debt_detection done",
+            "[summary] 危険な機能を特定",
+        ]
         assert result.summary == "[summary] 危険な機能を特定"
         assert result.recommendations == recs
 

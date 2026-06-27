@@ -127,7 +127,12 @@ async def _get_or_create_run(
 ) -> AnalysisRun:
     """Reuse the run for this job (idempotent retry) or create a new PROCESSING run."""
     existing = (
-        await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == job_id))  # ty: ignore[invalid-argument-type]
+        await session.execute(
+            select(AnalysisRun).where(
+                col(AnalysisRun.job_id) == job_id,
+                col(AnalysisRun.kind) == JobType.CODE_DEBT_DETECTION.value,
+            )
+        )
     ).scalar_one_or_none()
     if existing is not None:
         return existing

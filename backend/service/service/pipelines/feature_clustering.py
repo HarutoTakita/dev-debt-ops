@@ -48,7 +48,12 @@ async def _get_or_create_run(
 ) -> AnalysisRun:
     """Reuse the run for this job (idempotent retry) or create a new PROCESSING run."""
     existing = (
-        await session.execute(select(AnalysisRun).where(col(AnalysisRun.job_id) == job_id))
+        await session.execute(
+            select(AnalysisRun).where(
+                col(AnalysisRun.job_id) == job_id,
+                col(AnalysisRun.kind) == JobType.FEATURE_CLUSTERING.value,
+            )
+        )
     ).scalar_one_or_none()
     if existing is not None:
         return existing
