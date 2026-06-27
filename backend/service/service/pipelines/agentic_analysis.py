@@ -39,7 +39,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        trace = await run_twin_agent(
+        trace, recommendations = await run_twin_agent(
             client=client,
             owner=request.owner,
             repo=request.repo,
@@ -50,7 +50,13 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         await client.aclose()
 
     summary = trace[-1] if trace else "Twin Agent run produced no trace"
-    logger.info("agentic_analysis done owner=%s repo=%s trace_lines=%d", request.owner, request.repo, len(trace))
+    logger.info(
+        "agentic_analysis done owner=%s repo=%s trace_lines=%d recommendations=%d",
+        request.owner,
+        request.repo,
+        len(trace),
+        len(recommendations),
+    )
     return AgenticAnalysisResult(
         job_id=request.job_id,
         job_type=JobType.AGENTIC_ANALYSIS,
@@ -60,4 +66,5 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         branch=request.branch,
         summary=summary,
         agent_trace=trace,
+        recommendations=recommendations,
     )

@@ -31,3 +31,5 @@ class AgenticAnalysisResult(JobResultBase):
     branch: str
     summary: str = ""
     agent_trace: list[str] = Field(default_factory=list)
+    # 返済戦略の判断結果（Phase 4）: {target, debt_kind, action(quiz/learning/repayment_pr), rationale}
+    recommendations: list[dict[str, str]] = Field(default_factory=list)

@@ -22,10 +22,11 @@ _APP_NAME = "rosetta-twin"
 
 async def run_twin_agent(
     *, client: GitHubGitClient, owner: str, repo: str, branch: str, budget: RunBudget
-) -> list[str]:
-    """Run the Twin Agent over one repository and return its ``agent_trace``."""
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Run the Twin Agent over one repository; return ``(agent_trace, recommendations)``."""
     recorder = TraceRecorderPlugin()
-    root = build_twin_loop(client=client, budget=budget)
+    recommendations: list[dict[str, str]] = []
+    root = build_twin_loop(client=client, budget=budget, recommendations=recommendations)
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=_APP_NAME,
@@ -42,4 +43,4 @@ async def run_twin_agent(
     async for _event in runner.run_async(user_id=user_id, session_id=adk_session.id, new_message=message):
         # The TraceRecorderPlugin records each event; we just drive the generator to completion.
         pass
-    return recorder.trace
+    return recorder.trace, recommendations
