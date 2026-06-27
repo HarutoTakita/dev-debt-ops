@@ -1,17 +1,9 @@
-import {
-  cancelAnalysis,
-  generateBaselinePlans,
-  generateBaselineQuizzes,
-  getAnalysisStatus,
-  getJob,
-  recordTrendSnapshot,
-  runAgenticAnalysis,
-} from "$lib/api/client";
+import { cancelAnalysis, getAnalysisStatus, getJob, recordTrendSnapshot, runAgenticAnalysis } from "$lib/api/client";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
-export type StageId = "agentic" | "plan_learning" | "confirm_quizzes";
+export type StageId = "agentic";
 export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
 
 // job_id を返さないステージ（baseline-plans / baseline-quizzes は N 件ファンアウト）は enqueue 完了で COMPLETED 扱い。
@@ -28,9 +20,9 @@ type StageDef = {
 
 const _path = (ctx: RunContext, suffix: string) => `/${ctx.orgSlug}/${ctx.projectSlug}${suffix}`;
 
-// 解析ステージ集合（issue 069 で agentic に集約）。「リポジトリ解析」= ADK Twin Agent 解析が、
-// 内部で検知/算出パイプライン（feature/コード負債/KC/知識負債）をバックボーンとして実行して
-// Matrix/Galaxy を埋め、その上で自律判断する。学習・クイズ生成は機能クラスタ後のファンアウトとして続く。
+// 解析ステージは単一の agentic（ADK）解析に集約（issue 069 Increment 2）。「リポジトリ解析」= この 1 ジョブが
+// サーバ側で検知/算出（feature/コード負債/KC/知識負債）＋ 学習プラン・ベースラインクイズの生成 ＋ 自律判断まで
+// 行う。ブラウザは enqueue + ポーリングのみで、タブを閉じても後続生成が止まらない（ブラウザ依存の排除）。
 export const STAGES: StageDef[] = [
   {
     id: "agentic",
@@ -39,30 +31,6 @@ export const STAGES: StageDef[] = [
     enqueue: (c) => runAgenticAnalysis(c.orgSlug, c.projectSlug),
     dependsOn: [],
     deepLink: (c) => _path(c, "/matrix"),
-  },
-  {
-    // 機能ごとの学習プランを全機能分まとめて生成（issue 064）。agentic が機能クラスタを生成済み。
-    id: "plan_learning",
-    labelKey: "analysis_stage_plan_learning",
-    jobType: "learning_plan_generation",
-    enqueue: async (c) => {
-      await generateBaselinePlans(c.orgSlug, c.projectSlug);
-      return { link: _path(c, "/learning") };
-    },
-    dependsOn: ["agentic"],
-    deepLink: (c) => _path(c, "/learning"),
-  },
-  {
-    // 機能ごとのベースライン確認クイズを生成（issue 054/064）。
-    id: "confirm_quizzes",
-    labelKey: "analysis_stage_confirm_quizzes",
-    jobType: "quiz_generation",
-    enqueue: async (c) => {
-      await generateBaselineQuizzes(c.orgSlug, c.projectSlug);
-      return { link: _path(c, "/quizzes") };
-    },
-    dependsOn: ["agentic"],
-    deepLink: (c) => _path(c, "/quizzes"),
   },
 ];
 
@@ -91,7 +59,7 @@ export const STAGE_GROUPS: StageGroupDef[] = [
   {
     id: "g_repay",
     labelKey: "analysis_group_repay",
-    stageIds: ["plan_learning", "confirm_quizzes"],
+    stageIds: ["agentic"],
     deepLink: (c) => _path(c, "/learning"),
   },
 ];

@@ -18,6 +18,7 @@ from service.agents.tools import build_repo_tools
 from service.agents.twin import build_twin_loop
 from service.pipelines import (
     agentic_analysis,
+    baseline_generation,
     code_debt_detection,
     feature_clustering,
     kc_analysis,
@@ -135,6 +136,12 @@ class TestProcess:
         # each is invoked and that the agent judgement layer's trace/recommendations follow.
         for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
             mocker.patch.object(module, "process", AsyncMock())
+        # Learning + baseline-quiz generation runs server-side in the job (issue 069 Inc.2); mock it.
+        mocker.patch.object(
+            baseline_generation,
+            "generate_learning_and_quizzes",
+            AsyncMock(return_value=["[generate] learning plan: auth", "[generate] quiz: auth"]),
+        )
         mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
         mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
         recs = [{"target": "auth.py", "debt_kind": "knowledge", "action": "quiz", "rationale": "属人化"}]
@@ -151,11 +158,14 @@ class TestProcess:
         assert result.job_type == JobType.AGENTIC_ANALYSIS
         assert feature_clustering.process.await_count == 1
         assert knowledge_debt_detection.process.await_count == 1
+        assert baseline_generation.generate_learning_and_quizzes.await_count == 1
         assert result.agent_trace == [
             "[backbone] feature_clustering done",
             "[backbone] code_debt_detection done",
             "[backbone] kc_analysis done",
             "[backbone] knowledge_debt_detection done",
+            "[generate] learning plan: auth",
+            "[generate] quiz: auth",
             "[summary] 危険な機能を特定",
         ]
         assert result.summary == "[summary] 危険な機能を特定"

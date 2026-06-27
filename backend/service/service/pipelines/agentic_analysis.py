@@ -27,6 +27,7 @@ from service import config
 from service.agents.budget import RunBudget
 from service.agents.runner import run_twin_agent
 from service.pipelines import (
+    baseline_generation,
     code_debt_detection,
     feature_clustering,
     kc_analysis,
@@ -117,6 +118,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         project_id=request.project_id,
     )
     await _run_backbone_step("knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps)
+
+    # 1b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
+    steps.extend(await baseline_generation.generate_learning_and_quizzes(request, ctx))
 
     # 2) Twin Agent judgement layer (autonomous cross-signal risk judgement + remediation).
     budget = RunBudget()

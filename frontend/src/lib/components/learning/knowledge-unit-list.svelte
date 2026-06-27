@@ -31,7 +31,7 @@
     void load();
   });
   // agentic 解析（機能クラスタ・KC を内包）とプラン生成の完了で単元を再取得（issue 049/069）。
-  refreshOnStageComplete(["agentic", "plan_learning"], load);
+  refreshOnStageComplete(["agentic"], load);
 
   function kcPct(kc: number): number {
     return Math.round(Math.max(0, Math.min(1, kc)) * 100);

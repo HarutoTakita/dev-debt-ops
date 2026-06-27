@@ -46,43 +46,12 @@ describe("AnalysisRunStore", () => {
     expect(store.stages.agentic.status).toBe("COMPLETED");
   });
 
-  it("confirm_quizzes generates baseline quizzes and links to the quizzes hub", async () => {
-    const store = new AnalysisRunStore();
-    store.pollIntervalMs = 1;
-    await store.runStage("confirm_quizzes", CTX);
-    expect(mocks.generateBaselineQuizzes).toHaveBeenCalledWith("acme", "rosetta");
-    expect(store.stages.confirm_quizzes.status).toBe("COMPLETED");
-    expect(store.stages.confirm_quizzes.link).toBe("/acme/rosetta/quizzes");
-  });
-
-  it("plan_learning generates baseline plans and links to the learning hub", async () => {
-    const store = new AnalysisRunStore();
-    store.pollIntervalMs = 1;
-    await store.runStage("plan_learning", CTX);
-    expect(mocks.generateBaselinePlans).toHaveBeenCalledWith("acme", "rosetta");
-    expect(store.stages.plan_learning.status).toBe("COMPLETED");
-    expect(store.stages.plan_learning.link).toBe("/acme/rosetta/learning");
-  });
-
-  it("runAll runs every stage to COMPLETED", async () => {
+  it("runAll runs the agentic stage to COMPLETED", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
     await store.runAll(CTX);
-    for (const id of ["agentic", "plan_learning", "confirm_quizzes"]) {
-      expect(store.stages[id].status).toBe("COMPLETED");
-    }
-  });
-
-  it("a failed agentic stage skips its dependents", async () => {
-    mocks.runAgenticAnalysis.mockResolvedValue({ job_id: "j-ag", status: "QUEUED" });
-    mocks.getJob.mockImplementation(async (id: string) =>
-      id === "j-ag" ? job("FAILED", { error: "boom" }) : job("COMPLETED"),
-    );
-    const store = new AnalysisRunStore();
-    store.pollIntervalMs = 1;
-    await store.runAll(CTX);
-    expect(store.stages.agentic.status).toBe("FAILED");
-    expect(store.stages.plan_learning.status).toBe("idle"); // dependency failed → skipped
+    expect(store.stages.agentic.status).toBe("COMPLETED");
+    expect(mocks.runAgenticAnalysis).toHaveBeenCalledTimes(1);
   });
 
   it("a stage already running is not re-enqueued (dedup)", async () => {
@@ -119,12 +88,9 @@ describe("AnalysisRunStore", () => {
     expect(mocks.runAgenticAnalysis).toHaveBeenCalledTimes(1);
   });
 
-  it("hydrate rebuilds stage status from persisted jobs (survives reload)", async () => {
+  it("hydrate rebuilds the agentic stage from persisted jobs (survives reload)", async () => {
     mocks.getAnalysisStatus.mockResolvedValue({
-      jobs: {
-        agentic_analysis: { status: "COMPLETED", job_id: "j1" },
-        learning_plan_generation: { status: "FAILED", job_id: "j2" },
-      },
+      jobs: { agentic_analysis: { status: "COMPLETED", job_id: "j1" } },
     });
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
@@ -132,8 +98,6 @@ describe("AnalysisRunStore", () => {
     expect(store.started).toBe(true);
     expect(store.stages.agentic.status).toBe("COMPLETED");
     expect(store.stages.agentic.link).toBe("/acme/rosetta/matrix");
-    expect(store.stages.plan_learning.status).toBe("FAILED");
-    expect(store.stages.confirm_quizzes.status).toBe("idle"); // no job → stays idle
     expect(mocks.runAgenticAnalysis).not.toHaveBeenCalled(); // hydration does not enqueue
   });
 
@@ -143,23 +107,8 @@ describe("AnalysisRunStore", () => {
     });
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
-    await store.runStage("plan_learning", CTX); // a run has started
+    await store.runStage("agentic", CTX); // a run has started
     await store.hydrate(CTX);
     expect(mocks.getAnalysisStatus).not.toHaveBeenCalled();
-  });
-
-  it("runAll resets stale stages so a skipped (failed-dependency) stage isn't shown as stale-completed", async () => {
-    mocks.runAgenticAnalysis.mockResolvedValue({ job_id: "j-ag", status: "QUEUED" });
-    mocks.getJob.mockImplementation(async (id: string) =>
-      id === "j-ag" ? job("FAILED", { error: "boom" }) : job("COMPLETED"),
-    );
-    const store = new AnalysisRunStore();
-    store.pollIntervalMs = 1;
-    // 前回ランの残り表示: plan_learning が COMPLETED のまま。
-    store.stages = { ...store.stages, plan_learning: { status: "COMPLETED", jobId: "old", step: "", link: "/old" } };
-    await store.runAll(CTX);
-    // agentic が失敗 → 依存する plan_learning はスキップ。開始時リセットで idle へ戻り、前回表示を引きずらない。
-    expect(store.stages.agentic.status).toBe("FAILED");
-    expect(store.stages.plan_learning.status).toBe("idle");
   });
 });
