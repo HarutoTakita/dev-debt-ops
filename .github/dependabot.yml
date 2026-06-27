@@ -17,6 +17,18 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    # 連動するパッケージはロックステップで更新する。別 PR に分かれると版がズレ、
+    # 例: playwright と @playwright/test の片方だけ上がるとブラウザリビジョンが
+    # 食い違い @vitest/browser-playwright の起動が失敗する。
+    groups:
+      playwright:
+        patterns:
+          - "playwright"
+          - "@playwright/test"
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
 
   # Terraform — app stack
   - package-ecosystem: "terraform"
@@ -41,3 +53,11 @@ updates:
     directory: "/docker"
     schedule:
       interval: "weekly"
+    # Python は 3.13 ラインで運用（CLAUDE.md / requires-python >=3.13）。
+    # 3.14 などの major/minor 更新は CI が Docker イメージを検証しないため自動では入れず、
+    # 3.13.x のパッチ更新のみ受け取る。移行は別途方針判断のうえ手動で行う。
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
