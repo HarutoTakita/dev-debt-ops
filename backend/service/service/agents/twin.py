@@ -28,7 +28,7 @@ from service.agents.remediation import build_remediation_agent
 from service.agents.tools import build_repo_tools
 from service.services.github_git_client import GitHubGitClient
 
-_DEFAULT_MAX_ITERATIONS = 3
+_DEFAULT_MAX_ITERATIONS = 2
 
 _KNOWLEDGE_INSTRUCTION = """\
 あなたはリポジトリの「知識負債（理解ギャップ）」を調べる専門エージェントです。

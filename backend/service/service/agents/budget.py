@@ -21,8 +21,8 @@ class RunBudget:
     count and enforce — call them from the ADK callbacks so exceeding a cap stops the run.
     """
 
-    max_tool_calls: int = 50
-    max_model_calls: int = 30
+    max_tool_calls: int = 80
+    max_model_calls: int = 60
     max_files: int = 200
     tool_calls: int = 0
     model_calls: int = 0
