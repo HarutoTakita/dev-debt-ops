@@ -13,6 +13,7 @@ from google.adk.planners import PlanReActPlanner
 
 from service.agents.budget import RunBudget
 from service.agents.plugin import TraceRecorderPlugin
+from service.agents.remediation import build_remediation_tools
 from service.agents.tools import build_repo_tools
 from service.agents.twin import build_twin_loop
 from service.pipelines import agentic_analysis
@@ -40,8 +41,8 @@ def _request() -> AgenticAnalysisRequest:
 
 class TestTwinConstruction:
     def test_build_twin_loop_shape(self) -> None:
-        """LoopAgent wraps the coordinator; the coordinator carries 2 AgentTools + exit_loop."""
-        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), max_iterations=2)
+        """LoopAgent wraps the coordinator; the coordinator delegates to 3 specialists + exit_loop."""
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], max_iterations=2)
         assert isinstance(loop, LoopAgent)
         assert loop.max_iterations == 2
         assert len(loop.sub_agents) == 1
@@ -52,7 +53,18 @@ class TestTwinConstruction:
         tool_names = [getattr(tool, "name", getattr(tool, "__name__", "?")) for tool in coordinator.tools]
         assert "knowledge_debt_agent" in tool_names
         assert "code_debt_agent" in tool_names
+        assert "remediation_strategist" in tool_names
         assert "exit_loop" in tool_names
+
+    def test_recommend_remediation_records(self) -> None:
+        """The remediation tool records structured recommendations and normalises the action."""
+        recommendations: list[dict[str, str]] = []
+        (recommend_remediation,) = build_remediation_tools(recommendations)
+        recommend_remediation(target="auth/login.py", debt_kind="knowledge", action="quiz", rationale="属人化")
+        recommend_remediation(target="x.py", debt_kind="code", action="bogus", rationale="r")
+        assert recommendations[0]["action"] == "quiz"
+        assert recommendations[0]["target"] == "auth/login.py"
+        assert recommendations[1]["action"] == "other"
 
 
 # --- repo tools (GitHub client mocked) -------------------------------------
@@ -115,7 +127,12 @@ class TestProcess:
     async def test_process_returns_result_with_trace(self, mocker) -> None:
         mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
         mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
-        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(return_value=["[summary] 危険な機能を特定"]))
+        recs = [{"target": "auth.py", "debt_kind": "knowledge", "action": "quiz", "rationale": "属人化"}]
+        mocker.patch.object(
+            agentic_analysis,
+            "run_twin_agent",
+            AsyncMock(return_value=(["[summary] 危険な機能を特定"], recs)),
+        )
 
         ctx = PipelineContext(session=AsyncMock())
         result = await agentic_analysis.process(_request(), ctx)
@@ -124,6 +141,7 @@ class TestProcess:
         assert result.job_type == JobType.AGENTIC_ANALYSIS
         assert result.agent_trace == ["[summary] 危険な機能を特定"]
         assert result.summary == "[summary] 危険な機能を特定"
+        assert result.recommendations == recs
 
     async def test_process_requires_session(self) -> None:
         with pytest.raises(RuntimeError, match="requires a DB session"):

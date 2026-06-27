@@ -24,6 +24,7 @@ from google.adk.tools.exit_loop_tool import exit_loop
 from service.agents.budget import RunBudget
 from service.agents.hooks import make_before_model_callback, make_before_tool_callback
 from service.agents.model import vertex_model_name
+from service.agents.remediation import build_remediation_agent
 from service.agents.tools import build_repo_tools
 from service.services.github_git_client import GitHubGitClient
 
@@ -48,8 +49,9 @@ list_repo_source_files で対象を把握し、怪しいファイルを read_fil
 _TWIN_INSTRUCTION = """\
 あなたはリポジトリ全体を統括する Twin Agent です。知識負債と技術負債のどちらがどれだけ危ういかを
 判断し、knowledge_debt_agent / code_debt_agent ツールに調査を委譲してください。両者の結果を踏まえ、
-まだ調べ足りなければ追加で委譲し、十分に把握できたと判断したら exit_loop を呼んで分析を終了します。
-最終的に、最も危険な負債とその根拠・推奨アクション（測定/学習/修正）を日本語で簡潔にまとめてください。
+まだ調べ足りなければ追加で委譲します。検知が十分に進んだら remediation_strategist に委譲し、各所見の
+返済手段（quiz/learning/repayment_pr）を記録させてください。十分に把握できたと判断したら exit_loop を
+呼んで分析を終了し、最も危険な負債とその根拠・推奨アクションを日本語で簡潔にまとめてください。
 """
 
 
@@ -68,8 +70,12 @@ def _build_specialist(
     )
 
 
-def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget) -> LlmAgent:
-    """Build the coordinator ``LlmAgent`` (PlanReActPlanner + AgentTool specialists + exit_loop)."""
+def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget, recommendations: list[dict[str, str]]) -> LlmAgent:
+    """Build the coordinator ``LlmAgent`` (PlanReActPlanner + AgentTool specialists + exit_loop).
+
+    Delegates detection to the knowledge/code specialists and remediation to the strategist
+    (which records its quiz/learning/PR decisions into ``recommendations``).
+    """
     repo_tools = build_repo_tools(client, budget)
     knowledge_agent = _build_specialist(
         name="knowledge_debt_agent",
@@ -85,9 +91,11 @@ def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget) -> LlmAgent:
         budget=budget,
         output_key="code_findings",
     )
+    remediation_agent = build_remediation_agent(recommendations=recommendations, budget=budget)
     coordinator_tools: list[Any] = [
         AgentTool(agent=knowledge_agent),
         AgentTool(agent=code_agent),
+        AgentTool(agent=remediation_agent),
         exit_loop,
     ]
     return LlmAgent(
@@ -101,7 +109,11 @@ def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget) -> LlmAgent:
 
 
 def build_twin_loop(
-    *, client: GitHubGitClient, budget: RunBudget, max_iterations: int = _DEFAULT_MAX_ITERATIONS
+    *,
+    client: GitHubGitClient,
+    budget: RunBudget,
+    recommendations: list[dict[str, str]],
+    max_iterations: int = _DEFAULT_MAX_ITERATIONS,
 ) -> LoopAgent:  # ty: ignore[deprecated]
     """Wrap the coordinator in a ``LoopAgent`` for adaptive deepening.
 
@@ -112,7 +124,7 @@ def build_twin_loop(
     Note: ``LoopAgent`` is deprecated in adk 2.2.0 (→ Workflow) but still functional; migrating
     to the Workflow API is a follow-up.
     """
-    coordinator = build_twin_agent(client=client, budget=budget)
+    coordinator = build_twin_agent(client=client, budget=budget, recommendations=recommendations)
     return LoopAgent(  # ty: ignore[deprecated]
         name="twin_loop", sub_agents=[coordinator], max_iterations=max_iterations
     )
