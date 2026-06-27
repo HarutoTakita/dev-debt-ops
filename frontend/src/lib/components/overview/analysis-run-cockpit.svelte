@@ -17,6 +17,13 @@
   const demoBlockHint = "（GitHub サインインが必要です）";
   const demoBlockTitle = `${demoBlockMain}${demoBlockHint}`;
 
+  // ADK Twin Agent による agentic 解析（issue 069）。ステージ群とは別の実験的トリガー。
+  const agenticCtaLabel = "Twin Agent で解析（実験的）";
+  const agenticRunningLabel = "Twin Agent 実行中…";
+  const agenticRunning = $derived(
+    analysisRun.agentic.status === "QUEUED" || analysisRun.agentic.status === "PROCESSING",
+  );
+
   // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064）。表示は「検知 / 計測 / 用意」の
   // 3 グループに集約し、各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
   type Props = { ctx: RunContext };
@@ -156,4 +163,24 @@
       </ul>
     </div>
   {/if}
+
+  <div class="mt-2 flex flex-col items-start gap-1 rounded-lg border border-dashed bg-card/50 p-3">
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-7 px-2 text-xs"
+        disabled={agenticRunning || auth.isDemo}
+        title={auth.isDemo ? demoBlockTitle : undefined}
+        onclick={() => analysisRun.runAgentic(ctx)}
+      >
+        {agenticRunning ? agenticRunningLabel : agenticCtaLabel}
+      </Button>
+      <span class={`text-xs ${statusTone[analysisRun.agentic.status]}`}>{statusLabel(analysisRun.agentic.status)}</span
+      >
+    </div>
+    {#if analysisRun.agentic.step}
+      <p class="max-w-full truncate text-xs leading-snug text-muted-foreground">{analysisRun.agentic.step}</p>
+    {/if}
+  </div>
 </section>

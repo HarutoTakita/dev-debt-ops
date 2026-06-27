@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   recordTrendSnapshot: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
+  cancelAnalysis: vi.fn(),
+  runAgenticAnalysis: vi.fn(),
 }));
 vi.mock("$lib/api/client", () => mocks);
 
@@ -32,9 +34,20 @@ beforeEach(() => {
   mocks.generateBaselinePlans.mockResolvedValue({ created: 3 });
   mocks.generateBaselineQuizzes.mockResolvedValue({ created: 3 });
   mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["done"] }));
+  mocks.runAgenticAnalysis.mockResolvedValue({ job_id: "j-tw", status: "QUEUED" });
 });
 
 describe("AnalysisRunStore", () => {
+  it("runAgentic enqueues the Twin Agent run and polls it to COMPLETED", async () => {
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["[summary] ok"] }));
+    await store.runAgentic(CTX);
+    expect(mocks.runAgenticAnalysis).toHaveBeenCalledOnce();
+    expect(store.agentic.status).toBe("COMPLETED");
+    expect(store.agentic.step).toBe("[summary] ok");
+  });
+
   it("runStage enqueues, polls to COMPLETED, and sets the deep-link", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;

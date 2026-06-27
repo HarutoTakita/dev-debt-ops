@@ -9,6 +9,7 @@ import {
   getAnalysisStatus,
   getJob,
   recordTrendSnapshot,
+  runAgenticAnalysis,
 } from "$lib/api/client";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
@@ -143,6 +144,13 @@ class AnalysisRunStore {
   started = $derived(Object.values(this.stages).some((s) => s.status !== "idle"));
   running = $derived(Object.values(this.stages).some((s) => s.status === "QUEUED" || s.status === "PROCESSING"));
 
+  // ADK Twin Agent の agentic 解析（issue 069）。ステージ群とは独立した単一ジョブの起動 + ポーリング。
+  agentic = $state<{ status: StageStatus; jobId: string | null; step: string }>({
+    status: "idle",
+    jobId: null,
+    step: "",
+  });
+
   #set(id: string, patch: Partial<StageState>) {
     this.stages = { ...this.stages, [id]: { ...this.stages[id], ...patch } };
   }
@@ -228,6 +236,43 @@ class AnalysisRunStore {
     }
     this.#set(id, { jobId: res.job_id, link: res.link ?? null });
     await this.#poll(id, ctx, def, gen);
+  }
+
+  /** Start the ADK Twin Agent run (issue 069) and poll it to terminal. Independent of the staged run. */
+  async runAgentic(ctx: RunContext) {
+    if (this.agentic.status === "QUEUED" || this.agentic.status === "PROCESSING") return;
+    const gen = this.#generation;
+    this.agentic = { status: "QUEUED", jobId: null, step: "" };
+    let res: EnqueueResult;
+    try {
+      res = await runAgenticAnalysis(ctx.orgSlug, ctx.projectSlug);
+    } catch (err) {
+      this.agentic = { status: "FAILED", jobId: null, step: err instanceof Error ? err.message : "" };
+      return;
+    }
+    if (gen !== this.#generation || !res.job_id) return;
+    this.agentic = { status: "PROCESSING", jobId: res.job_id, step: "" };
+    while (gen === this.#generation) {
+      let job;
+      try {
+        job = await getJob(res.job_id);
+      } catch (err) {
+        this.agentic = { status: "FAILED", jobId: res.job_id, step: err instanceof Error ? err.message : "" };
+        return;
+      }
+      if (gen !== this.#generation) return;
+      const step = job.agent_trace?.at(-1) ?? "";
+      if (job.status === "COMPLETED") {
+        this.agentic = { status: "COMPLETED", jobId: res.job_id, step };
+        return;
+      }
+      if (job.status === "FAILED" || job.status === "CANCELLED") {
+        this.agentic = { status: "FAILED", jobId: res.job_id, step: job.error ?? step };
+        return;
+      }
+      this.agentic = { status: "PROCESSING", jobId: res.job_id, step };
+      await new Promise((r) => setTimeout(r, this.pollIntervalMs));
+    }
   }
 
   async #poll(id: string, ctx: RunContext, def: StageDef, gen: number) {
