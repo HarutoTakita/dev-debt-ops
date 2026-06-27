@@ -1,0 +1,127 @@
+name: ZAP DAST
+
+# Dynamic application security testing with OWASP ZAP (API scan, OpenAPI-driven).
+# Separate from ci.yml on purpose: it is slow, needs a *running* app + auth, and is
+# report-only. So it runs weekly + on demand (workflow_dispatch), never per-PR, and is
+# non-blocking (a finding never fails the build — measure-only, per prod-readiness §7).
+on:
+  schedule:
+    # 毎週月曜 20:37 UTC（:00 を避けたオフピーク）。週次フルスキャン。
+    - cron: "37 20 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: zap-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  zap-api-scan:
+    runs-on: ubuntu-latest
+    # ZAP は HTTP の挙動を検査するので、本番コンテナをビルドせず ci.yml の test-backend と
+    # 同じ「Postgres サービス + uv で uvicorn 起動」方式で対象を立てる（DAST の signal は同等で、
+    # CI での再現性が高い）。デモログイン（Cookie 認証・is_demo で書き込みは 403 ゲート）を使うため、
+    # 認証付きスキャンでも破壊的変更は起きない。
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      # 対象アプリ起動用。test-backend と同じ最小構成 + デモ/モック。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app
+      ENVIRONMENT: dev # /api/openapi.json を公開（prod では無効）
+      DEMO_MODE_ENABLED: "true" # POST /api/v1/auth/demo を有効化
+      COOKIE_SECURE: "false" # dev では access cookie 名が `access_token`（__Host- 無し）
+      USE_MOCK_QUEUE: "true"
+      USE_MOCK_WORKER: "true"
+      USE_MOCK_BLOB: "true"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+      - run: cd backend && uv sync --frozen --all-packages
+
+      # SECRET_KEY はコミットに残さず実行時に使い捨てを生成（gitleaks 対策 + 良いプラクティス）。
+      - name: Generate ephemeral SECRET_KEY
+        run: echo "SECRET_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+
+      # スキーマ作成（runtime コンテナと同じく alembic）＋ デモデータ投入（冪等）。
+      - name: Migrate & seed demo data
+        working-directory: backend
+        run: |
+          uv run --directory api alembic upgrade head
+          uv run --directory api python -m app.scripts.seed_demo
+
+      - name: Start API (background)
+        working-directory: backend
+        run: |
+          uv run --directory api uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+            > "$GITHUB_WORKSPACE/uvicorn.log" 2>&1 &
+          echo "waiting for /api/openapi.json ..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/api/openapi.json -o /dev/null; then
+              echo "API is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::API did not become ready"; cat "$GITHUB_WORKSPACE/uvicorn.log"; exit 1
+
+      # デモログインで access cookie を取得し、ZAP の全リクエストに注入する（認証付きスキャン）。
+      - name: Demo login → capture access cookie
+        run: |
+          curl -sf -X POST http://localhost:8000/api/v1/auth/demo -c cookies.txt -o /dev/null
+          TOKEN="$(awk '$6 == "access_token" {print $7}' cookies.txt)"
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::デモ認証 Cookie を取得できませんでした。未認証スキャンとして続行します。"
+          fi
+          echo "ZAP_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      # ZAP は Docker コンテナで動くため、--network host でランナーの localhost(:8000) に到達させる
+      # （zaproxy/action-* の既定はコンテナ網で localhost に届かない既知の罠を避ける）。
+      # replacer で Cookie ヘッダを全リクエストに付与し、デモユーザーとして認証スキャンする。
+      - name: Run OWASP ZAP API scan
+        continue-on-error: true # 非ブロッキング（所見はビルドを落とさない）
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          docker run --network host -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
+              -t http://localhost:8000/api/openapi.json -f openapi \
+              -J report.json -r report.html -w report.md -I \
+              -z "-config replacer.full_list(0).description=demo-auth \
+                  -config replacer.full_list(0).enabled=true \
+                  -config replacer.full_list(0).matchtype=REQ_HEADER \
+                  -config replacer.full_list(0).matchstr=Cookie \
+                  -config replacer.full_list(0).regex=false \
+                  -config replacer.full_list(0).replacement=access_token=${ZAP_ACCESS_TOKEN}"
+
+      - name: Publish report to job summary
+        if: always()
+        run: |
+          if [ -f zap-out/report.md ]; then
+            cat zap-out/report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ZAP レポートが生成されませんでした（起動/スキャン失敗の可能性）。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-reports
+          path: zap-out/
+          if-no-files-found: warn

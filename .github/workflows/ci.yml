@@ -132,3 +132,38 @@ jobs:
           gitleaks version
       - name: Run gitleaks
         run: gitleaks detect --source . --redact --verbose --exit-code 1
+
+  # SAST (CodeQL). Per-PR/push static analysis — kept in ci.yml because it runs on the
+  # same cadence as the other gates (an active repo re-scans on every change, so no weekly
+  # cron here). Heavier/slower DAST (OWASP ZAP) lives in its own zap.yml instead.
+  # Permissions are scoped to THIS job so the other ci jobs keep the minimal default token.
+  # build-mode: none — Python / JS-TS are interpreted, so CodeQL analyses source directly
+  # (no uv/bun build needed). Findings surface in the Security tab via the SARIF upload that
+  # github/codeql-action/analyze performs automatically.
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
