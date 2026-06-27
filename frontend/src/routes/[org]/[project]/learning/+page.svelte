@@ -26,7 +26,7 @@
   // 変わると追従する（同一ルート内遷移で再初期化されず「学習を開く」が無反応だった不具合の修正）。
   // ステップ完了トグル等のローカル更新は再代入で上書きでき、次に data.plan が変わるまで保持される。
   let plan = $derived(data.plan);
-  refreshOnStageComplete(["plan_learning"], () => {
+  refreshOnStageComplete(["agentic"], () => {
     if (plan && orgSlug && projectSlug) {
       void getLearningPlan(orgSlug, projectSlug, plan.id)
         .then((p) => (plan = p))
