@@ -2,12 +2,21 @@
   import type { DebtTrendPoint } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
 
-  // 推移を「地層断面」として描く。各週を 1 層として積み、最新週を最上層に置く。
-  // トラック = 理解の堆積（ティール）、左から重なるアンバー = 残った負債。週を追うごとに負債層が薄くなる。
+  // コード品質（= 1 - コード負債スコア）と理解度（knowledge_coverage）の時系列を、スナップショットごとに
+  // 2 本の縦棒（コード品質 / 理解度）で並べたグループ化棒グラフ。左→右が時系列、棒が高いほど良い（issue 067）。
   type Props = { trend: DebtTrendPoint[] };
   const { trend }: Props = $props();
 
-  const layers = $derived([...trend].reverse()); // 今週（最新）を最上層へ
+  const pct = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
+  const quality = (p: DebtTrendPoint) => 100 - pct(p.code_debt_score); // コード品質 = 1 - コード負債スコア
+  // week は解析ごとの ISO タイムスタンプ（例 2026-06-24T11:53:…）。M/D HH:MM へ整形（日付のみは M/D、モック等はそのまま）。
+  function weekLabel(w: string): string {
+    const t = w.match(/^\d{4}-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (t) return `${+t[1]}/${+t[2]} ${t[3]}:${t[4]}`;
+    const d = w.match(/^\d{4}-(\d{2})-(\d{2})$/);
+    if (d) return `${+d[1]}/${+d[2]}`;
+    return w;
+  }
 </script>
 
 <div>
@@ -15,25 +24,76 @@
     <span class="text-sm font-medium">{m.overview_trend_title()}</span>
     <div class="flex gap-3 text-[10px] text-muted-foreground">
       <span class="flex items-center gap-1">
-        <span class="size-2 rounded-xs bg-debt-code/60"></span>{m.overview_trend_legend_debt()}
+        <span class="size-2 rounded-xs bg-debt-code"></span>{m.overview_trend_legend_debt()}
       </span>
       <span class="flex items-center gap-1">
-        <span class="size-2 rounded-xs bg-debt-knowledge/40"></span>{m.overview_trend_legend_kc()}
+        <span class="size-2 rounded-xs bg-debt-knowledge"></span>{m.overview_trend_legend_kc()}
       </span>
     </div>
   </div>
 
-  <div class="mt-3 space-y-1">
-    {#each layers as p (p.week)}
-      <div class="flex items-center gap-2 text-xs">
-        <span class="w-12 shrink-0 text-right text-muted-foreground">{p.week}</span>
-        <div class="relative h-4 flex-1 overflow-hidden rounded-sm bg-debt-knowledge/15">
-          <div class="absolute inset-y-0 left-0 bg-debt-code/55" style="width: {p.code_debt_score * 100}%"></div>
-        </div>
-        <span class="w-28 shrink-0 text-right text-muted-foreground tabular-nums">
-          負債 {Math.round(p.code_debt_score * 100)} / KC {Math.round(p.knowledge_coverage * 100)}
-        </span>
+  {#if trend.length < 1}
+    <!-- 解析が一度も実行されていないときだけ空状態を案内（解析ごとに 1 点記録、issue 067）。 -->
+    <p class="mt-3 py-6 text-center text-xs leading-relaxed text-muted-foreground">{m.overview_trend_empty()}</p>
+  {:else}
+    <!-- グループ化縦棒グラフ: スナップショットごとにコード品質 / 理解度の 2 本。左→右が時系列、高いほど良い。
+         各棒はホバーで % 値をツールチップ表示。 -->
+    <div class="mt-3 flex gap-2">
+      <!-- 縦軸ラベル（0〜100% の割合） -->
+      <div
+        class="flex h-40 w-7 shrink-0 flex-col justify-between text-right text-[9px] text-muted-foreground tabular-nums"
+      >
+        <span>100%</span>
+        <span>50%</span>
+        <span>0%</span>
       </div>
-    {/each}
-  </div>
+      <div class="min-w-0 flex-1">
+        <div class="relative h-40">
+          <!-- 100% / 50% の目安線（縦軸スケール） -->
+          <div class="pointer-events-none absolute inset-x-0 top-0 border-t border-border/40"></div>
+          <div class="pointer-events-none absolute inset-x-0 top-1/2 border-t border-dashed border-border/50"></div>
+          <div class="flex h-full items-end gap-1.5 border-b border-border">
+            {#each trend as p (p.week)}
+              <div class="flex h-full min-w-0 flex-1 items-end justify-center gap-1">
+                <div
+                  class="group/q relative flex h-full w-3.5 items-end"
+                  role="img"
+                  aria-label="{m.overview_trend_legend_debt()} {quality(p)}%（{weekLabel(p.week)}）"
+                >
+                  <div class="w-full rounded-t bg-debt-code" style="height: {quality(p)}%"></div>
+                  <span
+                    class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/q:opacity-100"
+                    style="bottom: calc({quality(p)}% + 3px)"
+                  >
+                    {quality(p)}%
+                  </span>
+                </div>
+                <div
+                  class="group/k relative flex h-full w-3.5 items-end"
+                  role="img"
+                  aria-label="{m.overview_trend_legend_kc()} {pct(p.knowledge_coverage)}%（{weekLabel(p.week)}）"
+                >
+                  <div class="w-full rounded-t bg-debt-knowledge" style="height: {pct(p.knowledge_coverage)}%"></div>
+                  <span
+                    class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/k:opacity-100"
+                    style="bottom: calc({pct(p.knowledge_coverage)}% + 3px)"
+                  >
+                    {pct(p.knowledge_coverage)}%
+                  </span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+        <!-- x 軸ラベル（解析時刻） -->
+        <div class="mt-1 flex gap-1.5">
+          {#each trend as p (p.week)}
+            <span class="min-w-0 flex-1 truncate text-center text-[9px] text-muted-foreground"
+              >{weekLabel(p.week)}</span
+            >
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

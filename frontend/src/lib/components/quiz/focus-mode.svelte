@@ -1,5 +1,7 @@
 <script lang="ts">
   import X from "@lucide/svelte/icons/x";
+  import Check from "@lucide/svelte/icons/check";
+  import { scale } from "svelte/transition";
   import type { QuizSession } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { quiz } from "$lib/stores/quiz-store.svelte";
@@ -36,7 +38,13 @@
       {#if quiz.saveStatus === "saving"}
         ◌ {m.quiz_save_saving()}
       {:else if quiz.saveStatus === "saved"}
-        ● {m.quiz_save_saved({ time: savedTime() })}
+        <!-- 保存確定ごとにチェックを一度ポップさせる（KcMeter と同じ success トーン） -->
+        {#key quiz.savedAt}
+          <span class="inline-flex items-center gap-1 text-success" in:scale={{ duration: 200, start: 0.7 }}>
+            <Check class="size-3.5" />
+            {m.quiz_save_saved({ time: savedTime() })}
+          </span>
+        {/key}
       {/if}
     </span>
     <button onclick={onexit} class="text-muted-foreground hover:text-foreground" aria-label={m.quiz_focus_abort()}>

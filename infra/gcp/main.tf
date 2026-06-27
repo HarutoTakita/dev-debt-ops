@@ -4,11 +4,11 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 6.0"
+      version = "~> 7.38"
     }
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 6.0"
+      version = "~> 7.38"
     }
   }
 
@@ -16,7 +16,7 @@ terraform {
   # The bootstrap stack uses `gcp/bootstrap/` so the two never lock each other
   # (mirrors azure's separate `key` and aws's separate state path).
   backend "gcs" {
-    bucket = "fullstack-app-tfstate"
+    bucket = "dev-debt-ops"
     prefix = "gcp/"
   }
 }

@@ -6,10 +6,9 @@
 
   let { data } = $props();
 
-  // セッション入室時にドラフトをリセット（セッション切替時も再実行）。
+  // セッション入室時に途中保存の文脈を確定（ドラフトもリセット。セッション切替時も再実行）。
   $effect(() => {
-    void data.session.id;
-    quiz.reset();
+    quiz.setContext(data.orgSlug, data.projectSlug, data.session.id);
   });
 
   function exit() {
@@ -21,7 +20,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.session.file.path} · Rosetta</title>
+  <title>{data.session.file.path} · DevDebtOps</title>
 </svelte:head>
 
 <div class="h-full">

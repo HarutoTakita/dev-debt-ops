@@ -1,12 +1,18 @@
 <script lang="ts">
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { deleteProject, patchProject } from "$lib/api/client";
+  import { deleteProject, getMyMembership, listBranches, patchProject } from "$lib/api/client";
+  import type { Branch } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { project } from "$lib/stores/project-store.svelte";
+  import { members } from "$lib/stores/members-store.svelte";
+  import InviteMemberForm from "$lib/components/members/invite-member-form.svelte";
+  import MemberList from "$lib/components/members/member-list.svelte";
   import * as m from "$lib/paraglide/messages";
 
   const orgSlug = $derived(page.params.org ?? "");
@@ -15,6 +21,7 @@
 
   let name = $state("");
   let branch = $state("");
+  let branches = $state<Branch[]>([]);
   let saving = $state(false);
   let savedAt = $state(false);
   let error = $state<string | null>(null);
@@ -26,6 +33,31 @@
       name = current.name;
       branch = current.default_branch;
     }
+  });
+
+  // 既定ブランチをプルダウンで選べるよう、リポジトリのブランチ一覧を取得する。
+  $effect(() => {
+    const c = current;
+    if (!c) return;
+    void listBranches(c.repo_owner, c.repo_name)
+      .then((r) => (branches = r.branches))
+      .catch(() => (branches = []));
+  });
+
+  const defaultBranchName = $derived(branches.find((b) => b.is_default)?.name ?? "");
+  // 一覧に現在値が無い場合も選べるよう先頭に補う（取得前・別ブランチ設定済みなど）。
+  const branchNames = $derived.by(() => {
+    const names = branches.map((b) => b.name);
+    return !branch || names.includes(branch) ? names : [branch, ...names];
+  });
+
+  // メンバー管理（組織メンバーシップを流用。プロジェクト設定上で「このプロジェクトにアクセスできる人」を管理）。
+  $effect(() => {
+    if (!orgSlug) return;
+    void getMyMembership(orgSlug)
+      .then((me) => (members.myRole = me?.role ?? null))
+      .catch(() => {});
+    void members.load(orgSlug);
   });
 
   async function save() {
@@ -61,7 +93,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.project_settings_title()} · Rosetta</title>
+  <title>{m.project_settings_title()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto w-full max-w-2xl px-6 py-10">
@@ -74,10 +106,26 @@
         <Input bind:value={name} />
       </label>
 
-      <label class="flex flex-col gap-1.5">
+      <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_branch_label()}</span>
-        <Input bind:value={branch} />
-      </label>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span class="truncate">{branch}{defaultBranchName === branch ? " (default)" : ""}</span>
+            <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="start" class="max-h-72 min-w-56 overflow-y-auto">
+            <DropdownMenu.RadioGroup bind:value={branch}>
+              {#each branchNames as b (b)}
+                <DropdownMenu.RadioItem value={b}
+                  >{b}{defaultBranchName === b ? " (default)" : ""}</DropdownMenu.RadioItem
+                >
+              {/each}
+            </DropdownMenu.RadioGroup>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      </div>
 
       <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_repo_label()}</span>
@@ -97,6 +145,18 @@
           {m.project_settings_save()}
         </Button>
         {#if savedAt}<span class="text-sm text-success">{m.project_settings_saved()}</span>{/if}
+      </div>
+
+      <!-- メンバー（組織メンバーシップを流用。プロジェクトにアクセスできるユーザーを管理） -->
+      <div class="mt-2 border-t pt-5">
+        <h2 class="font-display text-sm font-semibold">{m.project_settings_members_label()}</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">{m.project_settings_members_desc()}</p>
+        <div class="mt-3 space-y-4">
+          {#if members.canManage}
+            <InviteMemberForm {orgSlug} />
+          {/if}
+          <MemberList {orgSlug} />
+        </div>
       </div>
 
       <div class="mt-6 rounded-lg border border-danger/40 p-4">

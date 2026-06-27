@@ -1,51 +1,62 @@
 <script lang="ts">
-  import { untrack } from "svelte";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
-  import ComingSoonPlaceholder from "$lib/components/common/coming-soon-placeholder.svelte";
+  import { getLearningPlan, patchStep } from "$lib/api/client";
   import PlanProgress from "$lib/components/learning/plan-progress.svelte";
   import ResourceList from "$lib/components/learning/resource-list.svelte";
+  import KnowledgeUnitList from "$lib/components/learning/knowledge-unit-list.svelte";
+  import { quiz } from "$lib/stores/quiz-store.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
+  // 機能（feature）単位の単元ハブ（issue 063）。既定は単元一覧。?planId / ?from=quiz のときは
+  // その単元の学習プラン詳細を表示（クイズ結果からの遷移・ブックマーク救済）。
   let { data } = $props();
-  // 機能本体は未実装。既定は Coming Soon、開発用リンクでモックレイアウトをプレビュー。
-  // ただしクイズ結果 CTA 経由（?from=quiz）の場合は本体を直接表示してハンドオフを完結させる。
-  // 初期値のみを使う意図的なスナップショット（以降は preview をユーザー操作で切替）。
-  let preview = $state(untrack(() => data.from === "quiz"));
-
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");
+  const unitsHref = $derived(resolve(`/${orgSlug}/${projectSlug}/learning`));
+
+  // ナビ pill（受験可能クイズ件数）を最新化。
+  $effect(() => {
+    if (orgSlug && projectSlug) void quiz.loadAvailable(orgSlug, projectSlug).catch(() => {});
+  });
+
+  // --- 学習プラン詳細（?planId / ?from=quiz） ---
+  // writable $derived: 一覧 → ?planId / ?from=quiz のクライアント遷移で load が再実行され data.plan が
+  // 変わると追従する（同一ルート内遷移で再初期化されず「学習を開く」が無反応だった不具合の修正）。
+  // ステップ完了トグル等のローカル更新は再代入で上書きでき、次に data.plan が変わるまで保持される。
+  let plan = $derived(data.plan);
+  refreshOnStageComplete(["plan_learning"], () => {
+    if (plan && orgSlug && projectSlug) {
+      void getLearningPlan(orgSlug, projectSlug, plan.id)
+        .then((p) => (plan = p))
+        .catch(() => {});
+    }
+  });
+  async function toggle(order: number, completed: boolean) {
+    if (!plan) return;
+    try {
+      await patchStep(orgSlug, projectSlug, plan.id, order, completed);
+      plan = { ...plan, steps: plan.steps.map((s) => (s.order === order ? { ...s, completed } : s)) };
+    } catch {
+      /* keep previous state on failure */
+    }
+  }
 </script>
 
 <svelte:head>
-  <title>{m.nav_learning()} · Rosetta</title>
+  <title>{m.nav_knowledge_hub()} · DevDebtOps</title>
 </svelte:head>
 
-{#if !preview}
-  <div class="flex h-full flex-col">
-    <div class="flex-1">
-      <ComingSoonPlaceholder title={m.learning_coming_title()} description={m.learning_coming_body()} />
-    </div>
-    <div class="shrink-0 pb-8 text-center">
-      <button
-        type="button"
-        onclick={() => (preview = true)}
-        class="text-xs text-muted-foreground underline hover:text-foreground"
-      >
-        {m.learning_preview()}
-      </button>
-    </div>
-  </div>
-{:else}
-  <div class="mx-auto max-w-2xl space-y-4 p-4">
+{#if plan}
+  <div class="mx-auto max-w-6xl space-y-4 p-4">
+    <a href={unitsHref} class="text-xs text-muted-foreground hover:text-foreground">{m.unit_back()}</a>
     <div>
-      <h1 class="font-display text-xl font-semibold">{m.nav_learning()}</h1>
       {#if data.from === "quiz"}
         <p class="mt-0.5 text-xs text-debt-knowledge">{m.learning_from_quiz()}</p>
       {/if}
       <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        <span>{m.learning_gap()}:</span>
-        {#each data.plan.gap_concepts as concept (concept)}
+        {#each Array.from(new Set(plan.gap_concepts)) as concept (concept)}
           <a
             href={resolve(`/${orgSlug}/${projectSlug}/galaxy`)}
             title={m.gap_concept_learn({ concept })}
@@ -57,7 +68,9 @@
         {/each}
       </div>
     </div>
-    <PlanProgress plan={data.plan} />
-    <ResourceList steps={data.plan.steps} />
+    <PlanProgress {plan} />
+    <ResourceList steps={plan.steps} ontoggle={toggle} />
   </div>
+{:else}
+  <KnowledgeUnitList {orgSlug} {projectSlug} />
 {/if}

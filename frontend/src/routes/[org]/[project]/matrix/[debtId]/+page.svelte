@@ -15,11 +15,11 @@
 </script>
 
 <svelte:head>
-  <title>{debt.file_path} · Rosetta</title>
+  <title>{debt.file_path} · DevDebtOps</title>
 </svelte:head>
 
 <Tooltip.Provider delayDuration={150}>
-  <div class="mx-auto flex max-w-5xl flex-col gap-3 p-4">
+  <div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
     <!-- 上部: 戻る + パス + ステータス -->
     <div class="flex flex-wrap items-center gap-2">
       <a
@@ -33,7 +33,7 @@
       <DebtStatusBadge status={debt.status} />
     </div>
 
-    <DebtActions {orgSlug} debtId={debt.id} />
+    <DebtActions {orgSlug} {projectSlug} debtId={debt.id} />
 
     <!-- 本体: 左 = 該当コード + 根拠 / 右 = メタパネル -->
     <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">

@@ -8,6 +8,11 @@ shared metadata against the Postgres ``test`` DB, and override ``get_session`` /
 import os
 from collections.abc import AsyncGenerator
 
+# Tests exercise the worker endpoint without minting Cloud Tasks OIDC tokens, so enable the
+# mock queue (OIDC bypass) before importing the app. The runtime default is fail-closed
+# (false) per issue-038; this opt-in mirrors dev's .env.dev.
+os.environ.setdefault("USE_MOCK_QUEUE", "true")
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

@@ -74,6 +74,7 @@ class TestTools:
         async with session_maker() as session:
             _, _, _, save_stack = stack_analysis.build_tools(AsyncMock(), session)
             msg = await save_stack("acme", "rosetta", "main", _classification())
+            await session.commit()  # save_stack now flushes; run_task owns the commit (issue-042)
         assert "acme/rosetta" in msg
         async with session_maker() as session:
             row = (await session.execute(_select_tech_stack("acme", "rosetta"))).scalar_one_or_none()
@@ -128,6 +129,7 @@ async def test_process_mints_token_and_returns_result(session_maker: async_sessi
 
     async with session_maker() as session:
         result = await stack_analysis.process(request, PipelineContext(session=session))
+        await session.commit()  # run_task owns the commit in production (issue-042)
 
     # Method B: the token was minted in the service from the installation id (no payload secret).
     mint.assert_awaited_once_with(12345678)

@@ -8,9 +8,32 @@ Values are read at call time so tests can set them via ``monkeypatch.setenv``.
 import os
 
 
+def environment() -> str:
+    """Deployment environment (``dev`` / ``stg`` / ``prod``). Mirrors api's ``ENVIRONMENT``."""
+    return os.environ.get("ENVIRONMENT", "dev").lower()
+
+
 def use_mock_queue() -> bool:
-    """Whether to skip Cloud Tasks OIDC verification (local dev / tests)."""
-    return os.environ.get("USE_MOCK_QUEUE", "true").lower() == "true"
+    """Whether to skip Cloud Tasks OIDC verification (local dev / tests).
+
+    Defaults to ``false`` (fail-closed): the worker endpoint runs pipelines and writes Job /
+    domain rows directly to Cloud SQL, so OIDC verification must be on unless dev explicitly
+    opts out. Dev enables it via ``.env.dev`` (``USE_MOCK_QUEUE=true``); tests set it in conftest.
+    """
+    return os.environ.get("USE_MOCK_QUEUE", "false").lower() == "true"
+
+
+def validate_runtime_config() -> None:
+    """Fail-closed guard: the mock queue (OIDC bypass) must never be enabled outside dev.
+
+    Called at app startup. In ``stg`` / ``prod`` an enabled mock queue would leave
+    ``POST /tasks/{pipeline}`` unauthenticated, so we refuse to start.
+    """
+    if environment() != "dev" and use_mock_queue():
+        raise RuntimeError(
+            "USE_MOCK_QUEUE must be false outside dev — it disables Cloud Tasks OIDC verification "
+            "on the worker endpoint. Set USE_MOCK_QUEUE=false (or unset it) in non-dev environments."
+        )
 
 
 def service_tasks_url() -> str:

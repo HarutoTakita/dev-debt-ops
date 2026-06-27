@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { resolve } from "$app/paths";
   import { listDebts, type DebtFilter, type DebtSort } from "$lib/api/client";
   import type { DebtItem } from "$lib/api/schemas";
   import * as Tooltip from "$lib/components/ui/tooltip";
@@ -8,6 +9,9 @@
   import DebtListRow from "$lib/components/matrix/debt-list-row.svelte";
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import Logo from "$lib/components/logo.svelte";
+  import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
+  import PageHeading from "$lib/components/shell/page-heading.svelte";
+  import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -20,20 +24,36 @@
   let debts = $state<DebtItem[]>([]);
   let loading = $state(true);
 
+  const skeletonRows = Array.from({ length: 6 }, (_v, i) => i);
+
   $effect(() => {
     recentSearches.load(orgSlug);
   });
 
-  // フィルタ/ソート変更で再取得（モック）。filter/sort/orgSlug を読むので変更時に再実行される。
-  $effect(() => {
-    const f = filter;
-    const s = sort;
+  function loadDebts() {
     loading = true;
-    listDebts(orgSlug, f, s).then((res) => {
-      debts = res.debts;
-      loading = false;
-    });
+    listDebts(orgSlug, projectSlug, filter, sort)
+      .then((res) => {
+        debts = res.debts;
+        loading = false;
+      })
+      .catch(() => {
+        debts = [];
+        loading = false;
+      });
+  }
+
+  // フィルタ/ソート変更で再取得。filter/sort/org/project を読むので変更時に再実行される。
+  $effect(() => {
+    void filter;
+    void sort;
+    void orgSlug;
+    void projectSlug;
+    loadDebts();
   });
+
+  // コックピットの解析完了で自動リフレッシュ（detect_code / detect_knowledge → listDebts、issue 049）。
+  refreshOnStageComplete(["detect_code", "detect_knowledge"], loadDebts);
 
   function onfilter(f: DebtFilter) {
     filter = f;
@@ -56,18 +76,18 @@
 </script>
 
 <svelte:head>
-  <title>{m.matrix_title()} · Rosetta</title>
+  <title>{m.matrix_title()} · DevDebtOps</title>
 </svelte:head>
 
-<div class="mx-auto flex max-w-4xl flex-col gap-3 p-4">
-  <div class="flex items-baseline justify-between gap-2">
-    <h1 class="font-display text-xl font-semibold">{m.matrix_title()}</h1>
+<div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <PageHeading title={m.matrix_title()} description={m.page_matrix_desc()} />
     <span class="text-xs text-muted-foreground">
       {m.matrix_target_quadrant()}: <span class="text-foreground">{cellLabel(data.cell)}</span>
     </span>
   </div>
 
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col gap-2" data-tour="matrix-search">
     <FilteredSearchBar {filter} {onfilter} />
     <div class="flex items-center justify-between">
       <span class="text-xs text-muted-foreground">{m.matrix_total({ count: debts.length })}</span>
@@ -76,16 +96,37 @@
   </div>
 
   {#if loading}
-    <p class="py-10 text-center text-sm text-muted-foreground">{m.common_loading()}</p>
+    <!-- レイアウト準拠スケルトン: DebtListRow の形（rounded-lg border bg-card）に合わせたゴースト行 -->
+    <ul class="flex flex-col gap-2" aria-busy="true">
+      {#each skeletonRows as i (i)}
+        <li class="rounded-lg border bg-card p-3">
+          <div class="flex items-center gap-3">
+            <Skeleton class="h-5 w-12" />
+            <Skeleton class="h-4 flex-1" />
+            <Skeleton class="h-4 w-16" />
+          </div>
+          <div class="mt-2 flex items-center gap-4">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-3 w-16" />
+          </div>
+        </li>
+      {/each}
+    </ul>
   {:else if debts.length === 0}
     <div class="flex flex-col items-center gap-3 py-16 text-center">
       <Logo class="size-10 text-debt-code/70" />
       <p class="text-sm font-medium">{m.matrix_empty()}</p>
       <p class="max-w-sm text-xs text-muted-foreground">{m.matrix_empty_hint()}</p>
+      <a
+        href={resolve(`/${orgSlug}/${projectSlug}`)}
+        class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        {m.analysis_run_cta()}
+      </a>
     </div>
   {:else}
     <Tooltip.Provider delayDuration={150}>
-      <ul class="flex flex-col gap-2">
+      <ul class="flex flex-col gap-2" data-tour="matrix-list">
         {#each debts as debt (debt.id)}
           <li><DebtListRow {orgSlug} {projectSlug} {debt} /></li>
         {/each}

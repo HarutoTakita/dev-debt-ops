@@ -55,7 +55,8 @@ async def run_task(
     job_id_raw = request_body.get("jobId")
     if not job_id_raw:
         raise TransientTaskError("request missing jobId")
-    job = await session.get(Job, uuid.UUID(str(job_id_raw)))
+    job_pk = uuid.UUID(str(job_id_raw))
+    job = await session.get(Job, job_pk)
     if job is None:
         raise TransientTaskError(f"job not found: {job_id_raw}")
 
@@ -79,11 +80,28 @@ async def run_task(
     session.add(job)
     await session.commit()
 
+    # The pipeline persists its domain rows on this same session WITHOUT committing
+    # (it flushes for ids). run_task owns the single terminal commit, so domain rows and the
+    # Job's terminal status land atomically — a failure leaves neither behind (issue-042).
     try:
         request = request_model.model_validate(body)
         ctx = PipelineContext(blob=blob_client, session=session)
         result = await process_fn(request, ctx)
+    except TransientTaskError:
+        # Transient (e.g. GitHub rate limit) — discard partial work and let the caller retry
+        # (HTTP 503 → Cloud Tasks redelivery). Do NOT mark the Job FAILED (issue-045).
+        await session.rollback()
+        raise
     except Exception as exc:
+        # Discard any domain rows the pipeline flushed before failing, then mark FAILED. Without
+        # the rollback those pending rows would be committed alongside the FAILED Job below.
+        await session.rollback()
+        # rollback() expired `job`; re-fetch by the known PK. Reading `job.id` here would
+        # trigger a sync lazy-load of the expired attribute outside the async greenlet
+        # (sqlalchemy.exc.MissingGreenlet), masking the real pipeline error as an HTTP 503.
+        job = await session.get(Job, job_pk)
+        if job is None:  # pragma: no cover - the PROCESSING row was committed above
+            raise TransientTaskError(f"job vanished mid-processing: {job_id_raw}") from exc
         job.status = JobStatus.FAILED
         job.error = str(exc)
         job.completed_at = datetime.now(UTC)

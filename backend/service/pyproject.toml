@@ -1,7 +1,7 @@
 [project]
 name = "rosetta-service"
 version = "0.0.5"
-description = "Rosetta heavy-processing service (async pipelines) — internal Cloud Run service"
+description = "DevDebtOps heavy-processing service (async pipelines) — internal Cloud Run service"
 requires-python = ">=3.13"
 dependencies = [
     "rosetta-shared",                                  # Job/TechStack(SQLModel) / enum / schemas

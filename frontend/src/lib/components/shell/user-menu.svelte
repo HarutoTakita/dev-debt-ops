@@ -1,7 +1,9 @@
 <script lang="ts">
   import LogOut from "@lucide/svelte/icons/log-out";
+  import SunMoon from "@lucide/svelte/icons/sun-moon";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import { toggleMode } from "mode-watcher";
   import { apiFetch } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
   import * as Avatar from "$lib/components/ui/avatar";
@@ -29,6 +31,11 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" class="w-56">
     <DropdownMenu.Label class="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenu.Label>
+    <DropdownMenu.Separator />
+    <DropdownMenu.Item onSelect={() => toggleMode()}>
+      <SunMoon class="size-4" />
+      <span>{m.shell_toggle_theme()}</span>
+    </DropdownMenu.Item>
     <DropdownMenu.Separator />
     <DropdownMenu.Item onSelect={logout}>
       <LogOut class="size-4" />
