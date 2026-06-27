@@ -1,0 +1,130 @@
+"""agentic-analysis pipeline + Twin Agent graph tests (issue 069).
+
+The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_twin_agent`` is patched, mirroring
+``test_stack_analysis``. Construction / tool / plugin logic is exercised directly; ``process`` is
+tested with GitHub + the agent run mocked.
+"""
+
+from unittest.mock import AsyncMock
+
+import pytest
+from google.adk.agents import LoopAgent
+from google.adk.planners import PlanReActPlanner
+
+from service.agents.budget import RunBudget
+from service.agents.plugin import TraceRecorderPlugin
+from service.agents.tools import build_repo_tools
+from service.agents.twin import build_twin_loop
+from service.pipelines import agentic_analysis
+from service.services.github_git_client import FileContent, TreeItem
+from shared.enums import JobType, ResultStatus
+from shared.pipelines.context import PipelineContext
+from shared.schemas.agentic_analysis import AgenticAnalysisRequest
+from shared.schemas.stack_analysis import GitHubRef
+
+
+def _request() -> AgenticAnalysisRequest:
+    return AgenticAnalysisRequest(
+        job_id="job-1",
+        job_type=JobType.AGENTIC_ANALYSIS,
+        owner="acme",
+        repo="rosetta",
+        project_id="proj-1",
+        github=GitHubRef(installation_id=123),
+        requested_by="user-1",
+    )
+
+
+# --- Twin Agent graph construction (no network) ----------------------------
+
+
+class TestTwinConstruction:
+    def test_build_twin_loop_shape(self) -> None:
+        """LoopAgent wraps the coordinator; the coordinator carries 2 AgentTools + exit_loop."""
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), max_iterations=2)
+        assert isinstance(loop, LoopAgent)
+        assert loop.max_iterations == 2
+        assert len(loop.sub_agents) == 1
+
+        coordinator = loop.sub_agents[0]
+        assert coordinator.name == "twin_agent"
+        assert isinstance(coordinator.planner, PlanReActPlanner)
+        tool_names = [getattr(tool, "name", getattr(tool, "__name__", "?")) for tool in coordinator.tools]
+        assert "knowledge_debt_agent" in tool_names
+        assert "code_debt_agent" in tool_names
+        assert "exit_loop" in tool_names
+
+
+# --- repo tools (GitHub client mocked) -------------------------------------
+
+
+class TestRepoTools:
+    async def test_list_repo_source_files_filters_tree(self) -> None:
+        client = AsyncMock()
+        client.get_repository_tree.return_value = [
+            TreeItem(path="app/main.py", type="blob", size=100),
+            TreeItem(path="node_modules/x/index.js", type="blob", size=50),
+            TreeItem(path="src", type="tree", size=None),
+        ]
+        list_repo_source_files, _read, _assess = build_repo_tools(client, RunBudget())
+        result = await list_repo_source_files("acme", "rosetta", "main")
+        assert "app/main.py" in result
+        assert "node_modules/x/index.js" not in result
+
+    async def test_read_file_truncates_and_charges_budget(self) -> None:
+        client = AsyncMock()
+        client.get_file_content.return_value = FileContent(path="big.py", content="x" * 10_000, sha="s", size=10_000)
+        budget = RunBudget()
+        _list, read_file, _assess = build_repo_tools(client, budget)
+        result = await read_file("acme", "rosetta", "big.py")
+        assert "(truncated)" in result
+        assert budget.files_read == 1
+
+
+# --- plugin ----------------------------------------------------------------
+
+
+class _FakePart:
+    def __init__(self, text: str) -> None:
+        self.function_call = None
+        self.function_response = None
+        self.text = text
+
+
+class _FakeContent:
+    def __init__(self, parts: list[object]) -> None:
+        self.parts = parts
+
+
+class _FakeEvent:
+    def __init__(self, text: str) -> None:
+        self.content = _FakeContent([_FakePart(text)])
+
+
+class TestPlugin:
+    async def test_on_event_records_trace(self) -> None:
+        plugin = TraceRecorderPlugin()
+        await plugin.on_event_callback(invocation_context=object(), event=_FakeEvent("done"))
+        assert plugin.trace == ["[summary] done"]
+
+
+# --- process (GitHub + agent run mocked) -----------------------------------
+
+
+class TestProcess:
+    async def test_process_returns_result_with_trace(self, mocker) -> None:
+        mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
+        mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
+        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(return_value=["[summary] 危険な機能を特定"]))
+
+        ctx = PipelineContext(session=AsyncMock())
+        result = await agentic_analysis.process(_request(), ctx)
+
+        assert result.status == ResultStatus.COMPLETED
+        assert result.job_type == JobType.AGENTIC_ANALYSIS
+        assert result.agent_trace == ["[summary] 危険な機能を特定"]
+        assert result.summary == "[summary] 危険な機能を特定"
+
+    async def test_process_requires_session(self) -> None:
+        with pytest.raises(RuntimeError, match="requires a DB session"):
+            await agentic_analysis.process(_request(), PipelineContext(session=None))
