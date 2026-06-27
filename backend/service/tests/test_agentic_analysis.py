@@ -63,6 +63,17 @@ class TestTwinConstruction:
         assert "remediation_strategist" in tool_names
         assert "exit_loop" in tool_names
 
+    def test_code_agent_gets_semgrep_toolset(self) -> None:
+        """The Semgrep MCP toolset is attached to the code specialist only (not the knowledge one)."""
+        from service.agents.tools import build_semgrep_toolset
+
+        toolset = build_semgrep_toolset()  # construction is lazy; no subprocess spawned
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], semgrep_toolset=toolset)
+        coordinator = loop.sub_agents[0]
+        by_name = {getattr(t, "name", ""): t for t in coordinator.tools}
+        assert toolset in by_name["code_debt_agent"].agent.tools
+        assert toolset not in by_name["knowledge_debt_agent"].agent.tools
+
     def test_recommend_remediation_records(self) -> None:
         """The remediation tool records structured recommendations and normalises the action."""
         recommendations: list[dict[str, str]] = []

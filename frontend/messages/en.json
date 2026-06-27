@@ -229,6 +229,8 @@
   "debt_type_duplicate": "Duplicate",
   "debt_type_dead": "Dead code",
   "debt_type_complexity": "Complexity",
+  "debt_type_security": "Security",
+  "debt_type_smell": "Code smell",
   "debt_type_other": "Other",
   "debt_reason_ai_generated": "Authorless (AI-generated)",
   "debt_reason_author_left": "Author left",

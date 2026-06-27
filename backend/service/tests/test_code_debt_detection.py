@@ -146,9 +146,14 @@ def _patch(monkeypatch: pytest.MonkeyPatch, files: dict[str, str], ai_probs: dic
     async def _fake_ai(file_map: dict[str, str]) -> dict[str, float]:
         return ai_probs
 
+    async def _no_semgrep(file_map: dict[str, str]) -> list:
+        # 既定では Semgrep をオフにして決定的に検証する（実バイナリ実行を避ける）。
+        return []
+
     monkeypatch.setattr(code_debt_detection, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(code_debt_detection, "GitHubGitClient", lambda access_token: _FakeClient(files))
     monkeypatch.setattr(gemini_stack_service, "estimate_ai_generation", _fake_ai)
+    monkeypatch.setattr(code_debt_detection.semgrep_scan, "scan_files", _no_semgrep)
 
 
 async def _seed_job(session_maker: async_sessionmaker, job_id: str) -> None:
@@ -202,6 +207,53 @@ async def test_process_detects_and_persists(monkeypatch: pytest.MonkeyPatch, ses
         assert complexity.ai_generation_prob == 0.9
         assert complexity.knowledge_coverage == 0.0  # provisional until 029
         assert ("app/orphan.py", "dead") in by_path_type
+
+
+async def test_semgrep_findings_persisted(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
+    """Semgrep aggregates are upserted as security/smell code_debts alongside the heuristics."""
+    from service.services.semgrep_scan import SemgrepAggregate
+
+    _patch(monkeypatch, _FILES, {})
+
+    async def _fake_scan(files: dict[str, str]) -> list[SemgrepAggregate]:
+        return [
+            SemgrepAggregate(
+                file_path="app/main.py",
+                debt_type="security",
+                score=0.8,
+                notes="Semgrep（セキュリティ）1 件: shell=True",
+                metrics={"semgrep_count": 1, "max_severity": "ERROR", "rule_ids": ["r1"], "lines": [3]},
+            ),
+            SemgrepAggregate(
+                file_path="app/util.py", debt_type="smell", score=0.5, notes="Semgrep（コードスメル）2 件", metrics={}
+            ),
+        ]
+
+    monkeypatch.setattr(code_debt_detection.semgrep_scan, "scan_files", _fake_scan)
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.by_type.get("security") == 1
+    assert result.by_type.get("smell") == 1
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        debts = {
+            (d.file_path, d.type): d
+            for d in (await session.execute(select(CodeDebt).where(CodeDebt.run_id == run.id))).scalars().all()
+        }
+        sec = debts[("app/main.py", "security")]
+        assert sec.severity == code_analysis.quantize_severity(0.8)  # critical
+        assert sec.metrics["rule_ids"] == ["r1"]
+        assert debts[("app/util.py", "smell")].severity == code_analysis.quantize_severity(0.5)  # high
+        # heuristic complexity finding for the same file coexists (different type → different row)
+        assert ("app/main.py", "complexity") in debts
 
 
 async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:

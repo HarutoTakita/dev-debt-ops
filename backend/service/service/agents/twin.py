@@ -13,13 +13,13 @@ The deterministic metrics stay in tools; the *judgement* (which feature is riski
 to dig, what to conclude) is the agents'. Nothing here calls the network — construction is pure.
 """
 
-from collections.abc import Callable
 from typing import Any
 
 from google.adk.agents import LlmAgent, LoopAgent  # ty: ignore[deprecated]
 from google.adk.planners import PlanReActPlanner
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.exit_loop_tool import exit_loop
+from google.adk.tools.mcp_tool import McpToolset
 
 from service.agents.budget import RunBudget
 from service.agents.hooks import make_before_model_callback, make_before_tool_callback
@@ -41,9 +41,10 @@ list_repo_source_files で対象を把握し、危ういと判断したファイ
 _CODE_INSTRUCTION = """\
 あなたはリポジトリの「技術負債（コード品質）」を調べる専門エージェントです。
 list_repo_source_files で対象を把握し、怪しいファイルを read_file で読み、assess_code_debt で
-複雑度などの決定的シグナルを確認して、リスクの高いコード負債を特定してください。閾値で機械的に
-拾うのではなく、複数シグナルを突き合わせて優先度を判断すること。最後に、どのコードが危ういかと
-その根拠を日本語で簡潔に要約してください。
+複雑度などの決定的シグナルを確認してください。さらに scan_code（Semgrep MCP）に読んだファイルを
+渡し、セキュリティ脆弱性やバグパターンなど実静的解析の所見を取得して突き合わせること。閾値で機械的に
+拾うのではなく、複数シグナル（複雑度・Semgrep の security/smell）を統合してリスクの高いコード負債と
+その優先度を判断します。最後に、どのコードが危ういかとその根拠を日本語で簡潔に要約してください。
 """
 
 _TWIN_INSTRUCTION = """\
@@ -55,9 +56,7 @@ _TWIN_INSTRUCTION = """\
 """
 
 
-def _build_specialist(
-    *, name: str, instruction: str, tools: list[Callable[..., Any]], budget: RunBudget, output_key: str
-) -> LlmAgent:
+def _build_specialist(*, name: str, instruction: str, tools: list[Any], budget: RunBudget, output_key: str) -> LlmAgent:
     """Build one specialist ``LlmAgent`` wired with repo tools + budget callbacks."""
     return LlmAgent(
         model=vertex_model_name(),
@@ -70,11 +69,18 @@ def _build_specialist(
     )
 
 
-def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget, recommendations: list[dict[str, str]]) -> LlmAgent:
+def build_twin_agent(
+    *,
+    client: GitHubGitClient,
+    budget: RunBudget,
+    recommendations: list[dict[str, str]],
+    semgrep_toolset: McpToolset | None = None,
+) -> LlmAgent:
     """Build the coordinator ``LlmAgent`` (PlanReActPlanner + AgentTool specialists + exit_loop).
 
     Delegates detection to the knowledge/code specialists and remediation to the strategist
-    (which records its quiz/learning/PR decisions into ``recommendations``).
+    (which records its quiz/learning/PR decisions into ``recommendations``). When provided, the
+    code specialist also gets the Semgrep MCP toolset to ground its judgement in real static analysis.
     """
     repo_tools = build_repo_tools(client, budget)
     knowledge_agent = _build_specialist(
@@ -84,10 +90,11 @@ def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget, recommendati
         budget=budget,
         output_key="knowledge_findings",
     )
+    code_tools: list[Any] = [*repo_tools, semgrep_toolset] if semgrep_toolset is not None else list(repo_tools)
     code_agent = _build_specialist(
         name="code_debt_agent",
         instruction=_CODE_INSTRUCTION,
-        tools=repo_tools,
+        tools=code_tools,
         budget=budget,
         output_key="code_findings",
     )
@@ -113,6 +120,7 @@ def build_twin_loop(
     client: GitHubGitClient,
     budget: RunBudget,
     recommendations: list[dict[str, str]],
+    semgrep_toolset: McpToolset | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
 ) -> LoopAgent:  # ty: ignore[deprecated]
     """Wrap the coordinator in a ``LoopAgent`` for adaptive deepening.
@@ -124,7 +132,9 @@ def build_twin_loop(
     Note: ``LoopAgent`` is deprecated in adk 2.2.0 (→ Workflow) but still functional; migrating
     to the Workflow API is a follow-up.
     """
-    coordinator = build_twin_agent(client=client, budget=budget, recommendations=recommendations)
+    coordinator = build_twin_agent(
+        client=client, budget=budget, recommendations=recommendations, semgrep_toolset=semgrep_toolset
+    )
     return LoopAgent(  # ty: ignore[deprecated]
         name="twin_loop", sub_agents=[coordinator], max_iterations=max_iterations
     )

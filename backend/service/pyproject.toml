@@ -11,8 +11,9 @@ dependencies = [
     "google-cloud-storage>=3.12.0",
     "google-auth>=2.52.0",
     # stack-analysis パイプライン (issue 018): ADK + Vertex AI + GitHub クライアント
-    "google-adk>=0.4.0",
+    "google-adk[mcp]>=0.4.0",                          # ADK + MCP（Semgrep MCP 連携、issue 069）
     "google-genai>=1.0.0",
+    "semgrep>=1.0.0",                                  # 技術負債の実静的解析 + `semgrep mcp` サーバ
     "httpx>=0.28.1",
     "PyJWT>=2.8.0",
     "cryptography>=42.0.0",

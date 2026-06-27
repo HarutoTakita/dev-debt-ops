@@ -229,6 +229,8 @@
   "debt_type_duplicate": "重複",
   "debt_type_dead": "死コード",
   "debt_type_complexity": "複雑度",
+  "debt_type_security": "セキュリティ",
+  "debt_type_smell": "コードスメル",
   "debt_type_other": "その他",
   "debt_reason_ai_generated": "作者不在 (AI 生成)",
   "debt_reason_author_left": "作者退職",

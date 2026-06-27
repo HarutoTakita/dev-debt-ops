@@ -9,8 +9,12 @@ Two kinds live here:
   files to read and *how to interpret* findings; the metrics themselves stay deterministic.
 """
 
+import sys
 from collections.abc import Callable
 from typing import Any
+
+from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
+from mcp import StdioServerParameters
 
 from service.agents.budget import RunBudget
 from service.services import code_analysis
@@ -18,6 +22,23 @@ from service.services.github_git_client import GitHubGitClient
 
 _MAX_AGENT_FILES = 20
 _MAX_FILE_CHARS = 5_000
+
+
+def build_semgrep_toolset() -> McpToolset:
+    """Build the Semgrep MCP toolset (in-house server over stdio) for the code-debt specialist.
+
+    Launches ``service.agents.semgrep_mcp_server`` with the current interpreter so it shares the
+    service venv (Semgrep + adk-compatible ``mcp``). The agent calls ``scan_code`` to run real
+    static analysis on files it reads — the deterministic signal; the agent supplies the judgement.
+    """
+    return McpToolset(
+        connection_params=StdioConnectionParams(
+            server_params=StdioServerParameters(
+                command=sys.executable,
+                args=["-m", "service.agents.semgrep_mcp_server"],
+            ),
+        ),
+    )
 
 
 def list_source_files(paths: list[str]) -> list[str]:
