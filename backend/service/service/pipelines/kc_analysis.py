@@ -101,7 +101,12 @@ async def _get_or_create_run(
     session: AsyncSession, *, job_id: uuid.UUID, project_id: uuid.UUID, commit_sha: str, branch: str
 ) -> AnalysisRun:
     existing = (
-        await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == job_id))  # ty: ignore[invalid-argument-type]
+        await session.execute(
+            select(AnalysisRun).where(
+                col(AnalysisRun.job_id) == job_id,
+                col(AnalysisRun.kind) == JobType.KC_ANALYSIS.value,
+            )
+        )
     ).scalar_one_or_none()
     if existing is not None:
         return existing

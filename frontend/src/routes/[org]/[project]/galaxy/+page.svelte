@@ -23,9 +23,9 @@
     if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => galaxy.reset());
   });
 
-  // コックピットの理解度マップ解析完了で自動リフレッシュ（analyze_galaxy → galaxy.load、issue 049）。
+  // コックピットの解析完了で自動リフレッシュ（agentic が KC/機能を生成 → galaxy.load、issue 049/069）。
   // 再取得失敗時は既存表示を保持（reset しない）。
-  refreshOnStageComplete(["analyze_galaxy"], () => {
+  refreshOnStageComplete(["agentic"], () => {
     if (orgSlug && projectSlug) void galaxy.load(orgSlug, projectSlug).catch(() => {});
   });
 </script>
