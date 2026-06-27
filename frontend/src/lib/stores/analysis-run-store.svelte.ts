@@ -66,7 +66,9 @@ export const STAGES: StageDef[] = [
   },
 ];
 
-// コックピット表示用グループ。「Twin Agent 解析」（検知/算出を内包）と「学習・クイズを用意」の 2 グループ。
+// コックピット表示用グループ。ユーザーには従来どおり「技術負債の検知 / 理解負債の整理 / クイズと学習の生成」の
+// 3 段階で見せる。技術負債・理解負債の検知は内部的には単一の agentic（ADK）解析が両方を生成するため、両グループとも
+// `agentic` ステージを参照し同時に進む（表示上の段階分けはユーザーの分かりやすさのため）。
 export type StageGroupDef = {
   id: string;
   labelKey: string;
@@ -75,10 +77,16 @@ export type StageGroupDef = {
 };
 export const STAGE_GROUPS: StageGroupDef[] = [
   {
-    id: "g_agent",
-    labelKey: "analysis_group_agent",
+    id: "g_technical",
+    labelKey: "analysis_group_technical",
     stageIds: ["agentic"],
     deepLink: (c) => _path(c, "/matrix"),
+  },
+  {
+    id: "g_knowledge",
+    labelKey: "analysis_group_knowledge",
+    stageIds: ["agentic"],
+    deepLink: (c) => _path(c, "/galaxy"),
   },
   {
     id: "g_repay",
