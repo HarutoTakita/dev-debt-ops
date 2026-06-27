@@ -8,6 +8,7 @@
 
 ### Added
 
+- 解析の agentic 化（issue 069）の基盤を `backend/service/service/agents/` に新設（Phase 0・既存挙動は不変）: ADK エージェントの共通部品 — Vertex AI モデル解決（`vertex_model_name`）、ADK event → `agent_trace` 変換（`event_to_trace` / `summarize_args`）、実行予算ガード（`RunBudget` / `BudgetExceeded`）とそれを enforce する ADK callback ファクトリ（`make_before_tool_callback` / `make_before_model_callback`）、決定的コード指標ツール（`tools.py`）。後続フェーズで `LlmAgent` / `LoopAgent`（`max_iterations`+`exit_loop`）/ `AgentTool` / `Runner` + `BasePlugin` に配線し、Twin Agent を解析の中核に据える。
 - ランディングページ（LP）をアプリと独立に公開できる構成を追加: 単一の静的 `landing/index.html`（Tailwind CDN・ブランド準拠：理解負債/技術負債の 2×2、実測→返済の閉ループ）を新設。インフラは **Option A（同一 LB ＋ GCS バックエンドバケット＋Cloud CDN）** — `infra/gcp/landing.tf` と `var.lp_domain` を追加し、既存の外部 HTTPS LB に**ホストルーティング**（`lp_domain`→LP バケット、それ以外→アプリ）。マネージド証明書に `lp_domain` を追加、`landing_url`/`landing_bucket` を output。LP はアプリ（Cloud Run）と独立にデプロイ（バケットへ同期するだけ。`landing/README.md` に手順）。サイドバーのヘルプ「LP を確認する」をビルド時 env `VITE_LP_URL` で有効化（未設定時は無効のまま）。すべて `var.lp_domain` 未設定なら `terraform plan` が通るようゲート。
 
 ### Changed
