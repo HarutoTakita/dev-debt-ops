@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   recordTrendSnapshot: vi.fn(),
   getJob: vi.fn(),
   getAnalysisStatus: vi.fn(),
+  cancelAnalysis: vi.fn(),
 }));
 vi.mock("$lib/api/client", () => mocks);
 
