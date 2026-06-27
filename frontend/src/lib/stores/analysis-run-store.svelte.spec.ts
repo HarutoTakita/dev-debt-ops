@@ -38,14 +38,12 @@ beforeEach(() => {
 });
 
 describe("AnalysisRunStore", () => {
-  it("runAgentic enqueues the Twin Agent run and polls it to COMPLETED", async () => {
+  it("agentic stage enqueues the Twin Agent run (issue 069) and polls to COMPLETED", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
-    mocks.getJob.mockResolvedValue(job("COMPLETED", { agent_trace: ["[summary] ok"] }));
-    await store.runAgentic(CTX);
-    expect(mocks.runAgenticAnalysis).toHaveBeenCalledOnce();
-    expect(store.agentic.status).toBe("COMPLETED");
-    expect(store.agentic.step).toBe("[summary] ok");
+    await store.runStage("agentic", CTX);
+    expect(mocks.runAgenticAnalysis).toHaveBeenCalledWith("acme", "rosetta");
+    expect(store.stages.agentic.status).toBe("COMPLETED");
   });
 
   it("runStage enqueues, polls to COMPLETED, and sets the deep-link", async () => {
@@ -78,6 +76,7 @@ describe("AnalysisRunStore", () => {
       "cluster_features",
       "plan_learning",
       "confirm_quizzes",
+      "agentic",
     ]) {
       expect(store.stages[id].status).toBe("COMPLETED");
     }
