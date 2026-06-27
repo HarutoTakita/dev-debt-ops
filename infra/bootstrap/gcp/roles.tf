@@ -32,3 +32,12 @@ resource "google_project_iam_member" "deploy" {
   role     = each.value
   member   = "serviceAccount:${google_service_account.github_deploy.email}"
 }
+
+# The Gemini PR review CI gets its OWN least-privilege SA holding only Vertex AI access —
+# deliberately separate from the broad deploy SA above so an LLM agent reading PR content
+# can never wield deploy-grade credentials. SA + WIF binding live in wif.tf.
+resource "google_project_iam_member" "gemini" {
+  project = var.gcp_project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.github_gemini.email}"
+}
