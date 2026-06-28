@@ -24,6 +24,10 @@ if settings.GITHUB_CLIENT_ID:
             settings.SECRET_KEY.get_secret_value(),
             redirect_url=f"{settings.FRONTEND_ORIGIN}/login/callback",
             associate_by_email=True,
+            # fastapi-users 15.x は OAuth state に CSRF クッキー(fastapiusersoauthcsrf)を使う。
+            # 既定は secure=True のため http://localhost ではブラウザが保存せず callback で
+            # CSRF 不一致 → 400 になる。認証クッキーと同じく COOKIE_SECURE に揃える。
+            csrf_token_cookie_secure=settings.COOKIE_SECURE,
         ),
         prefix="/github",
     )
