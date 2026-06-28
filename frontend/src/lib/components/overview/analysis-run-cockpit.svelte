@@ -92,70 +92,59 @@
 </script>
 
 <section class="w-full">
-  {#if !analysisRun.started}
-    <div class="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
+  <!-- モーダルは常に同じ 3 行を表示し、変化するのは各行のステータス（未実行 → 処理中 → 完了）のみ（issue 069）。 -->
+  <div class="rounded-lg border bg-card p-4">
+    <div class="mb-3 flex items-center justify-between gap-2">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
-      <Button
-        disabled={analysisRun.running || auth.isDemo}
-        title={auth.isDemo ? demoBlockTitle : undefined}
-        onclick={() => analysisRun.runAll(ctx)}>{m.analysis_run_cta()}</Button
-      >
-      {#if auth.isDemo}
-        <p class="text-xs leading-snug text-muted-foreground">
-          {demoBlockMain}<br />{demoBlockHint}
-        </p>
-      {/if}
-    </div>
-  {:else}
-    <div class="rounded-lg border bg-card p-4">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
-        <div class="flex items-center gap-2">
-          {#if analysisRun.running}
-            <Button variant="outline" size="sm" class="h-7 px-2 text-xs" onclick={() => analysisRun.cancelRun(ctx)}>
-              {m.common_cancel()}
-            </Button>
-          {/if}
-          <Button
-            variant="outline"
-            size="sm"
-            class="h-7 px-2 text-xs"
-            disabled={analysisRun.running || auth.isDemo}
-            title={auth.isDemo ? demoBlockTitle : undefined}
-            onclick={() => analysisRun.runAll(ctx)}
-          >
-            {analysisRun.running ? m.analysis_run_running() : m.analysis_regenerate()}
+      <div class="flex items-center gap-2">
+        {#if analysisRun.running}
+          <Button variant="outline" size="sm" class="h-7 px-2 text-xs" onclick={() => analysisRun.cancelRun(ctx)}>
+            {m.common_cancel()}
           </Button>
-        </div>
+        {/if}
+        <Button
+          variant="outline"
+          size="sm"
+          class="h-7 px-2 text-xs"
+          disabled={analysisRun.running || auth.isDemo}
+          title={auth.isDemo ? demoBlockTitle : undefined}
+          onclick={() => analysisRun.runAll(ctx)}
+        >
+          {analysisRun.running
+            ? m.analysis_run_running()
+            : analysisRun.started
+              ? m.analysis_regenerate()
+              : m.analysis_run_cta()}
+        </Button>
       </div>
-      <ul class="flex flex-col gap-1.5">
-        {#each STAGE_GROUPS as group (group.id)}
-          {@const gv = groupView(group)}
-          <li class="flex items-center gap-3 rounded-md border bg-background/40 px-3 py-2 text-sm">
-            <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[gv.status]}`}>{statusLabel(gv.status)}</span>
-            <span class="min-w-0 flex-1 truncate">
-              {groupLabel[group.labelKey]()}
-              {#if gv.activeLabel}<span class="text-xs text-muted-foreground"> · {gv.activeLabel}</span>{/if}
-            </span>
-            {#if gv.status === "COMPLETED" && group.deepLink}
-              <a
-                href={group.deepLink(ctx) as ResolvedPathname}
-                class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
-              >
-                {m.analysis_view()}
-              </a>
-            {:else if gv.status === "FAILED"}
-              <button
-                type="button"
-                onclick={() => retryGroup(group)}
-                class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
-              >
-                {m.analysis_retry_stage()}
-              </button>
-            {/if}
-          </li>
-        {/each}
-      </ul>
     </div>
-  {/if}
+    <ul class="flex flex-col gap-1.5">
+      {#each STAGE_GROUPS as group (group.id)}
+        {@const gv = groupView(group)}
+        <li class="flex items-center gap-3 rounded-md border bg-background/40 px-3 py-2 text-sm">
+          <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[gv.status]}`}>{statusLabel(gv.status)}</span>
+          <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
+          {#if gv.status === "COMPLETED" && group.deepLink}
+            <a
+              href={group.deepLink(ctx) as ResolvedPathname}
+              class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
+            >
+              {m.analysis_view()}
+            </a>
+          {:else if gv.status === "FAILED"}
+            <button
+              type="button"
+              onclick={() => retryGroup(group)}
+              class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
+            >
+              {m.analysis_retry_stage()}
+            </button>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+    {#if auth.isDemo}
+      <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
+    {/if}
+  </div>
 </section>
