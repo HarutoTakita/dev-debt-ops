@@ -8,12 +8,15 @@ Tests patch this function (the ADK Runner is never driven without a live model),
 ``agentic_analysis`` pipeline can be exercised without Vertex AI — same approach as stack-analysis.
 """
 
+import contextlib
+
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from service.agents.budget import RunBudget
 from service.agents.plugin import TraceRecorderPlugin
+from service.agents.serena_mcp import build_serena_toolset
 from service.agents.twin import build_twin_loop
 from service.services.github_git_client import GitHubGitClient
 
@@ -21,12 +24,17 @@ _APP_NAME = "rosetta-twin"
 
 
 async def run_twin_agent(
-    *, client: GitHubGitClient, owner: str, repo: str, branch: str, budget: RunBudget
+    *, client: GitHubGitClient, owner: str, repo: str, branch: str, budget: RunBudget, repo_dir: str | None = None
 ) -> tuple[list[str], list[dict[str, str]]]:
-    """Run the Twin Agent over one repository; return ``(agent_trace, recommendations)``."""
+    """Run the Twin Agent over one repository; return ``(agent_trace, recommendations)``.
+
+    When ``repo_dir`` (a checked-out repo tree) is given, the specialists also get the Serena (LSP)
+    MCP toolset for semantic navigation; without it they fall back to the REST-based repo tools.
+    """
     recorder = TraceRecorderPlugin()
     recommendations: list[dict[str, str]] = []
-    root = build_twin_loop(client=client, budget=budget, recommendations=recommendations)
+    serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
+    root = build_twin_loop(client=client, budget=budget, recommendations=recommendations, serena_toolset=serena_toolset)
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=_APP_NAME,
@@ -40,7 +48,13 @@ async def run_twin_agent(
         role="user",
         parts=[Part(text=f"リポジトリ {owner}/{repo} のブランチ {branch} の知識負債・技術負債を分析してください。")],
     )
-    async for _event in runner.run_async(user_id=user_id, session_id=adk_session.id, new_message=message):
-        # The TraceRecorderPlugin records each event; we just drive the generator to completion.
-        pass
+    try:
+        async for _event in runner.run_async(user_id=user_id, session_id=adk_session.id, new_message=message):
+            # The TraceRecorderPlugin records each event; we just drive the generator to completion.
+            pass
+    finally:
+        if serena_toolset is not None:
+            # Always shut down the Serena MCP stdio subprocess, even on error / budget abort.
+            with contextlib.suppress(Exception):
+                await serena_toolset.close()
     return recorder.trace, recommendations

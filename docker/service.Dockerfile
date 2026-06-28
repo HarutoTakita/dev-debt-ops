@@ -21,6 +21,24 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # ── Stage: base (common runtime layout: /app/service + /app/shared + venv) ────
 FROM python:3.13-slim AS base
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /usr/local/bin/uv
+
+# System deps for Serena (LSP) repo navigation (issue 069):
+#  - git: shallow-clone the analysed repo to disk (services.repo_checkout)
+#  - Node 20 + TypeScript language server: TS/JS LSP; pyright: Python LSP
+#  - serena-agent: installed as an isolated uv tool (its own deps → no `mcp` conflict with adk[mcp]).
+# Installed into world-readable locations (/usr/local/bin, /opt/uv) so the unprivileged appuser can run them.
+ENV UV_TOOL_DIR=/opt/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g typescript typescript-language-server pyright \
+    && uv tool install -p 3.13 serena-agent \
+    && chmod -R a+rX /opt/uv \
+    && apt-get purge -y curl && apt-get autoremove -y && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /root/.cache /root/.npm
+
 RUN useradd --create-home --uid 1001 appuser
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"

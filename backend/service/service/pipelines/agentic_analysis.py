@@ -21,6 +21,7 @@ Learning-plan / quiz generation stay as their own fan-out steps (api ``baseline-
 """
 
 import logging
+import shutil
 from collections.abc import Awaitable, Callable
 
 from service import config
@@ -33,6 +34,7 @@ from service.pipelines import (
     kc_analysis,
     knowledge_debt_detection,
 )
+from service.services import repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -123,9 +125,12 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     steps.extend(await baseline_generation.generate_learning_and_quizzes(request, ctx))
 
     # 2) Twin Agent judgement layer (autonomous cross-signal risk judgement + remediation).
+    # Shallow-clone the repo so the agent can navigate it semantically via Serena (LSP); a failed
+    # clone just disables Serena (the agent falls back to the REST repo tools).
     budget = RunBudget()
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
+    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
     try:
         trace, recommendations = await run_twin_agent(
             client=client,
@@ -133,9 +138,12 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             repo=request.repo,
             branch=request.branch,
             budget=budget,
+            repo_dir=repo_dir,
         )
     finally:
         await client.aclose()
+        if repo_dir is not None:
+            shutil.rmtree(repo_dir, ignore_errors=True)
 
     agent_trace = steps + trace
     summary = trace[-1] if trace else (steps[-1] if steps else "Twin Agent run produced no trace")
