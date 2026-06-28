@@ -13,13 +13,13 @@ The deterministic metrics stay in tools; the *judgement* (which feature is riski
 to dig, what to conclude) is the agents'. Nothing here calls the network — construction is pure.
 """
 
-from collections.abc import Callable
 from typing import Any
 
 from google.adk.agents import LlmAgent, LoopAgent  # ty: ignore[deprecated]
 from google.adk.planners import PlanReActPlanner
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.tools.exit_loop_tool import exit_loop
+from google.adk.tools.mcp_tool import McpToolset
 
 from service.agents.budget import RunBudget
 from service.agents.hooks import make_before_model_callback, make_before_tool_callback
@@ -33,16 +33,19 @@ _DEFAULT_MAX_ITERATIONS = 2
 _KNOWLEDGE_INSTRUCTION = """\
 あなたはリポジトリの「知識負債（理解ギャップ）」を調べる専門エージェントです。
 list_repo_source_files で対象を把握し、危ういと判断したファイルだけを read_file で読み、
-理解が属人化・陳腐化していそうな箇所を特定してください。全ファイルを機械的に読まず、
-リスクの高いものに絞って深掘りすること。最後に、どの機能/ファイルの理解が危ういかと、その根拠を
-日本語で簡潔に要約してください。
+理解が属人化・陳腐化していそうな箇所を特定してください。Serena ツール（find_symbol /
+find_referencing_symbols / get_symbols_overview 等）が使える場合は、シンボル単位で対象を特定し
+参照関係を辿って、全文読みを最小化すること。全ファイルを機械的に読まず、リスクの高いものに絞って
+深掘りします。最後に、どの機能/ファイルの理解が危ういかと、その根拠を日本語で簡潔に要約してください。
 """
 
 _CODE_INSTRUCTION = """\
 あなたはリポジトリの「技術負債（コード品質）」を調べる専門エージェントです。
 list_repo_source_files で対象を把握し、怪しいファイルを read_file で読み、assess_code_debt で
-複雑度などの決定的シグナルを確認して、リスクの高いコード負債を特定してください。閾値で機械的に
-拾うのではなく、複数シグナルを突き合わせて優先度を判断すること。最後に、どのコードが危ういかと
+複雑度などの決定的シグナルを確認して、リスクの高いコード負債を特定してください。Serena ツール
+（find_symbol / find_referencing_symbols / find_implementations / get_symbols_overview 等）が使える
+場合は、シンボル単位で当たりを付け参照・実装を辿って効率的に調べ、全文読みを最小化すること。閾値で
+機械的に拾うのではなく、複数シグナルを突き合わせて優先度を判断します。最後に、どのコードが危ういかと
 その根拠を日本語で簡潔に要約してください。
 """
 
@@ -55,9 +58,7 @@ _TWIN_INSTRUCTION = """\
 """
 
 
-def _build_specialist(
-    *, name: str, instruction: str, tools: list[Callable[..., Any]], budget: RunBudget, output_key: str
-) -> LlmAgent:
+def _build_specialist(*, name: str, instruction: str, tools: list[Any], budget: RunBudget, output_key: str) -> LlmAgent:
     """Build one specialist ``LlmAgent`` wired with repo tools + budget callbacks."""
     return LlmAgent(
         model=vertex_model_name(),
@@ -70,24 +71,32 @@ def _build_specialist(
     )
 
 
-def build_twin_agent(*, client: GitHubGitClient, budget: RunBudget, recommendations: list[dict[str, str]]) -> LlmAgent:
+def build_twin_agent(
+    *,
+    client: GitHubGitClient,
+    budget: RunBudget,
+    recommendations: list[dict[str, str]],
+    serena_toolset: McpToolset | None = None,
+) -> LlmAgent:
     """Build the coordinator ``LlmAgent`` (PlanReActPlanner + AgentTool specialists + exit_loop).
 
     Delegates detection to the knowledge/code specialists and remediation to the strategist
-    (which records its quiz/learning/PR decisions into ``recommendations``).
+    (which records its quiz/learning/PR decisions into ``recommendations``). When provided, the
+    Serena (LSP) toolset is given to both detection specialists for semantic code navigation.
     """
     repo_tools = build_repo_tools(client, budget)
+    extra: list[Any] = [serena_toolset] if serena_toolset is not None else []
     knowledge_agent = _build_specialist(
         name="knowledge_debt_agent",
         instruction=_KNOWLEDGE_INSTRUCTION,
-        tools=repo_tools,
+        tools=[*repo_tools, *extra],
         budget=budget,
         output_key="knowledge_findings",
     )
     code_agent = _build_specialist(
         name="code_debt_agent",
         instruction=_CODE_INSTRUCTION,
-        tools=repo_tools,
+        tools=[*repo_tools, *extra],
         budget=budget,
         output_key="code_findings",
     )
@@ -113,6 +122,7 @@ def build_twin_loop(
     client: GitHubGitClient,
     budget: RunBudget,
     recommendations: list[dict[str, str]],
+    serena_toolset: McpToolset | None = None,
     max_iterations: int = _DEFAULT_MAX_ITERATIONS,
 ) -> LoopAgent:  # ty: ignore[deprecated]
     """Wrap the coordinator in a ``LoopAgent`` for adaptive deepening.
@@ -124,7 +134,9 @@ def build_twin_loop(
     Note: ``LoopAgent`` is deprecated in adk 2.2.0 (→ Workflow) but still functional; migrating
     to the Workflow API is a follow-up.
     """
-    coordinator = build_twin_agent(client=client, budget=budget, recommendations=recommendations)
+    coordinator = build_twin_agent(
+        client=client, budget=budget, recommendations=recommendations, serena_toolset=serena_toolset
+    )
     return LoopAgent(  # ty: ignore[deprecated]
         name="twin_loop", sub_agents=[coordinator], max_iterations=max_iterations
     )

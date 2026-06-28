@@ -63,6 +63,16 @@ class TestTwinConstruction:
         assert "remediation_strategist" in tool_names
         assert "exit_loop" in tool_names
 
+    def test_specialists_get_serena_toolset(self) -> None:
+        """The Serena (LSP) toolset is attached to BOTH detection specialists when provided."""
+        from service.agents.serena_mcp import build_serena_toolset
+
+        toolset = build_serena_toolset("/tmp/repo")  # construction is lazy; no subprocess spawned
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], serena_toolset=toolset)
+        by_name = {getattr(t, "name", ""): t for t in loop.sub_agents[0].tools}
+        assert toolset in by_name["code_debt_agent"].agent.tools
+        assert toolset in by_name["knowledge_debt_agent"].agent.tools
+
     def test_recommend_remediation_records(self) -> None:
         """The remediation tool records structured recommendations and normalises the action."""
         recommendations: list[dict[str, str]] = []
@@ -72,6 +82,37 @@ class TestTwinConstruction:
         assert recommendations[0]["action"] == "quiz"
         assert recommendations[0]["target"] == "auth/login.py"
         assert recommendations[1]["action"] == "other"
+
+
+class TestRunnerSerenaLifecycle:
+    async def test_serena_toolset_closed_after_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """When repo_dir is given, run_twin_agent builds the Serena toolset and closes it (finally)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        class _FakeRunner:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            async def run_async(self, **_kwargs: object):
+                return
+                yield  # unreachable — makes this an async generator
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_twin_loop", lambda **_kwargs: object())
+        monkeypatch.setattr(runner, "Runner", _FakeRunner)
+
+        trace, recs = await runner.run_twin_agent(
+            client=AsyncMock(), owner="acme", repo="rosetta", branch="main", budget=RunBudget(), repo_dir="/tmp/x"
+        )
+        assert closed["n"] == 1  # toolset always closed
+        assert trace == []
+        assert recs == []
 
 
 # --- repo tools (GitHub client mocked) -------------------------------------
