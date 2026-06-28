@@ -9,6 +9,7 @@
   import Hash from "@lucide/svelte/icons/hash";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
+  import History from "@lucide/svelte/icons/history";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { cn } from "$lib/utils";
@@ -32,6 +33,7 @@
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import { tourSteps } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
+  import ChangelogDialog from "./changelog-dialog.svelte";
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
@@ -44,6 +46,8 @@
   function openLp() {
     if (lpUrl) window.open(lpUrl, "_blank", "noopener,noreferrer");
   }
+  // 変更履歴（CHANGELOG）を中央モーダルで表示する。
+  let changelogOpen = $state(false);
 
   // アクティブなプロジェクトが属するグループキー（スター優先 → セクション → 既定）。
   const activeGroupKey = $derived.by(() => {
@@ -349,6 +353,12 @@
           <DropdownMenu.Item disabled={!lpUrl} onSelect={openLp}>
             <span>{m.help_view_lp()}</span>
           </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Item onSelect={() => (changelogOpen = true)}>
+            <History class="size-4" />
+            <span>{m.help_version()}</span>
+            <span class="ml-auto text-xs text-muted-foreground">v{__APP_VERSION__}</span>
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </div>
@@ -387,3 +397,5 @@
     </form>
   </Dialog.Content>
 </Dialog.Root>
+
+<ChangelogDialog bind:open={changelogOpen} />
