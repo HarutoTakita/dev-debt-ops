@@ -50,6 +50,9 @@ def build_serena_toolset(repo_dir: str) -> McpToolset:
                     "false",
                 ],
             ),
+            # Serena's startup (agent init + LSP managers) takes ~5-6s; the default 5s connect
+            # timeout races it and fails with BrokenResourceError. Give generous headroom.
+            timeout=90.0,
         ),
         tool_filter=list(_SERENA_TOOLS),
     )
