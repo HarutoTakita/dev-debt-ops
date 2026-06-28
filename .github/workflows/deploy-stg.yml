@@ -1,8 +1,11 @@
 name: Deploy Staging
 
+# 一時的に手動トリガーのみ（コスト削減のため自動デプロイを停止中）。
+# 再開するには下の `workflow_dispatch:` を `push: { branches: [develop] }` に戻す。
+# 手動実行: GitHub UI の Actions → Deploy Staging → Run workflow（ref=develop）
+#          または `gh workflow run deploy-stg.yml --ref develop`
 on:
-  push:
-    branches: [develop]
+  workflow_dispatch:
 
 # Deploys to Google Cloud (the only target). The reusable deploy-gcp.yml builds
 # the api/service images and runs `terraform apply` against infra/gcp.
