@@ -91,8 +91,11 @@
     margin: 0.125rem 0;
   }
   .changelog-md :global(a) {
-    color: var(--debt-knowledge);
+    color: #2563eb; /* blue-600: ライトモードで読みやすい青 */
     text-decoration: underline;
+  }
+  :global(.dark) .changelog-md :global(a) {
+    color: #60a5fa; /* blue-400: 暗い popover 上で読みやすい青 */
   }
   .changelog-md :global(code) {
     border-radius: 0.25rem;
