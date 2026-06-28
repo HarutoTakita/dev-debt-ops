@@ -8,6 +8,9 @@ WORKDIR /app
 COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY frontend/ .
+# 変更履歴ビューア用: repo ルートの CHANGELOG.md を静的アセットとして同梱（/CHANGELOG.md で配信）。
+# ビルドコンテキストは repo ルートなので参照可能。build スクリプトの sync:changelog はここでは no-op。
+COPY CHANGELOG.md ./static/CHANGELOG.md
 RUN bun run build
 
 # ── Stage: builder (resolve + install rosetta-api deps from the workspace) ────
