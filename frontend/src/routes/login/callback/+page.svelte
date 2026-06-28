@@ -6,6 +6,7 @@
   import { listOrgs } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
   import Logo from "$lib/components/logo.svelte";
+  import LoginGraphBackdrop from "$lib/components/auth/login-graph-backdrop.svelte";
   import * as m from "$lib/paraglide/messages";
 
   // 失敗を分類して、それぞれ異なる文言と復旧導線を出す（握りつぶさず console.error も残す）。
@@ -76,8 +77,8 @@
   <title>{m.auth_signing_in()} · DevDebtOps</title>
 </svelte:head>
 
-<div class="flex min-h-screen items-center justify-center p-6">
-  {#if errorKind}
+{#if errorKind}
+  <div class="flex min-h-screen items-center justify-center p-6">
     <div class="flex max-w-sm flex-col items-center gap-3 rounded-lg border bg-card p-6 text-center shadow-sm">
       <Logo class="size-8 text-debt-knowledge" />
       <p class="text-sm font-medium text-destructive">{errorText}</p>
@@ -92,7 +93,7 @@
         </a>
       </div>
     </div>
-  {:else}
-    <p class="text-sm text-muted-foreground">{m.auth_signing_in()}</p>
-  {/if}
-</div>
+  </div>
+{:else}
+  <LoginGraphBackdrop message={m.auth_signing_in()} />
+{/if}
