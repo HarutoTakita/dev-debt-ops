@@ -163,6 +163,7 @@
   "project_settings_members_label": "Members",
   "project_settings_members_desc": "Manage who can access this project.",
   "project_settings_save": "Save changes",
+  "project_settings_saving": "Saving…",
   "project_settings_saved": "Saved",
   "project_settings_save_failed": "Failed to save",
   "project_settings_danger_title": "Danger zone",

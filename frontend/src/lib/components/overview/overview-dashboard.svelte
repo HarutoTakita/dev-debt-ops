@@ -73,10 +73,10 @@
     {#if granularity === "file"}
       <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-        <!-- 右列: 凡例は自然な高さ（コンパクト）にし、余白に優先対応リストを積む -->
+        <!-- 右列: 凡例（コンパクト）+ マトリクスと同じ 2 軸の象限内訳。余白を使って分布を示す -->
         <div class="flex flex-col gap-4">
           <QuadrantLegend {orgSlug} {projectSlug} />
-          {@render priorityCard()}
+          <QuadrantBreakdown {orgSlug} {projectSlug} files={overview.files} />
         </div>
       </div>
     {:else}
@@ -108,13 +108,13 @@
     </StatCard>
   </div>
 
-  <!-- 推移グラフ。file 粒度では横長になりすぎないよう象限内訳を隣に、feature/folder では優先対応リストを隣に -->
+  <!-- 推移グラフ。横長になりすぎないよう優先対応リストを隣に置く（マトリクス右は象限内訳に集約） -->
   {#if granularity === "file"}
     <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
       <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
         <DebtTrendStrata trend={overview.trend} />
       </div>
-      <QuadrantBreakdown {orgSlug} {projectSlug} files={overview.files} />
+      {@render priorityCard()}
     </div>
   {:else}
     <div class="grid gap-4 lg:grid-cols-2">
