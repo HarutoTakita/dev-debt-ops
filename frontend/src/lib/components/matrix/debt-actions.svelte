@@ -110,23 +110,67 @@
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  // 進行中の修正 PR ジョブ id を debt 単位で localStorage に保存し、リロードしても「生成中…」を復元する。
+  const JOBS_KEY = "devdebtops:repay-jobs";
+  function readJobs(): Record<string, string> {
+    if (typeof localStorage === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem(JOBS_KEY) ?? "{}") as Record<string, string>;
+    } catch {
+      return {};
+    }
+  }
+  function writeJob(debtId: string, jobId: string | null) {
+    if (typeof localStorage === "undefined") return;
+    const jobs = readJobs();
+    if (jobId) jobs[debtId] = jobId;
+    else delete jobs[debtId];
+    localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
+  }
+
+  // ジョブを「生成中…」表示でポーリングし、完了で PR リンク通知 + 永続状態をクリアする。
+  async function runPoll(jobId: string, notify: boolean) {
+    prGenerating = true;
+    try {
+      const url = await pollPrJob(jobId);
+      writeJob(debt.id, null);
+      await invalidateAll();
+      if (notify) {
+        if (url)
+          toast.success(m.debt_pr_created(), { action: { label: m.debt_open_pr(), onClick: () => openLink(url) } });
+        else toast.success(m.debt_pr_created());
+      }
+    } catch (e) {
+      writeJob(debt.id, null);
+      if (notify) toast.error(e instanceof Error ? e.message : m.common_error_generic());
+    } finally {
+      prGenerating = false;
+    }
+  }
+
+  // リロード復元: 進行中ジョブが残っていれば（かつ未完了なら）ポーリングを再開する。debt 単位で 1 回だけ。
+  let resumedFor = $state<string | null>(null);
+  $effect(() => {
+    const id = debt.id;
+    const done = relatedPr;
+    if (resumedFor === id) return;
+    resumedFor = id;
+    if (done) {
+      writeJob(id, null);
+      return;
+    }
+    const jobId = readJobs()[id];
+    if (jobId) void runPoll(jobId, false);
+  });
+
   async function confirmPr() {
     busy = true;
     try {
       const job = await createRepaymentPr(orgSlug, projectSlug, debt.id, baseBranch || undefined);
       prOpen = false;
-      // AI が修正案を生成 → PR 作成までを「生成中…」で表示し、完了したらリンク通知。
-      prGenerating = true;
+      writeJob(debt.id, job.job_id); // リロードでも復元できるよう永続化
       toast.info(m.debt_repayment_pr_started());
-      try {
-        const url = await pollPrJob(job.job_id);
-        await invalidateAll();
-        if (url)
-          toast.success(m.debt_pr_created(), { action: { label: m.debt_open_pr(), onClick: () => openLink(url) } });
-        else toast.success(m.debt_pr_created());
-      } finally {
-        prGenerating = false;
-      }
+      void runPoll(job.job_id, true); // 非ブロッキング。完了したらリンク通知
     } catch (e) {
       toast.error(e instanceof Error ? e.message : m.common_error_generic());
     } finally {
