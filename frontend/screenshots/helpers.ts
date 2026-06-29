@@ -74,7 +74,32 @@ export async function shot(
     })
     .catch(() => {});
 
-  await page.screenshot({ path: file, fullPage: opts.fullPage ?? false, animations: "disabled" });
+  // このアプリは h-screen シェルの中で <main> だけが内部スクロールする（[org]/+layout）。そのため Playwright の
+  // fullPage はビューポート高（既定 900）までしか写らず、ダッシュボード等の縦長ページは下部が切れる。
+  // fullPage 指定時は、内部スクロール領域の実コンテンツ高に合わせてビューポートを一時的に高くしてから撮る。
+  const viewport = page.viewportSize();
+  let resized = false;
+  if (opts.fullPage && viewport) {
+    const contentHeight = await page
+      .evaluate(() => {
+        const main = document.querySelector("main");
+        const target = main ?? document.scrollingElement ?? document.body;
+        return Math.ceil(target.scrollHeight);
+      })
+      .catch(() => 0);
+    if (contentHeight > viewport.height) {
+      await page.setViewportSize({ width: viewport.width, height: Math.min(contentHeight + 40, 6000) });
+      await page.waitForTimeout(300); // リサイズ後のレイアウト/チャート再描画を待つ
+      resized = true;
+    }
+  }
+
+  // 内部スクロール領域ごと撮りたいので、fullPage ではなくビューポート撮影（リサイズ済みなら全体が収まる）。
+  await page.screenshot({ path: file, fullPage: opts.fullPage && !resized, animations: "disabled" });
+
+  if (resized && viewport) {
+    await page.setViewportSize(viewport); // 後続ショットのため元のビューポートへ戻す
+  }
   upsertManifest(key, {
     title: opts.title || key,
     route: opts.route ?? new URL(page.url()).pathname,
