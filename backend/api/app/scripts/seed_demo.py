@@ -247,11 +247,51 @@ _DEPENDENCIES: list[tuple[str, str]] = [
 
 # Code-debt findings (file_path, type, severity, score, ai_prob, repay_hours, notes).
 _CODE_DEBTS: list[tuple[str, str, str, float, float, float, str]] = [
-    ("src/checkout/payment.py", "complexity", "critical", 0.86, 0.71, 6.0, "循環的複雑度 31 / 分岐の入れ子 6 段"),
-    ("src/catalog/search.ts", "duplicate", "high", 0.74, 0.44, 3.5, "検索フィルタ構築の重複クラスタ 4 箇所"),
-    ("src/checkout/cart.py", "complexity", "medium", 0.60, 0.33, 2.0, "在庫引当ロジックの分岐過多（複雑度 18）"),
-    ("src/auth/session.py", "dead", "medium", 0.50, 0.12, 1.5, "未到達のレガシー cookie 検証パス"),
-    ("src/lib/db.py", "other", "low", 0.22, 0.05, 0.5, "型ヒント欠落 / 例外の握り潰し 1 箇所"),
+    (
+        "src/checkout/payment.py",
+        "complexity",
+        "critical",
+        0.86,
+        0.71,
+        6.0,
+        "条件分岐が深く入れ子になっていて、処理の流れを追うのが難しい状態です。",
+    ),
+    (
+        "src/catalog/search.ts",
+        "duplicate",
+        "high",
+        0.74,
+        0.44,
+        3.5,
+        "検索フィルタを組み立てるほぼ同じ処理が複数箇所に重複しています。",
+    ),
+    (
+        "src/checkout/cart.py",
+        "complexity",
+        "medium",
+        0.60,
+        0.33,
+        2.0,
+        "在庫引当の条件分岐が多く、どの場合にどう動くのか把握しづらくなっています。",
+    ),
+    (
+        "src/auth/session.py",
+        "dead",
+        "medium",
+        0.50,
+        0.12,
+        1.5,
+        "どこからも呼ばれていない古いセッション検証のコードが残ったままになっています。",
+    ),
+    (
+        "src/lib/db.py",
+        "other",
+        "low",
+        0.22,
+        0.05,
+        0.5,
+        "型の情報が不足し、例外も握り潰されているため不具合に気づきにくい状態です。",
+    ),
 ]
 
 # Knowledge-debt findings (file_path, reason, severity, score, kc, ai_prob, repay_hours, notes).
@@ -989,10 +1029,10 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
     curated = {fp for fp, *_ in _CODE_DEBTS}
     _types = ("complexity", "duplicate", "dead", "other")
     _notes = {
-        "complexity": "条件分岐が深く循環的複雑度が高め",
-        "duplicate": "近接した重複ブロックが数箇所",
-        "dead": "未参照の関数 / 到達不能な分岐あり",
-        "other": "型ヒント欠落・軽微な例外握り潰し",
+        "complexity": "条件分岐が多く入れ子も深いため、処理の流れを追いづらくなっています。",
+        "duplicate": "よく似た処理が複数箇所に重複していて、修正漏れが起きやすい状態です。",
+        "dead": "どこからも呼ばれていない関数や到達しない分岐が残っています。",
+        "other": "型の情報が不足し例外も握り潰されているため、不具合に気づきにくい状態です。",
     }
     for idx, (file_path, _language, _loc, _kc, score) in enumerate(_FILES):
         if file_path in curated:
