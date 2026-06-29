@@ -535,27 +535,6 @@ export async function getDebt(orgSlug: string, projectSlug: string, debtId: stri
   return debtItemSchema.parse(await response.json());
 }
 
-async function patchDebt(
-  orgSlug: string,
-  projectSlug: string,
-  debtId: string,
-  body: Record<string, unknown>,
-): Promise<DebtItem> {
-  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(await errorDetail(response, "負債の更新に失敗しました"));
-  return debtItemSchema.parse(await response.json());
-}
-
-// --- Coming Soon（場所だけ用意・本体は未実装） ---
-export class ComingSoonError extends Error {
-  constructor() {
-    super("coming_soon");
-    this.name = "ComingSoonError";
-  }
-}
 // 返済 PR 生成（issue 033）: POST .../debts/{id}/repayment-pr → 202 {job_id}、getJob でポーリング。
 export async function createRepaymentPr(
   orgSlug: string,
@@ -568,16 +547,20 @@ export async function createRepaymentPr(
   if (!response.ok) throw new Error(await errorDetail(response, "返済 PR の作成に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
-export async function dismissDebt(orgSlug: string, projectSlug: string, debtId: string): Promise<DebtItem> {
-  return patchDebt(orgSlug, projectSlug, debtId, { status: "dismissed" });
-}
-export async function assignDebt(
+// 人に頼む経路（issue 210）: 担当(GitHubハンドル)を割り当てて GitHub issue を作成する。
+// POST .../debts/{id}/issue → 更新後の DebtItem（related_issue にissue URLが入る）。
+export async function createDebtIssue(
   orgSlug: string,
   projectSlug: string,
   debtId: string,
   handle: string,
 ): Promise<DebtItem> {
-  return patchDebt(orgSlug, projectSlug, debtId, { assignee_github_handle: handle });
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}/issue`, {
+    method: "POST",
+    body: JSON.stringify({ assignee_github_handle: handle }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "GitHub Issue の作成に失敗しました"));
+  return debtItemSchema.parse(await response.json());
 }
 
 // Quiz（返済体験、issue 034）— 実 API。生成/採点は 202 enqueue + getJob ポーリング。
