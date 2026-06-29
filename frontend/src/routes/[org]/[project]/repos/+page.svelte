@@ -1,8 +1,8 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
-  import { getFileContent, getRepositoryTree, listBranches, listDebts } from "$lib/api/client";
-  import type { Branch, CodeDebt, FileContent, Tree } from "$lib/api/schemas";
+  import { getFileContent, getRepositoryTree, listDebts } from "$lib/api/client";
+  import type { CodeDebt, FileContent, Tree } from "$lib/api/schemas";
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
   import CodeDebtPanel from "$lib/components/repo/code-debt-panel.svelte";
@@ -30,7 +30,6 @@
   ];
 
   let tree = $state<Tree | null>(null);
-  let branches = $state<Branch[]>([]);
   let selectedPath = $state<string | null>(null);
   let fileContent = $state<FileContent | null>(null);
   let fileLoading = $state(false);
@@ -93,20 +92,6 @@
     }
   }
 
-  async function loadBranches() {
-    if (!repo.connected) return;
-    const { owner, name } = repo.connected;
-    const cached = repo.branchCache.get(`${owner}/${name}`);
-    if (cached) branches = cached;
-    try {
-      const result = await listBranches(owner, name);
-      repo.branchCache.set(`${owner}/${name}`, result.branches);
-      branches = result.branches;
-    } catch {
-      if (!cached) branches = [];
-    }
-  }
-
   async function onFileSelect(path: string) {
     if (!repo.connected) return;
     selectedPath = path;
@@ -121,18 +106,11 @@
     }
   }
 
-  async function onBranchChange(branch: string) {
-    repo.selectedBranch = branch;
-    await loadTree(branch);
-  }
-
   $effect(() => {
     if (repo.connected) {
-      loadBranches();
       loadTree(repo.selectedBranch);
     } else {
       tree = null;
-      branches = [];
       selectedPath = null;
       fileContent = null;
     }
@@ -162,13 +140,7 @@
     <div class="shrink-0 px-4 pt-3 pb-1">
       <PageHeading title={m.nav_repos()} description={m.page_repos_desc()} />
     </div>
-    <RepoHeader
-      {branches}
-      selectedBranch={repo.selectedBranch}
-      {selectedPath}
-      onbranchchange={onBranchChange}
-      ondisconnect={() => repo.disconnect()}
-    />
+    <RepoHeader {selectedPath} />
 
     <div class="flex flex-1 overflow-hidden">
       <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r" data-tour="repos-tree">
