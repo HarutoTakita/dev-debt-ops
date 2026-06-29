@@ -53,13 +53,19 @@ async def test_demo_login_is_idempotent_shared_user(client: AsyncClient) -> None
     assert id1 == id2
 
 
-async def test_demo_user_blocked_from_github(client: AsyncClient) -> None:
-    """A demo user hitting a GitHub-requiring endpoint is rejected with 403 demo_readonly."""
+async def test_demo_user_can_browse_seeded_repos(client: AsyncClient) -> None:
+    """A demo user CAN browse repositories — they get seeded sample repos (200), not a 403.
+
+    Read-only repo-browse routes (repositories / branches / tree / contents) were opened to the
+    guest demo (issue 069: "repo ブラウズ対応に拡張") so the new-project repo picker and the file
+    browser are demoable. Write/analysis routes stay blocked for demo users via the strict
+    GitHub-client dependency (``resolve_installation_id`` raises 403 ``demo_readonly``).
+    """
     resp = await client.post("/api/v1/auth/demo")
     client.cookies = resp.cookies
 
     gh = await client.get("/api/v1/github/repositories")
-    assert gh.status_code == 403
-    detail = gh.json()["detail"]
-    assert isinstance(detail, dict)
-    assert detail.get("reason") == "demo_readonly"
+    assert gh.status_code == 200
+    repos = gh.json()["repositories"]
+    assert isinstance(repos, list)
+    assert len(repos) > 0  # seeded sample repos, not a real GitHub call

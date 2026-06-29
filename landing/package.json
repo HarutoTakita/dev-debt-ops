@@ -1,0 +1,17 @@
+{
+  "name": "devdebtops-landing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DevDebtOps ランディングページ（静的 LP）。Tailwind をビルド時にコンパイルして同梱する。",
+  "scripts": {
+    "build:css": "tailwindcss -i ./input.css -o ./styles.css --minify",
+    "watch:css": "tailwindcss -i ./input.css -o ./styles.css --watch",
+    "build:og": "node scripts/build-og.mjs",
+    "build": "npm run build:css && npm run build:og"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "sharp": "^0.35.0",
+    "tailwindcss": "^4.3.0"
+  }
+}

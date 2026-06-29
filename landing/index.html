@@ -8,27 +8,26 @@
       name="description"
       content="チームの『コードのわかってなさ（理解負債）』をクイズで実測し、学習で返済する閉ループ。技術負債はリファクタで返す。理解度とコード品質を一枚で。"
     />
+    <meta property="og:site_name" content="DevDebtOps" />
     <meta property="og:title" content="DevDebtOps — 理解負債を、測って返す" />
     <meta
       property="og:description"
       content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
     />
     <meta property="og:type" content="website" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              know: "#22b8c4", // 理解（ティール）
-              code: "#e0a23a", // コード（アンバー）
-              ink: "#0c1116",
-            },
-            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-          },
-        },
-      };
-    </script>
+    <meta property="og:image" content="og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta
+      name="twitter:description"
+      content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
+    />
+    <meta name="twitter:image" content="og-image.png" />
+    <!-- Tailwind はビルド時にコンパイルして同梱（Play CDN は本番非推奨のため不使用）。`npm run build:css` で生成。 -->
+    <link rel="stylesheet" href="styles.css" />
     <link rel="preconnect" href="https://rsms.me" />
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <style>
@@ -66,6 +65,43 @@
           opacity: 0.2;
         }
       }
+      /* ヒーローの「開いたノートPC」モックアップ（インライン SVG・画像アセット不要）。 */
+      .laptop-stage {
+        position: relative;
+      }
+      .laptop-stage::before {
+        content: "";
+        position: absolute;
+        inset: -8% -6% 8% -6%;
+        z-index: 0;
+        background: radial-gradient(60% 55% at 50% 38%, rgba(34, 184, 196, 0.22), transparent 70%);
+        filter: blur(6px);
+        pointer-events: none;
+      }
+      .laptop {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 640px;
+        margin-inline: auto;
+        filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.5));
+      }
+      .laptop > svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      /* 画面領域: SVG（viewBox 1000×640）のスクリーン矩形 (130,34,740,474) に一致させて重ねる。 */
+      .laptop .screen-ui {
+        position: absolute;
+        left: 13%;
+        top: 5.31%;
+        width: 74%;
+        height: 74.06%;
+        overflow: hidden;
+        border-radius: 5px;
+        background: #0f161d;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -82,9 +118,14 @@
     <header class="sticky top-0 z-30 border-b border-white/5 bg-ink/70 backdrop-blur-md">
       <nav class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#top" class="flex items-center gap-2 font-semibold tracking-tight">
-          <span class="inline-block size-3 rounded-sm bg-know"></span>
-          <span class="inline-block size-3 -ml-1 rounded-sm bg-code"></span>
-          <span class="ml-1">DevDebtOps</span>
+          <!-- DevDebtOps デュアルループ・マーク（favicon / アプリロゴと統一） -->
+          <svg viewBox="0 0 32 32" fill="none" class="size-7" aria-hidden="true">
+            <path d="M8.21 11.5 A9 9 0 0 1 23.79 11.5" fill="none" stroke="#22b8c4" stroke-width="3.2" stroke-linecap="round" />
+            <path d="M25.09 13.75 L22.14 12.45 L25.44 10.55 Z" fill="#22b8c4" />
+            <path d="M23.79 20.5 A9 9 0 0 1 8.21 20.5" fill="none" stroke="#e0a23a" stroke-width="3.2" stroke-linecap="round" />
+            <path d="M6.91 18.25 L9.86 19.55 L6.56 21.45 Z" fill="#e0a23a" />
+          </svg>
+          <span>DevDebtOps</span>
         </a>
         <div class="hidden gap-7 text-sm text-slate-300 md:flex">
           <a href="#features" class="transition hover:text-white">機能</a>
@@ -101,80 +142,116 @@
     </header>
 
     <section id="top" class="grad">
-      <div class="mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
-        <p
-          class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
-        >
-          <span class="size-1.5 rounded-full bg-know"></span>
-          コードベースの理解度を実測する開発プラットフォーム
-        </p>
-        <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-[1.12] tracking-tight sm:text-6xl">
-          誰も理解していないコードを、<br class="hidden sm:block" />
-          <span class="text-know">可視化</span>して<span class="text-code">返済</span>する。
-        </h1>
-        <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-300">
-          GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
-          技術負債は AI が<strong class="font-semibold text-white">リファクタ PR</strong>で返す。
-          属人化と技術負債を、ひとつのダッシュボードで管理します。
-        </p>
-        <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <a
-            id="hero-cta"
-            href="/login"
-            class="rounded-lg bg-know px-6 py-3 font-semibold text-ink shadow-lg shadow-know/20 transition hover:brightness-110"
-            >リポジトリを接続して解析</a
+      <div class="mx-auto grid max-w-6xl items-center gap-12 px-6 pt-16 pb-24 lg:grid-cols-2 lg:gap-8 lg:pt-24">
+        <!-- 左: コピー -->
+        <div class="text-center lg:text-left">
+          <p
+            class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
           >
-          <a
-            href="#how"
-            class="rounded-lg px-6 py-3 font-medium text-slate-200 ring-1 ring-white/15 ring-inset transition hover:bg-white/10"
-            >仕組みを見る</a
-          >
-        </div>
-        <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
-
-        <!-- ヒーローの製品ビジュアル（アプリの構成を模したフレーム） -->
-        <div class="mx-auto mt-14 max-w-4xl rounded-xl border border-white/10 bg-[#0f161d] text-left shadow-2xl backdrop-blur">
-          <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-            <span class="size-2.5 rounded-full bg-red-400/60"></span>
-            <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
-            <span class="size-2.5 rounded-full bg-green-400/60"></span>
-            <span class="ml-3 text-xs text-slate-500">DevDebtOps — ダッシュボード</span>
+            <span class="size-1.5 rounded-full bg-know"></span>
+            コードベースの理解度を実測する開発プラットフォーム
+          </p>
+          <h1 class="text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">
+            誰も理解していないコードを、<br class="hidden sm:block" />
+            <span class="text-know">可視化</span>して<span class="text-code">返済</span>する。
+          </h1>
+          <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-300 lg:mx-0">
+            GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
+            技術負債は AI が<strong class="font-semibold text-white">リファクタ PR</strong>で返す。
+            属人化と技術負債を、ひとつのダッシュボードで管理します。
+          </p>
+          <div class="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+            <a
+              id="hero-cta"
+              href="/login"
+              class="rounded-lg bg-know px-6 py-3 font-semibold text-ink shadow-lg shadow-know/20 transition hover:brightness-110"
+              >リポジトリを接続して解析</a
+            >
+            <a
+              href="#how"
+              class="rounded-lg px-6 py-3 font-medium text-slate-200 ring-1 ring-white/15 ring-inset transition hover:bg-white/10"
+              >仕組みを見る</a
+            >
           </div>
-          <div class="flex">
-            <div class="hidden w-44 shrink-0 space-y-1 border-r border-white/10 p-3 text-xs text-slate-400 sm:block">
-              <div class="rounded bg-white/5 px-2 py-1 text-slate-200">ダッシュボード</div>
-              <div class="pt-1 text-[10px] tracking-wide text-know uppercase">理解負債</div>
-              <div class="px-2 py-1">理解度マップ</div>
-              <div class="px-2 py-1">クイズと学習</div>
-              <div class="pt-1 text-[10px] tracking-wide text-code uppercase">技術負債</div>
-              <div class="px-2 py-1">コード品質マップ</div>
-              <div class="px-2 py-1">コード改善</div>
-            </div>
-            <div class="flex-1 p-5">
-              <div class="flex items-center gap-5">
-                <div
-                  class="relative size-24 shrink-0 rounded-full"
-                  style="background: conic-gradient(#22b8c4 0 72%, rgba(255, 255, 255, 0.08) 0)"
-                >
-                  <div class="absolute inset-[9px] grid place-items-center rounded-full bg-[#0f161d] text-center">
-                    <div>
-                      <div class="text-xl font-bold">72%</div>
-                      <div class="text-[9px] text-slate-400">チーム理解度</div>
-                    </div>
-                  </div>
+          <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
+        </div>
+
+        <!-- 右: 開いたノートPCに映る DevDebtOps（CSS のみ・画像アセット不要） -->
+        <div class="laptop-stage">
+          <div class="laptop">
+            <!-- ノートPCの筐体（蓋・ベゼル・ヒンジ・土台）はベクターで描画 -->
+            <svg viewBox="0 0 1000 640" role="img" aria-label="DevDebtOps を表示したノートPC">
+              <defs>
+                <linearGradient id="deckGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#d6dce2" />
+                  <stop offset="0.5" stop-color="#9ca5af" />
+                  <stop offset="1" stop-color="#6f7882" />
+                </linearGradient>
+              </defs>
+              <!-- 蓋（ベゼル） -->
+              <rect x="112" y="18" width="776" height="506" rx="22" fill="#11181f" stroke="rgba(255,255,255,0.14)" stroke-width="3" />
+              <!-- スクリーン下地（この上に HTML のアプリ画面を重ねる） -->
+              <rect x="130" y="34" width="740" height="474" rx="6" fill="#0f161d" />
+              <!-- カメラ -->
+              <circle cx="500" cy="26" r="3.2" fill="#2b3542" />
+              <!-- ヒンジ -->
+              <rect x="150" y="524" width="700" height="9" rx="4" fill="#20262d" />
+              <!-- 土台（下へ広がる台形・銀色） -->
+              <path d="M100 534 H900 L938 566 Q947 574 936 574 H64 Q53 574 62 566 Z" fill="url(#deckGrad)" />
+              <!-- 開口ノッチ（手前のくぼみ） -->
+              <rect x="455" y="534" width="90" height="7" rx="3" fill="#20262d" />
+            </svg>
+
+            <!-- 画面に映る DevDebtOps（SVG のスクリーン矩形に重ねる） -->
+            <div class="screen-ui">
+              <div class="flex h-full flex-col text-left">
+                <!-- ウィンドウクロム -->
+                <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-1.5">
+                  <span class="size-2.5 rounded-full bg-red-400/60"></span>
+                  <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
+                  <span class="size-2.5 rounded-full bg-green-400/60"></span>
+                  <span class="ml-3 text-xs text-slate-500">DevDebtOps — ダッシュボード</span>
                 </div>
-                <div class="flex-1 space-y-2">
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="w-20 text-slate-400">理解度</span>
-                    <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-know" style="width: 72%"></div></div>
+                <div class="flex min-h-0 flex-1">
+                  <!-- サイドバー -->
+                  <div class="hidden w-36 shrink-0 space-y-1 overflow-hidden border-r border-white/10 p-3 text-xs text-slate-400 sm:block">
+                    <div class="rounded bg-white/5 px-2 py-1 text-slate-200">ダッシュボード</div>
+                    <div class="pt-1 text-[10px] tracking-wide text-know uppercase">理解負債</div>
+                    <div class="px-2 py-1">理解度マップ</div>
+                    <div class="px-2 py-1">クイズと学習</div>
+                    <div class="pt-1 text-[10px] tracking-wide text-code uppercase">技術負債</div>
+                    <div class="px-2 py-1">コード品質マップ</div>
+                    <div class="px-2 py-1">コード改善</div>
                   </div>
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="w-20 text-slate-400">コード品質</span>
-                    <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-code" style="width: 58%"></div></div>
-                  </div>
-                  <div class="flex gap-2 pt-1 text-xs">
-                    <span class="rounded bg-red-500/20 px-2 py-0.5 text-red-300">payment.ts · critical</span>
-                    <span class="rounded bg-know/15 px-2 py-0.5 text-know">認証フロー · 理解済み</span>
+                  <!-- 本体 -->
+                  <div class="flex flex-1 items-center p-4">
+                    <div class="flex w-full items-center gap-4">
+                      <div
+                        class="relative size-20 shrink-0 rounded-full"
+                        style="background: conic-gradient(#22b8c4 0 72%, rgba(255, 255, 255, 0.08) 0)"
+                      >
+                        <div class="absolute inset-[8px] grid place-items-center rounded-full bg-[#0f161d] text-center">
+                          <div>
+                            <div class="text-lg font-bold">72%</div>
+                            <div class="text-[9px] text-slate-400">チーム理解度</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex-1 space-y-2">
+                        <div class="flex items-center gap-2 text-xs">
+                          <span class="w-16 text-slate-400">理解度</span>
+                          <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-know" style="width: 72%"></div></div>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                          <span class="w-16 text-slate-400">コード品質</span>
+                          <div class="h-2 flex-1 rounded bg-white/10"><div class="h-2 rounded bg-code" style="width: 58%"></div></div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 pt-1 text-[11px]">
+                          <span class="rounded bg-red-500/20 px-2 py-0.5 text-red-300">payment.ts · critical</span>
+                          <span class="rounded bg-know/15 px-2 py-0.5 text-know">認証フロー · 理解済み</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -598,7 +675,7 @@
         id="foot-cta"
         href="/login"
         class="mt-8 inline-block rounded-md bg-know px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
-        >無料で始める</a
+        >リポジトリを接続して始める</a
       >
     </section>
 

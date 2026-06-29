@@ -311,6 +311,15 @@ export async function detectKnowledgeDebts(orgSlug: string, projectSlug: string)
   return analyzeStackJobSchema.parse(await response.json());
 }
 
+// agentic 解析（issue 069）: ADK Twin Agent を起動。202 {job_id} を返し、getJob でポーリングする。
+export async function runAgenticAnalysis(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agentic-analysis`, {
+    method: "POST",
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "Twin Agent 解析の開始に失敗しました"));
+  return analyzeStackJobSchema.parse(await response.json());
+}
+
 // 機能クラスタリング（issue 052）: 202 {job_id} を返し getJob でポーリング。features/feature_files を生成し、
 // 単元（063）・機能粒度ビュー（055/056）・機能スコープのクイズ（054）の前提になる。
 export async function clusterFeatures(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {

@@ -9,6 +9,7 @@ semantics, translated from queue-polling to HTTP push.
 """
 
 import logging
+import os
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
@@ -21,6 +22,14 @@ from service.dependencies import get_blob_client, verify_oidc
 from service.registry import PIPELINES
 from shared.queue import BlobClient
 from shared.worker import TransientTaskError, run_task
+
+# Configure application logging — uvicorn only configures its own loggers and leaves the
+# root logger at WARNING, so every INFO log from the pipelines and the Twin Agent (incl.
+# MCP toolset activity) is otherwise dropped and invisible in `docker logs`. Force the root
+# level even if a handler already exists (basicConfig is a no-op once handlers are set).
+_LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=_LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.getLogger().setLevel(_LOG_LEVEL)
 
 logger = logging.getLogger(__name__)
 

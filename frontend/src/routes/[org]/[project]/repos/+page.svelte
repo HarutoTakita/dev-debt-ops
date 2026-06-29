@@ -63,8 +63,8 @@
     void projectSlug;
     loadDebts();
   });
-  // 解析（コード負債検知）の完了で密度バッジ／パネルを再取得（issue 049 の仕組みを流用）。
-  refreshOnStageComplete(["detect_code"], loadDebts);
+  // 解析（agentic がコード負債を生成）の完了で密度バッジ／パネルを再取得（issue 049/069）。
+  refreshOnStageComplete(["agentic"], loadDebts);
 
   // stale-while-revalidate: キャッシュがあれば即表示（スピナーなし）し、裏で最新を取得して差し替える。
   // 同一リポジトリへ再訪したときの「リポジトリ表示が遅い」を解消する。初回のみ GitHub 取得を待つ。

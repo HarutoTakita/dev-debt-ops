@@ -61,6 +61,17 @@ def gemini_model() -> str:
     return os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 
+def gemini_timeout_ms() -> int:
+    """Client-side timeout (in milliseconds) for Gemini ``generate_content`` calls.
+
+    Without a timeout a stalled Vertex response blocks the worker indefinitely, leaving the
+    Job stuck in ``PROCESSING`` until the 1h stale-job reaper. Bounding the call makes it raise
+    (``httpx`` timeout → the ``_generate`` retry, or otherwise the worker's FAILED path) instead
+    of hanging forever. Generous by default since clustering prompts can be large.
+    """
+    return int(os.environ.get("GEMINI_TIMEOUT_MS", "120000"))
+
+
 def github_app_id() -> str:
     """GitHub App numeric id (method B: service mints installation tokens)."""
     return os.environ.get("GITHUB_APP_ID", "")
