@@ -3,25 +3,25 @@
     "title": "ログイン / お試しデモ入口",
     "route": "/login",
     "file": "docs/取扱説明書/images/screens/01-login.png",
-    "capturedAt": "2026-06-29T15:32:30.460Z"
+    "capturedAt": "2026-06-29T15:46:36.198Z"
   },
   "02-org-dashboard": {
     "title": "組織ダッシュボード（プロジェクト一覧）",
     "route": "/demo",
     "file": "docs/取扱説明書/images/screens/02-org-dashboard.png",
-    "capturedAt": "2026-06-29T15:32:23.953Z"
+    "capturedAt": "2026-06-29T15:46:37.180Z"
   },
   "03-overview": {
     "title": "プロジェクト概要 / 解析ラン・コックピット",
     "route": "/demo/sample-shop",
     "file": "docs/取扱説明書/images/screens/03-overview.png",
-    "capturedAt": "2026-06-29T15:32:25.298Z"
+    "capturedAt": "2026-06-29T15:46:38.328Z"
   },
   "04-matrix": {
     "title": "コード品質マップ（二軸マトリクス）",
     "route": "/demo/sample-shop/matrix",
     "file": "docs/取扱説明書/images/screens/04-matrix.png",
-    "capturedAt": "2026-06-29T15:32:26.446Z"
+    "capturedAt": "2026-06-29T15:46:39.220Z"
   },
   "05-matrix-detail": {
     "title": "負債の詳細（返済プラン・担当）",
@@ -33,13 +33,13 @@
     "title": "Knowledge Galaxy（理解度マップ）",
     "route": "/demo/sample-shop/galaxy",
     "file": "docs/取扱説明書/images/screens/06-galaxy.png",
-    "capturedAt": "2026-06-29T15:32:27.387Z"
+    "capturedAt": "2026-06-29T15:46:40.025Z"
   },
   "07-learning": {
     "title": "クイズと学習（統合ハブ）",
     "route": "/demo/sample-shop/learning",
     "file": "docs/取扱説明書/images/screens/07-learning.png",
-    "capturedAt": "2026-06-29T15:32:28.414Z"
+    "capturedAt": "2026-06-29T15:46:40.861Z"
   },
   "08-learning-code": {
     "title": "コード学習ウォークスルー",
@@ -69,7 +69,7 @@
     "title": "プロジェクト設定",
     "route": "/demo/sample-shop/settings",
     "file": "docs/取扱説明書/images/screens/12-settings.png",
-    "capturedAt": "2026-06-29T15:32:29.431Z"
+    "capturedAt": "2026-06-29T15:46:41.704Z"
   },
   "13-galaxy-list": {
     "title": "理解度マップ（リスト表示）",
@@ -102,10 +102,10 @@
     "capturedAt": "2026-06-29T14:08:11.366Z"
   },
   "18-new-project": {
-    "title": "新規プロジェクト作成（GitHub リポジトリ選択）",
+    "title": "新規プロジェクト作成（リポジトリ + 解析対象ブランチ選択）",
     "route": "/demo/sample-shop",
     "file": "docs/取扱説明書/images/screens/18-new-project.png",
-    "capturedAt": "2026-06-29T14:08:20.389Z"
+    "capturedAt": "2026-06-29T15:46:12.278Z"
   },
   "19-analysis-status": {
     "title": "解析ステータス（解析ラン・コックピット）",
