@@ -163,6 +163,7 @@
   "project_settings_members_label": "メンバー",
   "project_settings_members_desc": "このプロジェクトにアクセスできるユーザーを管理します。",
   "project_settings_save": "変更を保存",
+  "project_settings_saving": "保存中…",
   "project_settings_saved": "保存しました",
   "project_settings_save_failed": "保存に失敗しました",
   "project_settings_danger_title": "危険な操作",
