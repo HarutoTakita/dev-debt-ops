@@ -7,8 +7,10 @@
   import { Button } from "$lib/components/ui/button";
   import { project } from "$lib/stores/project-store.svelte";
   import { projectCreate } from "$lib/stores/project-create.svelte";
+  import { projectIconColor } from "$lib/stores/project-icon";
   import type { Project } from "$lib/api/schemas";
   import Skeleton from "$lib/components/ui-ext/skeleton.svelte";
+  import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
   const skeletonCards = Array.from({ length: 6 }, (_v, i) => i);
@@ -29,7 +31,7 @@
     class="group flex flex-col gap-2 rounded-lg border border-sidebar-border bg-surface-sunken p-4 transition-colors hover:border-debt-knowledge/50 hover:bg-accent/40"
   >
     <div class="flex items-center gap-2">
-      <span class="flex size-8 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge">
+      <span class={cn("flex size-8 shrink-0 items-center justify-center rounded", projectIconColor(p))}>
         <FolderGit2 class="size-4" />
       </span>
       <span class="min-w-0 flex-1 truncate font-medium">{p.name}</span>
