@@ -15,8 +15,10 @@ from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from service.agents.budget import RunBudget
+from service.agents.github_mcp import build_github_toolset
 from service.agents.plugin import TraceRecorderPlugin
 from service.agents.serena_mcp import build_serena_toolset
+from service.agents.trivy_mcp import build_trivy_toolset
 from service.agents.twin import build_twin_loop
 from service.services.github_git_client import GitHubGitClient
 
@@ -24,17 +26,36 @@ _APP_NAME = "rosetta-twin"
 
 
 async def run_twin_agent(
-    *, client: GitHubGitClient, owner: str, repo: str, branch: str, budget: RunBudget, repo_dir: str | None = None
+    *,
+    client: GitHubGitClient,
+    owner: str,
+    repo: str,
+    branch: str,
+    budget: RunBudget,
+    repo_dir: str | None = None,
+    github_token: str | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
     """Run the Twin Agent over one repository; return ``(agent_trace, recommendations)``.
 
-    When ``repo_dir`` (a checked-out repo tree) is given, the specialists also get the Serena (LSP)
-    MCP toolset for semantic navigation; without it they fall back to the REST-based repo tools.
+    Optional MCP toolsets ground the specialists: Serena + Trivy when ``repo_dir`` (a checked-out
+    tree) is given, and GitHub when ``github_token`` is given. Any that fail to start are simply
+    absent — the agent falls back to the REST-based repo tools (graceful).
     """
     recorder = TraceRecorderPlugin()
     recommendations: list[dict[str, str]] = []
     serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
-    root = build_twin_loop(client=client, budget=budget, recommendations=recommendations, serena_toolset=serena_toolset)
+    trivy_toolset = build_trivy_toolset() if repo_dir else None
+    github_toolset = build_github_toolset(github_token) if github_token else None
+    toolsets = [t for t in (serena_toolset, github_toolset, trivy_toolset) if t is not None]
+    root = build_twin_loop(
+        client=client,
+        budget=budget,
+        recommendations=recommendations,
+        serena_toolset=serena_toolset,
+        github_toolset=github_toolset,
+        trivy_toolset=trivy_toolset,
+        repo_dir=repo_dir,
+    )
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=_APP_NAME,
@@ -53,8 +74,8 @@ async def run_twin_agent(
             # The TraceRecorderPlugin records each event; we just drive the generator to completion.
             pass
     finally:
-        if serena_toolset is not None:
-            # Always shut down the Serena MCP stdio subprocess, even on error / budget abort.
+        # Always shut down every MCP stdio subprocess, even on error / budget abort.
+        for toolset in toolsets:
             with contextlib.suppress(Exception):
-                await serena_toolset.close()
+                await toolset.close()
     return recorder.trace, recommendations

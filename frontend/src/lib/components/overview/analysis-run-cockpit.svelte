@@ -10,6 +10,7 @@
     type StageStatus,
   } from "$lib/stores/analysis-run-store.svelte";
   import { auth } from "$lib/stores/auth.svelte";
+  import type { JobProgressStep } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
 
   // 解析は GitHub リポジトリの読み取りを伴うため、ゲストデモでは実行不可（issue 069）。
@@ -57,6 +58,28 @@
     COMPLETED: "text-success",
     FAILED: "text-destructive",
   };
+
+  // サブステップのライブ進捗（agentic ジョブが backbone 各段→学習生成→Twin Agent を進める様子, issue 069）。
+  const progress = $derived(analysisRun.stages["agentic"]?.progress ?? null);
+  const progressPct = $derived(progress && progress.total > 0 ? (progress.completed / progress.total) * 100 : 0);
+  const stepTone: Record<string, string> = {
+    pending: "text-muted-foreground",
+    running: "text-debt-knowledge",
+    completed: "text-success",
+    failed: "text-destructive",
+  };
+  function stepMark(status: string): string {
+    return status === "completed" ? "✓" : status === "failed" ? "×" : status === "running" ? "●" : "○";
+  }
+  // ブロックのバッジ状態を、属する子サブステップの進捗から導出（どのブロックがどこまで進んだかを示す）。
+  // 子が無い（progress 未取得）ときは従来のステージ集約状態にフォールバック。
+  function blockStatus(children: JobProgressStep[], fallback: StageStatus): StageStatus {
+    if (children.length === 0) return fallback;
+    if (children.some((s) => s.status === "failed")) return "FAILED";
+    if (children.every((s) => s.status === "completed")) return "COMPLETED";
+    if (children.some((s) => s.status === "running" || s.status === "completed")) return "PROCESSING";
+    return fallback;
+  }
 
   // グループの集約状態と、実行中サブステージのラベルを内部ステージ群から導出する。
   function groupView(g: StageGroupDef): { status: StageStatus; activeLabel: string | null } {
@@ -118,27 +141,62 @@
         </Button>
       </div>
     </div>
+    {#if progress && progress.steps.length > 0}
+      <!-- 全体進捗（確定プログレスバー）。各ブロックの子サブステップは下にネスト表示（issue 069）。 -->
+      <div class="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
+        <span>{m.analysis_progress_detail()}</span>
+        <span class="tabular-nums">{progress.completed}/{progress.total}</span>
+      </div>
+      <div class="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          class="h-full rounded-full bg-debt-knowledge/60 transition-all duration-500"
+          style={`width:${progressPct}%`}
+        ></div>
+      </div>
+    {/if}
     <ul class="flex flex-col gap-1.5">
       {#each STAGE_GROUPS as group (group.id)}
         {@const gv = groupView(group)}
-        <li class="flex items-center gap-3 rounded-md border bg-background/40 px-3 py-2 text-sm">
-          <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[gv.status]}`}>{statusLabel(gv.status)}</span>
-          <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
-          {#if gv.status === "COMPLETED" && group.deepLink}
-            <a
-              href={group.deepLink(ctx) as ResolvedPathname}
-              class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
-            >
-              {m.analysis_view()}
-            </a>
-          {:else if gv.status === "FAILED"}
-            <button
-              type="button"
-              onclick={() => retryGroup(group)}
-              class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
-            >
-              {m.analysis_retry_stage()}
-            </button>
+        {@const children = progress ? progress.steps.filter((s) => s.group === group.id) : []}
+        {@const bs = blockStatus(children, gv.status)}
+        <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
+          <div class="flex items-center gap-3">
+            <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[bs]}`}>{statusLabel(bs)}</span>
+            <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
+            {#if gv.status === "COMPLETED" && group.deepLink}
+              <a
+                href={group.deepLink(ctx) as ResolvedPathname}
+                class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
+              >
+                {m.analysis_view()}
+              </a>
+            {:else if gv.status === "FAILED"}
+              <button
+                type="button"
+                onclick={() => retryGroup(group)}
+                class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
+              >
+                {m.analysis_retry_stage()}
+              </button>
+            {/if}
+          </div>
+          {#if children.length > 0}
+            <!-- このブロックに属する内部サブステップ（どこまで・どの程度進んだか）。 -->
+            <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
+              {#each children as s (s.key)}
+                <li class="flex items-center gap-2 text-xs">
+                  <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
+                    {stepMark(s.status)}
+                  </span>
+                  <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
+                    {s.label}
+                  </span>
+                  {#if s.total != null && s.total > 0}
+                    <span class="shrink-0 text-muted-foreground tabular-nums">{s.done ?? 0}/{s.total}</span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
           {/if}
         </li>
       {/each}

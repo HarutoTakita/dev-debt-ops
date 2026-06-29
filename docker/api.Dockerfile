@@ -41,7 +41,13 @@ EXPOSE 8000
 
 # ── Stage: dev (hot-reload; app/ and shared/ are bind-synced by compose) ──────
 FROM base AS dev
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Apply migrations on boot — the dev DB volume is often recreated, so tables would
+# otherwise be missing (login etc. 500s on `relation "users" does not exist`).
+# compose `depends_on: db` is startup-order only (podman/WSL2 healthcheck timers don't
+# fire → no service_healthy gate), so the DB may not accept connections yet: retry
+# `alembic upgrade head` until it succeeds, then exec the reloader. `upgrade head` is
+# idempotent, so this is a no-op once the schema is current.
+CMD ["sh", "-c", "for i in $(seq 1 30); do alembic upgrade head && break; echo \"alembic upgrade head failed (attempt $i/30); waiting for db...\"; sleep 2; done; exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
 # ── Stage: runtime (prod; default target) — bake SPA, migrate on boot ─────────
 FROM base AS runtime

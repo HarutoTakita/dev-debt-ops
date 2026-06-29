@@ -1,0 +1,15 @@
+/* DevDebtOps LP の Tailwind 入力。`npm run build:css` で ./styles.css にコンパイルされる。
+   本番では cdn.tailwindcss.com（Play CDN・本番非推奨）を使わず、ここからビルドした CSS を同梱する。 */
+@import "tailwindcss";
+
+/* index.html のクラスを走査対象に明示（CLI 実行ディレクトリ＝landing/）。 */
+@source "./index.html";
+
+/* ブランドトークン（旧 tailwind.config の theme.extend を v4 の @theme へ移植）。
+   know=理解（ティール）/ code=コード（アンバー）/ ink=背景。Inter を既定 sans に。 */
+@theme {
+  --color-know: #22b8c4;
+  --color-code: #e0a23a;
+  --color-ink: #0c1116;
+  --font-sans: "Inter", system-ui, sans-serif;
+}

@@ -36,11 +36,11 @@
     })}
   >
     <span class="relative inline-block h-3 w-1 rounded-xs bg-current/20">
-      <span class="absolute bottom-0 left-0 w-full rounded-xs bg-current" style="height: {Math.round(code * 100)}%"
+      <span class="absolute bottom-0 left-0 w-full rounded-xs bg-current/60" style="height: {Math.round(code * 100)}%"
       ></span>
     </span>
     <span class="relative inline-block h-3 w-1 rounded-xs bg-current/20">
-      <span class="absolute bottom-0 left-0 w-full rounded-xs bg-current" style="height: {Math.round(know * 100)}%"
+      <span class="absolute bottom-0 left-0 w-full rounded-xs bg-current/60" style="height: {Math.round(know * 100)}%"
       ></span>
     </span>
   </span>
