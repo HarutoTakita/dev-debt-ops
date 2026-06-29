@@ -3,7 +3,7 @@
     "title": "ログイン / お試しデモ入口",
     "route": "/login",
     "file": "docs/取扱説明書/images/screens/01-login.png",
-    "capturedAt": "2026-06-29T16:29:51.787Z"
+    "capturedAt": "2026-06-29T16:58:15.434Z"
   },
   "02-org-dashboard": {
     "title": "組織ダッシュボード（プロジェクト一覧）",
@@ -27,7 +27,7 @@
     "title": "負債の詳細（返済プラン・担当）",
     "route": "/demo/sample-shop/matrix/aa324477-af4a-5ee3-8382-c6e2d526a633",
     "file": "docs/取扱説明書/images/screens/05-matrix-detail.png",
-    "capturedAt": "2026-06-29T16:17:38.719Z"
+    "capturedAt": "2026-06-29T16:58:16.720Z"
   },
   "06-galaxy": {
     "title": "Knowledge Galaxy（理解度マップ）",
@@ -45,7 +45,7 @@
     "title": "コード学習ウォークスルー",
     "route": "/demo/sample-shop/learning/code/ba52955c-34cf-593d-9f71-206466c4b09c",
     "file": "docs/取扱説明書/images/screens/08-learning-code.png",
-    "capturedAt": "2026-06-29T16:17:39.751Z"
+    "capturedAt": "2026-06-29T16:58:17.742Z"
   },
   "09-quiz-session": {
     "title": "クイズ受験（集中モード）",
@@ -63,7 +63,7 @@
     "title": "コード改善（ファイルツリー + 負債）",
     "route": "/demo/sample-shop/repos",
     "file": "docs/取扱説明書/images/screens/11-repos.png",
-    "capturedAt": "2026-06-29T16:17:41.352Z"
+    "capturedAt": "2026-06-29T16:58:19.373Z"
   },
   "12-settings": {
     "title": "プロジェクト設定",
