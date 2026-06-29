@@ -32,7 +32,8 @@
 
   function loadDebts() {
     loading = true;
-    listDebts(orgSlug, projectSlug, filter, sort)
+    // コード品質マップは技術負債のみのページ。種別フィルタは出さず、常に code 負債に固定する。
+    listDebts(orgSlug, projectSlug, { ...filter, kind: ["code"] }, sort)
       .then((res) => {
         debts = res.debts;
         loading = false;
