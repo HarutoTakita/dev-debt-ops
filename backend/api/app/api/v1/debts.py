@@ -20,7 +20,7 @@ from app.api.deps import CurrentUser, OrgAdminScope, OrgScope, SASessionDep, Ses
 from app.api.v1.github import GitHubClientDep, InstallationIdDep
 from app.models.org import OrgMember
 from app.models.user import User
-from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate
+from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate, RepaymentPrCreate
 from app.schemas.job import JobEnqueuedOut
 from app.services.debt_query import get_debt, list_debts
 from app.services.dependencies import get_blob_client, get_task_dispatcher
@@ -224,6 +224,7 @@ async def create_repayment_pr(
     session: SessionDep,
     dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
     blob: Annotated[BlobClient, Depends(get_blob_client)],
+    body: RepaymentPrCreate | None = None,
 ) -> JobEnqueuedOut:
     """Enqueue a ``repayment_pr_generation`` job for a code debt (GitHub write → 202, admin only)."""
     org, _ = org_membership
@@ -233,11 +234,13 @@ async def create_repayment_pr(
         raise HTTPException(status_code=404, detail="負債が見つかりません")
     if debt.status == "in_pr" and debt.related_pr:
         raise HTTPException(status_code=409, detail=f"既に返済 PR が作成済みです（{debt.related_pr}）")
+    # PR 先（base）ブランチ。指定が無ければプロジェクトの解析対象（既定）ブランチ。
+    base_branch = (body.base_branch if body and body.base_branch else project.default_branch) or "main"
     payload = {
         "debt_id": str(debt_id),
         "owner": project.repo_owner,
         "repo": project.repo_name,
-        "branch": project.default_branch or "main",
+        "branch": base_branch,
         "requested_by": str(current_user.id),  # audit only
         "github": {"installation_id": installation_id},
     }
