@@ -31,6 +31,7 @@ class CodeDebtOut(BaseModel):
     status: str
     detected_at: datetime
     related_pr: str | None
+    related_issue: str | None = None
     related_adr: str | None
     archaeology_notes: str
     code_snippet: str

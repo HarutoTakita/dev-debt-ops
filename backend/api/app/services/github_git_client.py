@@ -184,6 +184,31 @@ class GitHubGitClient:
             size=data.get("size", 0),
         )
 
+    async def create_issue(
+        self,
+        owner: str,
+        repo: str,
+        *,
+        title: str,
+        body: str,
+        assignees: list[str] | None = None,
+        labels: list[str] | None = None,
+    ) -> tuple[int, str]:
+        """Create a GitHub issue and return ``(number, html_url)``.
+
+        「人に頼む」返済経路（issue 210）で使う。assignees がリポジトリのコラボレーターでない場合 GitHub は
+        その指定を黙って無視する（issue 自体は作成される）ため、ここでは失敗扱いにしない。
+        """
+        payload: dict[str, object] = {"title": title, "body": body}
+        if assignees:
+            payload["assignees"] = assignees
+        if labels:
+            payload["labels"] = labels
+        resp = await self._client.post(f"/repos/{owner}/{repo}/issues", json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        return data["number"], data["html_url"]
+
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
         await self._client.aclose()

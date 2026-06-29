@@ -46,7 +46,7 @@ function upsertManifest(key: string, entry: Omit<ShotMeta, "capturedAt">): void 
 export async function shot(
   page: Page,
   key: string,
-  opts: { title: string; route?: string; fullPage?: boolean } = { title: "" },
+  opts: { title: string; route?: string; fit?: boolean } = { title: "" },
 ): Promise<string> {
   fs.mkdirSync(SHOT_ROOT, { recursive: true });
   const file = path.join(SHOT_ROOT, `${key}.png`);
@@ -74,7 +74,76 @@ export async function shot(
     })
     .catch(() => {});
 
-  await page.screenshot({ path: file, fullPage: opts.fullPage ?? false, animations: "disabled" });
+  // 画像は常に固定アスペクト比（= ビューポート 1440x900）で撮る。このアプリは h-screen シェル内で <main> だけが
+  // 内部スクロールするため、単に zoom してもシェルが縮むだけでクリップは解けない。そこで fit 時は
+  // (1) 内部スクロールを一旦解除してページ全体を自然な高さに流し、(2) 全高に合わせて zoom で 1 画面に収める。
+  // ただし長いリスト（コード品質マップ等）は無理に収めない: zoom が下限(0.7)を下回るほど縦長なら
+  // 解除・zoom せず、ビューポート上部をそのまま撮る。
+  const MIN_ZOOM = 0.7;
+  let adjusted = false;
+  if (opts.fit) {
+    const viewport = page.viewportSize();
+    // 内部スクロールを解除して全コンテンツ高を測る（解除した要素には data-shot-unlocked を付け、後で復元）。
+    const fullHeight = await page
+      .evaluate(() => {
+        const main = document.querySelector("main");
+        if (!main) return 0;
+        const touch = (el: HTMLElement) => {
+          el.dataset.shotUnlocked = "1";
+          el.style.overflow = "visible";
+          el.style.height = "auto";
+          el.style.minHeight = "0";
+        };
+        touch(main as HTMLElement);
+        let el = main.parentElement;
+        while (el && el !== document.body) {
+          touch(el);
+          el = el.parentElement;
+        }
+        return Math.ceil(document.documentElement.scrollHeight);
+      })
+      .catch(() => 0);
+
+    const restore = () =>
+      page.evaluate(() => {
+        document.documentElement.style.removeProperty("zoom");
+        for (const el of document.querySelectorAll<HTMLElement>("[data-shot-unlocked]")) {
+          el.style.removeProperty("overflow");
+          el.style.removeProperty("height");
+          el.style.removeProperty("min-height");
+          delete el.dataset.shotUnlocked;
+        }
+      });
+
+    if (viewport && fullHeight > viewport.height) {
+      const zoom = (viewport.height - 16) / fullHeight; // 下端に少し余白
+      if (zoom >= MIN_ZOOM) {
+        await page.evaluate((z) => document.documentElement.style.setProperty("zoom", String(z)), zoom);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(300); // zoom 後のレイアウト/チャート再描画を待つ
+        adjusted = true;
+      } else {
+        await restore(); // 収まらない長いページは解除を戻し、ビューポート上部をそのまま撮る
+      }
+    } else {
+      await restore(); // もともと収まるページは変更不要
+    }
+  }
+
+  // 常にビューポート撮影（固定アスペクト比）。fit 時は解除 + zoom で全体を 1 画面に収めている。
+  await page.screenshot({ path: file, animations: "disabled" });
+
+  if (adjusted) {
+    await page.evaluate(() => {
+      document.documentElement.style.removeProperty("zoom");
+      for (const el of document.querySelectorAll<HTMLElement>("[data-shot-unlocked]")) {
+        el.style.removeProperty("overflow");
+        el.style.removeProperty("height");
+        el.style.removeProperty("min-height");
+        delete el.dataset.shotUnlocked;
+      }
+    });
+  }
   upsertManifest(key, {
     title: opts.title || key,
     route: opts.route ?? new URL(page.url()).pathname,

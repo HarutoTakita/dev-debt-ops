@@ -29,7 +29,7 @@ test("クイズ受験フローを撮影（best-effort）", async ({ page }) => {
 
     await page.waitForURL(/\/result$/, { timeout: 10_000 }).catch(() => {});
     if (/\/result$/.test(page.url())) {
-      await shot(page, "10-quiz-result", { title: "クイズ採点結果（理解度の更新）", fullPage: true });
+      await shot(page, "10-quiz-result", { title: "クイズ採点結果（理解度の更新）", fit: true });
     }
   } catch (e) {
     console.warn("skip quiz flow:", String(e));

@@ -78,7 +78,7 @@ jobs:
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 25
+                "maxSessionTurns": 60
               },
               "mcpServers": {
                 "github": {

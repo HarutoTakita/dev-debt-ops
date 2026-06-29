@@ -55,12 +55,28 @@
     <GranularitySwitch value={granularity} onChange={onGranularity} />
   {/if}
 
+  <!-- 優先対応リスト（file 粒度では凡例の下、feature/folder では推移グラフの隣に置く） -->
+  {#snippet priorityCard()}
+    <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
+      <PriorityList {orgSlug} {projectSlug} files={overview.files} />
+      {#if dangerCount > 0}
+        <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+          >{m.overview_view_all_danger({ count: dangerCount })} →</a
+        >
+      {/if}
+    </div>
+  {/snippet}
+
   <!-- 一次ビュー: granularity=file は二軸負債マトリクス、feature/folder は機能/フォルダ単位の理解負債リスト -->
   <div data-tour="overview-primary">
     {#if granularity === "file"}
       <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-        <QuadrantLegend {orgSlug} {projectSlug} />
+        <!-- 右列: 凡例は自然な高さ（コンパクト）にし、余白に優先対応リストを積む -->
+        <div class="flex flex-col gap-4">
+          <QuadrantLegend {orgSlug} {projectSlug} />
+          {@render priorityCard()}
+        </div>
       </div>
     {:else}
       <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
@@ -91,21 +107,17 @@
     </StatCard>
   </div>
 
-  <!-- 推移グラフ + 優先対応リストを横並び（広い画面）。狭い画面では縦積み。 -->
-  <div class="grid gap-4 lg:grid-cols-2">
-    <!-- 推移グラフ -->
+  <!-- 推移グラフ。file 粒度では優先対応リストを上へ移したので全幅、feature/folder では隣に優先対応リスト -->
+  {#if granularity === "file"}
     <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
       <DebtTrendStrata trend={overview.trend} />
     </div>
-
-    <!-- 二次ビュー: 優先対応リスト -->
-    <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
-      <PriorityList {orgSlug} {projectSlug} files={overview.files} />
-      {#if dangerCount > 0}
-        <a href={dangerHref} class="mt-3 inline-block text-xs font-medium text-primary hover:underline"
-          >{m.overview_view_all_danger({ count: dangerCount })} →</a
-        >
-      {/if}
+  {:else}
+    <div class="grid gap-4 lg:grid-cols-2">
+      <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
+        <DebtTrendStrata trend={overview.trend} />
+      </div>
+      {@render priorityCard()}
     </div>
-  </div>
+  {/if}
 </div>

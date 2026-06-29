@@ -294,6 +294,7 @@ export const codeDebtSchema = z.object({
   status: z.enum(["open", "in_pr", "resolved", "dismissed"]),
   detected_at: z.iso.datetime({ offset: true }),
   related_pr: z.string().nullable(),
+  related_issue: z.string().nullable().default(null),
   related_adr: z.string().nullable(),
   archaeology_notes: z.string(),
   code_snippet: z.string(),
