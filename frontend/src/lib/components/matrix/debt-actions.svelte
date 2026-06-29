@@ -129,20 +129,22 @@
   }
 
   // ジョブを「生成中…」表示でポーリングし、完了で PR リンク通知 + 永続状態をクリアする。
-  async function runPoll(jobId: string, notify: boolean) {
+  // notifySuccess: 成功トーストを出すか（復元時は抑制）。失敗は復元時も含めて常に通知する。
+  async function runPoll(jobId: string, notifySuccess: boolean) {
     prGenerating = true;
     try {
       const url = await pollPrJob(jobId);
       writeJob(debt.id, null);
       await invalidateAll();
-      if (notify) {
+      if (notifySuccess) {
         if (url)
           toast.success(m.debt_pr_created(), { action: { label: m.debt_open_pr(), onClick: () => openLink(url) } });
         else toast.success(m.debt_pr_created());
       }
     } catch (e) {
+      // 失敗（GitHub 403・権限不足など）はリロード復元時でも必ず可視化する。
       writeJob(debt.id, null);
-      if (notify) toast.error(e instanceof Error ? e.message : m.common_error_generic());
+      toast.error(e instanceof Error ? e.message : m.common_error_generic());
     } finally {
       prGenerating = false;
     }
