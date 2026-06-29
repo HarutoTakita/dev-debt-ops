@@ -45,6 +45,8 @@ class CodeDebt(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )
     related_pr: str | None = Field(default=None)
+    # 「人に頼む」経路で作成した GitHub issue の URL（担当割当 + issue 作成、issue 210）。
+    related_issue: str | None = Field(default=None)
     related_adr: str | None = Field(default=None)
     # 検知根拠の人間可読文（"循環的複雑度 24" 等）。
     archaeology_notes: str = Field(default="", nullable=False)
