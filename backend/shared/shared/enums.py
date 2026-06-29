@@ -32,6 +32,7 @@ class JobType(StrEnum):
     CODE_DEBT_LOOP = "code_debt_loop"
     KNOWLEDGE_DEBT_LOOP = "knowledge_debt_loop"
     FEATURE_CLUSTERING = "feature_clustering"  # Gemini でファイル群を機能へクラスタリング (issue 052)
+    AGENTIC_ANALYSIS = "agentic_analysis"  # ADK Twin Agent オーケストレータ (issue 069)
 
 
 class Granularity(StrEnum):

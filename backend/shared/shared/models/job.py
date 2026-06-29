@@ -31,6 +31,10 @@ class Job(SQLModel, table=True):
     status: JobStatus = Field(default=JobStatus.QUEUED, sa_type=String, index=True)
     payload: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     result_data: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Live progress for long multi-step jobs (issue 069): the service updates this in its OWN
+    # short-lived transaction as backbone sub-steps / agent phases advance, so the frontend's
+    # GET /jobs/{id} poll sees granular progress *before* the single terminal result commit.
+    progress: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     error: str | None = Field(default=None)
     created_by: uuid.UUID | None = Field(default=None, index=True)
     project_id: uuid.UUID | None = Field(default=None, index=True)
