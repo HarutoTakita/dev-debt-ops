@@ -7,12 +7,15 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select as sa_select
+from sqlmodel import col
 
 from app.api.deps import CurrentUser, SASessionDep, get_github_app_service
 from app.core.config import settings
 from app.models.oauth_account import OAuthAccount
+from app.models.project import Project
 from app.services.github_app import GitHubAppService
 from app.services.github_git_client import GitHubGitClient
+from shared.models import CodeDebt
 
 router = APIRouter(prefix="/github", tags=["GitHub"])
 
@@ -176,6 +179,97 @@ async def resolve_github_client(
 GitHubClientDep = Annotated[GitHubGitClient, Depends(resolve_github_client)]
 
 
+async def resolve_github_client_optional(
+    github_app: Annotated[GitHubAppService, Depends(get_github_app_service)],
+    current_user: CurrentUser,
+    session: SASessionDep,
+) -> AsyncGenerator[GitHubGitClient | None]:
+    """Yield a GitHub client, or ``None`` for guest-demo users (issue 069).
+
+    The read-only repo-browse routes (repositories / branches / tree / contents) accept this so a
+    demo guest gets seeded sample data instead of a 403 — making the "コード改善" file browser and the
+    new-project repo picker demoable. Write/analysis routes keep using the strict ``GitHubClientDep``.
+    """
+    if current_user.is_demo:
+        yield None
+        return
+    installation_id = await resolve_installation_id(current_user, session, github_app)
+    token = await github_app.get_installation_token(installation_id)
+    client = GitHubGitClient(access_token=token)
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+
+OptionalGitHubClientDep = Annotated[GitHubGitClient | None, Depends(resolve_github_client_optional)]
+
+
+# Seeded repositories shown in the new-project picker for guest-demo users (issue 069 — no GitHub).
+_DEMO_REPOSITORIES = [
+    RepositoryOut(
+        owner="devdebtops",
+        name="sample-shop",
+        full_name="devdebtops/sample-shop",
+        default_branch="main",
+        private=False,
+        updated_at="2026-06-20T09:12:00Z",
+    ),
+    RepositoryOut(
+        owner="devdebtops",
+        name="checkout-service",
+        full_name="devdebtops/checkout-service",
+        default_branch="main",
+        private=True,
+        updated_at="2026-06-18T14:03:00Z",
+    ),
+    RepositoryOut(
+        owner="devdebtops",
+        name="marketing-site",
+        full_name="devdebtops/marketing-site",
+        default_branch="main",
+        private=False,
+        updated_at="2026-06-15T08:41:00Z",
+    ),
+    RepositoryOut(
+        owner="devdebtops",
+        name="mobile-app",
+        full_name="devdebtops/mobile-app",
+        default_branch="main",
+        private=False,
+        updated_at="2026-06-12T19:25:00Z",
+    ),
+    RepositoryOut(
+        owner="devdebtops",
+        name="data-pipeline",
+        full_name="devdebtops/data-pipeline",
+        default_branch="main",
+        private=True,
+        updated_at="2026-06-09T11:50:00Z",
+    ),
+]
+
+
+async def _demo_project(session: SASessionDep, owner: str, repo: str) -> Project | None:
+    """Return the project whose repo matches ``owner/repo`` (used to serve seeded demo repo data)."""
+    result = await session.execute(
+        sa_select(Project).where(col(Project.repo_owner) == owner, col(Project.repo_name) == repo)
+    )
+    return result.scalars().first()
+
+
+async def _demo_code_debts(session: SASessionDep, owner: str, repo: str) -> dict[str, CodeDebt]:
+    """Return ``file_path -> CodeDebt`` for the demo project's files (the seeded file universe + sources)."""
+    project = await _demo_project(session, owner, repo)
+    if project is None:
+        return {}
+    result = await session.execute(sa_select(CodeDebt).where(col(CodeDebt.project_id) == project.id))
+    by_path: dict[str, CodeDebt] = {}
+    for debt in result.scalars().all():
+        by_path.setdefault(debt.file_path, debt)
+    return by_path
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -183,11 +277,13 @@ GitHubClientDep = Annotated[GitHubGitClient, Depends(resolve_github_client)]
 
 @router.get("/repositories", response_model=RepositoryListOut, summary="リポジトリ一覧")
 async def list_repositories(
-    client: GitHubClientDep,
+    client: OptionalGitHubClientDep,
     page: int = 1,
     per_page: int = 30,
 ) -> RepositoryListOut:
     """Return a paginated list of repositories accessible via the GitHub App installation."""
+    if client is None:  # guest demo (issue 069) — seeded sample repos for the new-project picker.
+        return RepositoryListOut(repositories=_DEMO_REPOSITORIES, page=1, has_more=False, app_slug="")
     try:
         result = await client.list_repositories(page=page, per_page=per_page)
     except httpx.HTTPStatusError as e:
@@ -219,9 +315,11 @@ async def list_repositories(
 async def list_branches(
     owner: str,
     repo: str,
-    client: GitHubClientDep,
+    client: OptionalGitHubClientDep,
 ) -> BranchListOut:
     """Return all branches for a repository, marking the default branch."""
+    if client is None:  # guest demo — single default branch.
+        return BranchListOut(branches=[BranchOut(name="main", is_default=True)])
     try:
         branches = await client.list_branches(owner, repo)
     except httpx.HTTPStatusError as e:
@@ -237,10 +335,20 @@ async def list_branches(
 async def get_repository_tree(
     owner: str,
     repo: str,
-    client: GitHubClientDep,
+    client: OptionalGitHubClientDep,
+    session: SASessionDep,
     branch: str = "main",
 ) -> TreeOut:
     """Return the recursive file tree for a repository branch."""
+    if client is None:  # guest demo — build a blob list from the seeded file universe (file-tree folds dirs).
+        by_path = await _demo_code_debts(session, owner, repo)
+        return TreeOut(
+            tree=[
+                TreeItemOut(path=path, type="blob", size=len(debt.code_snippet or "")) for path, debt in by_path.items()
+            ],
+            branch=branch,
+            truncated=False,
+        )
     try:
         items = await client.get_repository_tree(owner, repo, branch)
     except httpx.HTTPStatusError as e:
@@ -260,13 +368,20 @@ async def get_repository_tree(
 async def get_file_content(
     owner: str,
     repo: str,
-    client: GitHubClientDep,
+    client: OptionalGitHubClientDep,
+    session: SASessionDep,
     path: str = "",
     ref: str = "main",
 ) -> FileContentOut:
     """Return the decoded content of a file in the repository."""
     if not path:
         raise HTTPException(status_code=422, detail="path is required")
+    if client is None:  # guest demo — serve the seeded snippet for this file.
+        by_path = await _demo_code_debts(session, owner, repo)
+        debt = by_path.get(path)
+        if debt is None or debt.code_snippet is None:
+            raise HTTPException(status_code=404, detail="file not found")
+        return FileContentOut(path=path, content=debt.code_snippet, sha="demo", size=len(debt.code_snippet))
     try:
         fc = await client.get_file_content(owner, repo, path, ref)
     except httpx.HTTPStatusError as e:

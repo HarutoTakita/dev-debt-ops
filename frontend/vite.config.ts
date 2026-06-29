@@ -1,10 +1,18 @@
+import { readFileSync } from "node:fs";
+
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 
+// アプリのバージョンを package.json から読み、ビルド時に __APP_VERSION__ として埋め込む。
+const appVersion = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")).version as string;
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [
     tailwindcss(),
     paraglideVitePlugin({

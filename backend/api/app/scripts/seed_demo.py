@@ -74,6 +74,17 @@ DEMO_REPO_NAME = "sample-shop"
 DEMO_REPO_FULL_NAME = "devdebtops/sample-shop"
 DEMO_DEFAULT_BRANCH = "main"
 
+# Extra metadata-only projects so the sidebar has several to group into sections / star
+# (issue 069 demo; the sections/stars themselves are client-side — frontend project-sections store).
+# These carry no analysis rows; they exist to populate the project switcher.
+_EXTRA_PROJECTS: list[tuple[str, str]] = [
+    ("billing-service", "請求サービス"),
+    ("inventory-api", "在庫API"),
+    ("marketing-site", "マーケLP"),
+    ("internal-tools", "社内ツール"),
+    ("mobile-app", "モバイルアプリ"),
+]
+
 # The "現在" snapshot all latest-run screens read. A fixed commit so re-runs reuse the same runs.
 _HEAD_COMMIT = "0691a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9"
 
@@ -694,6 +705,33 @@ async def _ensure_org_and_project(session: AsyncSession, user_id: uuid.UUID) -> 
     return org, project
 
 
+async def _ensure_extra_projects(session: AsyncSession, org: Org, user_id: uuid.UUID) -> None:
+    """Create metadata-only extra projects in the demo org (idempotent).
+
+    They have no analysis rows — their purpose is to give the sidebar several projects to
+    organize into starred / sections (client-side feature). Deterministic uuid5 ids keep re-runs stable.
+    """
+    for slug, name in _EXTRA_PROJECTS:
+        project_id = _u("project", DEMO_ORG_SLUG, slug)
+        if await _get(session, Project, project_id) is None:
+            session.add(
+                Project(
+                    id=project_id,
+                    org_id=org.id,
+                    name=name,
+                    slug=slug,
+                    repo_owner=DEMO_REPO_OWNER,
+                    repo_name=slug,
+                    repo_full_name=f"{DEMO_REPO_OWNER}/{slug}",
+                    default_branch=DEMO_DEFAULT_BRANCH,
+                    repo_private=False,
+                    github_repo_id=None,
+                    created_by=user_id,
+                )
+            )
+    await session.commit()
+
+
 async def _ensure_runs(session: AsyncSession, project: Project) -> None:
     """Create one COMPLETED AnalysisRun per analysis kind for the demo project (idempotent)."""
     created_at = datetime.now(UTC)
@@ -1101,7 +1139,8 @@ async def seed(session: AsyncSession) -> Project:
         The demo ``Project`` row.
     """
     user_id = await _resolve_demo_user_id()
-    _, project = await _ensure_org_and_project(session, user_id)
+    org, project = await _ensure_org_and_project(session, user_id)
+    await _ensure_extra_projects(session, org, user_id)
     await _ensure_runs(session, project)
 
     kc_run = _run_id(JobType.KC_ANALYSIS)
