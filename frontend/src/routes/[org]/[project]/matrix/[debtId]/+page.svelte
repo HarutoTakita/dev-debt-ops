@@ -37,7 +37,7 @@
 
     <!-- 本体: 左 = 該当コード + 根拠 / 右 = メタパネル -->
     <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-      <div class="flex flex-col gap-3">
+      <div class="flex min-w-0 flex-col gap-3">
         <div class="overflow-hidden rounded-lg border bg-card">
           <div class="border-b px-3 py-1.5 text-xs text-muted-foreground">{m.debt_evidence()}</div>
           <div class="max-h-80 overflow-auto">

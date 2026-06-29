@@ -28,6 +28,9 @@ class JobRead(BaseModel):
     error: str | None = Field(default=None, description="Error summary when status is FAILED.")
     agent_trace: list[str] = Field(default_factory=list, description="Human-traceable agent steps (stack_analysis).")
     tech_stack: dict | None = Field(default=None, description="Persisted TechStack when a stack_analysis job is done.")
+    progress: dict | None = Field(
+        default=None, description="Live sub-step progress for long jobs (agentic); null when not reported."
+    )
     created_at: datetime = Field(..., description="When the job was enqueued.")
     started_at: datetime | None = Field(default=None, description="When the service began processing.")
     completed_at: datetime | None = Field(default=None, description="When the job reached COMPLETED / FAILED.")

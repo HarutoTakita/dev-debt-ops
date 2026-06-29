@@ -67,3 +67,6 @@ playwright-report/
 # ── Secrets ──
 gcp-sa-key.json
 secrets/*.json
+
+# ── Reference material (not part of the project; scratch/competitor LP saved for reference) ──
+参考LP/

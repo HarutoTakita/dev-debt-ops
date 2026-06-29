@@ -10,6 +10,7 @@ ungenerated). Reuses ``learning_plan_generation.process`` / ``quiz_generation.pr
 
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -142,8 +143,16 @@ async def _generate_quiz(
     )
 
 
-async def generate_learning_and_quizzes(request: AgenticAnalysisRequest, ctx: PipelineContext) -> list[str]:
-    """Generate a learning plan + baseline quiz per clustered feature, for the run's requester."""
+async def generate_learning_and_quizzes(
+    request: AgenticAnalysisRequest,
+    ctx: PipelineContext,
+    on_progress: Callable[[int, int], Awaitable[None]] | None = None,
+) -> list[str]:
+    """Generate a learning plan + baseline quiz per clustered feature, for the run's requester.
+
+    ``on_progress(done, total)`` (optional) is awaited after each feature so the caller can surface
+    per-feature progress (e.g. "学習・クイズ生成 2/5") on the live cockpit.
+    """
     session = ctx.session
     if session is None:
         return []
@@ -158,8 +167,11 @@ async def generate_learning_and_quizzes(request: AgenticAnalysisRequest, ctx: Pi
         return ["[generate] 機能クラスタ未完了のため学習/クイズ生成をスキップ"]
 
     features = (await session.execute(select(Feature).where(col(Feature.run_id) == run.id))).scalars().all()
+    total = len(features)
+    if on_progress is not None:
+        await on_progress(0, total)
     steps: list[str] = []
-    for feature in features:
+    for index, feature in enumerate(features):
         try:
             await _generate_plan(session, ctx, request, feature, developer_id)
             steps.append(f"[generate] learning plan: {feature.key}")
@@ -172,4 +184,6 @@ async def generate_learning_and_quizzes(request: AgenticAnalysisRequest, ctx: Pi
         except Exception as exc:
             logger.exception("quiz generation failed for feature %s", feature.key)
             steps.append(f"[generate] quiz {feature.key} failed: {exc}")
+        if on_progress is not None:
+            await on_progress(index + 1, total)
     return steps

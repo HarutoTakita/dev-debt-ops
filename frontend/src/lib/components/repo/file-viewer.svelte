@@ -8,7 +8,7 @@
     size: number;
     loading: boolean;
     /**
-     * 知識オーバーレイ層。ソース層の上に重ねる KC ヒートマップ行 / 考古学注釈を後続 issue が描く。
+     * 知識オーバーレイ層。ソース層の上に重ねる KC ヒートマップ行 / コード注釈を後続 issue が描く。
      * 本 issue では未使用（二層構造の土台のみ用意）。
      */
     overlayRow?: Snippet;
@@ -82,7 +82,8 @@
   });
 </script>
 
-<div class="flex h-full flex-col">
+<!-- min-w-0: flex/grid 親の中でコード(<pre>)の長い行が横にレイアウトを押し広げず、内部で横スクロールするように -->
+<div class="flex h-full min-w-0 flex-col">
   {#if !path}
     <div class="flex h-full items-center justify-center text-sm text-muted-foreground">ファイルを選択してください</div>
   {:else if loading}

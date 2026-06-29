@@ -59,6 +59,43 @@ _VENDORED_DIRS: frozenset[str] = frozenset(
         ".gradle",
         "Pods",
         "Carthage",
+        # デプロイバンドル（pip インストール先をリポジトリに同梱するもの）・パッケージング成果物。
+        "lambda_package",
+        "lambda_packages",
+        ".serverless",
+        ".aws-sam",
+        ".tox",
+        ".nox",
+        ".eggs",
+        "eggs",
+        "wheels",
+    }
+)
+
+# セグメント名そのものではなく*パターン*で判定する除外（任意名のバンドルでも拾える）:
+#  - ``*.dist-info`` / ``*.egg-info`` / ``*.egg``: pip / setuptools がインストールしたパッケージのメタデータ。
+_VENDORED_SEGMENT_RE = re.compile(r".+\.(?:dist-info|egg-info|egg)$", re.IGNORECASE)
+
+# 開発者が自前モジュールとして書くことがまず無い、ユビキタスな第三者パッケージのトップレベル名。
+# AWS Lambda 等のデプロイバンドル（任意ディレクトリ名）に同梱された installed module を、親ディレクトリ名に
+# 依存せず除外するための補助シグナル（例: ``lambda_package/urllib3/connection.py``）。誤検知を避けるため
+# 「自前命名と衝突しにくい」名前に限定する。
+_VENDORED_PACKAGE_NAMES: frozenset[str] = frozenset(
+    {
+        "botocore",
+        "boto3",
+        "s3transfer",
+        "jmespath",
+        "urllib3",
+        "certifi",
+        "charset_normalizer",
+        "idna",
+        "dateutil",
+        "six",
+        "pkg_resources",
+        "setuptools",
+        "pip",
+        "wheel",
     }
 )
 
@@ -66,10 +103,15 @@ _VENDORED_DIRS: frozenset[str] = frozenset(
 def is_vendored_path(path: str) -> bool:
     """Whether a path is an installed-dependency / generated / tooling file (node_modules, .venv, dist, build …).
 
-    いずれかのパスセグメントが ``_VENDORED_DIRS`` に一致したら True。解析パイプラインはこれを
-    使って「開発者が書いていないファイル」を一律に除外する。
+    次のいずれかに該当したら True（解析パイプラインはこれで「開発者が書いていないファイル」を一律除外）:
+      - セグメントが ``_VENDORED_DIRS`` に一致（例: ``frontend/node_modules/…``、``…/lambda_package/…``）
+      - セグメントが ``*.dist-info`` / ``*.egg-info`` / ``*.egg``（pip/setuptools のパッケージメタデータ）
+      - セグメントがユビキタスな第三者パッケージ名（``_VENDORED_PACKAGE_NAMES``）＝任意名バンドル内の installed module
     """
-    return any(segment in _VENDORED_DIRS for segment in path.split("/"))
+    for segment in path.split("/"):
+        if segment in _VENDORED_DIRS or segment in _VENDORED_PACKAGE_NAMES or _VENDORED_SEGMENT_RE.match(segment):
+            return True
+    return False
 
 
 # Decision-point keywords per language family (base complexity is 1).

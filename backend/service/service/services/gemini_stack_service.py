@@ -14,6 +14,7 @@ import google.auth
 import google.auth.exceptions
 import httpx
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from service import config
@@ -112,28 +113,55 @@ def _build_client() -> genai.Client:
         project=project,
         location=location,
         credentials=credentials,
+        # Bound every request so a stalled Vertex response can't hang the worker forever
+        # (a timeout surfaces as an httpx error → the _generate retry / the run_task FAILED path).
+        http_options=types.HttpOptions(timeout=config.gemini_timeout_ms()),
     )
+
+
+# HTTP statuses worth retrying with backoff: 429 (RESOURCE_EXHAUSTED / quota & rate limits),
+# 503 (UNAVAILABLE) and 500 (transient server error). 4xx other than 429 are caller bugs — don't retry.
+_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 503})
+_GENERATE_MAX_ATTEMPTS = 6
+_GENERATE_BASE_BACKOFF_SECONDS = 2.0
+
+
+def _is_retryable_generate_error(exc: Exception) -> bool:
+    """Whether a generate_content error is worth retrying (transport blip or 429/5xx)."""
+    if isinstance(exc, httpx.TransportError):  # disconnect / connect / read / timeout
+        return True
+    if isinstance(exc, genai_errors.APIError):
+        return getattr(exc, "code", None) in _RETRYABLE_STATUS
+    return False
 
 
 async def _generate(
     client: genai.Client, *, model: str, contents: str, config: types.GenerateContentConfig
 ) -> types.GenerateContentResponse:
-    """Call Gemini generate_content, retrying transient transport errors (e.g. server disconnect/timeout).
+    """Call Gemini generate_content with exponential backoff on transient / rate-limit errors.
 
-    Vertex/Gemini occasionally drops the connection ("Server disconnected without sending a response."),
-    which previously failed a whole analysis stage (e.g. feature_clustering). Retry a few times with
-    backoff so a transient blip does not fail the run. Non-transient errors propagate unchanged.
+    Retries transport blips (disconnect/timeout) and HTTP 429 (Vertex quota / rate limit) / 5xx,
+    which otherwise fail a whole analysis stage (e.g. feature_clustering) — the backbone fires many
+    Gemini calls in quick succession and can momentarily exhaust the per-minute quota. Backoff is
+    exponential (2,4,8,16,32s) so a per-minute quota window has time to reset. Non-retryable errors
+    (other 4xx) propagate unchanged.
     """
-    attempts = 3
     last: Exception | None = None
-    for attempt in range(attempts):
+    for attempt in range(_GENERATE_MAX_ATTEMPTS):
         try:
             return await client.aio.models.generate_content(model=model, contents=contents, config=config)
-        except httpx.TransportError as e:  # disconnect / connect / read / timeout
+        except (httpx.TransportError, genai_errors.APIError) as e:
+            if not _is_retryable_generate_error(e):
+                raise
             last = e
-            logger.warning("Gemini generate_content transient error (attempt %s/%s): %s", attempt + 1, attempts, e)
-            if attempt < attempts - 1:
-                await asyncio.sleep(1.5 * (attempt + 1))
+            logger.warning(
+                "Gemini generate_content retryable error (attempt %s/%s): %s",
+                attempt + 1,
+                _GENERATE_MAX_ATTEMPTS,
+                e,
+            )
+            if attempt < _GENERATE_MAX_ATTEMPTS - 1:
+                await asyncio.sleep(_GENERATE_BASE_BACKOFF_SECONDS * (2**attempt))
     if last is not None:
         raise last
     raise RuntimeError("Gemini generate_content failed without an exception")

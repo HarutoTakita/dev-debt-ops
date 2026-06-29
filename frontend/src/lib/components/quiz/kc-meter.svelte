@@ -20,7 +20,7 @@
 <div class="flex items-center gap-3">
   <span class="font-display text-2xl font-semibold tabular-nums">{formatKcPct(pct.current / 100)}</span>
   <div class="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-    <div class="h-full rounded-full bg-debt-knowledge" style="width: {pct.current}%"></div>
+    <div class="h-full rounded-full bg-debt-knowledge/60" style="width: {pct.current}%"></div>
   </div>
   <span class="text-sm font-medium text-success">+{Math.round((after - before) * 100)}pt</span>
 </div>

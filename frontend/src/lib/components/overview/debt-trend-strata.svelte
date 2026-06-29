@@ -60,7 +60,7 @@
                   role="img"
                   aria-label="{m.overview_trend_legend_debt()} {quality(p)}%（{weekLabel(p.week)}）"
                 >
-                  <div class="w-full rounded-t bg-debt-code" style="height: {quality(p)}%"></div>
+                  <div class="w-full rounded-t bg-debt-code/60" style="height: {quality(p)}%"></div>
                   <span
                     class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/q:opacity-100"
                     style="bottom: calc({quality(p)}% + 3px)"
@@ -73,7 +73,10 @@
                   role="img"
                   aria-label="{m.overview_trend_legend_kc()} {pct(p.knowledge_coverage)}%（{weekLabel(p.week)}）"
                 >
-                  <div class="w-full rounded-t bg-debt-knowledge" style="height: {pct(p.knowledge_coverage)}%"></div>
+                  <div
+                    class="w-full rounded-t bg-debt-knowledge/60"
+                    style="height: {pct(p.knowledge_coverage)}%"
+                  ></div>
                   <span
                     class="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2 rounded bg-foreground px-1 text-[9px] leading-tight whitespace-nowrap text-background tabular-nums opacity-0 transition-opacity group-hover/k:opacity-100"
                     style="bottom: calc({pct(p.knowledge_coverage)}% + 3px)"

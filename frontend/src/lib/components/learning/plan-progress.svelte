@@ -20,7 +20,7 @@
     <span class="font-medium">{m.learning_progress()}</span>
   </div>
   <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-    <div class="h-full rounded-full bg-debt-knowledge" style="width: {pct}%"></div>
+    <div class="h-full rounded-full bg-debt-knowledge/60" style="width: {pct}%"></div>
   </div>
   <p class="mt-1.5 text-xs text-muted-foreground tabular-nums">
     {m.learning_progress_steps({ done, total })} · {complete

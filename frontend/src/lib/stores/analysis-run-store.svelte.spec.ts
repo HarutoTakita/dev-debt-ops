@@ -57,7 +57,10 @@ describe("AnalysisRunStore", () => {
   it("a stage already running is not re-enqueued (dedup)", async () => {
     const store = new AnalysisRunStore();
     store.pollIntervalMs = 1;
-    store.stages = { ...store.stages, agentic: { status: "PROCESSING", jobId: "x", step: "", link: null } };
+    store.stages = {
+      ...store.stages,
+      agentic: { status: "PROCESSING", jobId: "x", step: "", link: null, progress: null },
+    };
     await store.runStage("agentic", CTX);
     expect(mocks.runAgenticAnalysis).not.toHaveBeenCalled();
   });

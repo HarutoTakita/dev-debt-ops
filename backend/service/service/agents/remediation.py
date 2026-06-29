@@ -14,7 +14,7 @@ from google.adk.agents import LlmAgent
 
 from service.agents.budget import RunBudget
 from service.agents.hooks import make_before_model_callback, make_before_tool_callback
-from service.agents.model import vertex_model_name
+from service.agents.model import build_agent_model
 
 ACTIONS = frozenset({"quiz", "learning", "repayment_pr"})
 
@@ -53,7 +53,7 @@ def build_remediation_tools(recommendations: list[dict[str, str]]) -> list[Calla
 def build_remediation_agent(*, recommendations: list[dict[str, str]], budget: RunBudget) -> LlmAgent:
     """Build the Remediation Strategist ``LlmAgent`` (records quiz/learning/PR decisions)."""
     return LlmAgent(
-        model=vertex_model_name(),
+        model=build_agent_model(),
         name="remediation_strategist",
         instruction=_REMEDIATION_INSTRUCTION,
         tools=list(build_remediation_tools(recommendations)),

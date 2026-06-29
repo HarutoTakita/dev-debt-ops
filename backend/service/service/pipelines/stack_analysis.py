@@ -242,6 +242,33 @@ def build_tools(github_client: GitHubGitClient, session: AsyncSession):
     return list_key_files, read_file, classify_stack, save_stack
 
 
+async def populate_tech_stack(
+    github_client: GitHubGitClient,
+    session: AsyncSession,
+    owner: str,
+    repo: str,
+    branch: str = "main",
+) -> None:
+    """Detect + persist the repo's tech stack deterministically (no LLM agent).
+
+    The agentic backbone needs ``tech_stacks`` populated *reliably* (it feeds the learning
+    plan's "技術スタックを学ぶ" section via ``_stack_terms``). The ADK stack agent
+    (``run_stack_analysis``) is not dependable here — it sometimes stops after
+    ``classify_stack`` without ever calling ``save_stack``, leaving the table empty. This runs
+    the same tools in a fixed sequence (list key files → read → ``analyze_tech_stack`` → upsert),
+    so the judgement-free detection always persists. Flushes only; ``run_task`` owns the commit.
+    """
+    list_key_files, read_file, classify_stack, save_stack = build_tools(github_client, session)
+    paths = await list_key_files(owner, repo, branch)
+    files: dict[str, str] = {}
+    for path in paths:
+        content = await read_file(owner, repo, path, branch)
+        if content:
+            files[path] = content
+    result = await classify_stack(files)
+    await save_stack(owner, repo, branch, result)
+
+
 def create_stack_agent(
     github_client: GitHubGitClient,
     session: AsyncSession,
