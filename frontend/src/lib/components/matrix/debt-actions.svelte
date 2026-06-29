@@ -3,12 +3,13 @@
   import UserPlus from "@lucide/svelte/icons/user-plus";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
+  import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import { invalidateAll } from "$app/navigation";
   import { toast } from "svelte-sonner";
   import { Button } from "$lib/components/ui/button";
   import * as Dialog from "$lib/components/ui/dialog";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
-  import { createDebtIssue, createRepaymentPr, listBranches } from "$lib/api/client";
+  import { createDebtIssue, createRepaymentPr, getDebt, getJob, listBranches } from "$lib/api/client";
   import type { Branch, DebtItem } from "$lib/api/schemas";
   import { members } from "$lib/stores/members-store.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
@@ -27,6 +28,7 @@
   let busy = $state(false);
   let prOpen = $state(false);
   let issueOpen = $state(false);
+  let prGenerating = $state(false); // 修正 PR を非同期生成中（「生成中…」表示）
 
   // 担当候補（ワークスペースのメンバー）。
   $effect(() => {
@@ -86,13 +88,45 @@
     return lines.join("\n");
   });
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // 修正 PR ジョブ（非同期）を完了まで待ち、生成された PR の URL を返す。失敗時は例外。
+  async function pollPrJob(jobId: string): Promise<string | null> {
+    for (let i = 0; i < 90; i++) {
+      const job = await getJob(jobId);
+      if (job.status === "COMPLETED") {
+        const updated = await getDebt(orgSlug, projectSlug, debt.id);
+        return updated.kind === "code" ? (updated.related_pr ?? null) : null;
+      }
+      if (job.status === "FAILED" || job.status === "CANCELLED") {
+        throw new Error(job.error ?? m.common_error_generic());
+      }
+      await sleep(2000);
+    }
+    return null; // タイムアウト（生成が長い）。セクションの再読込で後追い表示される。
+  }
+
+  function openLink(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   async function confirmPr() {
     busy = true;
     try {
-      await createRepaymentPr(orgSlug, projectSlug, debt.id, baseBranch || undefined);
-      toast.success(m.debt_repayment_pr_started());
+      const job = await createRepaymentPr(orgSlug, projectSlug, debt.id, baseBranch || undefined);
       prOpen = false;
-      await invalidateAll();
+      // AI が修正案を生成 → PR 作成までを「生成中…」で表示し、完了したらリンク通知。
+      prGenerating = true;
+      toast.info(m.debt_repayment_pr_started());
+      try {
+        const url = await pollPrJob(job.job_id);
+        await invalidateAll();
+        if (url)
+          toast.success(m.debt_pr_created(), { action: { label: m.debt_open_pr(), onClick: () => openLink(url) } });
+        else toast.success(m.debt_pr_created());
+      } finally {
+        prGenerating = false;
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : m.common_error_generic());
     } finally {
@@ -103,10 +137,15 @@
   async function confirmIssue() {
     busy = true;
     try {
-      await createDebtIssue(orgSlug, projectSlug, debt.id, assigneeUserId || undefined);
-      toast.success(m.debt_issue_created());
+      const updated = await createDebtIssue(orgSlug, projectSlug, debt.id, assigneeUserId || undefined);
       issueOpen = false;
       await invalidateAll();
+      const url = updated.kind === "code" ? updated.related_issue : null;
+      if (url)
+        toast.success(m.debt_issue_created(), {
+          action: { label: m.debt_open_issue(), onClick: () => openLink(url) },
+        });
+      else toast.success(m.debt_issue_created());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : m.common_error_generic());
     } finally {
@@ -135,6 +174,11 @@
         {m.debt_view_pr()}
       </a>
       <!-- eslint-enable svelte/no-navigation-without-resolve -->
+    {:else if prGenerating}
+      <span class="mt-auto inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <LoaderCircle class="size-3.5 animate-spin" />
+        {m.debt_pr_generating()}
+      </span>
     {:else}
       <Button class="mt-auto w-fit" variant="outline" size="sm" disabled={busy} onclick={() => (prOpen = true)}>
         {m.debt_action_create_pr()}
