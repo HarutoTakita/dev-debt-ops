@@ -17,26 +17,17 @@ export const PROJECT_ICON_COLORS = [
   "bg-teal-500/15 text-teal-500",
 ];
 
-/** 文字列を安定したハッシュ値へ（id から擬似ランダムに色を選ぶ。並べ替え・削除で色がぶれない）。 */
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 /**
  * プロジェクトのアイコン色クラスを返す。
- * 最初に作成された（最古の）プロジェクトはパレット先頭の既存色を維持し、それ以外は id から
- * 安定的に擬似ランダムでパレット[1..] を割り当てる。`projectStore.list`（$state）を読むため
- * `$derived` 内で呼べばリアクティブに追従する。
+ * 作成順（古い順）でパレットを巡回して割り当てる（セクションの色方式と同じ）。最古 =
+ * パレット先頭の既存色。これにより先頭から PROJECT_ICON_COLORS.length 件までは色が重複しない。
+ * `projectStore.list`（$state）を読むため `$derived` 内で呼べばリアクティブに追従する。
  */
 export function projectIconColor(project: Project): string {
-  const list = projectStore.list;
-  const oldest = list.reduce<Project | null>(
-    (acc, p) => (acc === null || p.created_at < acc.created_at ? p : acc),
-    null,
-  );
-  if (oldest && project.id === oldest.id) return PROJECT_ICON_COLORS[0];
-  const rest = PROJECT_ICON_COLORS.length - 1;
-  return PROJECT_ICON_COLORS[1 + (hashString(project.id) % rest)];
+  const ordered = [...projectStore.list].sort((a, b) => {
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
+    return a.id < b.id ? -1 : 1; // created_at 同値時の安定タイブレーク
+  });
+  const idx = ordered.findIndex((p) => p.id === project.id);
+  return PROJECT_ICON_COLORS[(idx < 0 ? 0 : idx) % PROJECT_ICON_COLORS.length];
 }
