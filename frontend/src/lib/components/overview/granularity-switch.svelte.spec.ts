@@ -11,9 +11,10 @@ describe("GranularitySwitch", () => {
     expect(onChange).toHaveBeenCalledWith("feature");
   });
 
-  it("renders class/function as disabled (coming soon)", async () => {
+  it("does not render the removed class/function granularities", async () => {
     render(GranularitySwitch, { value: "file", onChange: () => {} });
-    await expect.element(page.getByRole("button", { name: "クラス" })).toBeDisabled();
-    await expect.element(page.getByRole("button", { name: "関数" })).toBeDisabled();
+    await expect.element(page.getByRole("button", { name: "ファイル" })).toBeInTheDocument();
+    expect(page.getByRole("button", { name: "クラス" }).query()).toBeNull();
+    expect(page.getByRole("button", { name: "関数" }).query()).toBeNull();
   });
 });
