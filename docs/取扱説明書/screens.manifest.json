@@ -3,7 +3,7 @@
     "title": "ログイン / お試しデモ入口",
     "route": "/login",
     "file": "docs/取扱説明書/images/screens/01-login.png",
-    "capturedAt": "2026-06-29T16:58:15.434Z"
+    "capturedAt": "2026-06-29T17:59:37.826Z"
   },
   "02-org-dashboard": {
     "title": "組織ダッシュボード（プロジェクト一覧）",
