@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from app.api.deps import CurrentUser, OrgAdminScope, OrgScope, SASessionDep, SessionDep
-from app.api.v1.github import InstallationIdDep
+from app.api.v1.github import GitHubClientDep, InstallationIdDep
 from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate
 from app.schemas.job import JobEnqueuedOut
 from app.services.debt_query import get_debt, list_debts
@@ -249,3 +249,95 @@ async def create_repayment_pr(
         project_id=project.id,
     )
     return JobEnqueuedOut(job_id=job.id, status=job.status)
+
+
+def _issue_body(debt: CodeDebt, file_path: str) -> str:
+    """Build the GitHub issue body for the 人に頼む remediation path (issue 210)."""
+    lines = [
+        f"## 技術負債: `{file_path}`",
+        "",
+        f"- 種別: {debt.type}",
+        f"- 深刻度: {debt.severity}",
+        f"- 推定返済コスト: 約 {debt.estimated_repay_hours} 時間",
+        f"- 理解度(KC): {round(debt.knowledge_coverage * 100)}%",
+        "",
+        "### 検知根拠",
+        debt.archaeology_notes or "（記録なし）",
+    ]
+    if debt.code_snippet:
+        lines += ["", "### 該当コード", "```", debt.code_snippet.rstrip("\n"), "```"]
+    lines += ["", "---", "DevDebtOps の「人に頼む」返済経路から作成されました。"]
+    return "\n".join(lines)
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/debts/{debt_id}/issue",
+    response_model=DebtItemOut,
+    summary="担当を割り当てて GitHub issue を作成する（人に頼む経路, org 管理者）",
+)
+async def create_debt_issue(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    debt_id: uuid.UUID,
+    body: DebtUpdate,
+    org_membership: OrgAdminScope,
+    github: GitHubClientDep,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> DebtItemOut:
+    """Assign a developer (optional) and open a GitHub issue for a code debt (GitHub write, admin only).
+
+    「人に頼む」返済経路（issue 210）: 担当者(GitHubハンドル)を割り当ててから issue を作成し、その URL を
+    ``code_debts.related_issue`` に保存する。issue 作成は軽量なので同期で行う（返済PRのような非同期ジョブは不要）。
+    冪等性: 既に related_issue があれば再作成せず 409。
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    debt = await session.get(CodeDebt, debt_id)
+    if debt is None or debt.project_id != project.id:
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+    if debt.related_issue:
+        raise HTTPException(status_code=409, detail=f"既に Issue が作成済みです（{debt.related_issue}）")
+
+    handle = body.assignee_github_handle
+    if handle:
+        existing = (
+            await session.execute(
+                select(AssignedDeveloper).where(
+                    col(AssignedDeveloper.debt_kind) == "code",
+                    col(AssignedDeveloper.debt_id) == debt_id,
+                    col(AssignedDeveloper.github_handle) == handle,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            session.add(
+                AssignedDeveloper(
+                    debt_kind="code",
+                    debt_id=debt_id,
+                    github_handle=handle,
+                    coverage=body.assignee_coverage or 0.0,
+                    certified_via=body.assignee_certified_via,
+                )
+            )
+
+    title = f"[技術負債] {debt.file_path} の{debt.type}（{debt.severity}）"
+    try:
+        _number, issue_url = await github.create_issue(
+            project.repo_owner,
+            project.repo_name,
+            title=title,
+            body=_issue_body(debt, debt.file_path),
+            assignees=[handle] if handle else None,
+            labels=["tech-debt"],
+        )
+    except Exception as e:  # GitHub 失敗はそのまま 502 で返す
+        raise HTTPException(status_code=502, detail="GitHub issue の作成に失敗しました") from e
+
+    debt.related_issue = issue_url
+    session.add(debt)
+    await session.commit()
+
+    result = await get_debt(session, project, debt_id)
+    if result is None:  # pragma: no cover - just updated
+        raise HTTPException(status_code=404, detail="負債が見つかりません")
+    return result

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { toast } from "svelte-sonner";
   import type { CodeDebt } from "$lib/api/schemas";
-  import { createRepaymentPr, dismissDebt } from "$lib/api/client";
+  import { createRepaymentPr } from "$lib/api/client";
   import { Button } from "$lib/components/ui/button";
   import DebtStatusBadge from "$lib/components/matrix/debt-status-badge.svelte";
   import { categoryLabel, severityLabel } from "$lib/components/matrix/labels";
@@ -52,14 +52,6 @@
                 act(d.id, () => createRepaymentPr(orgSlug, projectSlug, d.id), m.debt_repayment_pr_started())}
             >
               {m.debt_action_create_pr()}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy === d.id || d.status === "dismissed"}
-              onclick={() => act(d.id, () => dismissDebt(orgSlug, projectSlug, d.id), m.project_settings_saved())}
-            >
-              {m.debt_action_dismiss()}
             </Button>
           </div>
         </li>
