@@ -367,7 +367,107 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "    smtp.send(order.email, body)\n"
     ),
 }
-_DEFAULT_SNIPPET = "# 該当コード断片（デモ用ダミー）"
+
+
+def _snippet_for(file_path: str, dtype: str) -> str:
+    """Return a realistic-looking source snippet for a demo file.
+
+    Curated files use ``_DEMO_SNIPPETS``; everything else gets a plausible snippet generated from the
+    file extension (.py / .ts / .svelte) and debt ``type`` (dead / duplicate / complexity / other), so the
+    detail page never shows a "デモ用ダミー" placeholder.
+    """
+    stem = file_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    ext = file_path.rsplit(".", 1)[-1]
+    snake = stem.replace("-", "_")
+    pascal = "".join(p.capitalize() for p in snake.split("_"))
+
+    if ext == "py":
+        if dtype == "complexity":
+            return (
+                f"def {snake}(ctx, *, retries=3):\n"
+                "    if ctx.enabled:\n"
+                "        for item in ctx.items:\n"
+                "            if item.valid and not item.skip:\n"
+                "                if item.weight > threshold(ctx):\n"
+                "                    apply(item)  # 深いネスト / 循環的複雑度が高い\n"
+                "    return ctx.result\n"
+            )
+        if dtype == "duplicate":
+            return (
+                f"def {snake}_a(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (1/3)\n\n"
+                f"def {snake}_b(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (2/3)\n\n"
+                f"def {snake}_c(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (3/3)\n"
+            )
+        if dtype == "dead":
+            return (
+                f"def {snake}(req):\n"
+                "    return handle(req)\n\n"
+                f"def _legacy_{snake}(req):  # どこからも呼ばれない未到達パス（dead）\n"
+                "    return req.get('legacy')\n"
+            )
+        return (
+            f"def {snake}(query, params):\n"
+            "    try:\n"
+            "        return run(query, params)\n"
+            "    except Exception:\n"
+            "        pass  # 例外の握り潰し / 戻り値の型ヒント欠落\n"
+        )
+
+    if ext in ("ts", "tsx", "js"):
+        if dtype == "complexity":
+            return (
+                f"export function {snake}(input: Input): Result {{\n"
+                "  if (input.enabled) {\n"
+                "    for (const it of input.items) {\n"
+                "      if (it.valid && !it.skip) {\n"
+                "        if (it.weight > threshold(input)) apply(it); // 深いネスト / 複雑度が高い\n"
+                "      }\n"
+                "    }\n"
+                "  }\n"
+                "  return input.result;\n"
+                "}\n"
+            )
+        if dtype == "duplicate":
+            return (
+                "function mapA(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (1/3)\n"
+                "function mapB(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (2/3)\n"
+                "function mapC(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (3/3)\n"
+            )
+        if dtype == "dead":
+            return (
+                f"export function {snake}(req: Req) {{\n  return handle(req);\n}}\n\n"
+                f"function legacy{pascal}(req: Req) {{ // 未使用・未到達（dead）\n  return req.legacy;\n}}\n"
+            )
+        return (
+            f"export function {snake}(data: any) {{ // any 型 / エラー握り潰し\n"
+            "  try {\n"
+            "    return parse(data);\n"
+            "  } catch {\n"
+            "    return null;\n"
+            "  }\n"
+            "}\n"
+        )
+
+    # .svelte（種別に応じたにおいのコメントを添える）
+    smell = {
+        "complexity": "テンプレートとロジックが密結合で分岐が多い",
+        "duplicate": "近接コンポーネントとマークアップが重複",
+        "dead": "参照されない props / 到達しないブロックあり",
+        "other": "型注釈が緩く副作用が見通しにくい",
+    }.get(dtype, "軽微な品質の問題あり")
+    return (
+        '<script lang="ts">\n'
+        f"  // {stem}.svelte — {smell}\n"
+        "  export let data;\n"
+        "  function handle() {\n"
+        "    /* ... */\n"
+        "  }\n"
+        "</script>\n\n"
+        "<div on:click={handle}>{data?.label}</div>\n"
+    )
 
 
 # Assigned developers per debt (debt natural key → list of (handle, coverage, certified_via)).
@@ -583,7 +683,7 @@ def _walkthrough_for(source_ref: str) -> tuple[str, list[dict]]:
     Uses the file's demo snippet (or the default) as inline source and splits it into a couple of
     line-anchored steps, so the code-理解 walkthrough renders without fetching source from GitHub.
     """
-    content = _DEMO_SNIPPETS.get(source_ref, _DEFAULT_SNIPPET)
+    content = _DEMO_SNIPPETS.get(source_ref) or _snippet_for(source_ref, "other")
     total = max(1, len(content.rstrip("\n").split("\n")))
     if total <= 2:
         return content, [
@@ -872,7 +972,7 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     status="open",
                     detected_at=now,
                     archaeology_notes=notes,
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, dtype),
                     code_debt_score=score,
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=ai_prob,
@@ -912,7 +1012,7 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     status="open",
                     detected_at=now,
                     archaeology_notes=_notes[dtype],
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, dtype),
                     code_debt_score=score,
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=round(score * 0.6, 2),
@@ -941,7 +1041,7 @@ async def _ensure_knowledge_debts(session: AsyncSession, project: Project, run_i
                     severity=severity,
                     status="open",
                     detected_at=now,
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, "other"),
                     code_debt_score=score,
                     knowledge_coverage=kc,
                     ai_generation_prob=ai_prob,
