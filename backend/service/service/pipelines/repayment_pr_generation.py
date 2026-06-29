@@ -78,7 +78,7 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
     if debt.status == "in_pr" and debt.related_pr:
         return _result(request, pr_number=None, pr_url=None, branch=None, trace=[f"already in_pr ({debt.related_pr})"])
 
-    head_branch = f"rosetta/repay-{request.debt_id[:8]}"
+    head_branch = f"devdebtops/fix-{request.debt_id[:8]}"
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:

@@ -2,10 +2,12 @@
   import Bot from "@lucide/svelte/icons/bot";
   import UserPlus from "@lucide/svelte/icons/user-plus";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import { invalidateAll } from "$app/navigation";
   import { toast } from "svelte-sonner";
   import { Button } from "$lib/components/ui/button";
   import * as Dialog from "$lib/components/ui/dialog";
+  import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { createDebtIssue, createRepaymentPr, listBranches } from "$lib/api/client";
   import type { Branch, DebtItem } from "$lib/api/schemas";
   import { members } from "$lib/stores/members-store.svelte";
@@ -48,10 +50,14 @@
     const names = branches.map((b) => b.name);
     return !baseBranch || names.includes(baseBranch) ? names : [baseBranch, ...names];
   });
+  const defaultBranchName = $derived(branches.find((b) => b.is_default)?.name ?? "");
+  // アプリ標準のドロップダウン Trigger 用クラス（設定ページ等と共通）。
+  const triggerClass =
+    "flex h-9 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
 
   // プレビュー用の派生値。
   const fileName = $derived(debt.file_path.split("/").pop() ?? debt.file_path);
-  const headBranch = $derived(`rosetta/repay-${debt.id.slice(0, 8)}`);
+  const headBranch = $derived(`devdebtops/fix-${debt.id.slice(0, 8)}`);
   const prTitle = $derived(`[修正] ${fileName} を改善`);
   const assigneeLabel = $derived(
     assigneeUserId
@@ -107,9 +113,6 @@
       busy = false;
     }
   }
-
-  const selectClass =
-    "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
 </script>
 
 <div class="grid gap-3 sm:grid-cols-2">
@@ -179,12 +182,22 @@
       </div>
       <div class="flex items-center justify-between gap-3">
         <dt class="shrink-0 text-muted-foreground">{m.debt_pr_base_label()}</dt>
-        <dd class="w-48">
-          <select bind:value={baseBranch} class={selectClass} aria-label={m.debt_pr_base_label()}>
-            {#each branchNames as b (b)}
-              <option value={b}>{b}</option>
-            {/each}
-          </select>
+        <dd>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger class={`${triggerClass} w-48`} aria-label={m.debt_pr_base_label()}>
+              <span class="truncate">{baseBranch}{defaultBranchName === baseBranch ? " (default)" : ""}</span>
+              <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end" class="max-h-72 min-w-48 overflow-y-auto">
+              <DropdownMenu.RadioGroup bind:value={baseBranch}>
+                {#each branchNames as b (b)}
+                  <DropdownMenu.RadioItem value={b}
+                    >{b}{defaultBranchName === b ? " (default)" : ""}</DropdownMenu.RadioItem
+                  >
+                {/each}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </dd>
       </div>
       <div class="flex justify-between gap-3">
@@ -213,12 +226,22 @@
     <div class="flex flex-col gap-3 text-sm">
       <div class="flex items-center justify-between gap-3">
         <span class="shrink-0 text-muted-foreground">{m.debt_issue_field_assignee()}</span>
-        <select bind:value={assigneeUserId} class={`${selectClass} w-56`} aria-label={m.debt_issue_field_assignee()}>
-          <option value="">{m.debt_issue_assignee_unset()}</option>
-          {#each memberList as mem (mem.user_id)}
-            <option value={mem.user_id}>{mem.user.display_name ?? mem.user.email}</option>
-          {/each}
-        </select>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger class={`${triggerClass} w-56`} aria-label={m.debt_issue_field_assignee()}>
+            <span class="truncate">{assigneeLabel || m.debt_issue_assignee_unset()}</span>
+            <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content align="end" class="max-h-72 min-w-56 overflow-y-auto">
+            <DropdownMenu.RadioGroup bind:value={assigneeUserId}>
+              <DropdownMenu.RadioItem value="">{m.debt_issue_assignee_unset()}</DropdownMenu.RadioItem>
+              {#each memberList as mem (mem.user_id)}
+                <DropdownMenu.RadioItem value={mem.user_id}
+                  >{mem.user.display_name ?? mem.user.email}</DropdownMenu.RadioItem
+                >
+              {/each}
+            </DropdownMenu.RadioGroup>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
       </div>
       <div>
         <div class="text-muted-foreground">{m.debt_issue_field_title()}</div>
