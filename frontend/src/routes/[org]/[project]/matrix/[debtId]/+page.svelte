@@ -5,7 +5,7 @@
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
   import DebtMetaPanel from "$lib/components/matrix/debt-meta-panel.svelte";
   import DebtStatusBadge from "$lib/components/matrix/debt-status-badge.svelte";
-  import DebtActions from "$lib/components/matrix/debt-actions.svelte";
+  import CodeImprovement from "$lib/components/matrix/code-improvement.svelte";
   import * as m from "$lib/paraglide/messages";
 
   let { data } = $props();
@@ -33,31 +33,34 @@
       <DebtStatusBadge status={debt.status} />
     </div>
 
-    <DebtActions {orgSlug} {projectSlug} {debt} />
-
-    <!-- 本体: 左 = 該当コード + 根拠 / 右 = メタパネル -->
-    <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-      <div class="flex min-w-0 flex-col gap-3">
-        <div class="overflow-hidden rounded-lg border bg-card">
-          <div class="border-b px-3 py-1.5 text-xs text-muted-foreground">{m.debt_evidence()}</div>
-          <div class="max-h-80 overflow-auto">
-            <FileViewer
-              path={debt.file_path}
-              content={debt.code_snippet}
-              size={debt.code_snippet.length}
-              loading={false}
-            />
+    {#if debt.kind === "code"}
+      <!-- コード改善: 該当コードを行ハイライト + 「なぜ品質が低いか」を解説（PR は作らない） -->
+      <h2 class="font-display text-sm font-semibold">{m.code_improve_detail_heading()}</h2>
+      <CodeImprovement {debt} />
+      <DebtMetaPanel {debt} />
+    {:else}
+      <!-- 理解負債: 該当コード + 補足 / 右 = メタパネル -->
+      <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <div class="flex min-w-0 flex-col gap-3">
+          <div class="overflow-hidden rounded-lg border bg-card">
+            <div class="border-b px-3 py-1.5 text-xs text-muted-foreground">{m.debt_evidence()}</div>
+            <div class="max-h-80 overflow-auto">
+              <FileViewer
+                path={debt.file_path}
+                content={debt.code_snippet}
+                size={debt.code_snippet.length}
+                loading={false}
+              />
+            </div>
+          </div>
+          <div class="rounded-lg border bg-card p-4">
+            <div class="text-xs font-medium text-muted-foreground">{m.debt_archaeology()}</div>
+            <p class="mt-1.5 text-sm leading-relaxed">{m.debt_knowledge_note()}</p>
           </div>
         </div>
-        <div class="rounded-lg border bg-card p-4">
-          <div class="text-xs font-medium text-muted-foreground">{m.debt_archaeology()}</div>
-          <p class="mt-1.5 text-sm leading-relaxed">
-            {#if debt.kind === "code"}{debt.archaeology_notes}{:else}{m.debt_knowledge_note()}{/if}
-          </p>
-        </div>
-      </div>
 
-      <DebtMetaPanel {debt} />
-    </div>
+        <DebtMetaPanel {debt} />
+      </div>
+    {/if}
   </div>
 </Tooltip.Provider>

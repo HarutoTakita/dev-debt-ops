@@ -179,7 +179,7 @@
 
         {#if selectedPath}
           <div class="max-h-64 shrink-0 overflow-y-auto border-t bg-surface-sunken/40">
-            <CodeDebtPanel {orgSlug} {projectSlug} debts={selectedDebts} onchanged={loadDebts} />
+            <CodeDebtPanel {orgSlug} {projectSlug} debts={selectedDebts} />
           </div>
         {/if}
       </main>

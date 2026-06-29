@@ -1,30 +1,15 @@
 <script lang="ts">
-  import { toast } from "svelte-sonner";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import { resolve } from "$app/paths";
   import type { CodeDebt } from "$lib/api/schemas";
-  import { createRepaymentPr } from "$lib/api/client";
-  import { Button } from "$lib/components/ui/button";
   import DebtStatusBadge from "$lib/components/matrix/debt-status-badge.svelte";
   import { categoryLabel, severityLabel } from "$lib/components/matrix/labels";
   import * as m from "$lib/paraglide/messages";
 
-  // 選択中ファイルの技術負債を一覧し、返済PR（リファクタ）作成・無視を行う。返済ループを「コード改善」へ統合。
-  type Props = { orgSlug: string; projectSlug: string; debts: CodeDebt[]; onchanged: () => void };
-  const { orgSlug, projectSlug, debts, onchanged }: Props = $props();
-
-  let busy = $state<string | null>(null);
-
-  async function act(id: string, fn: () => Promise<unknown>, successMsg: string) {
-    busy = id;
-    try {
-      await fn();
-      toast.success(successMsg);
-      onchanged();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : m.common_error_generic());
-    } finally {
-      busy = null;
-    }
-  }
+  // 選択中ファイルの技術負債を一覧する。各項目はコード改善の詳細（該当コードのハイライト + 品質が低い理由の
+  // 解説）へリンクする。修正 PR の自動生成は廃止（issue 210 の方針転換）。
+  type Props = { orgSlug: string; projectSlug: string; debts: CodeDebt[] };
+  const { orgSlug, projectSlug, debts }: Props = $props();
 </script>
 
 <div class="flex flex-col gap-2 p-3">
@@ -43,17 +28,13 @@
           {#if d.archaeology_notes}
             <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">{d.archaeology_notes}</p>
           {/if}
-          <div class="mt-2 flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy === d.id || d.status !== "open"}
-              onclick={() =>
-                act(d.id, () => createRepaymentPr(orgSlug, projectSlug, d.id), m.debt_repayment_pr_started())}
-            >
-              {m.debt_action_create_pr()}
-            </Button>
-          </div>
+          <a
+            href={resolve(`/${orgSlug}/${projectSlug}/matrix/${d.id}`)}
+            class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            {m.code_improve_view_detail()}
+            <ChevronRight class="size-3.5" />
+          </a>
         </li>
       {/each}
     </ul>
