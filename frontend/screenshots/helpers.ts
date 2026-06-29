@@ -46,7 +46,7 @@ function upsertManifest(key: string, entry: Omit<ShotMeta, "capturedAt">): void 
 export async function shot(
   page: Page,
   key: string,
-  opts: { title: string; route?: string; fullPage?: boolean } = { title: "" },
+  opts: { title: string; route?: string; fit?: boolean } = { title: "" },
 ): Promise<string> {
   fs.mkdirSync(SHOT_ROOT, { recursive: true });
   const file = path.join(SHOT_ROOT, `${key}.png`);
@@ -74,12 +74,14 @@ export async function shot(
     })
     .catch(() => {});
 
-  // このアプリは h-screen シェルの中で <main> だけが内部スクロールする（[org]/+layout）。そのため Playwright の
-  // fullPage はビューポート高（既定 900）までしか写らず、ダッシュボード等の縦長ページは下部が切れる。
-  // fullPage 指定時は、内部スクロール領域の実コンテンツ高に合わせてビューポートを一時的に高くしてから撮る。
-  const viewport = page.viewportSize();
-  let resized = false;
-  if (opts.fullPage && viewport) {
+  // 画像は常に固定アスペクト比（= ビューポート 1440x900）で撮る。縦長ページ（h-screen シェル内で <main> だけが
+  // 内部スクロール）はビューポートを伸ばすと超縦長画像になりアスペクト比が崩れるため、代わりにページ全体を
+  // zoom で少し縮小して 1 画面に収める。ただし長いリスト（コード品質マップ等）は無理に収めない:
+  // zoom が下限(0.7)を下回るほど縦長なら zoom せず、ビューポート上部をそのまま撮る。
+  const MIN_ZOOM = 0.7;
+  let zoomed = false;
+  if (opts.fit) {
+    const viewport = page.viewportSize();
     const contentHeight = await page
       .evaluate(() => {
         const main = document.querySelector("main");
@@ -87,18 +89,25 @@ export async function shot(
         return Math.ceil(target.scrollHeight);
       })
       .catch(() => 0);
-    if (contentHeight > viewport.height) {
-      await page.setViewportSize({ width: viewport.width, height: Math.min(contentHeight + 40, 6000) });
-      await page.waitForTimeout(300); // リサイズ後のレイアウト/チャート再描画を待つ
-      resized = true;
+    if (viewport && contentHeight > viewport.height) {
+      const zoom = (viewport.height - 16) / contentHeight; // 下端に少し余白
+      if (zoom >= MIN_ZOOM) {
+        await page.evaluate((z) => {
+          (document.documentElement.style as unknown as { zoom: string }).zoom = String(z);
+        }, zoom);
+        await page.waitForTimeout(300); // zoom 後のレイアウト/チャート再描画を待つ
+        zoomed = true;
+      }
     }
   }
 
-  // 内部スクロール領域ごと撮りたいので、fullPage ではなくビューポート撮影（リサイズ済みなら全体が収まる）。
-  await page.screenshot({ path: file, fullPage: opts.fullPage && !resized, animations: "disabled" });
+  // 常にビューポート撮影（固定アスペクト比）。fit 時は zoom で全体を 1 画面に収めている。
+  await page.screenshot({ path: file, animations: "disabled" });
 
-  if (resized && viewport) {
-    await page.setViewportSize(viewport); // 後続ショットのため元のビューポートへ戻す
+  if (zoomed) {
+    await page.evaluate(() => {
+      (document.documentElement.style as unknown as { zoom: string }).zoom = "";
+    });
   }
   upsertManifest(key, {
     title: opts.title || key,

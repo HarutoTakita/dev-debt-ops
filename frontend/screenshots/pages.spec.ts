@@ -21,7 +21,7 @@ test("主要ページを撮影", async ({ page }) => {
   await startDemo(page);
   for (const [key, route, title] of PAGES) {
     await page.goto(route);
-    await shot(page, key, { title, route, fullPage: true });
+    await shot(page, key, { title, route, fit: true });
   }
 });
 
@@ -34,7 +34,7 @@ test("詳細ページを撮影（best-effort）", async ({ page }) => {
     await page.goto(`${BASE}/matrix`);
     await page.locator('a[href*="/matrix/"]').first().click({ timeout: 10_000 });
     await page.waitForURL(/\/matrix\/[^/]+$/, { timeout: 10_000 });
-    await shot(page, "05-matrix-detail", { title: "負債の詳細（返済プラン・担当）", fullPage: true });
+    await shot(page, "05-matrix-detail", { title: "負債の詳細（返済プラン・担当）", fit: true });
   } catch (e) {
     console.warn("skip 05-matrix-detail:", String(e));
   }
@@ -46,7 +46,7 @@ test("詳細ページを撮影（best-effort）", async ({ page }) => {
     await page.waitForURL(/planId=/, { timeout: 10_000 });
     await page.locator('a[href*="/learning/code/"]').first().click({ timeout: 10_000 });
     await page.waitForURL(/\/learning\/code\//, { timeout: 10_000 });
-    await shot(page, "08-learning-code", { title: "コード学習ウォークスルー", fullPage: true });
+    await shot(page, "08-learning-code", { title: "コード学習ウォークスルー", fit: true });
   } catch (e) {
     console.warn("skip 08-learning-code:", String(e));
   }
@@ -56,7 +56,7 @@ test("詳細ページを撮影（best-effort）", async ({ page }) => {
   try {
     await page.goto(`${BASE}/repos?path=src/checkout/payment.py`);
     await page.waitForTimeout(1500); // ツリー取得 → ?path 自動選択 → ファイル内容取得
-    await shot(page, "11-repos", { title: "コード改善（ファイルツリー + 負債）", fullPage: true });
+    await shot(page, "11-repos", { title: "コード改善（ファイルツリー + 負債）", fit: true });
   } catch (e) {
     console.warn("skip 11-repos:", String(e));
   }

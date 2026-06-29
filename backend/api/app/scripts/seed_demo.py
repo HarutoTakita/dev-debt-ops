@@ -695,6 +695,10 @@ async def _ensure_org_and_project(session: AsyncSession, user_id: uuid.UUID) -> 
             created_by=user_id,
         )
         session.add(project)
+    elif isinstance(project, Project) and project.name != DEMO_PROJECT_NAME:
+        # 既存行でも表示名の変更（例: "sample project" → "EC ストア"）は反映する。
+        project.name = DEMO_PROJECT_NAME
+        session.add(project)
 
     await session.commit()
     # Re-fetch so callers get attached, refreshed instances.

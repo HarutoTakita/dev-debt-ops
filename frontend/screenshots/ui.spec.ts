@@ -17,7 +17,7 @@ test("理解度マップのリスト表示", async ({ page }) => {
     await shot(page, "13-galaxy-list", {
       title: "理解度マップ（リスト表示）",
       route: `${BASE}/galaxy`,
-      fullPage: true,
+      fit: true,
     });
   } catch (e) {
     console.warn("skip 13-galaxy-list:", String(e));
