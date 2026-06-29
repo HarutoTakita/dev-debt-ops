@@ -6,6 +6,7 @@
   import * as m from "$lib/paraglide/messages";
   import DebtMatrix from "./debt-matrix.svelte";
   import QuadrantLegend from "./quadrant-legend.svelte";
+  import QuadrantBreakdown from "./quadrant-breakdown.svelte";
   import DebtTrendStrata from "./debt-trend-strata.svelte";
   import StatCard from "./stat-card.svelte";
   import TrendIndicator from "./trend-indicator.svelte";
@@ -107,10 +108,13 @@
     </StatCard>
   </div>
 
-  <!-- 推移グラフ。file 粒度では優先対応リストを上へ移したので全幅、feature/folder では隣に優先対応リスト -->
+  <!-- 推移グラフ。file 粒度では横長になりすぎないよう象限内訳を隣に、feature/folder では優先対応リストを隣に -->
   {#if granularity === "file"}
-    <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
-      <DebtTrendStrata trend={overview.trend} />
+    <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
+        <DebtTrendStrata trend={overview.trend} />
+      </div>
+      <QuadrantBreakdown {orgSlug} {projectSlug} files={overview.files} />
     </div>
   {:else}
     <div class="grid gap-4 lg:grid-cols-2">

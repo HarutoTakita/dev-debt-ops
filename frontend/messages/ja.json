@@ -179,6 +179,7 @@
   "overview_quadrant_refactor_story": "汚いが皆理解している。リファクタで改善する。",
   "overview_quadrant_danger": "最優先：理解＋改善",
   "overview_quadrant_danger_story": "汚くて誰も理解していない。技術負債が緊急度を押し上げる最優先の学習対象。",
+  "overview_breakdown_title": "品質 × 理解の内訳",
   "priority_p0": "最優先",
   "priority_p1": "高",
   "priority_p2": "中",

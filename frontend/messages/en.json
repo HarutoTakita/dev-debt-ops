@@ -179,6 +179,7 @@
   "overview_quadrant_refactor_story": "Messy but well understood. Improve it by refactoring.",
   "overview_quadrant_danger": "Top priority: learn & improve",
   "overview_quadrant_danger_story": "Messy and nobody understands it. Technical debt pushes up the urgency — the top learning priority.",
+  "overview_breakdown_title": "Quality × understanding breakdown",
   "priority_p0": "Highest",
   "priority_p1": "High",
   "priority_p2": "Medium",
