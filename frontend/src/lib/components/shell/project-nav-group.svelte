@@ -10,7 +10,6 @@
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import { allNavItems, type NavContext } from "$lib/config/nav";
   import { projectSections } from "$lib/stores/project-sections.svelte";
-  import { projectIconColor } from "$lib/stores/project-icon";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
@@ -43,7 +42,6 @@
     if (active) open = true;
   });
 
-  const iconColor = $derived(projectIconColor(project));
   const starred = $derived(projectSections.isStarred(orgSlug, project.id));
   const sections = $derived(projectSections.sections(orgSlug));
   const currentSection = $derived(projectSections.sectionOf(orgSlug, project.id));
@@ -83,7 +81,7 @@
       class="flex h-full min-w-0 flex-1 cursor-grab items-center gap-2 px-2.5 text-left text-sm active:cursor-grabbing"
       aria-expanded={open}
     >
-      <span class={cn("flex size-6 shrink-0 items-center justify-center rounded", iconColor)}>
+      <span class="flex size-6 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge">
         <FolderGit2 class="size-4" />
       </span>
       <span class={cn("min-w-0 flex-1 truncate", active ? "font-medium text-foreground" : "text-muted-foreground")}>
