@@ -13,10 +13,8 @@
   const rows = $derived([
     { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
     { label: m.debt_meta_kind(), value: `${kindLabel(debt.kind)} · ${categoryLabel(debt)}` },
-    { label: m.debt_meta_adr(), value: debt.related_adr ?? m.debt_meta_none() },
     { label: m.debt_meta_cost(), value: m.list_estimated({ hours: debt.estimated_repay_hours }) },
     { label: m.debt_meta_kc(), value: formatKcPct(debt.knowledge_coverage) },
-    { label: m.debt_meta_ai_prob(), value: `${Math.round(debt.ai_generation_prob * 100)}%` },
   ]);
 </script>
 
