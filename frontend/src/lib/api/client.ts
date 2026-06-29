@@ -193,7 +193,13 @@ export async function getProject(orgSlug: string, projectSlug: string): Promise<
   return projectSchema.parse(await response.json());
 }
 
-export async function createProject(orgSlug: string, name: string, repo: Repository, slug?: string): Promise<Project> {
+export async function createProject(
+  orgSlug: string,
+  name: string,
+  repo: Repository,
+  branch?: string,
+  slug?: string,
+): Promise<Project> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects`, {
     method: "POST",
     body: JSON.stringify({
@@ -202,7 +208,8 @@ export async function createProject(orgSlug: string, name: string, repo: Reposit
       repo_owner: repo.owner,
       repo_name: repo.name,
       repo_full_name: repo.full_name,
-      default_branch: repo.default_branch,
+      // 解析対象ブランチ（未指定ならリポジトリの既定ブランチ）。
+      default_branch: branch || repo.default_branch,
       repo_private: repo.private,
     }),
   });
