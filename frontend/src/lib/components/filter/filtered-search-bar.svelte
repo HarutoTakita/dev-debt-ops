@@ -9,24 +9,17 @@
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // GitLab filtered_search_bar_root.vue の写像。種別/深刻度/ステータスをトークン（scope:value ピル）で
+  // GitLab filtered_search_bar_root.vue の写像。深刻度/ステータスをトークン（scope:value ピル）で
   // 多選択フィルタし、最近の検索を localStorage（recent-searches ストア）から復元する。
+  // コード品質マップは技術負債のみのページのため「種別」ファセットは持たない。
   type Props = { filter: DebtFilter; onfilter: (f: DebtFilter) => void };
   const { filter, onfilter }: Props = $props();
 
-  type FacetKey = "kind" | "severity" | "status";
+  type FacetKey = "severity" | "status";
   type FacetValue = { value: string; label: () => string };
   type Facet = { key: FacetKey; label: () => string; values: FacetValue[] };
 
   const FACETS: Facet[] = [
-    {
-      key: "kind",
-      label: m.filter_facet_kind,
-      values: [
-        { value: "code", label: m.kind_code },
-        { value: "knowledge", label: m.kind_knowledge },
-      ],
-    },
     {
       key: "severity",
       label: m.filter_facet_severity,
@@ -40,12 +33,11 @@
     {
       key: "status",
       label: m.filter_facet_status,
+      // コード負債のステータス（未着手 / 修正中（PR済）/ 解決済）の 3 種。
       values: [
         { value: "open", label: m.status_open },
         { value: "in_pr", label: m.status_in_pr },
-        { value: "in_progress", label: m.status_in_progress },
         { value: "resolved", label: m.status_resolved },
-        { value: "dismissed", label: m.status_dismissed },
       ],
     },
   ];

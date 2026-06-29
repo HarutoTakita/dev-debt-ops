@@ -8,7 +8,6 @@
   import { Button } from "$lib/components/ui/button";
   import ComingSoonPlaceholder from "$lib/components/overview/coming-soon-placeholder.svelte";
   import OverviewDashboard from "$lib/components/overview/overview-dashboard.svelte";
-  import { type Granularity } from "$lib/components/overview/granularity-switch.svelte";
   import { ALL_STAGE_IDS } from "$lib/stores/analysis-run-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -21,12 +20,11 @@
   // 再試行 UI を出す（mock を実データ風に見せない、issue-044）。
   let overview = $state<Overview | null>(null);
   let overviewError = $state(false);
-  // 粒度切替（issue 056）。変更すると getOverview を再取得する。
-  let granularity = $state<Granularity>("file");
-  async function loadOverview(g: Granularity = granularity) {
+  // ダッシュボードはファイル単位の二軸マトリクスのみ（粒度切替は廃止）。
+  async function loadOverview() {
     if (!(repo.connected && orgSlug && projectSlug)) return;
     try {
-      overview = await getOverview(orgSlug, projectSlug, g);
+      overview = await getOverview(orgSlug, projectSlug);
       overviewError = false;
     } catch {
       overview = null;
@@ -34,9 +32,8 @@
     }
   }
   $effect(() => {
-    const g = granularity; // 粒度変更で再取得（同期 read で依存に含める）
     if (repo.connected && orgSlug && projectSlug) {
-      void loadOverview(g);
+      void loadOverview();
     }
   });
 
@@ -61,7 +58,7 @@
     <Button variant="outline" onclick={() => loadOverview()}>{m.common_retry()}</Button>
   </div>
 {:else if overview && overview.files.length > 0}
-  <OverviewDashboard {overview} {granularity} onGranularity={(g) => (granularity = g)} />
+  <OverviewDashboard {overview} />
 {:else}
   <OverviewDashboard overview={overviewMock} isSample />
 {/if}

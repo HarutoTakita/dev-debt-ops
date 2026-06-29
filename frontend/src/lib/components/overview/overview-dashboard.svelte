@@ -6,25 +6,21 @@
   import * as m from "$lib/paraglide/messages";
   import DebtMatrix from "./debt-matrix.svelte";
   import QuadrantLegend from "./quadrant-legend.svelte";
+  import QuadrantBreakdown from "./quadrant-breakdown.svelte";
   import DebtTrendStrata from "./debt-trend-strata.svelte";
   import StatCard from "./stat-card.svelte";
   import TrendIndicator from "./trend-indicator.svelte";
   import PriorityList from "./priority-list.svelte";
-  import GranularitySwitch, { type Granularity } from "./granularity-switch.svelte";
-  import FeatureDebtList from "./feature-debt-list.svelte";
   import PageHeading from "$lib/components/shell/page-heading.svelte";
 
-  // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と将来の実データ表示で共用する。
+  // 観測台ダッシュボードの組み立て。preview（Coming Soon の透かし）と実データ表示で共用する。
+  // ダッシュボードはファイル単位の二軸マトリクスに集中する（機能/フォルダ粒度の切替は廃止）。
   // isSample: 表示中のデータがモック由来である間「Sample / デモデータ」バッジを出す（誠実表示）。
-  // granularity / onGranularity: 粒度切替（issue 056）。onGranularity 提供時のみセグメントを出す
-  // （サンプル/モック表示では切替を出さない）。
   type Props = {
     overview: Overview;
     isSample?: boolean;
-    granularity?: Granularity;
-    onGranularity?: (g: Granularity) => void;
   };
-  const { overview, isSample = false, granularity = "file", onGranularity }: Props = $props();
+  const { overview, isSample = false }: Props = $props();
 
   // 遷移先生成用の slug。ルートからではなく $app/state 経由で取得（mastery-list / constructive-result と同流儀）。
   const orgSlug = $derived(page.params.org ?? "");
@@ -51,11 +47,7 @@
 
   <PageHeading title={m.nav_overview()} description={m.page_overview_desc()} />
 
-  {#if onGranularity}
-    <GranularitySwitch value={granularity} onChange={onGranularity} />
-  {/if}
-
-  <!-- 優先対応リスト（file 粒度では凡例の下、feature/folder では推移グラフの隣に置く） -->
+  <!-- 優先対応リスト（推移グラフの隣に置く。マトリクス右は象限内訳に集約） -->
   {#snippet priorityCard()}
     <div class="rounded-lg border bg-card p-4" data-tour="overview-priority">
       <PriorityList {orgSlug} {projectSlug} files={overview.files} />
@@ -67,20 +59,15 @@
     </div>
   {/snippet}
 
-  <!-- 一次ビュー: granularity=file は二軸負債マトリクス、feature/folder は機能/フォルダ単位の理解負債リスト -->
+  <!-- 一次ビュー: ファイル単位の二軸負債マトリクス（右列に凡例 + 象限内訳） -->
   <div data-tour="overview-primary">
-    {#if granularity === "file"}
-      <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
-        <!-- 右列: 凡例は自然な高さ（コンパクト）にし、余白に優先対応リストを積む -->
-        <div class="flex flex-col gap-4">
-          <QuadrantLegend {orgSlug} {projectSlug} />
-          {@render priorityCard()}
-        </div>
+    <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
+      <DebtMatrix {orgSlug} {projectSlug} files={overview.files} />
+      <div class="flex flex-col gap-4">
+        <QuadrantLegend {orgSlug} {projectSlug} />
+        <QuadrantBreakdown {orgSlug} {projectSlug} files={overview.files} />
       </div>
-    {:else}
-      <FeatureDebtList {orgSlug} {projectSlug} features={overview.features} />
-    {/if}
+    </div>
   </div>
 
   <!-- stat-card（負債系は減少=緑に反転） -->
@@ -107,17 +94,11 @@
     </StatCard>
   </div>
 
-  <!-- 推移グラフ。file 粒度では優先対応リストを上へ移したので全幅、feature/folder では隣に優先対応リスト -->
-  {#if granularity === "file"}
+  <!-- 推移グラフ + 優先対応リスト（横長になりすぎないよう 2fr/1fr で並べる） -->
+  <div class="grid gap-4 lg:grid-cols-[2fr_1fr]">
     <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
       <DebtTrendStrata trend={overview.trend} />
     </div>
-  {:else}
-    <div class="grid gap-4 lg:grid-cols-2">
-      <div class="rounded-lg border bg-card p-4" data-tour="overview-trend">
-        <DebtTrendStrata trend={overview.trend} />
-      </div>
-      {@render priorityCard()}
-    </div>
-  {/if}
+    {@render priorityCard()}
+  </div>
 </div>

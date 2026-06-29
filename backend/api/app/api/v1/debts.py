@@ -18,7 +18,9 @@ from sqlmodel import col
 
 from app.api.deps import CurrentUser, OrgAdminScope, OrgScope, SASessionDep, SessionDep
 from app.api.v1.github import GitHubClientDep, InstallationIdDep
-from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate
+from app.models.org import OrgMember
+from app.models.user import User
+from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate, RepaymentPrCreate
 from app.schemas.job import JobEnqueuedOut
 from app.services.debt_query import get_debt, list_debts
 from app.services.dependencies import get_blob_client, get_task_dispatcher
@@ -222,6 +224,7 @@ async def create_repayment_pr(
     session: SessionDep,
     dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
     blob: Annotated[BlobClient, Depends(get_blob_client)],
+    body: RepaymentPrCreate | None = None,
 ) -> JobEnqueuedOut:
     """Enqueue a ``repayment_pr_generation`` job for a code debt (GitHub write → 202, admin only)."""
     org, _ = org_membership
@@ -231,11 +234,13 @@ async def create_repayment_pr(
         raise HTTPException(status_code=404, detail="負債が見つかりません")
     if debt.status == "in_pr" and debt.related_pr:
         raise HTTPException(status_code=409, detail=f"既に返済 PR が作成済みです（{debt.related_pr}）")
+    # PR 先（base）ブランチ。指定が無ければプロジェクトの解析対象（既定）ブランチ。
+    base_branch = (body.base_branch if body and body.base_branch else project.default_branch) or "main"
     payload = {
         "debt_id": str(debt_id),
         "owner": project.repo_owner,
         "repo": project.repo_name,
-        "branch": project.default_branch or "main",
+        "branch": base_branch,
         "requested_by": str(current_user.id),  # audit only
         "github": {"installation_id": installation_id},
     }
@@ -251,15 +256,19 @@ async def create_repayment_pr(
     return JobEnqueuedOut(job_id=job.id, status=job.status)
 
 
-def _issue_body(debt: CodeDebt, file_path: str) -> str:
+def _issue_body(debt: CodeDebt, file_path: str, assignee_label: str | None = None) -> str:
     """Build the GitHub issue body for the 人に頼む remediation path (issue 210)."""
     lines = [
         f"## 技術負債: `{file_path}`",
         "",
         f"- 種別: {debt.type}",
         f"- 深刻度: {debt.severity}",
-        f"- 推定返済コスト: 約 {debt.estimated_repay_hours} 時間",
+        f"- 推定修正工数: 約 {debt.estimated_repay_hours} 時間",
         f"- 理解度(KC): {round(debt.knowledge_coverage * 100)}%",
+    ]
+    if assignee_label:
+        lines.append(f"- 担当: {assignee_label}")
+    lines += [
         "",
         "### 検知根拠",
         debt.archaeology_notes or "（記録なし）",
@@ -298,27 +307,22 @@ async def create_debt_issue(
     if debt.related_issue:
         raise HTTPException(status_code=409, detail=f"既に Issue が作成済みです（{debt.related_issue}）")
 
-    handle = body.assignee_github_handle
-    if handle:
-        existing = (
+    # 担当（任意）: ワークスペースのユーザーを指定。GitHub ハンドルは保持していないため、issue 本文に
+    # 担当者名を記すに留める（GitHub の assignees は付与しない）。org メンバーであることを検証する。
+    assignee_label: str | None = None
+    if body.assignee_user_id:
+        member = (
             await session.execute(
-                select(AssignedDeveloper).where(
-                    col(AssignedDeveloper.debt_kind) == "code",
-                    col(AssignedDeveloper.debt_id) == debt_id,
-                    col(AssignedDeveloper.github_handle) == handle,
+                select(OrgMember).where(
+                    col(OrgMember.org_id) == org.id,
+                    col(OrgMember.user_id) == body.assignee_user_id,
                 )
             )
         ).scalar_one_or_none()
-        if existing is None:
-            session.add(
-                AssignedDeveloper(
-                    debt_kind="code",
-                    debt_id=debt_id,
-                    github_handle=handle,
-                    coverage=body.assignee_coverage or 0.0,
-                    certified_via=body.assignee_certified_via,
-                )
-            )
+        if member is None:
+            raise HTTPException(status_code=404, detail="指定された担当者が見つかりません")
+        user = await session.get(User, body.assignee_user_id)
+        assignee_label = (user.display_name or user.email) if user is not None else None
 
     title = f"[技術負債] {debt.file_path} の{debt.type}（{debt.severity}）"
     try:
@@ -326,8 +330,7 @@ async def create_debt_issue(
             project.repo_owner,
             project.repo_name,
             title=title,
-            body=_issue_body(debt, debt.file_path),
-            assignees=[handle] if handle else None,
+            body=_issue_body(debt, debt.file_path, assignee_label),
             labels=["tech-debt"],
         )
     except Exception as e:  # GitHub 失敗はそのまま 502 で返す
