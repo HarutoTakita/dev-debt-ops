@@ -51,16 +51,20 @@ test("オンボーディングガイド", async ({ page }) => {
   }
 });
 
-// 新規プロジェクト作成モーダル（GitHub リポジトリ選択）。
-// デモは github.py のデモ対応で listRepositories がサンプル repo 一覧を返す。
-test("新規プロジェクト作成（repo選択）", async ({ page }) => {
+// 新規プロジェクト作成モーダル（リポジトリ選択 → 名前 + 解析対象ブランチ選択）。
+// デモは github.py のデモ対応で listRepositories / listBranches がサンプルを返す。
+test("新規プロジェクト作成（repo + ブランチ選択）", async ({ page }) => {
   await startDemo(page);
   await page.goto(BASE);
   try {
     await page.getByRole("button", { name: "新規プロジェクト" }).first().click({ timeout: 10_000 });
-    // モーダルの repo 一覧にサンプル repo が出るまで待つ。
-    await page.getByText("checkout-service").first().waitFor({ timeout: 10_000 });
-    await shot(page, "18-new-project", { title: "新規プロジェクト作成（GitHub リポジトリ選択）", route: BASE });
+    // repo 一覧 → 先頭 repo を選ぶと、名前入力 + 解析対象ブランチ選択の画面になる。
+    await page.getByText("devdebtops/sample-shop").first().click({ timeout: 10_000 });
+    await page.getByText("解析対象ブランチ").first().waitFor({ timeout: 10_000 });
+    await shot(page, "18-new-project", {
+      title: "新規プロジェクト作成（リポジトリ + 解析対象ブランチ選択）",
+      route: BASE,
+    });
   } catch (e) {
     console.warn("skip 18-new-project:", String(e));
   }
