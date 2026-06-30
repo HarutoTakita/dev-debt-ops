@@ -57,6 +57,16 @@ async def test_scan_files_empty_input() -> None:
     assert await semgrep_scan.scan_files({}) == []
 
 
+async def test_scan_files_degrades_on_filesystem_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A disk-full / temp-dir failure (ENOSPC) must NOT crash code-debt detection — return [] (issue 254)."""
+
+    def _enospc(*_args: object, **_kwargs: object):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(semgrep_scan.tempfile, "TemporaryDirectory", _enospc)
+    assert await semgrep_scan.scan_files({"a.py": "x = 1\n"}) == []
+
+
 async def test_scan_files_degrades_when_semgrep_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _no_json(_target_dir: str) -> dict | None:
         return None  # simulates missing binary / timeout / bad output
