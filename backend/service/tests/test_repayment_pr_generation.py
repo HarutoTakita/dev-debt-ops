@@ -110,7 +110,7 @@ async def test_process_opens_pr_and_marks_in_pr(
     assert fake.created_pr is True
     assert result.pr_number == 42
     assert result.pr_url == "https://github.com/acme/rosetta/pull/42"
-    assert result.branch == f"rosetta/repay-{str(debt_id)[:8]}"
+    assert result.branch == f"devdebtops/fix-{str(debt_id)[:8]}"
 
     async with session_maker() as session:
         debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
