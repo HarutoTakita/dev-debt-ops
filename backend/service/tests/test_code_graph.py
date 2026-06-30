@@ -66,6 +66,24 @@ async def test_extract_snapshot_builds_file_and_function_graph(monkeypatch: pyte
     assert {"file": "mod.py", "source": "a", "target": "b"} in snap["function_calls"]
 
 
+async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A repo with intra-file functions but NO cross-file calls must still persist the Level-3 graph
+    (functions/function_calls), not return {} — otherwise the map never shows CGC structure (issue 248)."""
+
+    async def _fake_query(cypher: str) -> list[dict]:
+        if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # intra-file calls present
+            return [{"file": "mod.py", "source": "a", "target": "b"}]
+        if "CONTAINS]->(fn:Function)" in cypher:  # functions present
+            return [{"file": "mod.py", "name": "a"}, {"file": "mod.py", "name": "b"}]
+        return []  # no cross-file (Level-2) edges
+
+    monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)
+    snap = await code_graph.extract_snapshot("/tmp/repo")
+    assert snap["file_edges"] == []
+    assert {"file": "mod.py", "name": "a"} in snap["functions"]
+    assert {"file": "mod.py", "source": "a", "target": "b"} in snap["function_calls"]
+
+
 async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_query(_cypher: str) -> list[dict]:
         return []
