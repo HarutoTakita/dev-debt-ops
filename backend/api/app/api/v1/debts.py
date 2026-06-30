@@ -264,7 +264,6 @@ def _issue_body(debt: CodeDebt, file_path: str, assignee_label: str | None = Non
         f"- 種別: {debt.type}",
         f"- 深刻度: {debt.severity}",
         f"- 推定修正工数: 約 {debt.estimated_repay_hours} 時間",
-        f"- 理解度(KC): {round(debt.knowledge_coverage * 100)}%",
     ]
     if assignee_label:
         lines.append(f"- 担当: {assignee_label}")

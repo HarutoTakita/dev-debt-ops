@@ -145,7 +145,7 @@
       <!-- 全体進捗（確定プログレスバー）。各ブロックの子サブステップは下にネスト表示（issue 069）。 -->
       <div class="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
         <span>{m.analysis_progress_detail()}</span>
-        <span class="tabular-nums">{progress.completed}/{progress.total}</span>
+        <span class="tabular-nums">{Math.round(progressPct)}%</span>
       </div>
       <div class="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
