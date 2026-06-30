@@ -238,8 +238,12 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
     if file_contents:
         try:
             ai_probs = await gemini_stack_service.estimate_ai_generation(file_contents)
-        except ValueError:
-            logger.warning("Gemini AI-generation estimate unavailable; ai_generated reason disabled this run")
+        except Exception:
+            # 補助的なエンリッチ。Gemini のクォータ超過(429)・一時障害・設定不備などどんな失敗でも、
+            # 決定的な理解負債の検知結果を捨てて step 全体を失敗させない（graceful）。
+            logger.warning(
+                "Gemini AI-generation estimate unavailable; ai_generated reason disabled this run", exc_info=True
+            )
 
     project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)

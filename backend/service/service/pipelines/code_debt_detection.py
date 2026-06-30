@@ -282,8 +282,13 @@ async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> Co
     if flagged_paths:
         try:
             ai_probs = await gemini_stack_service.estimate_ai_generation({p: files[p] for p in flagged_paths})
-        except ValueError:
-            logger.warning("Gemini AI-generation estimate unavailable; defaulting ai_generation_prob to 0.0")
+        except Exception:
+            # AI 生成確率は補助的なエンリッチ。Gemini のクォータ超過(429)・一時障害(5xx)・認証/設定不備など
+            # どんな失敗でも、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果を捨てて step 全体を
+            # 失敗させてはならない。0.0 を既定にして検知は継続する（semgrep_scan と同じく graceful）。
+            logger.warning(
+                "Gemini AI-generation estimate unavailable; defaulting ai_generation_prob to 0.0", exc_info=True
+            )
     for f in findings:
         f.ai_generation_prob = ai_probs.get(f.file_path, 0.0)
 
