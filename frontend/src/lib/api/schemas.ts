@@ -533,3 +533,12 @@ export type LearningStep = z.infer<typeof learningStepSchema>;
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
 export type CodeWalkthroughStep = z.infer<typeof codeWalkthroughStepSchema>;
 export type CodeWalkthrough = z.infer<typeof codeWalkthroughSchema>;
+
+// コードグラフ（CodeGraphContext スナップショット, issue 235）。将来 UI でノードリンク描画する。
+export const codeGraphSchema = z.object({
+  observed: z.boolean(),
+  computed_at: z.iso.datetime({ offset: true }).nullable().default(null),
+  nodes: z.array(z.object({ id: z.string() })).default([]),
+  edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
+});
+export type CodeGraph = z.infer<typeof codeGraphSchema>;

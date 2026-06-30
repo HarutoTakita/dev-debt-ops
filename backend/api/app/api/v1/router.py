@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.agentic import router as agentic_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.code_graph import router as code_graph_router
 from app.api.v1.config import router as config_router
 from app.api.v1.debts import router as debts_router
 from app.api.v1.features import router as features_router
@@ -28,6 +29,7 @@ api_router.include_router(users_router)
 api_router.include_router(orgs_router)
 api_router.include_router(projects_router)
 api_router.include_router(debts_router)
+api_router.include_router(code_graph_router)
 api_router.include_router(agentic_router)
 api_router.include_router(kc_router)
 api_router.include_router(knowledge_debts_router)

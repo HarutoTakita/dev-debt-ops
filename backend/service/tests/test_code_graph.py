@@ -49,3 +49,26 @@ async def test_build_graph_missing_binary_returns_false(monkeypatch: pytest.Monk
 
 async def test_build_graph_empty_repo_dir_returns_false() -> None:
     assert await code_graph.build_graph("") is False
+
+
+async def test_extract_snapshot_builds_node_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _fake_query(_cypher: str) -> list[dict]:
+        return [{"source": "a", "target": "b"}, {"source": "b", "target": "c"}]
+
+    monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)
+    snap = await code_graph.extract_snapshot("/tmp/repo")
+    assert {"id": "a"} in snap["nodes"]
+    assert {"id": "c"} in snap["nodes"]
+    assert {"source": "a", "target": "b"} in snap["edges"]
+
+
+async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _fake_query(_cypher: str) -> list[dict]:
+        return []
+
+    monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)
+    assert await code_graph.extract_snapshot("/tmp/repo") == {}
+
+
+async def test_extract_snapshot_empty_repo_dir() -> None:
+    assert await code_graph.extract_snapshot("") == {}

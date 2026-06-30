@@ -22,7 +22,12 @@ Learning-plan / quiz generation stay as their own fan-out steps (api ``baseline-
 
 import logging
 import shutil
+import uuid
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from service import config
 from service.agents.budget import RunBudget
@@ -40,6 +45,7 @@ from service.services import code_graph, repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
+from shared.models import CodeGraph
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest, AgenticAnalysisResult
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest
@@ -57,6 +63,16 @@ async def _mint_installation_token(github: GitHubRef) -> str:
         return github.access_token.get_secret_value()
     app_service = GitHubAppService(app_id=config.github_app_id(), private_key=config.github_app_private_key())
     return await app_service.get_installation_token(github.installation_id)
+
+
+async def _persist_code_graph(session: AsyncSession, project_id: str, graph: dict) -> None:
+    """Upsert the project's latest CodeGraphContext snapshot (issue 235). Flush only; run_task commits."""
+    now = datetime.now(UTC)
+    pid = uuid.UUID(project_id)
+    stmt = pg_insert(CodeGraph).values(id=uuid.uuid4(), project_id=pid, computed_at=now, graph=graph)
+    stmt = stmt.on_conflict_do_update(constraint="uq_code_graphs_project", set_={"computed_at": now, "graph": graph})
+    await session.execute(stmt)
+    await session.flush()
 
 
 async def _run_backbone_step(
@@ -175,8 +191,12 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     client = GitHubGitClient(access_token=token)
     repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
     # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもエージェントはグラフ無しで継続（graceful）。
-    if repo_dir is not None:
-        await code_graph.build_graph(repo_dir)
+    # 構築できたらノードリンクのスナップショットを抽出し、将来 UI 表示用に CodeGraph へ永続化する
+    # （抽出が空＝一時的失敗のときは上書きせず前回のスナップショットを温存）。
+    if repo_dir is not None and await code_graph.build_graph(repo_dir):
+        snapshot = await code_graph.extract_snapshot(repo_dir)
+        if snapshot:
+            await _persist_code_graph(session, request.project_id, snapshot)
     try:
         trace, recommendations = await run_twin_agent(
             client=client,
