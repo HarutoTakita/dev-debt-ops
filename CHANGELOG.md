@@ -32,6 +32,8 @@
 
 ### Fixed
 
+- リポジトリ解析モーダルで、解析が一度完了すると子サブステップのステータスが空（未実行）に戻ってしまう不具合を修正（issue 252）: コックピット再マウント時の `analysisRun.hydrate` が `analysis-status`（progress 非対応）からステージ状態だけ復元し子の `progress` を復元していなかったため、`childrenFor` が全子 pending（○）になっていた。`hydrate` を完了/失敗ステージで `getJob(job_id)` から `progress` も取得して復元、`#poll` は直近の非 null `progress` を保持、コックピット `childrenFor` はステージ完了時に live ステータス無しの子を「完了」既定にする安全網を追加。完了後も各子の ✓/× が維持される。
+
 - 理解度マップに CodeGraphContext のファイル/関数グラフが表示されない不具合を修正（issue 248）: `services/code_graph.py:extract_snapshot` が **cross-file エッジ（Level-2 の `file_edges`）が空だと早期に `{}` を返し**、per-file の `functions`/`function_calls`（Level-3）まで一切抽出・永続化していなかった。cross-file の関数呼び出しが解決されない小さめのリポジトリでは `code_graphs` 行が作られず、Level-2 は従来の wormhole にフォールバック・Level-3（ファイル内の関数コールグラフ）は常に空になっていた。`file_edges` / `functions` / `function_calls` を**独立に抽出**し、3 つすべて空のときのみ `{}` を返すよう修正（ファイル単位・関数単位のグラフがちゃんと表示される）。回帰テストを追加。
 
 - コード負債の検知が Gemini の 429（RESOURCE_EXHAUSTED）で失敗する不具合を修正（issue 246）: `code_debt_detection` は検知済みファイルに補助的な AI 生成確率推定（`gemini_stack_service.estimate_ai_generation`）を行うが、`_generate` は 429/5xx を指数バックオフで再試行したうえで**クォータ枠が空かないと `google.genai.errors.APIError` を re-raise** する。呼び出し側が `except ValueError`（設定/認証エラー用）のみでガードしていたため 429 を取りこぼし、`_run_backbone_step` の汎用 except が拾って **step 全体を失敗**させ、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果まで捨てていた。AI 生成確率は補助的エンリッチであり一時障害で検知を壊してはならないため、両 step（`code_debt_detection` / `knowledge_debt_detection`）のガードを `except Exception`（exc_info ログ付き・`semgrep_scan` と同じ graceful 方針）へ広げ、失敗時は `ai_generation_prob=0.0` 既定で検知を継続する。回帰テストを追加。

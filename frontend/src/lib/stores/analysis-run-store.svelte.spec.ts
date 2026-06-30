@@ -104,6 +104,23 @@ describe("AnalysisRunStore", () => {
     expect(mocks.runAgenticAnalysis).not.toHaveBeenCalled(); // hydration does not enqueue
   });
 
+  it("hydrate restores the job's sub-step progress so child statuses persist after reload (issue 252)", async () => {
+    mocks.getAnalysisStatus.mockResolvedValue({
+      jobs: { agentic_analysis: { status: "COMPLETED", job_id: "j1" } },
+    });
+    const progress = {
+      steps: [{ key: "code_debt_detection", label: "コード負債の検知", group: "g_technical", status: "completed" }],
+      completed: 1,
+      total: 1,
+    };
+    mocks.getJob.mockResolvedValue(job("COMPLETED", { progress }));
+    const store = new AnalysisRunStore();
+    store.pollIntervalMs = 1;
+    await store.hydrate(CTX);
+    expect(mocks.getJob).toHaveBeenCalledWith("j1");
+    expect(store.stages.agentic.progress).toEqual(progress);
+  });
+
   it("hydrate is a no-op once a run has started", async () => {
     mocks.getAnalysisStatus.mockResolvedValue({
       jobs: { agentic_analysis: { status: "COMPLETED", job_id: "j1" } },
