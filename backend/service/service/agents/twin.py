@@ -67,6 +67,13 @@ _TRIVY_HINT = """\
 - outputFormat="json"
 結果から脆弱な依存(SCA)・漏洩した secret・設定ミス(misconfig)を確認し、所見の根拠に必ず含めてください。
 """
+_SEMGREP_HINT = """\
+
+さらに、技術負債（コード品質・脆弱性）の根拠付けとして【必ず】scan_code（Semgrep MCP）に、読んだ
+ファイルを {"filename": <repo相対パス>, "content": <ファイル内容>} の配列で渡して実静的解析を実行すること。
+返る security（セキュリティ/正確性）・smell（保守性）の所見を複雑度などの決定的シグナルと突き合わせ、
+所見の根拠に必ず含めてください。
+"""
 
 
 def _build_specialist(*, name: str, instruction: str, tools: list[Any], budget: RunBudget, output_key: str) -> LlmAgent:
@@ -90,6 +97,7 @@ def build_twin_agent(
     serena_toolset: McpToolset | None = None,
     github_toolset: McpToolset | None = None,
     trivy_toolset: McpToolset | None = None,
+    semgrep_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Build the rule-based Twin Agent pipeline (``SequentialAgent``: knowledge → code → remediation).
@@ -119,6 +127,9 @@ def build_twin_agent(
     if trivy_toolset is not None:
         code_tools.append(trivy_toolset)
         code_instruction += _TRIVY_HINT.format(repo_dir=repo_dir or ".")
+    if semgrep_toolset is not None:
+        code_tools.append(semgrep_toolset)
+        code_instruction += _SEMGREP_HINT
 
     knowledge_agent = _build_specialist(
         name="knowledge_debt_agent",
@@ -150,6 +161,7 @@ def build_twin_loop(
     serena_toolset: McpToolset | None = None,
     github_toolset: McpToolset | None = None,
     trivy_toolset: McpToolset | None = None,
+    semgrep_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Return the rule-based Twin Agent pipeline (kept as the entrypoint name used by the runner).
@@ -164,5 +176,6 @@ def build_twin_loop(
         serena_toolset=serena_toolset,
         github_toolset=github_toolset,
         trivy_toolset=trivy_toolset,
+        semgrep_toolset=semgrep_toolset,
         repo_dir=repo_dir,
     )
