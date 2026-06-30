@@ -267,6 +267,33 @@ class TestProcess:
         assert result.summary == "[summary] 危険な機能を特定"
         assert result.recommendations == recs
 
+    async def test_persists_deterministic_snapshot_when_cgc_empty(self, mocker) -> None:
+        """issue 250: when CGC indexes but returns an empty snapshot, the deterministic source-based
+        snapshot (function_graph) fills L3 and is persisted, so the map shows for any repo."""
+        for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
+            mocker.patch.object(module, "process", AsyncMock())
+        mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
+        mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
+        mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
+        mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
+        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(return_value=([], [])))
+        # clone + CGC build succeed, but CGC yields nothing → deterministic fallback fills L3.
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value="/tmp/clone"))
+        mocker.patch.object(agentic_analysis.code_graph, "build_graph", AsyncMock(return_value=True))
+        mocker.patch.object(agentic_analysis.code_graph, "extract_snapshot", AsyncMock(return_value={}))
+        det = {"file_edges": [], "functions": [{"file": "a.py", "name": "fn"}], "function_calls": []}
+        mocker.patch.object(
+            agentic_analysis.function_graph, "read_repo_sources", return_value={"a.py": "def fn(): ..."}
+        )
+        mocker.patch.object(agentic_analysis.function_graph, "build_snapshot", return_value=det)
+        persist = mocker.patch.object(agentic_analysis, "_persist_code_graph", AsyncMock())
+
+        result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        assert result.status == ResultStatus.COMPLETED
+        persist.assert_awaited_once()
+        assert persist.await_args.args[2]["functions"] == det["functions"]  # deterministic L3 persisted
+
     async def test_process_requires_session(self) -> None:
         with pytest.raises(RuntimeError, match="requires a DB session"):
             await agentic_analysis.process(_request(), PipelineContext(session=None))

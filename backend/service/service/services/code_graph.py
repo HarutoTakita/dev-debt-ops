@@ -160,3 +160,26 @@ async def extract_snapshot(repo_dir: str) -> dict:
     if not edges and not functions and not function_calls:
         return {}
     return {"file_edges": edges, "functions": functions, "function_calls": function_calls}
+
+
+def merge_snapshots(cgc: dict, det: dict) -> dict:
+    """Merge the CGC snapshot with a deterministic fallback (``function_graph.build_snapshot``).
+
+    CGC is preferred where it has data; the deterministic snapshot fills the gaps so L3 (and L2
+    ``file_edges``) display for any analysed repo even when CGC failed to index or returned nothing
+    (issue 250). ``file_edges`` is chosen independently, but ``functions``/``function_calls`` are
+    chosen **as a pair** from the same source (their names must be consistent for L3 to render).
+    Returns ``{}`` when both snapshots are empty.
+    """
+    cgc = cgc or {}
+    det = det or {}
+    file_edges = cgc.get("file_edges") or det.get("file_edges") or []
+    if cgc.get("functions"):
+        functions = cgc.get("functions") or []
+        function_calls = cgc.get("function_calls") or []
+    else:
+        functions = det.get("functions") or []
+        function_calls = det.get("function_calls") or []
+    if not file_edges and not functions and not function_calls:
+        return {}
+    return {"file_edges": file_edges, "functions": functions, "function_calls": function_calls}

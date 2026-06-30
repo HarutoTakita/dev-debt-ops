@@ -94,3 +94,37 @@ async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPa
 
 async def test_extract_snapshot_empty_repo_dir() -> None:
     assert await code_graph.extract_snapshot("") == {}
+
+
+# --- merge_snapshots (issue 250): CGC preferred, deterministic fallback fills gaps ---------------
+_CGC = {
+    "file_edges": [{"source": "a.py", "target": "b.py"}],
+    "functions": [{"file": "a.py", "name": "cgc_fn"}],
+    "function_calls": [{"file": "a.py", "source": "cgc_fn", "target": "cgc_fn2"}],
+}
+_DET = {
+    "file_edges": [{"source": "c.py", "target": "d.py"}],
+    "functions": [{"file": "c.py", "name": "det_fn"}],
+    "function_calls": [{"file": "c.py", "source": "det_fn", "target": "det_fn2"}],
+}
+
+
+def test_merge_prefers_cgc_when_present() -> None:
+    assert code_graph.merge_snapshots(_CGC, _DET) == _CGC
+
+
+def test_merge_fills_l3_from_deterministic_when_cgc_empty() -> None:
+    # CGC indexed but found no functions (e.g. unsupported language) → L3 comes from deterministic,
+    # as a pair (functions + function_calls from the same source for name consistency).
+    merged = code_graph.merge_snapshots({"file_edges": _CGC["file_edges"], "functions": [], "function_calls": []}, _DET)
+    assert merged["file_edges"] == _CGC["file_edges"]  # CGC file_edges kept (non-empty)
+    assert merged["functions"] == _DET["functions"]
+    assert merged["function_calls"] == _DET["function_calls"]
+
+
+def test_merge_uses_deterministic_when_cgc_absent() -> None:
+    assert code_graph.merge_snapshots({}, _DET) == _DET
+
+
+def test_merge_empty_when_both_empty() -> None:
+    assert code_graph.merge_snapshots({}, {}) == {}
