@@ -83,3 +83,22 @@ async def test_analysis_status_returns_latest_per_type(authenticated_client: Asy
     assert jobs["code_debt_detection"]["job_id"] == latest_code_id  # newest of the two
     assert jobs["kc_analysis"]["status"] == "PROCESSING"
     assert "knowledge_debt_detection" not in jobs  # other project's job excluded
+
+
+async def test_analysis_status_surfaces_agentic_run(authenticated_client: AsyncClient) -> None:
+    """The agentic_analysis job is reported so the cockpit rehydrates after reload / re-login."""
+    org_slug, project_slug, project_id, user_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        session.add(
+            Job(
+                job_type=JobType.AGENTIC_ANALYSIS,
+                status=JobStatus.COMPLETED,
+                payload={},
+                project_id=project_id,
+                created_by=user_id,
+            )
+        )
+        await session.commit()
+
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/analysis-status")).json()
+    assert body["jobs"]["agentic_analysis"]["status"] == "COMPLETED"
