@@ -55,8 +55,12 @@ export const AGENTIC_SUBSTEPS: SubStepDef[] = [
   { key: "knowledge_debt_detection", group: "g_knowledge", labelKey: "analysis_substep_knowledge_debt_detection" },
   { key: "stack_analysis", group: "g_technical", labelKey: "analysis_substep_stack_analysis" },
   { key: "baseline", group: "g_repay", labelKey: "analysis_substep_baseline" },
-  { key: "twin_agent", group: "g_repay", labelKey: "analysis_substep_agentic_reasoning" },
+  // twin_agent は特定の成果グループの子ではなく、全タスクの土台（ベース）。専用グループ g_base に置き、
+  // コックピットは 3 グループの下に「エージェントによるリポジトリ解析」基盤ブロックとして描画する（issue 256）。
+  { key: "twin_agent", group: "g_base", labelKey: "analysis_substep_agentic_reasoning" },
 ];
+// 全タスクの土台を表す擬似グループ ID（STAGE_GROUPS には含めない＝コックピットで基盤ブロックとして別描画）。
+export const BASE_GROUP_ID = "g_base";
 
 export const STAGE_GROUPS: StageGroupDef[] = [
   {
