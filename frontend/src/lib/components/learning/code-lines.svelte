@@ -2,10 +2,23 @@
   import hljs from "highlight.js";
   import { cn } from "$lib/utils";
 
-  // 行番号つきソース表示 + 指定行範囲のハイライト。コード理解ウォークスルー（code-walkthrough）と
-  // コード改善（code-improvement）で共用する。範囲が変わると先頭行を中央へスクロールする。
-  type Props = { content: string; path: string; highlightStart: number; highlightEnd: number };
-  const { content, path, highlightStart, highlightEnd }: Props = $props();
+  // 行番号つきソース表示 + 指定行範囲のハイライト。コード理解ウォークスルー（code-walkthrough）/
+  // コード改善 / コード品質マップのファイルビューで共用する。範囲が変わると先頭行を中央へスクロールする。
+  // containerClass で高さ/枠を呼び出し側に合わせる（既定はウォークスルー用の固定高）。
+  type Props = {
+    content: string;
+    path: string;
+    highlightStart: number;
+    highlightEnd: number;
+    containerClass?: string;
+  };
+  const {
+    content,
+    path,
+    highlightStart,
+    highlightEnd,
+    containerClass = "max-h-[72vh] overflow-auto rounded-lg border bg-card font-mono text-xs",
+  }: Props = $props();
 
   // 拡張子 → highlight.js 言語（file-viewer.svelte と同方針。svelte/html は xml で代替）。
   const LANG_MAP: Record<string, string> = {
@@ -63,7 +76,7 @@
   });
 </script>
 
-<div bind:this={codeEl} class="max-h-[72vh] overflow-auto rounded-lg border bg-card font-mono text-xs">
+<div bind:this={codeEl} class={containerClass}>
   {#each lines as html, i (i)}
     {@const lineNo = i + 1}
     <div
