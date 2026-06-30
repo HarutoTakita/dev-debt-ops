@@ -40,6 +40,7 @@ async def _run_refactor_agent(
             prompt=prompt,
             user_id=f"{owner}_{repo}",
             toolsets=[serena] if serena else None,
+            redaction_allowlist=[owner, repo, f"{owner}/{repo}", ref, path],
         )
     finally:
         if repo_dir:
