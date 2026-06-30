@@ -11,9 +11,11 @@ def test_build_code_graph_toolset_shape() -> None:
     sp = ts._connection_params.server_params
     assert sp.command == "codegraphcontext"
     assert sp.args == ["mcp", "start"]
-    # 埋め込み KuzuDB を強制（グローバル .env 既定の falkordb を上書き）し、PATH/HOME を引き継ぐ。
+    # 埋め込み KuzuDB を強制（グローバル .env 既定の falkordb を上書き）し DB パスを固定、PATH/HOME を渡す。
     assert sp.env["CGC_RUNTIME_DB_TYPE"] == "kuzudb"
-    assert "HOME" in sp.env
+    assert sp.env.get("KUZUDB_PATH")  # 明示パスを固定（HOME 未設定でも /app 配下に作らない）
+    # HOME は空文字でないこと（空だと CGC の Path.home() が CWD 相対 → PermissionError [Errno 13]）。
+    assert sp.env.get("HOME")
     assert "PATH" in sp.env
 
 
