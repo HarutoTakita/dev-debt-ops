@@ -114,28 +114,31 @@ async def _cgc_query(cypher: str) -> list[dict]:
 
 
 async def extract_snapshot(repo_dir: str) -> dict:
-    """Extract a compact **file↔file** edge snapshot from the built CGC graph (issue 238).
+    """Extract a node-link snapshot from the built CGC graph (issue 238 / 240).
 
-    Returns ``{"file_edges": [{"source": <repo-relative path>, "target": ...}]}`` for persistence so
-    the understanding map's Level-2 (a feature's file subgraph) can draw precise coupling edges. Edges
-    are cross-file function calls aggregated to files (``File-[:CONTAINS]->Function-[:CALLS]->Function
-    <-[:CONTAINS]-File``); CGC's ``File.relative_path`` is repo-relative, matching ``file_kc`` paths so
-    the frontend can join by path. Best-effort + bounded (``LIMIT``); returns ``{}`` on any failure so
-    the caller persists nothing (keeping a prior snapshot) rather than breaking the run. ``repo_dir``
-    is accepted for future path-scoping; the current container indexes one repo per run.
+    Returns ``{"file_edges": [...], "functions": [...], "function_calls": [...]}`` for persistence:
+    - ``file_edges`` (Level-2): cross-file function calls aggregated to files
+      (``File-[:CONTAINS]->Function-[:CALLS]->Function<-[:CONTAINS]-File``) — the feature's file subgraph.
+    - ``functions`` / ``function_calls`` (Level-3, issue 240): per-file functions and intra-file call
+      edges, for the on-demand file drilldown.
+    CGC's ``File.relative_path`` is repo-relative, matching ``file_kc`` paths so the frontend joins by
+    path. The three layers are extracted **independently** (a repo may have intra-file functions but no
+    cross-file calls, or vice versa). Best-effort + bounded (``LIMIT``); returns ``{}`` only when all
+    three are empty so the caller persists nothing (keeping a prior snapshot) rather than breaking the
+    run. ``repo_dir`` is accepted for future path-scoping; the current container indexes one repo per run.
     """
     if not repo_dir:
         return {}
-    rows = await _cgc_query(
+    # The three layers are extracted INDEPENDENTLY: a repo can have intra-file functions (Level-3)
+    # without any cross-file calls (Level-2 file_edges), and vice versa. Gating functions on file_edges
+    # (the previous behaviour) meant small repos with no cross-file CALLS persisted nothing, so the map
+    # never showed CGC structure. Persist whatever exists; return {} only when ALL three are empty.
+    edge_rows = await _cgc_query(
         "MATCH (af:File)-[:CONTAINS]->(:Function)-[:CALLS]->(:Function)<-[:CONTAINS]-(bf:File) "
         "WHERE af.relative_path <> bf.relative_path "
         f"RETURN DISTINCT af.relative_path AS source, bf.relative_path AS target LIMIT {_SNAPSHOT_EDGE_LIMIT}"
     )
-    if not rows:
-        return {}
-    edges = [{"source": r["source"], "target": r["target"]} for r in rows if r.get("source") and r.get("target")]
-    if not edges:
-        return {}
+    edges = [{"source": r["source"], "target": r["target"]} for r in edge_rows if r.get("source") and r.get("target")]
 
     # Level-3 (issue 240): per-file functions + intra-file call edges, for the on-demand file drilldown.
     # `<module>` is CGC's file-level pseudo-function — excluded so the graph shows real functions only.
@@ -154,4 +157,6 @@ async def extract_snapshot(repo_dir: str) -> dict:
         for r in call_rows
         if r.get("file") and r.get("source") and r.get("target")
     ]
+    if not edges and not functions and not function_calls:
+        return {}
     return {"file_edges": edges, "functions": functions, "function_calls": function_calls}

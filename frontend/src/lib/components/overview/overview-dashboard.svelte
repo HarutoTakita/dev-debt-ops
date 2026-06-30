@@ -27,6 +27,9 @@
   const projectSlug = $derived(page.params.project ?? "");
   const dangerHref = $derived(`${resolve(`/${orgSlug}/${projectSlug}/matrix`)}?cell=danger` as ResolvedPathname);
   const galaxyHref = $derived(resolve(`/${orgSlug}/${projectSlug}/galaxy`));
+  // 各 stat ブロックの導線（理解度→理解度マップ / 低品質ファイル→コード品質マップ / 返済→コード改善）。
+  const matrixHref = $derived(resolve(`/${orgSlug}/${projectSlug}/matrix`));
+  const reposHref = $derived(resolve(`/${orgSlug}/${projectSlug}/repos`));
 
   const dangerCount = $derived(
     overview.files.filter((f) => f.code_debt_score > 0.5 && f.knowledge_coverage < 0.5).length,
@@ -82,16 +85,26 @@
         >{m.overview_raise_kc()} →</a
       >
     </div>
-    <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`}>
-      {#snippet trend()}
-        <TrendIndicator change={-4} trendStyle="desc" suffix="件" />
-      {/snippet}
-    </StatCard>
-    <StatCard label={m.overview_stat_repaid()} value={`${overview.activity.code_agent_merged}`}>
-      {#snippet trend()}
-        <TrendIndicator change={3} trendStyle="asc" suffix="件" />
-      {/snippet}
-    </StatCard>
+    <div class="relative">
+      <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`}>
+        {#snippet trend()}
+          <TrendIndicator change={-4} trendStyle="desc" suffix="件" />
+        {/snippet}
+      </StatCard>
+      <a href={matrixHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
+        >{m.overview_check_quality()} →</a
+      >
+    </div>
+    <div class="relative">
+      <StatCard label={m.overview_stat_repaid()} value={`${overview.activity.code_agent_merged}`}>
+        {#snippet trend()}
+          <TrendIndicator change={3} trendStyle="asc" suffix="件" />
+        {/snippet}
+      </StatCard>
+      <a href={reposHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
+        >{m.overview_improve_code()} →</a
+      >
+    </div>
   </div>
 
   <!-- 推移グラフ + 優先対応リスト（横長になりすぎないよう 2fr/1fr で並べる） -->
