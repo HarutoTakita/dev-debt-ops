@@ -9,6 +9,7 @@
 ### Added
 
 - 直接 Gemini 経路の段階的エージェント化に向けた基盤を追加（issue 217 PR1）: 単一 ADK エージェントを `Runner`（trace + secret-redaction プラグイン）で駆動しトレースを返す**汎用ランナー** `agents/single_agent.py` の `run_single_agent()` を新設（`run_twin_agent` / `run_stack_analysis` の定型を一般化）。walkthrough / refactor / quiz のエージェント化（PR2/PR3）はこの土台に載せ、トレースとシークレット秘匿を自動的に得る。
+- コード解説（walkthrough）の**オンデマンド生成をエージェント化**（issue 217 PR2）: 「このコードを理解する」学習リソースの行解説を、単発 Gemini 呼び出しから ADK エージェント（`agents/walkthrough_agent.py`）に置換。エージェントは行番号つきファイルを読み、解説を深める箇所だけ **Serena(LSP) MCP** で参照シンボルの定義・参照を辿り、最後に確定ツール `save_walkthrough` で行アンカー付きステップを保存する（ADK の output_schema×tools 制約を回避する「探索＋確定」方式）。Serena 用にリポジトリを shallow clone し実行後破棄。`run_single_agent` 経由でトレース＋シークレット秘匿も自動適用。**フォールバック**として clone/エージェント失敗・空結果時は従来の直接 Gemini 経路に退避するため品質は非劣化。適用は**オンデマンドの単一ファイル経路（`code_walkthrough_generation`）のみ**で、学習プラン事前生成（多数ファイルをループ）は解析を重くしないため従来の直接生成を維持。`build_walkthrough_agentic` を新設し、既存の `clean_steps`（行再アンカー）を共有。
 
 ### Security
 

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from service import config
-from service.services.code_walkthrough import build_walkthrough
+from service.services.code_walkthrough import build_walkthrough_agentic
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -67,7 +67,9 @@ async def process(request: CodeWalkthroughGenerationRequest, ctx: PipelineContex
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        steps = await build_walkthrough(client, owner, repo, resource.source_ref, request.ref)
+        # Agentic path (issue 217 PR2): the agent follows referenced symbols via Serena for a deeper
+        # walkthrough; the same token clones the repo for the LSP. Falls back to the direct path.
+        steps = await build_walkthrough_agentic(client, owner, repo, resource.source_ref, request.ref, token=token)
     finally:
         await client.aclose()
 

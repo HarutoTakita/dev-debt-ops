@@ -1,14 +1,24 @@
 """Code-walkthrough generation core (shared by the on-demand pipeline and learning-plan pre-generation).
 
-Fetches a file from GitHub and asks Gemini for an ordered, line-anchored walkthrough, then re-anchors the
+Fetches a file from GitHub and produces an ordered, line-anchored walkthrough, then re-anchors the
 line numbers to the real file via each step's ``start_text`` so the highlight matches the explanation.
+
+Two producers share the cleaning/anchoring logic:
+- ``build_walkthrough`` — a single direct Gemini call (fast; used by learning-plan pre-generation).
+- ``build_walkthrough_agentic`` — an ADK agent that follows referenced symbols via Serena for a
+  deeper explanation (issue 217 PR2; used by the on-demand pipeline), with fallback to the direct
+  path on any failure so behaviour degrades gracefully.
 """
 
 import logging
 
 import httpx
 
-from service.services import gemini_stack_service
+from service.agents.budget import RunBudget
+from service.agents.serena_mcp import build_serena_toolset
+from service.agents.single_agent import run_single_agent
+from service.agents.walkthrough_agent import build_walkthrough_agent
+from service.services import gemini_stack_service, repo_checkout
 from service.services.github_git_client import GitHubGitClient
 
 logger = logging.getLogger(__name__)
@@ -74,4 +84,73 @@ async def build_walkthrough(client: GitHubGitClient, owner: str, repo: str, path
     except ValueError:
         logger.warning("Gemini code-walkthrough unavailable for %s", path)
         return []
+    return clean_steps(raw, file.content.split("\n"))
+
+
+def _numbered(content: str) -> str:
+    """Render file content with 1-based ``N: `` line-number prefixes (matches the direct prompt)."""
+    return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(content.split("\n")))
+
+
+async def _run_walkthrough_agent(owner: str, repo: str, path: str, ref: str, content: str, token: str) -> list[dict]:
+    """Drive the walkthrough agent over one file; return the steps it saved (``[]`` if none).
+
+    Shallow-clones the repo so Serena (LSP) can follow referenced symbols, runs the agent via
+    ``run_single_agent`` (trace + secret-redaction plugins), and always deletes the clone. If the
+    clone fails the agent still runs from the numbered prompt alone (Serena simply absent).
+    """
+    repo_dir = await repo_checkout.shallow_clone(owner, repo, ref, token)
+    serena = build_serena_toolset(repo_dir) if repo_dir else None
+    captured: list[dict] = []
+    agent = build_walkthrough_agent(
+        path=path,
+        budget=RunBudget(),
+        captured=captured,
+        serena_toolset=serena,
+    )
+    prompt = f"ファイル「{path}」の全文（行番号つき）:\n\n{_numbered(content)}"
+    try:
+        await run_single_agent(
+            agent=agent,
+            prompt=prompt,
+            user_id=f"{owner}_{repo}",
+            toolsets=[serena] if serena else None,
+        )
+    finally:
+        if repo_dir:
+            repo_checkout._cleanup(repo_dir)
+    return captured
+
+
+async def build_walkthrough_agentic(
+    client: GitHubGitClient, owner: str, repo: str, path: str, ref: str, *, token: str
+) -> list[dict]:
+    """Agentic walkthrough for one file, with fallback to the direct path (issue 217 PR2).
+
+    The agent reads the file and follows referenced symbols via Serena, then saves line-anchored
+    steps. On any failure or an empty result it falls back to ``generate_code_walkthrough`` (the
+    direct Gemini call), so behaviour never regresses below the non-agentic path. Returns the
+    cleaned, re-anchored steps (empty list if the file can't be fetched / has no content).
+    """
+    try:
+        file = await client.get_file_content(owner, repo, path, ref)
+    except httpx.HTTPError:
+        logger.warning("code-walkthrough(agentic): could not fetch %s", path)
+        return []
+    if not file.content:
+        return []
+
+    raw: list[dict] = []
+    try:
+        raw = await _run_walkthrough_agent(owner, repo, path, ref, file.content, token)
+    except Exception as exc:  # any agent/runtime failure → fall back to the direct path
+        logger.warning("code-walkthrough(agentic) failed for %s: %s; falling back to direct", path, exc)
+
+    if not raw:
+        try:
+            raw = await gemini_stack_service.generate_code_walkthrough(path, file.content)
+        except ValueError:
+            logger.warning("Gemini code-walkthrough unavailable for %s", path)
+            return []
+
     return clean_steps(raw, file.content.split("\n"))
