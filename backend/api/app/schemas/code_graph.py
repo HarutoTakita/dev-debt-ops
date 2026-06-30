@@ -19,3 +19,15 @@ class CodeGraphOut(BaseModel):
     observed: bool
     computed_at: datetime | None = None
     file_edges: list[dict] = []
+
+
+class FileFunctionGraphOut(BaseModel):
+    """One file's internal function call graph (Level-3, issue 240) — lazily fetched on file click.
+
+    ``nodes`` = function names in the file; ``edges`` = intra-file calls. Functions carry no KC, so
+    this is a pure structure view. ``observed=false`` when no graph is persisted for the project.
+    """
+
+    observed: bool
+    nodes: list[dict] = []
+    edges: list[dict] = []

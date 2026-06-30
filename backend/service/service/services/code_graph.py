@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 _INDEX_TIMEOUT = 300.0  # seconds; bounds a slow index on a large repo
 _QUERY_TIMEOUT = 60.0  # seconds; bounds a snapshot extraction query
-_SNAPSHOT_EDGE_LIMIT = 2000  # cap edges/nodes so the persisted snapshot stays bounded for the UI
+_SNAPSHOT_EDGE_LIMIT = 2000  # cap file↔file edges so the persisted snapshot stays bounded for the UI
+_SNAPSHOT_FN_LIMIT = 8000  # cap function nodes / intra-file call edges (Level-3 lazy view, issue 240)
 
 # Force the embedded KuzuDB backend regardless of the global CGC .env default (which is falkordb and
 # would need a separate service). The CLI and the MCP server both honour this runtime env var.
@@ -122,4 +123,24 @@ async def extract_snapshot(repo_dir: str) -> dict:
     if not rows:
         return {}
     edges = [{"source": r["source"], "target": r["target"]} for r in rows if r.get("source") and r.get("target")]
-    return {"file_edges": edges} if edges else {}
+    if not edges:
+        return {}
+
+    # Level-3 (issue 240): per-file functions + intra-file call edges, for the on-demand file drilldown.
+    # `<module>` is CGC's file-level pseudo-function — excluded so the graph shows real functions only.
+    fn_rows = await _cgc_query(
+        "MATCH (f:File)-[:CONTAINS]->(fn:Function) WHERE fn.name <> '<module>' "
+        f"RETURN DISTINCT f.relative_path AS file, fn.name AS name LIMIT {_SNAPSHOT_FN_LIMIT}"
+    )
+    call_rows = await _cgc_query(
+        "MATCH (f:File)-[:CONTAINS]->(a:Function)-[:CALLS]->(b:Function)<-[:CONTAINS]-(f) "
+        "WHERE a.name <> '<module>' AND b.name <> '<module>' AND a.name <> b.name "
+        f"RETURN DISTINCT f.relative_path AS file, a.name AS source, b.name AS target LIMIT {_SNAPSHOT_FN_LIMIT}"
+    )
+    functions = [{"file": r["file"], "name": r["name"]} for r in fn_rows if r.get("file") and r.get("name")]
+    function_calls = [
+        {"file": r["file"], "source": r["source"], "target": r["target"]}
+        for r in call_rows
+        if r.get("file") and r.get("source") and r.get("target")
+    ]
+    return {"file_edges": edges, "functions": functions, "function_calls": function_calls}
