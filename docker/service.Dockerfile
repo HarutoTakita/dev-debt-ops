@@ -55,6 +55,11 @@ RUN useradd --create-home --uid 1001 appuser
 WORKDIR /app
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
+# Docker does not export HOME for a non-root USER, so set it explicitly. Tools that write under ~ —
+# Serena (~/.serena), Trivy (~/.trivy, ~/.cache/trivy) and CodeGraphContext (~/.codegraphcontext, its
+# embedded KuzuDB) — must resolve to appuser's writable home. With HOME unset/empty, CGC's Path.home()
+# resolves under CWD (/app, root-owned) and dies with PermissionError [Errno 13]; pin it once here.
+ENV HOME=/home/appuser
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/shared /app/shared
 COPY --from=builder --chown=appuser:appuser /app/service/service /app/service

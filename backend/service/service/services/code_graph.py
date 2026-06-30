@@ -26,14 +26,25 @@ _QUERY_TIMEOUT = 60.0  # seconds; bounds a snapshot extraction query
 _SNAPSHOT_EDGE_LIMIT = 2000  # cap file↔file edges so the persisted snapshot stays bounded for the UI
 _SNAPSHOT_FN_LIMIT = 8000  # cap function nodes / intra-file call edges (Level-3 lazy view, issue 240)
 
+# Resolve a writable HOME explicitly. The unprivileged container user (appuser) has no HOME set, and
+# CGC stores its embedded KuzuDB under ``<home>/.codegraphcontext/global/kuzudb`` (created on startup).
+# With HOME unset/empty, ``Path.home()`` resolves relative to CWD (``/app``, root-owned → not writable)
+# and CGC dies with ``PermissionError [Errno 13]`` — which is the failure the MCP server hit when its
+# env carried ``HOME=""``. Pin HOME here so the CLI build and the MCP server agree on one location.
+CGC_HOME = os.environ.get("HOME") or "/home/appuser"
+
 # Force the embedded KuzuDB backend regardless of the global CGC .env default (which is falkordb and
-# would need a separate service). The CLI and the MCP server both honour this runtime env var.
-CGC_DB_ENV = {"CGC_RUNTIME_DB_TYPE": "kuzudb"}
+# would need a separate service), and pin its on-disk path so it never depends on Path.home(). The CLI
+# build and the MCP server both honour these runtime env vars (shared via ``CGC_DB_ENV`` / ``cgc_env``).
+CGC_DB_ENV = {
+    "CGC_RUNTIME_DB_TYPE": "kuzudb",
+    "KUZUDB_PATH": os.path.join(CGC_HOME, ".codegraphcontext", "global", "kuzudb"),
+}
 
 
 def cgc_env() -> dict[str, str]:
-    """Return the process env with the KuzuDB backend forced (shared by the CLI build + MCP server)."""
-    return {**os.environ, **CGC_DB_ENV}
+    """Return the process env with the KuzuDB backend + path forced and a writable HOME (CLI + MCP)."""
+    return {**os.environ, **CGC_DB_ENV, "HOME": CGC_HOME}
 
 
 async def build_graph(repo_dir: str) -> bool:

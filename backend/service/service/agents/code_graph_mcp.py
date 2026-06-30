@@ -16,7 +16,7 @@ import os
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
 
-from service.services.code_graph import CGC_DB_ENV
+from service.services.code_graph import CGC_DB_ENV, CGC_HOME
 
 # CGC analysis/query tools exposed to the agent (indexing/watch/delete/cypher excluded — the pipeline
 # builds the graph; raw Cypher is withheld to keep the agent on the high-level analysis API).
@@ -34,9 +34,10 @@ def build_code_graph_toolset() -> McpToolset:
     """Build the CGC MCP toolset (stdio, embedded KuzuDB) for the Twin Agent's specialists.
 
     The agent passes the repository path (the checked-out clone dir) as ``repo_path`` in tool args to
-    scope queries — the same dir the pipeline indexed. ``PATH``/``HOME`` are carried through because
-    setting ``env`` replaces the child env wholesale; ``CGC_RUNTIME_DB_TYPE=kuzudb`` forces the
-    embedded backend so the server reads the graph the CLI built.
+    scope queries — the same dir the pipeline indexed. Setting ``env`` replaces the child env wholesale,
+    so ``PATH`` is carried through and ``HOME`` is the resolved ``CGC_HOME`` (never the empty string —
+    an empty HOME makes CGC's ``Path.home()`` resolve under CWD and fail with PermissionError). ``CGC_DB_ENV``
+    forces the embedded KuzuDB backend + pinned path so the server reads the same graph the CLI built.
     """
     return McpToolset(
         connection_params=StdioConnectionParams(
@@ -46,7 +47,7 @@ def build_code_graph_toolset() -> McpToolset:
                 env={
                     **CGC_DB_ENV,
                     "PATH": os.environ.get("PATH", ""),
-                    "HOME": os.environ.get("HOME", ""),
+                    "HOME": CGC_HOME,
                 },
             ),
             timeout=90.0,
