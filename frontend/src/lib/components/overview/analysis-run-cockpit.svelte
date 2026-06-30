@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import {
     analysisRun,
+    AGENTIC_SUBSTEPS,
     STAGES,
     STAGE_GROUPS,
     type RunContext,
@@ -10,7 +11,6 @@
     type StageStatus,
   } from "$lib/stores/analysis-run-store.svelte";
   import { auth } from "$lib/stores/auth.svelte";
-  import type { JobProgressStep } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
 
   // 解析は GitHub リポジトリの読み取りを伴うため、ゲストデモでは実行不可（issue 069）。
@@ -38,6 +38,16 @@
     analysis_stage_plan_learning: m.analysis_stage_plan_learning,
     analysis_stage_confirm_quizzes: m.analysis_stage_confirm_quizzes,
     analysis_stage_agentic: m.analysis_stage_agentic,
+  };
+  // 内部サブステップのラベル（実行前から各ブロックの内訳を出すための静的カタログ用, issue 244）。
+  const substepLabel: Record<string, () => string> = {
+    analysis_substep_feature_clustering: m.analysis_substep_feature_clustering,
+    analysis_substep_code_debt_detection: m.analysis_substep_code_debt_detection,
+    analysis_substep_kc_analysis: m.analysis_substep_kc_analysis,
+    analysis_substep_knowledge_debt_detection: m.analysis_substep_knowledge_debt_detection,
+    analysis_substep_stack_analysis: m.analysis_substep_stack_analysis,
+    analysis_substep_baseline: m.analysis_substep_baseline,
+    analysis_substep_agentic_reasoning: m.analysis_substep_agentic_reasoning,
   };
 
   function statusLabel(s: StageStatus): string {
@@ -71,12 +81,28 @@
   function stepMark(status: string): string {
     return status === "completed" ? "✓" : status === "failed" ? "×" : status === "running" ? "●" : "○";
   }
+  // 表示用サブステップ。実行前から静的カタログ（AGENTIC_SUBSTEPS）で全件を pending 表示し、ライブ進捗が
+  // 来たら key 一致で status/done/total を上書きする（issue 244）。これで「初めから詳細項目が並び、実行で
+  // ステータスだけ変化する」挙動になる。
+  type RenderStep = { key: string; label: string; status: string; done: number | null; total: number | null };
+  function childrenFor(groupId: string): RenderStep[] {
+    const live = new Map((progress?.steps ?? []).map((s) => [s.key, s]));
+    return AGENTIC_SUBSTEPS.filter((d) => d.group === groupId).map((d) => {
+      const s = live.get(d.key);
+      return {
+        key: d.key,
+        label: substepLabel[d.labelKey](),
+        status: s?.status ?? "pending",
+        done: s?.done ?? null,
+        total: s?.total ?? null,
+      };
+    });
+  }
   // ブロックのバッジ状態を、属する子サブステップの進捗から導出（どのブロックがどこまで進んだかを示す）。
-  // 子が無い（progress 未取得）ときは従来のステージ集約状態にフォールバック。
-  function blockStatus(children: JobProgressStep[], fallback: StageStatus): StageStatus {
-    if (children.length === 0) return fallback;
+  // 全件 pending（実行前）のときは従来のステージ集約状態にフォールバック。
+  function blockStatus(children: RenderStep[], fallback: StageStatus): StageStatus {
     if (children.some((s) => s.status === "failed")) return "FAILED";
-    if (children.every((s) => s.status === "completed")) return "COMPLETED";
+    if (children.length > 0 && children.every((s) => s.status === "completed")) return "COMPLETED";
     if (children.some((s) => s.status === "running" || s.status === "completed")) return "PROCESSING";
     return fallback;
   }
@@ -115,7 +141,8 @@
 </script>
 
 <section class="w-full">
-  <!-- モーダルは常に同じ 3 行を表示し、変化するのは各行のステータス（未実行 → 処理中 → 完了）のみ（issue 069）。 -->
+  <!-- モーダルは常に同じ親ブロック＋子サブステップを表示し、変化するのは各行のステータス（未実行 →
+       処理中 → 完了）のみ（issue 069 / 244）。子は実行前から並び、実行でステータスだけが進む。 -->
   <div class="rounded-lg border bg-card p-4">
     <div class="mb-3 flex items-center justify-between gap-2">
       <h2 class="font-display text-sm font-semibold">{m.analysis_run_title()}</h2>
@@ -143,8 +170,7 @@
     </div>
     {#if progress && progress.steps.length > 0}
       <!-- 全体進捗（確定プログレスバー）。各ブロックの子サブステップは下にネスト表示（issue 069）。 -->
-      <div class="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{m.analysis_progress_detail()}</span>
+      <div class="mb-1.5 flex items-center justify-end text-xs text-muted-foreground">
         <span class="tabular-nums">{Math.round(progressPct)}%</span>
       </div>
       <div class="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -157,7 +183,7 @@
     <ul class="flex flex-col gap-1.5">
       {#each STAGE_GROUPS as group (group.id)}
         {@const gv = groupView(group)}
-        {@const children = progress ? progress.steps.filter((s) => s.group === group.id) : []}
+        {@const children = childrenFor(group.id)}
         {@const bs = blockStatus(children, gv.status)}
         <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
           <div class="flex items-center gap-3">

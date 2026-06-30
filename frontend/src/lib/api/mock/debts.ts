@@ -82,7 +82,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     related_pr: "#4012",
     related_issue: null,
     related_adr: null,
-    archaeology_notes: "呼び出しグラフ解析でどこからも参照されない死コード。削除 PR #4012 を作成済み。",
+    archaeology_notes: "呼び出しグラフ解析でどこからも参照されないデッドコード。削除 PR #4012 を作成済み。",
     code_snippet:
       "export function legacyFormat(d: Date): string {\n  // どこからも呼ばれていない（dead code）\n  return d.toISOString().slice(0, 10);\n}",
     code_debt_score: 0.61,
