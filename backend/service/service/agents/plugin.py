@@ -6,6 +6,8 @@ Agent's judgement / tool calls / reflections into ``Job.result_data`` — no ded
 built; the trace is read back via ``GET /api/v1/jobs/{id}``.
 """
 
+from collections.abc import Iterable
+
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
@@ -41,10 +43,16 @@ class SecretRedactionPlugin(BasePlugin):
     is sent. Mutates the request parts in place and returns ``None`` so the call proceeds.
     """
 
-    def __init__(self, name: str = "secret_redaction") -> None:
-        """Initialise with a redaction counter (exposed for tracing / telemetry)."""
+    def __init__(self, name: str = "secret_redaction", allowlist: Iterable[str] = ()) -> None:
+        """Initialise with a redaction counter and a known-safe ``allowlist``.
+
+        ``allowlist`` carries identifiers the redaction must never mask (e.g. the repo owner / name /
+        ``owner/repo`` / branch the agent analyses); without it detect-secrets' entropy plugins flag
+        such slugs and strip the coordinates the agent needs for its tool calls (issue 225).
+        """
         super().__init__(name=name)
         self.redacted = 0
+        self._allowlist = frozenset(token for token in allowlist if token)
 
     async def before_model_callback(
         self, *, callback_context: CallbackContext, llm_request: LlmRequest
@@ -54,7 +62,7 @@ class SecretRedactionPlugin(BasePlugin):
             for part in getattr(content, "parts", None) or []:
                 text = getattr(part, "text", None)
                 if isinstance(text, str) and text:
-                    redacted, count = redact_secrets(text)
+                    redacted, count = redact_secrets(text, allowlist=self._allowlist)
                     if count:
                         part.text = redacted
                         self.redacted += count

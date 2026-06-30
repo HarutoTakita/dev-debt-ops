@@ -43,7 +43,9 @@ async def run_twin_agent(
     absent — the agent falls back to the REST-based repo tools (graceful).
     """
     recorder = TraceRecorderPlugin()
-    redactor = SecretRedactionPlugin()  # 探索で読んだ内容のシークレットを LLM 送信前に秘匿（issue 217）
+    # 探索で読んだ内容のシークレットを LLM 送信前に秘匿（issue 217）。owner/repo/branch は既知の安全な識別子
+    # なので allowlist で除外（detect-secrets が owner/repo を誤検知し座標を壊すのを防ぐ・issue 225）。
+    redactor = SecretRedactionPlugin(allowlist={owner, repo, f"{owner}/{repo}", branch})
     recommendations: list[dict[str, str]] = []
     serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
     trivy_toolset = build_trivy_toolset() if repo_dir else None

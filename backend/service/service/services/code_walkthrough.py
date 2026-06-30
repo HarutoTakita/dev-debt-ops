@@ -115,6 +115,7 @@ async def _run_walkthrough_agent(owner: str, repo: str, path: str, ref: str, con
             prompt=prompt,
             user_id=f"{owner}_{repo}",
             toolsets=[serena] if serena else None,
+            redaction_allowlist=[owner, repo, f"{owner}/{repo}", ref, path],
         )
     finally:
         if repo_dir:
