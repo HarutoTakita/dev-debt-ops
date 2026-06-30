@@ -57,20 +57,22 @@ export const allNavItems: NavItem[] = [
     group: "knowledge",
     route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
   },
-  // 技術負債の対: 可視化（コード品質マップ）→ 返済（コード改善）。
+  // 技術負債の対。ラベルと表示位置は固定のまま、各ラベルが指すページ（中身）を入れ替えている:
+  //   「コード品質マップ」= /repos（ファイルツリー + 負債密度。リポジトリ品質の俯瞰マップ）
+  //   「コード改善」      = /matrix（負債一覧 → 詳細でハイライト解説 + 修正 PR / Issue 作成）
   {
     id: "matrix",
     label: m.nav_matrix,
     icon: Grid3x3,
     group: "code",
-    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
   },
   {
     id: "repos",
     label: m.nav_repos,
     icon: GitBranch,
     group: "code",
-    route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
   },
   {
     id: "settings",

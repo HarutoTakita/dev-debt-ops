@@ -128,7 +128,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_repos()} · DevDebtOps</title>
+  <title>{m.matrix_title()} · DevDebtOps</title>
 </svelte:head>
 
 {#if !repo.connected}
@@ -138,7 +138,7 @@
 {:else}
   <div class="flex h-full flex-col">
     <div class="shrink-0 px-4 pt-3 pb-1">
-      <PageHeading title={m.nav_repos()} description={m.page_repos_desc()} />
+      <PageHeading title={m.matrix_title()} description={m.page_repos_desc()} />
     </div>
     <RepoHeader {selectedPath} />
 
