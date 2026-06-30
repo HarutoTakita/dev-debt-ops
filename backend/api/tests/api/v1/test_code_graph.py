@@ -36,8 +36,7 @@ async def test_code_graph_unobserved_returns_empty(authenticated_client: AsyncCl
     assert resp.status_code == 200
     body = resp.json()
     assert body["observed"] is False
-    assert body["nodes"] == []
-    assert body["edges"] == []
+    assert body["file_edges"] == []
 
 
 async def test_code_graph_returns_persisted_snapshot(authenticated_client: AsyncClient) -> None:
@@ -47,7 +46,7 @@ async def test_code_graph_returns_persisted_snapshot(authenticated_client: Async
             CodeGraph(
                 project_id=project_id,
                 computed_at=datetime.now(UTC),
-                graph={"nodes": [{"id": "a"}, {"id": "b"}], "edges": [{"source": "a", "target": "b"}]},
+                graph={"file_edges": [{"source": "pkg/main.py", "target": "pkg/util.py"}]},
             )
         )
         await session.commit()
@@ -55,5 +54,4 @@ async def test_code_graph_returns_persisted_snapshot(authenticated_client: Async
     assert resp.status_code == 200
     body = resp.json()
     assert body["observed"] is True
-    assert {"id": "a"} in body["nodes"]
-    assert body["edges"] == [{"source": "a", "target": "b"}]
+    assert body["file_edges"] == [{"source": "pkg/main.py", "target": "pkg/util.py"}]
