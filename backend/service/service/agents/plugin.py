@@ -6,11 +6,15 @@ Agent's judgement / tool calls / reflections into ``Job.result_data`` — no ded
 built; the trace is read back via ``GET /api/v1/jobs/{id}``.
 """
 
+from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
 from google.adk.plugins.base_plugin import BasePlugin
 
 from service.agents.trace import event_to_trace
+from service.services.secret_redaction import redact_secrets
 
 
 class TraceRecorderPlugin(BasePlugin):
@@ -24,4 +28,34 @@ class TraceRecorderPlugin(BasePlugin):
     async def on_event_callback(self, *, invocation_context: InvocationContext, event: Event) -> Event | None:
         """Append the event's trace lines; return ``None`` to leave the event unchanged."""
         self.trace.extend(event_to_trace(event))
+        return None
+
+
+class SecretRedactionPlugin(BasePlugin):
+    """Mask secrets in every LLM request before it leaves the process (issue 217).
+
+    Registered on the ``Runner``, so it scrubs the model request for **all** agents (Twin Agent and
+    the agentified walkthrough / refactor / quiz pipelines). ``before_model_callback`` sees the full
+    ``llm_request.contents`` — the single chokepoint where repo content (file bodies merged from tool
+    results, agent-composed text) heads to Gemini — so masking there guarantees no plaintext secret
+    is sent. Mutates the request parts in place and returns ``None`` so the call proceeds.
+    """
+
+    def __init__(self, name: str = "secret_redaction") -> None:
+        """Initialise with a redaction counter (exposed for tracing / telemetry)."""
+        super().__init__(name=name)
+        self.redacted = 0
+
+    async def before_model_callback(
+        self, *, callback_context: CallbackContext, llm_request: LlmRequest
+    ) -> LlmResponse | None:
+        """Mask secrets in every text part of the outgoing model request, in place."""
+        for content in llm_request.contents or []:
+            for part in getattr(content, "parts", None) or []:
+                text = getattr(part, "text", None)
+                if isinstance(text, str) and text:
+                    redacted, count = redact_secrets(text)
+                    if count:
+                        part.text = redacted
+                        self.redacted += count
         return None

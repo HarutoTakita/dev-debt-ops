@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import gemini_stack_service
+from service.services import repayment_refactor
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -78,7 +78,7 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
     if debt.status == "in_pr" and debt.related_pr:
         return _result(request, pr_number=None, pr_url=None, branch=None, trace=[f"already in_pr ({debt.related_pr})"])
 
-    head_branch = f"rosetta/repay-{request.debt_id[:8]}"
+    head_branch = f"devdebtops/fix-{request.debt_id[:8]}"
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
@@ -91,8 +91,16 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
             trace.append(f"reusing existing PR #{pr_number}")
         else:
             current = await client.get_file_content(request.owner, request.repo, debt.file_path, request.branch)
-            refactor = await gemini_stack_service.generate_refactor(
-                debt.file_path, current.content or "", debt.archaeology_notes
+            # Agentic proposal (issue 217 PR3): the agent follows callers/references via Serena to
+            # keep the edit safe; the same token clones the repo. Falls back to the direct path.
+            refactor = await repayment_refactor.generate_refactor_agentic(
+                request.owner,
+                request.repo,
+                request.branch,
+                debt.file_path,
+                current.content or "",
+                debt.archaeology_notes,
+                token=token,
             )
             trace.append("generated refactor")
 

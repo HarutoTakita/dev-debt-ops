@@ -1,4 +1,5 @@
 import { cancelAnalysis, getAnalysisStatus, getJob, recordTrendSnapshot, runAgenticAnalysis } from "$lib/api/client";
+import type { JobProgress } from "$lib/api/schemas";
 
 // 解析ラン・コックピットの共有状態（issue 037）。018 の stack-analysis-store のポーリング/状態遷移を
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
@@ -64,10 +65,18 @@ export const STAGE_GROUPS: StageGroupDef[] = [
   },
 ];
 
-type StageState = { status: StageStatus; jobId: string | null; step: string; link: string | null };
+type StageState = {
+  status: StageStatus;
+  jobId: string | null;
+  step: string;
+  link: string | null;
+  progress: JobProgress | null;
+};
 
 function _initial(): Record<string, StageState> {
-  return Object.fromEntries(STAGES.map((s) => [s.id, { status: "idle", jobId: null, step: "", link: null }]));
+  return Object.fromEntries(
+    STAGES.map((s) => [s.id, { status: "idle", jobId: null, step: "", link: null, progress: null }]),
+  );
 }
 
 class AnalysisRunStore {
@@ -178,15 +187,21 @@ class AnalysisRunStore {
       }
       if (gen !== this.#generation) return;
       const step = job.agent_trace?.at(-1) ?? "";
+      const progress = job.progress ?? null;
       if (job.status === "COMPLETED") {
-        this.#set(id, { status: "COMPLETED", step, link: this.stages[id].link ?? def.deepLink?.(ctx) ?? null });
+        this.#set(id, {
+          status: "COMPLETED",
+          step,
+          progress,
+          link: this.stages[id].link ?? def.deepLink?.(ctx) ?? null,
+        });
         return;
       }
       if (job.status === "FAILED" || job.status === "CANCELLED") {
-        this.#set(id, { status: "FAILED", step: job.error ?? step });
+        this.#set(id, { status: "FAILED", step: job.error ?? step, progress });
         return;
       }
-      this.#set(id, { status: "PROCESSING", step });
+      this.#set(id, { status: "PROCESSING", step, progress });
       await new Promise((r) => setTimeout(r, this.pollIntervalMs));
     }
   }

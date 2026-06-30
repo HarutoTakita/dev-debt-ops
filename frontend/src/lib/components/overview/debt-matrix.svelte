@@ -28,13 +28,13 @@
   }
 </script>
 
-<div class="rounded-lg border bg-card p-4">
+<div class="flex h-full flex-col rounded-lg border bg-card p-4">
   <div class="flex items-center gap-1.5">
     <span class="text-sm font-medium">{m.overview_matrix_title()}</span>
     <AxisLegend />
   </div>
 
-  <div class="mt-3 flex gap-2">
+  <div class="mt-3 flex min-h-0 flex-1 gap-2">
     <!-- 縦軸ラベル（上＝コード品質が高い）。矢印は明示的な上向きアイコンで示す。 -->
     <div class="flex w-4 shrink-0 flex-col items-center justify-center gap-1 text-muted-foreground">
       <ArrowUp class="size-3" />
@@ -43,8 +43,8 @@
       </span>
     </div>
 
-    <div class="min-w-0 flex-1">
-      <div class="relative aspect-[5/4] w-full overflow-hidden rounded-md border">
+    <div class="flex min-w-0 flex-1 flex-col">
+      <div class="relative min-h-0 flex-1 w-full overflow-hidden rounded-md border">
         <!-- 4 象限の背景 -->
         <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
           <div class="border-r border-b border-border/40 bg-debt-knowledge/5"></div>

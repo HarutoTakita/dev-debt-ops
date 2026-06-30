@@ -52,6 +52,12 @@ class TestVendoredExclusion:
             "vendor/github.com/x/y.go",
             "service/__pycache__/x.py",
             "dist/bundle.js",
+            "lambda_package/urllib3/connection.py",  # デプロイバンドル名 + 同梱の installed module
+            "lambda_package/handler.py",  # バンドルディレクトリ直下
+            "build_artifacts/botocore/client.py",  # 任意名ディレクトリ配下の第三者パッケージ
+            "src/urllib3/util/retry.py",  # 任意位置の installed module（パッケージ名で検出）
+            "deploy/requests-2.31.0.dist-info/RECORD",  # pip メタデータ
+            "x/foo.egg-info/PKG-INFO",
         ],
     )
     def test_vendored_paths_excluded(self, path: str) -> None:

@@ -10,3 +10,9 @@ description = "Dummy RSA PEM markers in unit tests for _to_pem() — placeholder
 paths = [
   '''(^|/)test_github_app\.py$''',
 ]
+
+[[allowlists]]
+description = "Fabricated secret shapes (fake GitHub/Google/AWS/Slack tokens, JWT, PEM) used to test redact_secrets — synthetic fixtures, no real key material (issue 217)."
+paths = [
+  '''(^|/)test_secret_redaction\.py$''',
+]

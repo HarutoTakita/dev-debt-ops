@@ -8,6 +8,9 @@ WORKDIR /app
 COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile
 COPY frontend/ .
+# 変更履歴ビューア用: repo ルートの CHANGELOG.md を静的アセットとして同梱（/CHANGELOG.md で配信）。
+# ビルドコンテキストは repo ルートなので参照可能。build スクリプトの sync:changelog はここでは no-op。
+COPY CHANGELOG.md ./static/CHANGELOG.md
 RUN bun run build
 
 # ── Stage: builder (resolve + install rosetta-api deps from the workspace) ────
@@ -41,7 +44,13 @@ EXPOSE 8000
 
 # ── Stage: dev (hot-reload; app/ and shared/ are bind-synced by compose) ──────
 FROM base AS dev
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Apply migrations on boot — the dev DB volume is often recreated, so tables would
+# otherwise be missing (login etc. 500s on `relation "users" does not exist`).
+# compose `depends_on: db` is startup-order only (podman/WSL2 healthcheck timers don't
+# fire → no service_healthy gate), so the DB may not accept connections yet: retry
+# `alembic upgrade head` until it succeeds, then exec the reloader. `upgrade head` is
+# idempotent, so this is a no-op once the schema is current.
+CMD ["sh", "-c", "for i in $(seq 1 30); do alembic upgrade head && break; echo \"alembic upgrade head failed (attempt $i/30); waiting for db...\"; sleep 2; done; exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
 # ── Stage: runtime (prod; default target) — bake SPA, migrate on boot ─────────
 FROM base AS runtime

@@ -32,7 +32,8 @@
 
   function loadDebts() {
     loading = true;
-    listDebts(orgSlug, projectSlug, filter, sort)
+    // コード品質マップは技術負債のみのページ。種別フィルタは出さず、常に code 負債に固定する。
+    listDebts(orgSlug, projectSlug, { ...filter, kind: ["code"] }, sort)
       .then((res) => {
         debts = res.debts;
         loading = false;
@@ -76,12 +77,12 @@
 </script>
 
 <svelte:head>
-  <title>{m.matrix_title()} · DevDebtOps</title>
+  <title>{m.nav_repos()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
   <div class="flex flex-wrap items-baseline justify-between gap-2">
-    <PageHeading title={m.matrix_title()} description={m.page_matrix_desc()} />
+    <PageHeading title={m.nav_repos()} description={m.page_matrix_desc()} />
     <span class="text-xs text-muted-foreground">
       {m.matrix_target_quadrant()}: <span class="text-foreground">{cellLabel(data.cell)}</span>
     </span>

@@ -193,7 +193,13 @@ export async function getProject(orgSlug: string, projectSlug: string): Promise<
   return projectSchema.parse(await response.json());
 }
 
-export async function createProject(orgSlug: string, name: string, repo: Repository, slug?: string): Promise<Project> {
+export async function createProject(
+  orgSlug: string,
+  name: string,
+  repo: Repository,
+  branch?: string,
+  slug?: string,
+): Promise<Project> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects`, {
     method: "POST",
     body: JSON.stringify({
@@ -202,7 +208,8 @@ export async function createProject(orgSlug: string, name: string, repo: Reposit
       repo_owner: repo.owner,
       repo_name: repo.name,
       repo_full_name: repo.full_name,
-      default_branch: repo.default_branch,
+      // 解析対象ブランチ（未指定ならリポジトリの既定ブランチ）。
+      default_branch: branch || repo.default_branch,
       repo_private: repo.private,
     }),
   });
@@ -316,7 +323,7 @@ export async function runAgenticAnalysis(orgSlug: string, projectSlug: string): 
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agentic-analysis`, {
     method: "POST",
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "Twin Agent 解析の開始に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "解析の開始に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
 
@@ -535,49 +542,35 @@ export async function getDebt(orgSlug: string, projectSlug: string, debtId: stri
   return debtItemSchema.parse(await response.json());
 }
 
-async function patchDebt(
-  orgSlug: string,
-  projectSlug: string,
-  debtId: string,
-  body: Record<string, unknown>,
-): Promise<DebtItem> {
-  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(await errorDetail(response, "負債の更新に失敗しました"));
-  return debtItemSchema.parse(await response.json());
-}
-
-// --- Coming Soon（場所だけ用意・本体は未実装） ---
-export class ComingSoonError extends Error {
-  constructor() {
-    super("coming_soon");
-    this.name = "ComingSoonError";
-  }
-}
-// 返済 PR 生成（issue 033）: POST .../debts/{id}/repayment-pr → 202 {job_id}、getJob でポーリング。
+// 修正 PR 生成（issue 033/215）: POST .../debts/{id}/repayment-pr → 202 {job_id}、getJob でポーリング。
+// baseBranch で PR 先ブランチを指定（未指定ならプロジェクトの解析対象ブランチ）。
 export async function createRepaymentPr(
   orgSlug: string,
   projectSlug: string,
   debtId: string,
+  baseBranch?: string,
 ): Promise<AnalyzeStackJob> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}/repayment-pr`, {
     method: "POST",
+    body: JSON.stringify({ base_branch: baseBranch ?? null }),
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "返済 PR の作成に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "修正 PR の作成に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
-export async function dismissDebt(orgSlug: string, projectSlug: string, debtId: string): Promise<DebtItem> {
-  return patchDebt(orgSlug, projectSlug, debtId, { status: "dismissed" });
-}
-export async function assignDebt(
+// 人に頼む経路（issue 210）: GitHub issue を作成する。任意でワークスペースのユーザーを担当に指定できる
+// （assigneeUserId）。POST .../debts/{id}/issue → 更新後の DebtItem（related_issue にissue URLが入る）。
+export async function createDebtIssue(
   orgSlug: string,
   projectSlug: string,
   debtId: string,
-  handle: string,
+  assigneeUserId?: string,
 ): Promise<DebtItem> {
-  return patchDebt(orgSlug, projectSlug, debtId, { assignee_github_handle: handle });
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/debts/${debtId}/issue`, {
+    method: "POST",
+    body: JSON.stringify({ assignee_user_id: assigneeUserId ?? null }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "GitHub Issue の作成に失敗しました"));
+  return debtItemSchema.parse(await response.json());
 }
 
 // Quiz（返済体験、issue 034）— 実 API。生成/採点は 202 enqueue + getJob ポーリング。

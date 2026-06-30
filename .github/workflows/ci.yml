@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "backend/uv.lock"
@@ -47,8 +47,8 @@ jobs:
           --health-timeout 3s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v8.0.0
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "backend/uv.lock"
@@ -70,11 +70,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
@@ -91,17 +91,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('frontend/bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: cd frontend && bun install --frozen-lockfile
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install gitleaks
@@ -132,3 +132,70 @@ jobs:
           gitleaks version
       - name: Run gitleaks
         run: gitleaks detect --source . --redact --verbose --exit-code 1
+
+  # SAST (CodeQL). Per-PR/push static analysis — kept in ci.yml because it runs on the
+  # same cadence as the other gates (an active repo re-scans on every change, so no weekly
+  # cron here). Heavier/slower DAST (OWASP ZAP) lives in its own zap.yml instead.
+  # Permissions are scoped to THIS job so the other ci jobs keep the minimal default token.
+  # build-mode: none — Python / JS-TS are interpreted, so CodeQL analyses source directly
+  # (no uv/bun build needed). Findings surface in the Security tab via the SARIF upload that
+  # github/codeql-action/analyze performs automatically.
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # IaC misconfig scan (Trivy config mode) over Terraform under infra/.
+  # Catches GCP misconfigurations — public buckets, over-broad IAM, missing
+  # encryption, allUsers invoker, etc. Same per-PR cadence/placement rationale as
+  # CodeQL above; reuses the trivy-action pin already used in deploy-gcp.yml.
+  # Report-only for now (exit-code 0 → never fails the build): findings surface in
+  # the Security tab via SARIF, matching the measure-only stance of prod-readiness §7.
+  # Tighten to a gate (exit-code 1 on CRITICAL/HIGH) once the existing backlog is triaged.
+  trivy-iac:
+    name: Trivy IaC (Terraform misconfig)
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft != true
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Trivy config scan (infra/)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra
+          format: sarif
+          output: trivy-iac.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0" # report-only; do not fail the build yet
+      - name: Upload Trivy IaC SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-iac.sarif
+          category: trivy-iac
