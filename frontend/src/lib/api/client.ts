@@ -10,6 +10,7 @@ import {
   fileContentSchema,
   codeWalkthroughSchema,
   codeWalkthroughJobSchema,
+  codeGraphSchema,
   learningPlanSchema,
   learningStepSchema,
   overviewSchema,
@@ -36,6 +37,7 @@ import {
   type LearningPlan,
   type LearningStep,
   type CodeWalkthrough,
+  type CodeGraph,
   type Overview,
   type PersonalGalaxy,
   type FileContent,
@@ -636,4 +638,11 @@ export async function getQuizResult(
   if (response.status === 404) return null; // 採点中（結果未確定）
   if (!response.ok) throw new Error(await errorDetail(response, "採点結果の取得に失敗しました"));
   return quizResultSchema.parse(await response.json());
+}
+
+// コードグラフ（issue 235）: agentic 解析が構築・永続化したスナップショットを取得（将来 UI 用）。
+export async function getCodeGraph(orgSlug: string, projectSlug: string): Promise<CodeGraph> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/code-graph`);
+  if (!response.ok) throw new Error(await errorDetail(response, "コードグラフの取得に失敗しました"));
+  return codeGraphSchema.parse(await response.json());
 }
