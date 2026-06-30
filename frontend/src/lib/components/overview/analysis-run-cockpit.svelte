@@ -87,12 +87,15 @@
   type RenderStep = { key: string; label: string; status: string; done: number | null; total: number | null };
   function childrenFor(groupId: string): RenderStep[] {
     const live = new Map((progress?.steps ?? []).map((s) => [s.key, s]));
+    // ライブ進捗が無い子の既定ステータス。解析が完了済みなら「完了」を維持する（再マウントや progress 欠落で
+    // 子が pending に戻って“空”に見えるのを防ぐ, issue 252）。未実行/実行中は pending。
+    const fallback = analysisRun.stages["agentic"]?.status === "COMPLETED" ? "completed" : "pending";
     return AGENTIC_SUBSTEPS.filter((d) => d.group === groupId).map((d) => {
       const s = live.get(d.key);
       return {
         key: d.key,
         label: substepLabel[d.labelKey](),
-        status: s?.status ?? "pending",
+        status: s?.status ?? fallback,
         done: s?.done ?? null,
         total: s?.total ?? null,
       };

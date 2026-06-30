@@ -128,10 +128,23 @@ class AnalysisRunStore {
     for (const def of STAGES) {
       const entry = data.jobs[def.jobType];
       if (!entry) continue;
-      if (entry.status === "COMPLETED") {
-        this.#set(def.id, { status: "COMPLETED", jobId: entry.job_id, link: def.deepLink?.(ctx) ?? null });
-      } else if (entry.status === "FAILED" || entry.status === "CANCELLED") {
-        this.#set(def.id, { status: "FAILED", jobId: entry.job_id });
+      if (entry.status === "COMPLETED" || entry.status === "FAILED" || entry.status === "CANCELLED") {
+        // 子サブステップの状態（progress）も復元する。analysis-status は progress を返さないので
+        // 完了/失敗ジョブを GET /jobs から取り、コックピット再マウント後も各子の ✓/× を維持する。
+        let progress: JobProgress | null = null;
+        try {
+          progress = (await getJob(entry.job_id)).progress ?? null;
+        } catch {
+          /* best-effort: progress を取れなくてもステージ状態だけは復元する */
+        }
+        if (this.started || gen !== this.#generation) return; // a run started / was cancelled mid-await
+        const status: StageStatus = entry.status === "COMPLETED" ? "COMPLETED" : "FAILED";
+        this.#set(def.id, {
+          status,
+          jobId: entry.job_id,
+          progress,
+          link: status === "COMPLETED" ? (def.deepLink?.(ctx) ?? null) : null,
+        });
       } else {
         // QUEUED / PROCESSING — resume polling from where it left off.
         this.#set(def.id, { status: "PROCESSING", jobId: entry.job_id });
@@ -201,7 +214,8 @@ class AnalysisRunStore {
       }
       if (gen !== this.#generation) return;
       const step = job.agent_trace?.at(-1) ?? "";
-      const progress = job.progress ?? null;
+      // 直近の非 null progress を保持（終了時のポーリングが progress を返さなくても子の状態を失わない）。
+      const progress = job.progress ?? this.stages[id].progress;
       if (job.status === "COMPLETED") {
         this.#set(id, {
           status: "COMPLETED",
