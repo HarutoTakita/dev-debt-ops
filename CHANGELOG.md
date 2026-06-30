@@ -26,6 +26,8 @@
 
 ### Fixed
 
+- Twin Agent（agentic 解析）で CodeGraphContext (CGC) MCP が `Failed to create MCP session: [Errno 13] Permission denied` で起動できない不具合を修正（issue 242）: 非 root の `appuser` は HOME 未設定で、CGC は埋め込み KuzuDB を `<home>/.codegraphcontext/global/kuzudb` に作成（起動時 `makedirs`）する。パイプラインの `cgc` CLI は `os.environ` をそのまま渡すため `Path.home()` が passwd フォールバックで `/home/appuser` を解決し動作していたが、**MCP ツールセットだけが `HOME=""`（空文字）を子プロセスに明示的に渡していた**ため `Path.home()` が CWD `/app`（root 所有・書込不可）配下を指し PermissionError になっていた（他の MCP は Serena が pwd フォールバック・Trivy が `/home/appuser` 既定で回避済み）。`services/code_graph.py` で書込可能な `HOME` を解決し `KUZUDB_PATH` を明示固定（CLI ビルドと MCP サーバで同一 env を共有）、`agents/code_graph_mcp.py` の HOME 既定を空文字→解決済み `CGC_HOME` に、`docker/service.Dockerfile` に `ENV HOME=/home/appuser` を追加（根本対処）。CGC 不可時の graceful 動作は不変。
+
 - 返済 PR の「作成済みの PR を開く」がアプリの同一画面を開いてしまう不具合を修正（issue 227）: `code_debts.related_pr` に PR 番号 `#N` を保存していたため、リンク href が同一ページ内アンカーになっていた。`related_issue`（URL 保存）と対称に **PR の URL を保存**するよう `repayment_pr_generation` を修正（実 GitHub の PR 画面を開く）。あわせて返済 PR のタイトル先頭に **`[DevDebtOps]`** タグを付与。
 
 - Twin Agent（agentic 解析の判断層）だけが解析に失敗する不具合を修正（issue 225・#224 回帰）: detect-secrets 第2層の高エントロピー検知が、エージェントへの指示プロンプト内の **`owner/repo` スラッグ（例 `HarutoTakita/cyber-tech`）を秘密と誤検知**してマスクし、専門家エージェントが GitHub ツールを `repos/REDACTED/REDACTED` で呼んで 404 → ファイル探索不能で失敗していた。`redact_secrets` / `SecretRedactionPlugin` / `run_single_agent` に **allowlist**（owner / repo / `owner/repo` / branch・ref）を追加し、エージェントに与える既知の安全な識別子は秘匿対象から除外（detect-secrets パスでスキップ）。実際の秘密のマスクは不変（同一テキスト内に秘密があれば従来どおり伏字化）。`run_twin_agent` と walkthrough/refactor/quiz の各 `run_single_agent` 呼び出しに座標を配線。
