@@ -74,6 +74,13 @@ _SEMGREP_HINT = """\
 返る security（セキュリティ/正確性）・smell（保守性）の所見を複雑度などの決定的シグナルと突き合わせ、
 所見の根拠に必ず含めてください。
 """
+_CGC_HINT = """\
+
+さらに、全体像の把握には【必ず】CodeGraphContext のツールを使うこと: analyze_code_relationships に
+repo_path="{repo_dir}" を渡し、module_deps（モジュール依存）/ find_all_callers・call_chain（呼び出し連鎖・
+影響範囲＝blast radius）/ dead_code を確認する。全文を闇雲に読まず、まずグラフで「どこを深掘りすべきか・変更の
+波及範囲はどこか」の当たりを付け、その上で Serena でシンボルを精読すること。所見の根拠にグラフの知見を含めてください。
+"""
 
 
 def _build_specialist(*, name: str, instruction: str, tools: list[Any], budget: RunBudget, output_key: str) -> LlmAgent:
@@ -98,6 +105,7 @@ def build_twin_agent(
     github_toolset: McpToolset | None = None,
     trivy_toolset: McpToolset | None = None,
     semgrep_toolset: McpToolset | None = None,
+    code_graph_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Build the rule-based Twin Agent pipeline (``SequentialAgent``: knowledge → code → remediation).
@@ -130,6 +138,13 @@ def build_twin_agent(
     if semgrep_toolset is not None:
         code_tools.append(semgrep_toolset)
         code_instruction += _SEMGREP_HINT
+    # CodeGraphContext (マクロ) → BOTH specialists（アーキ/結合は知識負債、影響範囲/dead code は技術負債）。
+    if code_graph_toolset is not None:
+        knowledge_tools.append(code_graph_toolset)
+        code_tools.append(code_graph_toolset)
+        cgc_hint = _CGC_HINT.format(repo_dir=repo_dir or ".")
+        knowledge_instruction += cgc_hint
+        code_instruction += cgc_hint
 
     knowledge_agent = _build_specialist(
         name="knowledge_debt_agent",
@@ -162,6 +177,7 @@ def build_twin_loop(
     github_toolset: McpToolset | None = None,
     trivy_toolset: McpToolset | None = None,
     semgrep_toolset: McpToolset | None = None,
+    code_graph_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Return the rule-based Twin Agent pipeline (kept as the entrypoint name used by the runner).
@@ -177,5 +193,6 @@ def build_twin_loop(
         github_toolset=github_toolset,
         trivy_toolset=trivy_toolset,
         semgrep_toolset=semgrep_toolset,
+        code_graph_toolset=code_graph_toolset,
         repo_dir=repo_dir,
     )

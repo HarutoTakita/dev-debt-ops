@@ -15,6 +15,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from service.agents.budget import RunBudget
+from service.agents.code_graph_mcp import build_code_graph_toolset
 from service.agents.github_mcp import build_github_toolset
 from service.agents.plugin import SecretRedactionPlugin, TraceRecorderPlugin
 from service.agents.semgrep_mcp import build_semgrep_toolset
@@ -53,7 +54,12 @@ async def run_twin_agent(
     # Semgrep MCP (in-house, stdio, in-venv) needs no clone — it scans the file contents the agent
     # reads — so it grounds the code specialist on every run (issue 204).
     semgrep_toolset = build_semgrep_toolset()
-    toolsets = [t for t in (serena_toolset, github_toolset, trivy_toolset, semgrep_toolset) if t is not None]
+    # CodeGraphContext MCP (マクロ俯瞰): パイプラインが clone を事前インデックスした時のみ有効。グラフは
+    # repo_dir のクローンをスコープに照会するため repo_dir をゲートにする（issue 235）。
+    code_graph_toolset = build_code_graph_toolset() if repo_dir else None
+    toolsets = [
+        t for t in (serena_toolset, github_toolset, trivy_toolset, semgrep_toolset, code_graph_toolset) if t is not None
+    ]
     root = build_twin_loop(
         client=client,
         budget=budget,
@@ -62,6 +68,7 @@ async def run_twin_agent(
         github_toolset=github_toolset,
         trivy_toolset=trivy_toolset,
         semgrep_toolset=semgrep_toolset,
+        code_graph_toolset=code_graph_toolset,
         repo_dir=repo_dir,
     )
     session_service = InMemorySessionService()

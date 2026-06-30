@@ -36,7 +36,7 @@ from service.pipelines import (
     stack_analysis,
 )
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
-from service.services import repo_checkout
+from service.services import code_graph, repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -174,6 +174,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
+    # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもエージェントはグラフ無しで継続（graceful）。
+    if repo_dir is not None:
+        await code_graph.build_graph(repo_dir)
     try:
         trace, recommendations = await run_twin_agent(
             client=client,

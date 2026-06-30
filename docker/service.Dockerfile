@@ -30,6 +30,10 @@ COPY --from=ghcr.io/github/github-mcp-server /server/github-mcp-server /usr/loca
 #  - Node 20: runtime for Serena's TypeScript language server (auto-downloaded into ~/.serena) and
 #    for pyright (the Python LS, launched via `uvx`). Serena manages the LS binaries itself.
 #  - serena-agent: installed as an isolated uv tool (its own deps → no `mcp` conflict with adk[mcp]).
+#  - codegraphcontext (CGC, issue 235): code-graph MCP for macro structure (call chains / module
+#    deps / impact / dead code). Installed as an isolated uv tool ON PYTHON 3.12 (its
+#    tree-sitter-language-pack is incompatible with 3.13 and it pins protobuf<3.21 — both would
+#    conflict with the service venv), with the embedded KuzuDB backend (`--with kuzu`, no Neo4j).
 # Installed into world-readable locations (/usr/local/bin, /opt/uv) so the unprivileged appuser can run them.
 ENV UV_TOOL_DIR=/opt/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin
 RUN apt-get update \
@@ -37,6 +41,7 @@ RUN apt-get update \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && uv tool install -p 3.13 serena-agent \
+    && uv tool install -p 3.12 codegraphcontext --with kuzu \
     # Serena launches its Python LS (pyright) via `uvx`; uv 0.9.x ships no `uvx` here and its
     # `uv x` fallback is an invalid subcommand → provide a uvx shim (uvx == `uv tool run`).
     && printf '#!/bin/sh\nexec uv tool run "$@"\n' > /usr/local/bin/uvx && chmod 0755 /usr/local/bin/uvx \
