@@ -1,9 +1,16 @@
-"""Secret redaction for LLM inputs (issue 217).
+"""Secret redaction for LLM inputs (issue 217 / 223).
 
 Repository content (file bodies, tool results, agent-composed prompts) can contain credentials.
-Before any such text reaches an LLM, we mask common secret shapes so the model never receives them
-in plaintext. This is **defense in depth** — pattern + assignment based, so novel or low-entropy
-secrets may slip through; it reduces, not eliminates, exposure. Pair it with not reading obvious
+Before any such text reaches an LLM, we mask secrets so the model never receives them in plaintext.
+Two complementary layers run (**defense in depth**):
+
+1. **Rule-based** (this module's regexes) — fast, deterministic, structural: known token shapes
+   (PEM / GitHub / Google / AWS / Slack / JWT), ``Bearer`` headers, and ``key=value`` secrets.
+2. **detect-secrets** (Yelp) — entropy + a suite of specialised/keyword plugins, to catch
+   high-entropy / novel secrets the regexes miss (issue 223). Runs after the regex layer and masks
+   each detected secret value; graceful — any failure falls back to rule-based only.
+
+Still not exhaustive (low-entropy / unusual secrets may slip), so pair it with not reading obvious
 secret files (``.env`` / ``*.pem``) rather than relying on it as the only barrier.
 
 Used by ``SecretRedactionPlugin`` (ADK runner), which scrubs every model request for the Twin Agent
@@ -11,7 +18,10 @@ and the agentified walkthrough / refactor / quiz pipelines at the single chokepo
 content heads to Gemini.
 """
 
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 # What a masked secret is replaced with. The guillemets are excluded from the assignment value
 # class below so a second pass never re-masks an already-masked value (keeps the count honest).
@@ -52,13 +62,60 @@ _ASSIGNMENT_PATTERN = re.compile(
 )
 
 
-def redact_secrets(text: str) -> tuple[str, int]:
-    """Mask common secret shapes in ``text``; return ``(redacted_text, num_redactions)``.
+# detect-secrets layer tuning. High-entropy plugins are noisy (they flag short hex/base64 fragments
+# like "FE"), so we only mask entropy hits at/above a real-secret length; keyword/specialised plugins
+# are higher-confidence and mask at a lower floor. Bytes shorter than these are left alone so code
+# isn't shredded by false positives.
+_DS_ENTROPY_TYPES = frozenset({"Base64 High Entropy String", "Hex High Entropy String"})
+_DS_ENTROPY_MIN_LEN = 20
+_DS_MIN_LEN = 8
 
-    Applies, in order: standalone token patterns (masked wholesale), ``Bearer`` headers (scheme
-    kept, credential masked), and assignment-style ``key=value`` secrets (key + separator kept,
-    value masked). ``num_redactions`` is the total number of substitutions made — advisory, for
-    tracing / telemetry. Non-string or empty input returns ``(text, 0)`` unchanged.
+
+def _detect_secrets_pass(text: str) -> tuple[str, int]:
+    """Mask secrets found by detect-secrets (entropy + plugins); return ``(text, num_masked)``.
+
+    Scans line by line under detect-secrets' default plugin/filter set, collects each detected
+    secret value (length-gated to avoid masking short high-entropy noise), and replaces every literal
+    occurrence with the placeholder. Graceful: if detect-secrets is unavailable or errors, returns
+    the text unchanged so the rule-based layer still applies and the model call never breaks.
+    """
+    try:
+        from detect_secrets.core import scan
+        from detect_secrets.settings import default_settings
+    except Exception:  # pragma: no cover - import guard (dependency always present in service)
+        return text, 0
+
+    values: set[str] = set()
+    try:
+        with default_settings():
+            for line in text.splitlines():
+                for secret in scan.scan_line(line):
+                    value = secret.secret_value
+                    if not value or value in values or REDACTED in value:
+                        continue
+                    floor = _DS_ENTROPY_MIN_LEN if secret.type in _DS_ENTROPY_TYPES else _DS_MIN_LEN
+                    if len(value) >= floor:
+                        values.add(value)
+    except Exception:
+        logger.warning("detect-secrets pass failed; falling back to rule-based redaction only", exc_info=True)
+        return text, 0
+
+    total = 0
+    # Mask longest-first so a value that contains a shorter detected value is replaced whole.
+    for value in sorted(values, key=len, reverse=True):
+        text, count = re.subn(re.escape(value), REDACTED, text)
+        total += count
+    return text, total
+
+
+def redact_secrets(text: str) -> tuple[str, int]:
+    """Mask secrets in ``text``; return ``(redacted_text, num_redactions)``.
+
+    Two layers run in order: (1) rule-based — standalone token patterns (masked wholesale),
+    ``Bearer`` headers (scheme kept, credential masked), and assignment-style ``key=value`` secrets
+    (key + separator kept, value masked); (2) detect-secrets — entropy/plugin detection for the
+    high-entropy / novel secrets the regexes miss. ``num_redactions`` is the total substitutions made
+    across both layers — advisory, for tracing / telemetry. Empty input returns ``(text, 0)``.
     """
     if not text:
         return text, 0
@@ -76,6 +133,10 @@ def redact_secrets(text: str) -> tuple[str, int]:
         return f"{match.group('key')}{match.group('sep')}{quote}{REDACTED}{quote}"
 
     text, count = _ASSIGNMENT_PATTERN.subn(_mask_value, text)
+    total += count
+
+    # Second layer: detect-secrets (entropy + plugins) over the already rule-masked text.
+    text, count = _detect_secrets_pass(text)
     total += count
 
     return text, total

@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Security
+
+- LLM 送信前のシークレット秘匿に **detect-secrets（Yelp）を第2検知層**として追加（issue 223）: `services/secret_redaction.py` の `redact_secrets()` を、従来のルールベース（正規表現：PEM/GitHub/Google/AWS/Slack/JWT/Bearer/`key=value`）に加えて detect-secrets の**エントロピー＋多数の専用/キーワードプラグイン**で走査する2層構成に強化。ルールが取りこぼす高エントロピー・新規形状の秘密（既存キーが秘密語でない代入値など）を検知し伏字化する。高エントロピー系は短い誤検知（2文字 hex 等）を避けるため実秘密長（20字以上）でゲートし、キーワード/専用系は低い閾値で伏字化。detect-secrets の失敗は握りつぶしてルールベースのみにフォールバック（モデル呼び出しを止めない）。`SecretRedactionPlugin`（Runner 登録の before_model_callback）経由で Twin Agent / walkthrough / refactor / quiz の全エージェント探索が自動的に多層秘匿の恩恵を受ける。依存に `detect-secrets>=1.5.0` を追加。
+
 ### Added
 
 - 技術負債検知に **Semgrep（実静的解析）と自作 Semgrep MCP** を追加（issue 204 を現行アーキへ再実装）: 既存の Serena(LSP=構造)・Trivy(SCA/secret/misconfig)・GitHub(履歴) に**実静的解析（security/correctness/smell）**の軸を追加。(1) 決定的パイプライン `code_debt_detection` に `services/semgrep_scan.py`（一時展開→`semgrep scan --json`→(file,type)集約、graceful フォールバック）を統合し security/smell を `code_debts` へ永続化（フロント `debtItemSchema.type` に security/smell を追加し Matrix 表示・i18n）。(2) Twin Agent の**コード専門家**に自作 Semgrep MCP サーバ（FastMCP/stdio・`agents/semgrep_mcp_server.py`、`agents/semgrep_mcp.py` の `build_semgrep_toolset`）を `McpToolset` で接続し `scan_code` で判断を根拠付け（`runner`/`twin` に Trivy と同パターンで配線）。公式 `semgrep-mcp` は `mcp<1.24` で `google-adk[mcp]` と競合するため、adk 互換 `mcp` 上に同一エンジンを薄く公開（追加依存・ネットワーク不要・in-container）。`semgrep>=1.0.0` を依存に追加。元 PR #204 は刷新前アーキ（LoopAgent/coordinator）前提でマージ不能だったため、現行 `SequentialAgent` 構成へ再実装。
