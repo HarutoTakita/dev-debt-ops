@@ -289,7 +289,7 @@ export const codeDebtSchema = z.object({
   kind: z.literal("code"),
   file_path: z.string(),
   repo: z.string(),
-  type: z.enum(["duplicate", "dead", "complexity", "other"]),
+  type: z.enum(["duplicate", "dead", "complexity", "security", "smell", "other"]),
   severity: severitySchema,
   status: z.enum(["open", "in_pr", "resolved", "dismissed"]),
   detected_at: z.iso.datetime({ offset: true }),

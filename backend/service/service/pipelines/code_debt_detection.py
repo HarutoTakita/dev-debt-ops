@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import code_analysis, gemini_stack_service
+from service.services import code_analysis, gemini_stack_service, semgrep_scan
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobStatus, JobType, ResultStatus
@@ -149,6 +149,28 @@ def detect(files: dict[str, str]) -> list[Finding]:
     return findings
 
 
+def _semgrep_to_findings(aggregates: list[semgrep_scan.SemgrepAggregate], files: dict[str, str]) -> list[Finding]:
+    """Convert Semgrep per-(file, type) aggregates into code-debt ``Finding`` rows (issue 069).
+
+    Reuses ``_snippet`` for the code preview; ``estimated_repay_hours`` scales with finding count.
+    """
+    out: list[Finding] = []
+    for agg in aggregates:
+        count = agg.metrics.get("semgrep_count", 1)
+        out.append(
+            Finding(
+                file_path=agg.file_path,
+                type=agg.debt_type,
+                score=agg.score,
+                archaeology_notes=agg.notes,
+                code_snippet=_snippet(files.get(agg.file_path, "")),
+                metrics=agg.metrics,
+                estimated_repay_hours=round(min(count * 0.5, 8.0), 1),
+            )
+        )
+    return out
+
+
 async def _get_or_create_run(
     session: AsyncSession, *, job_id: uuid.UUID, project_id: uuid.UUID, commit_sha: str, branch: str
 ) -> AnalysisRun:
@@ -249,6 +271,10 @@ async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> Co
         await client.aclose()
 
     findings = detect(files)
+
+    # Real static analysis via Semgrep (security / smell), merged with the heuristic findings.
+    # Graceful: scan_files returns [] on any failure, so detection still works without Semgrep.
+    findings.extend(_semgrep_to_findings(await semgrep_scan.scan_files(files), files))
 
     # AI-generation estimate only for files that already have a finding (bounds the Gemini call).
     flagged_paths = {f.file_path for f in findings}

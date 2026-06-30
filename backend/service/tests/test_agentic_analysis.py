@@ -88,6 +88,16 @@ class TestTwinConstruction:
         assert tv not in know.tools  # Trivy NOT on knowledge
         assert "/tmp/clone-xyz" in code.instruction  # path injected for scan_filesystem
 
+    def test_code_specialist_gets_semgrep_toolset(self) -> None:
+        """Semgrep MCP → code specialist only (real static analysis = code-debt signal), issue 204."""
+        from service.agents.semgrep_mcp import build_semgrep_toolset
+
+        sg = build_semgrep_toolset()  # construction is lazy; no subprocess spawned
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], semgrep_toolset=sg)
+        by_name = {a.name: a for a in loop.sub_agents}
+        assert sg in by_name["code_debt_agent"].tools  # Semgrep → code
+        assert sg not in by_name["knowledge_debt_agent"].tools  # NOT on knowledge
+
     def test_recommend_remediation_records(self) -> None:
         """The remediation tool records structured recommendations and normalises the action."""
         recommendations: list[dict[str, str]] = []
@@ -101,7 +111,7 @@ class TestTwinConstruction:
 
 class TestRunnerMcpLifecycle:
     async def test_all_mcp_toolsets_closed_after_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """run_twin_agent builds Serena+Trivy (repo_dir) + GitHub (token) and closes them all (finally)."""
+        """run_twin_agent builds Serena+Trivy+Semgrep (repo_dir) + GitHub (token) and closes them all (finally)."""
         from service.agents import runner
 
         closed = {"n": 0}
@@ -120,6 +130,7 @@ class TestRunnerMcpLifecycle:
 
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
         monkeypatch.setattr(runner, "build_trivy_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_semgrep_toolset", lambda: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_twin_loop", lambda **_kwargs: object())
         monkeypatch.setattr(runner, "Runner", _FakeRunner)
@@ -133,7 +144,7 @@ class TestRunnerMcpLifecycle:
             repo_dir="/tmp/x",
             github_token="tok",
         )
-        assert closed["n"] == 3  # serena + trivy + github all closed
+        assert closed["n"] == 4  # serena + trivy + semgrep + github all closed
         assert trace == []
         assert recs == []
 
