@@ -28,6 +28,8 @@
 
 ### Fixed
 
+- コード負債の検知が Gemini の 429（RESOURCE_EXHAUSTED）で失敗する不具合を修正（issue 246）: `code_debt_detection` は検知済みファイルに補助的な AI 生成確率推定（`gemini_stack_service.estimate_ai_generation`）を行うが、`_generate` は 429/5xx を指数バックオフで再試行したうえで**クォータ枠が空かないと `google.genai.errors.APIError` を re-raise** する。呼び出し側が `except ValueError`（設定/認証エラー用）のみでガードしていたため 429 を取りこぼし、`_run_backbone_step` の汎用 except が拾って **step 全体を失敗**させ、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果まで捨てていた。AI 生成確率は補助的エンリッチであり一時障害で検知を壊してはならないため、両 step（`code_debt_detection` / `knowledge_debt_detection`）のガードを `except Exception`（exc_info ログ付き・`semgrep_scan` と同じ graceful 方針）へ広げ、失敗時は `ai_generation_prob=0.0` 既定で検知を継続する。回帰テストを追加。
+
 - Twin Agent（agentic 解析）で CodeGraphContext (CGC) MCP が `Failed to create MCP session: [Errno 13] Permission denied` で起動できない不具合を修正（issue 242）: 非 root の `appuser` は HOME 未設定で、CGC は埋め込み KuzuDB を `<home>/.codegraphcontext/global/kuzudb` に作成（起動時 `makedirs`）する。パイプラインの `cgc` CLI は `os.environ` をそのまま渡すため `Path.home()` が passwd フォールバックで `/home/appuser` を解決し動作していたが、**MCP ツールセットだけが `HOME=""`（空文字）を子プロセスに明示的に渡していた**ため `Path.home()` が CWD `/app`（root 所有・書込不可）配下を指し PermissionError になっていた（他の MCP は Serena が pwd フォールバック・Trivy が `/home/appuser` 既定で回避済み）。`services/code_graph.py` で書込可能な `HOME` を解決し `KUZUDB_PATH` を明示固定（CLI ビルドと MCP サーバで同一 env を共有）、`agents/code_graph_mcp.py` の HOME 既定を空文字→解決済み `CGC_HOME` に、`docker/service.Dockerfile` に `ENV HOME=/home/appuser` を追加（根本対処）。CGC 不可時の graceful 動作は不変。
 
 - 返済 PR の「作成済みの PR を開く」がアプリの同一画面を開いてしまう不具合を修正（issue 227）: `code_debts.related_pr` に PR 番号 `#N` を保存していたため、リンク href が同一ページ内アンカーになっていた。`related_issue`（URL 保存）と対称に **PR の URL を保存**するよう `repayment_pr_generation` を修正（実 GitHub の PR 画面を開く）。あわせて返済 PR のタイトル先頭に **`[DevDebtOps]`** タグを付与。

@@ -215,6 +215,35 @@ async def test_process_detects_and_persists(monkeypatch: pytest.MonkeyPatch, ses
         assert ("app/orphan.py", "dead") in by_path_type
 
 
+async def test_ai_estimate_failure_is_graceful(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """A Gemini failure (e.g. 429 RESOURCE_EXHAUSTED — a non-ValueError APIError) during the optional
+    AI-generation estimate must NOT fail code-debt detection; findings persist with prob 0.0."""
+    _patch(monkeypatch, _FILES, {})
+
+    async def _raise_429(file_map: dict[str, str]) -> dict[str, float]:
+        raise RuntimeError("429 RESOURCE_EXHAUSTED")  # stands in for genai_errors.APIError (not ValueError)
+
+    monkeypatch.setattr(gemini_stack_service, "estimate_ai_generation", _raise_429)
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await code_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.detected >= 2  # deterministic static-analysis findings are still persisted
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        assert run.status == JobStatus.COMPLETED
+        debts = (await session.execute(select(CodeDebt).where(CodeDebt.run_id == run.id))).scalars().all()
+        assert debts
+        assert all(d.ai_generation_prob == 0.0 for d in debts)
+
+
 async def test_semgrep_findings_persisted(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
     """Semgrep aggregates are upserted as security/smell code_debts alongside the heuristics (issue 204)."""
     from service.services.semgrep_scan import SemgrepAggregate
