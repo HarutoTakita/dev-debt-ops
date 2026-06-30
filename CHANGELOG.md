@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- 直接 Gemini 経路の段階的エージェント化に向けた基盤を追加（issue 217 PR1）: 単一 ADK エージェントを `Runner`（trace + secret-redaction プラグイン）で駆動しトレースを返す**汎用ランナー** `agents/single_agent.py` の `run_single_agent()` を新設（`run_twin_agent` / `run_stack_analysis` の定型を一般化）。walkthrough / refactor / quiz のエージェント化（PR2/PR3）はこの土台に載せ、トレースとシークレット秘匿を自動的に得る。
+
+### Security
+
+- リポジトリ内容のシークレットが LLM に渡らないよう **SecretRedactionPlugin** を追加（issue 217 PR1）: `Runner` に登録する ADK `BasePlugin`（`before_model_callback`）で、モデル送信直前の `llm_request.contents` 全テキストパートをスキャンし秘密を伏字化。Twin Agent を含む**全エージェント探索**をカバー。検知形状は PEM 秘密鍵ブロック・GitHub トークン（`ghp_`/`gho_`/`github_pat_` 等）・Google API キー・AWS アクセスキー・Slack トークン・JWT・`Bearer` ヘッダ（スキームは保持）・`key=value` 形式の秘密値（キーと区切りは保持し値のみ伏字）。多層防御の一層（新規・低エントロピーは取りこぼし得る前提）。ユーティリティ `services/secret_redaction.py` の `redact_secrets()` として切り出し、直接 Gemini 呼び出し側からも再利用可能。`runner.run_twin_agent` の `Runner` に登録済み。ユニットテスト（各形状・冪等性・非秘密の素通り・プラグインのインプレース伏字）を追加。
+
 ## [0.0.6] - 2026-06-25
 
 ### Added
