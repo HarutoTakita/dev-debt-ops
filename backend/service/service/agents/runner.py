@@ -16,7 +16,7 @@ from google.genai.types import Content, Part
 
 from service.agents.budget import RunBudget
 from service.agents.github_mcp import build_github_toolset
-from service.agents.plugin import TraceRecorderPlugin
+from service.agents.plugin import SecretRedactionPlugin, TraceRecorderPlugin
 from service.agents.serena_mcp import build_serena_toolset
 from service.agents.trivy_mcp import build_trivy_toolset
 from service.agents.twin import build_twin_loop
@@ -42,6 +42,7 @@ async def run_twin_agent(
     absent — the agent falls back to the REST-based repo tools (graceful).
     """
     recorder = TraceRecorderPlugin()
+    redactor = SecretRedactionPlugin()  # 探索で読んだ内容のシークレットを LLM 送信前に秘匿（issue 217）
     recommendations: list[dict[str, str]] = []
     serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
     trivy_toolset = build_trivy_toolset() if repo_dir else None
@@ -61,7 +62,7 @@ async def run_twin_agent(
         app_name=_APP_NAME,
         agent=root,
         session_service=session_service,
-        plugins=[recorder],
+        plugins=[recorder, redactor],
     )
     user_id = f"{owner}_{repo}"
     adk_session = await session_service.create_session(app_name=_APP_NAME, user_id=user_id)
