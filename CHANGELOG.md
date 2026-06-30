@@ -8,6 +8,8 @@
 
 ### Added
 
+- 理解度マップ Level-2（機能内ファイルグラフ）のエッジを **CodeGraphContext で精緻化**（issue 238）: 機能ノードをクリックして開く構成ファイルの依存グラフのエッジを、従来の `dependencies`（import 抽出ベース）から CGC の**実コール集約**（関数 CALLS をファイルに集約、repo 相対パスで `file_kc` と一致）に切替。ファイルノードの KC 色は不変（理解度レンズは維持）、関数粒度はドリルダウン内に限定。`services/code_graph.py:extract_snapshot` を file↔file 集約エッジ（`{file_edges}`）へ、`code_graphs`/`GET .../code-graph`（`CodeGraphOut.file_edges`）と frontend スキーマを更新。`buildFileSubgraph` は CGC エッジを優先し、未構築時は従来 wormhole にフォールバック（graceful）。
+
 - コードグラフのスナップショットを**永続化**し読み取り API を追加（issue 235 PR2・将来 UI 用）: agentic 解析が CGC でグラフ構築後、関数コールグラフのノードリンク・スナップショット（`services/code_graph.py` の `extract_snapshot`＝`cgc query` の JSON）を抽出し、新規 `code_graphs` テーブル（`shared` の `CodeGraph`・project キーで upsert・Alembic `0026`）へ保存。`GET /orgs/{slug}/projects/{slug}/code-graph` （`CodeGraphOut`：observed/computed_at/nodes/edges）で配信し、frontend に Zod スキーマ＋`getCodeGraph` を追加（描画コンポーネントは将来）。抽出が空（一時失敗）のときは前回スナップショットを温存。これで issue 235（CGC 導入）が完了。
 
 - リポジトリ解析に **CodeGraphContext (CGC) コードグラフ MCP** を導入（issue 235 PR1）: Serena(LSP=ミクロ) に加え、全体アーキ・依存連鎖・**影響範囲(blast radius)**・dead code をマクロに俯瞰するコードグラフを Twin Agent の**両専門家**に付与。`agentic_analysis` が clone を `cgc index` で**事前構築**（`services/code_graph.py`・同期・graceful）し、エージェントは `agents/code_graph_mcp.py` の MCP（`codegraphcontext mcp start`・stdio・照会系 tool_filter）で `analyze_code_relationships` 等を照会。CGC は Python 3.13 非対応＋protobuf 衝突のため **`uv tool install -p 3.12 codegraphcontext --with kuzu`** で隔離導入し、**組み込み KuzuDB**（`CGC_RUNTIME_DB_TYPE=kuzudb`）で完結＝Neo4j 不要。CGC 不可/索引失敗時は従来解析を維持（graceful）。構築グラフの永続化＋将来 UI 表示は PR2 で対応。

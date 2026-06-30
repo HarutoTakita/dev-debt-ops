@@ -40,9 +40,4 @@ async def get_code_graph(
     if row is None:
         return CodeGraphOut(observed=False)
     graph = row.graph or {}
-    return CodeGraphOut(
-        observed=True,
-        computed_at=row.computed_at,
-        nodes=graph.get("nodes", []),
-        edges=graph.get("edges", []),
-    )
+    return CodeGraphOut(observed=True, computed_at=row.computed_at, file_edges=graph.get("file_edges", []))

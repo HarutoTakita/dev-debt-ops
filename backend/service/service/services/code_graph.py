@@ -102,21 +102,24 @@ async def _cgc_query(cypher: str) -> list[dict]:
 
 
 async def extract_snapshot(repo_dir: str) -> dict:
-    """Extract a compact node-link snapshot (function call graph) from the built CGC graph.
+    """Extract a compact **file↔file** edge snapshot from the built CGC graph (issue 238).
 
-    Returns ``{"nodes": [{"id"}], "edges": [{"source","target"}]}`` for persistence so a future UI can
-    render the code graph without re-indexing. Best-effort + bounded (``LIMIT``); returns ``{}`` on any
-    failure so the caller persists an empty graph rather than breaking the run. ``repo_dir`` is accepted
-    for future path-scoping; the current container indexes one repo per run.
+    Returns ``{"file_edges": [{"source": <repo-relative path>, "target": ...}]}`` for persistence so
+    the understanding map's Level-2 (a feature's file subgraph) can draw precise coupling edges. Edges
+    are cross-file function calls aggregated to files (``File-[:CONTAINS]->Function-[:CALLS]->Function
+    <-[:CONTAINS]-File``); CGC's ``File.relative_path`` is repo-relative, matching ``file_kc`` paths so
+    the frontend can join by path. Best-effort + bounded (``LIMIT``); returns ``{}`` on any failure so
+    the caller persists nothing (keeping a prior snapshot) rather than breaking the run. ``repo_dir``
+    is accepted for future path-scoping; the current container indexes one repo per run.
     """
     if not repo_dir:
         return {}
-    edges_rows = await _cgc_query(
-        f"MATCH (a:Function)-[:CALLS]->(b:Function) RETURN a.name AS source, b.name AS target "
-        f"LIMIT {_SNAPSHOT_EDGE_LIMIT}"
+    rows = await _cgc_query(
+        "MATCH (af:File)-[:CONTAINS]->(:Function)-[:CALLS]->(:Function)<-[:CONTAINS]-(bf:File) "
+        "WHERE af.relative_path <> bf.relative_path "
+        f"RETURN DISTINCT af.relative_path AS source, bf.relative_path AS target LIMIT {_SNAPSHOT_EDGE_LIMIT}"
     )
-    if not edges_rows:
+    if not rows:
         return {}
-    edges = [{"source": r["source"], "target": r["target"]} for r in edges_rows if r.get("source") and r.get("target")]
-    node_ids = {e["source"] for e in edges} | {e["target"] for e in edges}
-    return {"nodes": [{"id": n} for n in sorted(node_ids)], "edges": edges}
+    edges = [{"source": r["source"], "target": r["target"]} for r in rows if r.get("source") and r.get("target")]
+    return {"file_edges": edges} if edges else {}
