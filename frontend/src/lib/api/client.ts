@@ -11,6 +11,7 @@ import {
   codeWalkthroughSchema,
   codeWalkthroughJobSchema,
   codeGraphSchema,
+  fileFunctionGraphSchema,
   learningPlanSchema,
   learningStepSchema,
   overviewSchema,
@@ -38,6 +39,7 @@ import {
   type LearningStep,
   type CodeWalkthrough,
   type CodeGraph,
+  type FileFunctionGraph,
   type Overview,
   type PersonalGalaxy,
   type FileContent,
@@ -645,4 +647,16 @@ export async function getCodeGraph(orgSlug: string, projectSlug: string): Promis
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/code-graph`);
   if (!response.ok) throw new Error(await errorDetail(response, "コードグラフの取得に失敗しました"));
   return codeGraphSchema.parse(await response.json());
+}
+
+// ファイル内関数コールグラフ（Level-3, issue 240）: ファイルノードのクリック時に遅延取得。
+export async function getFileFunctionGraph(
+  orgSlug: string,
+  projectSlug: string,
+  path: string,
+): Promise<FileFunctionGraph> {
+  const params = new URLSearchParams({ path });
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/code-graph/file?${params}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "関数グラフの取得に失敗しました"));
+  return fileFunctionGraphSchema.parse(await response.json());
 }

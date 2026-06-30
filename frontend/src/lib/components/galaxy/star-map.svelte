@@ -5,7 +5,8 @@
   import type { PersonalGalaxy } from "$lib/api/schemas";
   import StarNode from "./star-node.svelte";
   import { computeForceLayout, type Point } from "./force-layout";
-  import { buildFeatureGraph, buildFileSubgraph } from "./galaxy-graph";
+  import { buildFeatureGraph, buildFileSubgraph, buildFunctionGraph } from "./galaxy-graph";
+  import { getFileFunctionGraph } from "$lib/api/client";
   import { formatKc } from "$lib/format/kc";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
@@ -14,18 +15,69 @@
   // Level 2（その機能の構成ファイルの依存グラフ）へインプレースズーム。「← 戻る」で Level 1 に戻る。
   // Map/Set の構築は galaxy-graph.ts / force-layout.ts（.ts 側）で完結させる（prefer-svelte-reactivity）。
   // codeGraphEdges: CodeGraphContext の file↔file 結合（issue 238）。Level-2 のエッジに優先使用（空なら wormhole）。
+  // orgSlug/projectSlug: Level-3（ファイル内関数グラフ, issue 240）の遅延取得に使う。
   const {
     galaxy,
     codeGraphEdges = [],
-  }: { galaxy: PersonalGalaxy; codeGraphEdges?: { source: string; target: string }[] } = $props();
+    orgSlug = "",
+    projectSlug = "",
+  }: {
+    galaxy: PersonalGalaxy;
+    codeGraphEdges?: { source: string; target: string }[];
+    orgSlug?: string;
+    projectSlug?: string;
+  } = $props();
 
   let selected = $state<string | null>(null); // 選択中の feature key（null = Level 1）
+  let selectedFile = $state<string | null>(null); // 選択中のファイル（非 null = Level 3）
   let hovered = $state<string | null>(null);
 
+  // --- Level 3: ファイル内の関数コールグラフ（issue 240、クリック時に遅延取得） ---
+  let fnNodes = $state<string[]>([]);
+  let fnEdges = $state<{ source: string; target: string }[]>([]);
+  let fnLoading = $state(false);
+
+  async function openFile(path: string) {
+    if (!orgSlug || !projectSlug) return; // デモ/未接続では Level-3 を開かない
+    selectedFile = path;
+    hovered = null;
+    fnLoading = true;
+    fnNodes = [];
+    fnEdges = [];
+    try {
+      const g = await getFileFunctionGraph(orgSlug, projectSlug, path);
+      if (selectedFile !== path) return; // 別ファイルへ切替済み（レース）なら破棄
+      fnNodes = g.nodes.map((n) => n.id);
+      fnEdges = g.edges;
+    } catch {
+      /* 取得失敗 → 空表示（graceful） */
+    } finally {
+      if (selectedFile === path) fnLoading = false;
+    }
+  }
+
+  const fnGraph = $derived(buildFunctionGraph(fnNodes, fnEdges));
+  const fnLayout = $derived(
+    computeForceLayout(
+      fnNodes,
+      fnEdges.map((e) => [e.source, e.target] as const),
+    ),
+  );
+  const fnLines = $derived(
+    fnGraph.edges.map(({ a, b }) => {
+      const pa = fnLayout.get(a) ?? FALLBACK;
+      const pb = fnLayout.get(b) ?? FALLBACK;
+      return { a, b, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y };
+    }),
+  );
+
   const selectedFeature = $derived(galaxy.features.find((f) => f.key === selected) ?? null);
-  // データ更新で選択中の機能が消えたら Level 1 に戻す。
+  // データ更新で選択中の機能が消えたら Level 1 に戻す（ファイル選択も解除）。
   $effect(() => {
-    if (selected !== null && !galaxy.features.some((f) => f.key === selected)) selected = null;
+    if (selected !== null && !galaxy.features.some((f) => f.key === selected)) {
+      selected = null;
+      selectedFile = null;
+    }
   });
 
   const FALLBACK: Point = { x: 50, y: 50 };
@@ -105,7 +157,7 @@
   // レベル切替（selected）や領域リサイズ（size）で全体表示にリセット。依存として明示的に読み（trigger）、
   // ユーザーのズーム値（scale/tx/ty）は読まないので、操作中に再実行して値を巻き戻すことはない。
   $effect(() => {
-    const trigger = `${selected}:${size}`;
+    const trigger = `${selected}:${selectedFile}:${size}`;
     if (trigger) fit();
   });
 
@@ -152,7 +204,19 @@
   const zoomButton = (factor: number) => zoomAt(vw / 2, vh / 2, factor);
 </script>
 
-{#if selected !== null && selectedFeature}
+{#if selectedFile !== null}
+  <!-- Level 3 → Level 2 に戻る（クリックしたファイルのパスを表示）。 -->
+  <button
+    type="button"
+    onclick={() => {
+      selectedFile = null;
+      hovered = null;
+    }}
+    class="mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+  >
+    ← <span class="font-mono">{selectedFile}</span>
+  </button>
+{:else if selected !== null && selectedFeature}
   <button
     type="button"
     onclick={() => {
@@ -252,6 +316,62 @@
             </span>
           </button>
         {/each}
+      {:else if selectedFile !== null}
+        <!-- Level 3: ファイル内の関数コールグラフ（issue 240）。関数は KC を持たないため中立スタイル。 -->
+        <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
+          <defs>
+            <marker
+              id="edge-arrow"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="4"
+              markerHeight="4"
+              orient="auto"
+            >
+              <path d="M0,0 L10,5 L0,10 z" fill="rgba(100,116,139,0.85)" />
+            </marker>
+          </defs>
+          {#each fnLines as l (l.a + " " + l.b)}
+            <line
+              class="graph-el"
+              x1={l.x1}
+              y1={l.y1}
+              x2={l.x2}
+              y2={l.y2}
+              stroke="rgba(100,116,139,{hovered === null ? 0.5 : edgeActive(l) ? 0.95 : 0.15})"
+              stroke-width={edgeActive(l) ? 0.55 : 0.3}
+              marker-end="url(#edge-arrow)"
+            />
+          {/each}
+        </svg>
+
+        {#if fnLoading}
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span class="text-xs text-muted-foreground">{m.common_loading()}</span>
+          </div>
+        {:else if fnNodes.length === 0}
+          <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
+            <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_functions()}</p>
+          </div>
+        {:else}
+          {#each fnNodes as fn (fn)}
+            {@const p = fnLayout.get(fn) ?? FALLBACK}
+            <div
+              data-node
+              class="graph-el absolute -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-muted px-2 py-1 text-center shadow-sm"
+              style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(fnGraph.neighbors, fn) ? 0.35 : 1};"
+              role="group"
+              aria-label={fn}
+              onmouseenter={() => (hovered = fn)}
+              onmouseleave={() => (hovered = null)}
+              onfocusin={() => (hovered = fn)}
+              onfocusout={() => (hovered = null)}
+            >
+              <span class="block max-w-36 truncate font-mono text-[11px] text-foreground">{fn}</span>
+            </div>
+          {/each}
+        {/if}
       {:else if sub}
         <!-- Level 2: 機能内ファイル依存グラフ -->
         <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
@@ -284,19 +404,21 @@
 
         {#each sub.files as file (file.path)}
           {@const p = slayout.get(file.path) ?? FALLBACK}
-          <div
+          <!-- ファイルクリックで Level 3（ファイル内関数グラフ）へ。orgSlug/projectSlug 未指定（デモ）では openFile は no-op。 -->
+          <button
+            type="button"
             data-node
-            class="graph-el absolute -translate-x-1/2 -translate-y-1/2"
+            class="graph-el absolute -translate-x-1/2 -translate-y-1/2 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(sub.neighbors, file.path) ? 0.35 : 1};"
-            role="group"
             aria-label={file.path}
             onmouseenter={() => (hovered = file.path)}
             onmouseleave={() => (hovered = null)}
             onfocusin={() => (hovered = file.path)}
             onfocusout={() => (hovered = null)}
+            onclick={() => openFile(file.path)}
           >
             <StarNode {file} />
-          </div>
+          </button>
         {/each}
       {/if}
     </div>

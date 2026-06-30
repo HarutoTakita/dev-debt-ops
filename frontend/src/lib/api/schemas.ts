@@ -542,3 +542,11 @@ export const codeGraphSchema = z.object({
   file_edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
 });
 export type CodeGraph = z.infer<typeof codeGraphSchema>;
+
+// ファイル内の関数コールグラフ（Level-3, issue 240）。クリック時に遅延取得する。
+export const fileFunctionGraphSchema = z.object({
+  observed: z.boolean(),
+  nodes: z.array(z.object({ id: z.string() })).default([]),
+  edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
+});
+export type FileFunctionGraph = z.infer<typeof fileFunctionGraphSchema>;

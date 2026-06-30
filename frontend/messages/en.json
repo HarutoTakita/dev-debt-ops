@@ -290,6 +290,7 @@
   "galaxy_tab_list": "List",
   "galaxy_my_kc": "Your understanding",
   "galaxy_no_features": "No features yet. Run \"Analyze\" to see the per-feature map.",
+  "galaxy_no_functions": "No function calls found within this file.",
   "galaxy_file_count": "{count} files",
   "galaxy_zoom_in": "Zoom in",
   "galaxy_zoom_out": "Zoom out",
