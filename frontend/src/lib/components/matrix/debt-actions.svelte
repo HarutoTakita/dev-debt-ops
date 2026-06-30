@@ -81,7 +81,6 @@
       `- 種別: ${debt.type}`,
       `- 深刻度: ${debt.severity}`,
       `- 推定修正工数: 約 ${debt.estimated_repay_hours} 時間`,
-      `- 理解度(KC): ${Math.round(debt.knowledge_coverage * 100)}%`,
     ];
     if (assigneeLabel) lines.push(`- 担当: ${assigneeLabel}`);
     lines.push("", "### 検知根拠", debt.archaeology_notes || "（記録なし）");
