@@ -534,11 +534,11 @@ export type LearningPlan = z.infer<typeof learningPlanSchema>;
 export type CodeWalkthroughStep = z.infer<typeof codeWalkthroughStepSchema>;
 export type CodeWalkthrough = z.infer<typeof codeWalkthroughSchema>;
 
-// コードグラフ（CodeGraphContext スナップショット, issue 235）。将来 UI でノードリンク描画する。
+// コードグラフ（CodeGraphContext スナップショット, issue 235/238）。file↔file の結合エッジ（repo 相対パス＝
+// file_kc と一致）。理解度マップ Level-2（機能内ファイルグラフ）のエッジに使う。
 export const codeGraphSchema = z.object({
   observed: z.boolean(),
   computed_at: z.iso.datetime({ offset: true }).nullable().default(null),
-  nodes: z.array(z.object({ id: z.string() })).default([]),
-  edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
+  file_edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
 });
 export type CodeGraph = z.infer<typeof codeGraphSchema>;

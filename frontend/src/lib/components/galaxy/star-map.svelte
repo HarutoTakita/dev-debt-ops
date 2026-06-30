@@ -13,7 +13,11 @@
   // 2 段の理解度マップ（issue 065）。Level 1 = 機能（feature）ノード + 機能間グラフ。機能クリックで
   // Level 2（その機能の構成ファイルの依存グラフ）へインプレースズーム。「← 戻る」で Level 1 に戻る。
   // Map/Set の構築は galaxy-graph.ts / force-layout.ts（.ts 側）で完結させる（prefer-svelte-reactivity）。
-  const { galaxy }: { galaxy: PersonalGalaxy } = $props();
+  // codeGraphEdges: CodeGraphContext の file↔file 結合（issue 238）。Level-2 のエッジに優先使用（空なら wormhole）。
+  const {
+    galaxy,
+    codeGraphEdges = [],
+  }: { galaxy: PersonalGalaxy; codeGraphEdges?: { source: string; target: string }[] } = $props();
 
   let selected = $state<string | null>(null); // 選択中の feature key（null = Level 1）
   let hovered = $state<string | null>(null);
@@ -43,7 +47,7 @@
   );
 
   // --- Level 2: 機能内ファイルグラフ ---
-  const sub = $derived(selected ? buildFileSubgraph(galaxy, selected) : null);
+  const sub = $derived(selected ? buildFileSubgraph(galaxy, selected, codeGraphEdges) : null);
   const slayout = $derived(
     computeForceLayout(sub ? sub.files.map((f) => f.path) : [], sub ? sub.edges.map((e) => [e.a, e.b] as const) : []),
   );
