@@ -506,6 +506,8 @@
   "analysis_substep_stack_analysis": "Tech stack detection",
   "analysis_substep_baseline": "Learning plan & quiz generation",
   "analysis_substep_agentic_reasoning": "Agentic reasoning",
+  "analysis_base_agentic": "Agent-based repository analysis",
+  "analysis_base_caption": "The detection, organization, and generation above are all produced by this agent analysis.",
   "analysis_retry_stage": "Retry",
   "matrix_detect_cta": "Detect technical debt",
   "code_improve_open_count": "{count} open tech-debt items",
