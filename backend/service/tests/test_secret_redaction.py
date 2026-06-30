@@ -94,6 +94,28 @@ def test_redact_secrets_empty_input() -> None:
     assert redact_secrets("") == ("", 0)
 
 
+# --- detect-secrets layer (issue 223) --------------------------------------
+
+
+def test_detect_secrets_catches_high_entropy_value_rules_miss() -> None:
+    """A high-entropy value under a non-secret key (rule layer misses it) is masked by detect-secrets."""
+    # Canonical AWS doc example secret-access-key; key "config" is NOT secret-like, so the
+    # assignment regex does not match and there is no known prefix — only detect-secrets catches it.
+    secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    redacted, count = redact_secrets(f'config = "{secret}"')
+    assert secret not in redacted
+    assert REDACTED in redacted
+    assert count >= 1
+
+
+def test_detect_secrets_ignores_short_high_entropy_noise() -> None:
+    """Short high-entropy fragments (e.g. a 2-char hex) are below the floor and left intact."""
+    text = "color = 0xFE\nstep = 0x1\n"
+    redacted, count = redact_secrets(text)
+    assert redacted == text
+    assert count == 0
+
+
 # --- SecretRedactionPlugin -------------------------------------------------
 
 
