@@ -4,6 +4,7 @@
   import {
     analysisRun,
     AGENTIC_SUBSTEPS,
+    BASE_GROUP_ID,
     STAGES,
     STAGE_GROUPS,
     type RunContext,
@@ -109,6 +110,10 @@
     if (children.some((s) => s.status === "running" || s.status === "completed")) return "PROCESSING";
     return fallback;
   }
+
+  // 全タスクの土台＝「エージェントによるリポジトリ解析」基盤ブロック（issue 256）。3 グループの下に独立表示。
+  const baseChildren = $derived(childrenFor(BASE_GROUP_ID));
+  const baseStatus = $derived(blockStatus(baseChildren, analysisRun.stages["agentic"]?.status ?? "idle"));
 
   // グループの集約状態と、実行中サブステージのラベルを内部ステージ群から導出する。
   function groupView(g: StageGroupDef): { status: StageStatus; activeLabel: string | null } {
@@ -230,6 +235,32 @@
         </li>
       {/each}
     </ul>
+
+    <!-- 全タスクの土台: エージェントによるリポジトリ解析（issue 256）。上の 3 グループはこの解析から生成される。 -->
+    <div class="mt-2 flex flex-col items-center gap-0.5 text-muted-foreground">
+      <span aria-hidden="true" class="text-[10px] leading-none">▲</span>
+      <p class="text-center text-[11px] leading-snug">{m.analysis_base_caption()}</p>
+    </div>
+    <div class="mt-1.5 rounded-md border border-debt-knowledge/40 bg-debt-knowledge/5 px-3 py-2 text-sm">
+      <div class="flex items-center gap-3">
+        <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[baseStatus]}`}>{statusLabel(baseStatus)}</span>
+        <span class="min-w-0 flex-1 truncate font-medium">{m.analysis_base_agentic()}</span>
+      </div>
+      {#if baseChildren.length > 0}
+        <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
+          {#each baseChildren as s (s.key)}
+            <li class="flex items-center gap-2 text-xs">
+              <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
+                {stepMark(s.status)}
+              </span>
+              <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
+                {s.label}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
     {#if auth.isDemo}
       <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
     {/if}

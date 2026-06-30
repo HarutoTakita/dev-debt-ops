@@ -506,6 +506,8 @@
   "analysis_substep_stack_analysis": "技術スタックの検出",
   "analysis_substep_baseline": "学習プラン・クイズの生成",
   "analysis_substep_agentic_reasoning": "エージェントによる判断",
+  "analysis_base_agentic": "エージェントによるリポジトリ解析",
+  "analysis_base_caption": "上の検知・整理・生成は、すべてこのエージェント解析から生み出されます。",
   "analysis_retry_stage": "再実行",
   "matrix_detect_cta": "技術負債を検知する",
   "code_improve_open_count": "未返済の技術負債 {count} 件",
