@@ -6,10 +6,9 @@
   import MemberRoleBadge from "./member-role-badge.svelte";
   import MemberRoleDropdown from "./member-role-dropdown.svelte";
   import RemoveMemberDialog from "./remove-member-dialog.svelte";
-  import KcContributionCell from "./kc-contribution-cell.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // 1 行: アバター + 表示名/email + KC 寄与（枠）+ ロール + アクション。
+  // 1 行: アバター + 表示名/email + ロール + アクション。
   let { member, orgSlug, canManage }: { member: OrgMember; orgSlug: string; canManage: boolean } = $props();
 
   const displayName = $derived(member.user.display_name ?? member.user.email);
@@ -33,7 +32,6 @@
     <div class="truncate font-medium">{displayName}</div>
     <div class="truncate text-xs text-muted-foreground">{member.user.email}</div>
   </div>
-  <div class="hidden w-24 shrink-0 sm:block"><KcContributionCell /></div>
   <div class="w-28 shrink-0">
     {#if canManage}
       <MemberRoleDropdown role={member.role} onchange={changeRole} />
