@@ -12,7 +12,7 @@ stack-analysis approach, so the pipelines stay unit-testable without Vertex AI.
 """
 
 import contextlib
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.runners import Runner
@@ -32,6 +32,7 @@ async def run_single_agent(
     user_id: str,
     app_name: str = _APP_NAME,
     toolsets: Sequence[McpToolset] | None = None,
+    redaction_allowlist: Iterable[str] = (),
 ) -> list[str]:
     """Run ``agent`` over one ``prompt`` to completion; return its ``agent_trace``.
 
@@ -39,9 +40,13 @@ async def run_single_agent(
     request is scrubbed of secrets before it leaves the process and every tool call / response /
     final summary is captured. ``toolsets`` (any MCP toolsets the agent uses) are closed in a
     ``finally`` so their stdio subprocesses never leak, even on error or budget abort.
+
+    ``redaction_allowlist`` carries known-safe identifiers (e.g. repo owner / name / ``owner/repo`` /
+    ref) the redaction must not mask — see ``SecretRedactionPlugin`` (issue 225).
     """
     recorder = TraceRecorderPlugin()
-    redactor = SecretRedactionPlugin()  # 探索で読んだ内容のシークレットを LLM 送信前に秘匿（issue 217）
+    # 探索内容のシークレットを送信前に秘匿（issue 217）。既知の安全な識別子は allowlist で除外（issue 225）。
+    redactor = SecretRedactionPlugin(allowlist=redaction_allowlist)
     session_service = InMemorySessionService()
     runner = Runner(
         app_name=app_name,

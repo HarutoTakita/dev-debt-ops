@@ -31,6 +31,7 @@ async def _run_quiz_agent(owner: str, repo: str, ref: str, label: str, content: 
             prompt=prompt,
             user_id=f"{owner}_{repo}",
             toolsets=[serena] if serena else None,
+            redaction_allowlist=[owner, repo, f"{owner}/{repo}", ref, label],
         )
     finally:
         if repo_dir:

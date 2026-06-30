@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Twin Agent（agentic 解析の判断層）だけが解析に失敗する不具合を修正（issue 225・#224 回帰）: detect-secrets 第2層の高エントロピー検知が、エージェントへの指示プロンプト内の **`owner/repo` スラッグ（例 `HarutoTakita/cyber-tech`）を秘密と誤検知**してマスクし、専門家エージェントが GitHub ツールを `repos/REDACTED/REDACTED` で呼んで 404 → ファイル探索不能で失敗していた。`redact_secrets` / `SecretRedactionPlugin` / `run_single_agent` に **allowlist**（owner / repo / `owner/repo` / branch・ref）を追加し、エージェントに与える既知の安全な識別子は秘匿対象から除外（detect-secrets パスでスキップ）。実際の秘密のマスクは不変（同一テキスト内に秘密があれば従来どおり伏字化）。`run_twin_agent` と walkthrough/refactor/quiz の各 `run_single_agent` 呼び出しに座標を配線。
+
 ### Security
 
 - LLM 送信前のシークレット秘匿に **detect-secrets（Yelp）を第2検知層**として追加（issue 223）: `services/secret_redaction.py` の `redact_secrets()` を、従来のルールベース（正規表現：PEM/GitHub/Google/AWS/Slack/JWT/Bearer/`key=value`）に加えて detect-secrets の**エントロピー＋多数の専用/キーワードプラグイン**で走査する2層構成に強化。ルールが取りこぼす高エントロピー・新規形状の秘密（既存キーが秘密語でない代入値など）を検知し伏字化する。高エントロピー系は短い誤検知（2文字 hex 等）を避けるため実秘密長（20字以上）でゲートし、キーワード/専用系は低い閾値で伏字化。detect-secrets の失敗は握りつぶしてルールベースのみにフォールバック（モデル呼び出しを止めない）。`SecretRedactionPlugin`（Runner 登録の before_model_callback）経由で Twin Agent / walkthrough / refactor / quiz の全エージェント探索が自動的に多層秘匿の恩恵を受ける。依存に `detect-secrets>=1.5.0` を追加。

@@ -20,6 +20,7 @@ content heads to Gemini.
 
 import logging
 import re
+from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +72,24 @@ _DS_ENTROPY_MIN_LEN = 20
 _DS_MIN_LEN = 8
 
 
-def _detect_secrets_pass(text: str) -> tuple[str, int]:
+def _is_allowlisted(value: str, allowlist: frozenset[str]) -> bool:
+    """True if ``value`` overlaps an allowlisted token (equal / substring either way).
+
+    The allowlist carries caller-supplied known-safe identifiers — e.g. the repository owner / name /
+    ``owner/repo`` / branch the agent is told to analyse. These are author-controlled, not secrets,
+    but detect-secrets' entropy plugins flag slugs like ``owner/repo`` as high-entropy, which would
+    mask the coordinates the agent needs to call its tools (issue 225). Substring matching also spares
+    a flagged piece of an allowlisted token (e.g. just the owner out of ``owner/repo``).
+    """
+    return any(value in token or token in value for token in allowlist)
+
+
+def _detect_secrets_pass(text: str, allowlist: frozenset[str]) -> tuple[str, int]:
     """Mask secrets found by detect-secrets (entropy + plugins); return ``(text, num_masked)``.
 
     Scans line by line under detect-secrets' default plugin/filter set, collects each detected
-    secret value (length-gated to avoid masking short high-entropy noise), and replaces every literal
+    secret value (length-gated to avoid masking short high-entropy noise, and allowlist-gated to
+    avoid masking known-safe identifiers like the repo coordinates), and replaces every literal
     occurrence with the placeholder. Graceful: if detect-secrets is unavailable or errors, returns
     the text unchanged so the rule-based layer still applies and the model call never breaks.
     """
@@ -93,6 +107,8 @@ def _detect_secrets_pass(text: str) -> tuple[str, int]:
                     value = secret.secret_value
                     if not value or value in values or REDACTED in value:
                         continue
+                    if _is_allowlisted(value, allowlist):
+                        continue
                     floor = _DS_ENTROPY_MIN_LEN if secret.type in _DS_ENTROPY_TYPES else _DS_MIN_LEN
                     if len(value) >= floor:
                         values.add(value)
@@ -108,7 +124,7 @@ def _detect_secrets_pass(text: str) -> tuple[str, int]:
     return text, total
 
 
-def redact_secrets(text: str) -> tuple[str, int]:
+def redact_secrets(text: str, *, allowlist: Iterable[str] = ()) -> tuple[str, int]:
     """Mask secrets in ``text``; return ``(redacted_text, num_redactions)``.
 
     Two layers run in order: (1) rule-based — standalone token patterns (masked wholesale),
@@ -116,9 +132,14 @@ def redact_secrets(text: str) -> tuple[str, int]:
     (key + separator kept, value masked); (2) detect-secrets — entropy/plugin detection for the
     high-entropy / novel secrets the regexes miss. ``num_redactions`` is the total substitutions made
     across both layers — advisory, for tracing / telemetry. Empty input returns ``(text, 0)``.
+
+    ``allowlist`` is a set of known-safe literals (e.g. the repo owner / name / ``owner/repo`` /
+    branch the agent is told to analyse) that the detect-secrets layer must never mask — its entropy
+    plugins otherwise flag such slugs as secrets and strip the coordinates the agent needs (issue 225).
     """
     if not text:
         return text, 0
+    allow = frozenset(token for token in allowlist if token)
 
     total = 0
     for pattern in _TOKEN_PATTERNS:
@@ -136,7 +157,7 @@ def redact_secrets(text: str) -> tuple[str, int]:
     total += count
 
     # Second layer: detect-secrets (entropy + plugins) over the already rule-masked text.
-    text, count = _detect_secrets_pass(text)
+    text, count = _detect_secrets_pass(text, allow)
     total += count
 
     return text, total

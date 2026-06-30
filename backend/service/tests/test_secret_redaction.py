@@ -116,6 +116,34 @@ def test_detect_secrets_ignores_short_high_entropy_noise() -> None:
     assert count == 0
 
 
+def test_detect_secrets_flags_owner_repo_slug_without_allowlist() -> None:
+    """Regression guard (issue 225): the entropy plugin flags an ``owner/repo`` slug as a secret."""
+    prompt = "リポジトリ HarutoTakita/cyber-tech のブランチ main を分析"
+    redacted, count = redact_secrets(prompt)
+    assert "HarutoTakita/cyber-tech" not in redacted
+    assert count >= 1
+
+
+def test_allowlist_preserves_repo_coordinates() -> None:
+    """With the repo coords allowlisted, the agent's prompt keeps ``owner/repo`` intact (issue 225)."""
+    prompt = "リポジトリ HarutoTakita/cyber-tech のブランチ main を分析"
+    allow = {"HarutoTakita", "cyber-tech", "HarutoTakita/cyber-tech", "main"}
+    redacted, count = redact_secrets(prompt, allowlist=allow)
+    assert "HarutoTakita/cyber-tech" in redacted
+    assert count == 0
+
+
+def test_allowlist_still_masks_real_secret() -> None:
+    """Allowlisting repo coords does not weaken masking of an actual secret in the same text."""
+    secret = "ghp_" + "a" * 36
+    redacted, count = redact_secrets(
+        f"repo HarutoTakita/cyber-tech token {secret}", allowlist={"HarutoTakita/cyber-tech"}
+    )
+    assert "HarutoTakita/cyber-tech" in redacted
+    assert secret not in redacted
+    assert count >= 1
+
+
 # --- SecretRedactionPlugin -------------------------------------------------
 
 
