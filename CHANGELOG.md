@@ -32,6 +32,8 @@
 
 ### Fixed
 
+- コード負債の検知が semgrep の一時ディレクトリ作成失敗（ディスク満杯 `[Errno 28] No space left on device`）で落ちる不具合を修正（issue 254）: `semgrep_scan.scan_files` は docstring で「`[]` on failure」を謳うのに、`tempfile.TemporaryDirectory(...)` 生成が try/except の外にあり ENOSPC が素通りして `code_debt_detection` step 全体を落としていた。一時ディレクトリ生成〜スキャンを `except OSError` で囲み、ディスク満杯等の環境要因では警告ログを残して `[]` を返す（ヒューリスティック検知は継続＝graceful）。回帰テストを追加。なお根本原因はディスク空き容量不足のため、運用側で空き確保（`docker system prune` 等）も必要。
+
 - 理解度マップに CodeGraphContext のファイル/関数グラフが表示されない不具合を修正（issue 248）: `services/code_graph.py:extract_snapshot` が **cross-file エッジ（Level-2 の `file_edges`）が空だと早期に `{}` を返し**、per-file の `functions`/`function_calls`（Level-3）まで一切抽出・永続化していなかった。cross-file の関数呼び出しが解決されない小さめのリポジトリでは `code_graphs` 行が作られず、Level-2 は従来の wormhole にフォールバック・Level-3（ファイル内の関数コールグラフ）は常に空になっていた。`file_edges` / `functions` / `function_calls` を**独立に抽出**し、3 つすべて空のときのみ `{}` を返すよう修正（ファイル単位・関数単位のグラフがちゃんと表示される）。回帰テストを追加。
 
 - コード負債の検知が Gemini の 429（RESOURCE_EXHAUSTED）で失敗する不具合を修正（issue 246）: `code_debt_detection` は検知済みファイルに補助的な AI 生成確率推定（`gemini_stack_service.estimate_ai_generation`）を行うが、`_generate` は 429/5xx を指数バックオフで再試行したうえで**クォータ枠が空かないと `google.genai.errors.APIError` を re-raise** する。呼び出し側が `except ValueError`（設定/認証エラー用）のみでガードしていたため 429 を取りこぼし、`_run_backbone_step` の汎用 except が拾って **step 全体を失敗**させ、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果まで捨てていた。AI 生成確率は補助的エンリッチであり一時障害で検知を壊してはならないため、両 step（`code_debt_detection` / `knowledge_debt_detection`）のガードを `except Exception`（exc_info ログ付き・`semgrep_scan` と同じ graceful 方針）へ広げ、失敗時は `ai_generation_prob=0.0` 既定で検知を継続する。回帰テストを追加。

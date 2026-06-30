@@ -158,16 +158,23 @@ async def scan_files(files: dict[str, str]) -> list[SemgrepAggregate]:
     """Scan a snapshot of files with Semgrep; return per-(file, type) aggregates (``[]`` on failure)."""
     if not files:
         return []
-    with tempfile.TemporaryDirectory(prefix="semgrep-") as tmp:
-        root = Path(tmp)
-        for rel, content in files.items():
-            dest = root / rel
-            try:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(content, encoding="utf-8")
-            except (OSError, ValueError):
-                continue  # skip a path we can't materialise; scan the rest
-        data = await _semgrep_json(str(root))
+    try:
+        with tempfile.TemporaryDirectory(prefix="semgrep-") as tmp:
+            root = Path(tmp)
+            for rel, content in files.items():
+                dest = root / rel
+                try:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_text(content, encoding="utf-8")
+                except (OSError, ValueError):
+                    continue  # skip a path we can't materialise; scan the rest
+            data = await _semgrep_json(str(root))
+    except OSError:
+        # 一時ディレクトリの作成や I/O が環境要因で失敗（例: ディスク満杯 [Errno 28] No space left on device）。
+        # Semgrep はベストエフォートなエンリッチで、ここで失敗してもヒューリスティックなコード負債検知は
+        # 継続させねばならない（graceful）。docstring の「[] on failure」を温度差なく守る。
+        logger.warning("semgrep scan skipped (filesystem error, e.g. ENOSPC)", exc_info=True)
+        return []
     if not data:
         return []
     results = data.get("results")
