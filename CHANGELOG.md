@@ -8,6 +8,8 @@
 
 ### Added
 
+- 理解度マップに **Level-3（ファイル内の関数コールグラフ）** を追加（issue 240）: Level-2（機能内ファイルグラフ）でファイルノードをクリックすると、そのファイル内部の**関数コールグラフ**にドリルダウンする（関数粒度の住処）。グラフは CodeGraphContext の `CONTAINS`/`CALLS`（同一ファイル内に絞った関数間コール）由来で、`extract_snapshot` が `functions`/`function_calls` をスナップショットに追加（`code_graphs`）。新規 `GET .../code-graph/file?path=`（`FileFunctionGraphOut`：observed/nodes/edges）で**ファイル単位に遅延取得**しペイロード肥大を回避。frontend は `buildFunctionGraph` + force-layout で描画し、関数ノードは KC を持たないため**中立スタイル**（理解度レンズは Level-1/2 のファイル・機能ノードに限定）。「← <ファイルパス>」で Level-2 に戻る。未接続（デモ）や取得失敗・関数 0 件は graceful（クリック無効化／空表示）。
+
 - 理解度マップ Level-2（機能内ファイルグラフ）のエッジを **CodeGraphContext で精緻化**（issue 238）: 機能ノードをクリックして開く構成ファイルの依存グラフのエッジを、従来の `dependencies`（import 抽出ベース）から CGC の**実コール集約**（関数 CALLS をファイルに集約、repo 相対パスで `file_kc` と一致）に切替。ファイルノードの KC 色は不変（理解度レンズは維持）、関数粒度はドリルダウン内に限定。`services/code_graph.py:extract_snapshot` を file↔file 集約エッジ（`{file_edges}`）へ、`code_graphs`/`GET .../code-graph`（`CodeGraphOut.file_edges`）と frontend スキーマを更新。`buildFileSubgraph` は CGC エッジを優先し、未構築時は従来 wormhole にフォールバック（graceful）。
 
 - コードグラフのスナップショットを**永続化**し読み取り API を追加（issue 235 PR2・将来 UI 用）: agentic 解析が CGC でグラフ構築後、関数コールグラフのノードリンク・スナップショット（`services/code_graph.py` の `extract_snapshot`＝`cgc query` の JSON）を抽出し、新規 `code_graphs` テーブル（`shared` の `CodeGraph`・project キーで upsert・Alembic `0026`）へ保存。`GET /orgs/{slug}/projects/{slug}/code-graph` （`CodeGraphOut`：observed/computed_at/nodes/edges）で配信し、frontend に Zod スキーマ＋`getCodeGraph` を追加（描画コンポーネントは将来）。抽出が空（一時失敗）のときは前回スナップショットを温存。これで issue 235（CGC 導入）が完了。

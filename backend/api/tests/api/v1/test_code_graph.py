@@ -46,7 +46,15 @@ async def test_code_graph_returns_persisted_snapshot(authenticated_client: Async
             CodeGraph(
                 project_id=project_id,
                 computed_at=datetime.now(UTC),
-                graph={"file_edges": [{"source": "pkg/main.py", "target": "pkg/util.py"}]},
+                graph={
+                    "file_edges": [{"source": "pkg/main.py", "target": "pkg/util.py"}],
+                    "functions": [
+                        {"file": "pkg/util.py", "name": "helper"},
+                        {"file": "pkg/util.py", "name": "inner"},
+                        {"file": "pkg/main.py", "name": "main"},
+                    ],
+                    "function_calls": [{"file": "pkg/util.py", "source": "helper", "target": "inner"}],
+                },
             )
         )
         await session.commit()
@@ -55,3 +63,35 @@ async def test_code_graph_returns_persisted_snapshot(authenticated_client: Async
     body = resp.json()
     assert body["observed"] is True
     assert body["file_edges"] == [{"source": "pkg/main.py", "target": "pkg/util.py"}]
+
+
+async def test_code_graph_file_function_graph(authenticated_client: AsyncClient) -> None:
+    org_slug, project_slug, project_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        session.add(
+            CodeGraph(
+                project_id=project_id,
+                computed_at=datetime.now(UTC),
+                graph={
+                    "functions": [
+                        {"file": "pkg/util.py", "name": "helper"},
+                        {"file": "pkg/util.py", "name": "inner"},
+                        {"file": "pkg/main.py", "name": "main"},
+                    ],
+                    "function_calls": [
+                        {"file": "pkg/util.py", "source": "helper", "target": "inner"},
+                        {"file": "pkg/main.py", "source": "main", "target": "x"},
+                    ],
+                },
+            )
+        )
+        await session.commit()
+    resp = await authenticated_client.get(
+        f"/api/v1/orgs/{org_slug}/projects/{project_slug}/code-graph/file", params={"path": "pkg/util.py"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["observed"] is True
+    assert {"id": "helper"} in body["nodes"]
+    assert {"id": "main"} not in body["nodes"]  # 別ファイルの関数は含めない
+    assert body["edges"] == [{"source": "helper", "target": "inner"}]
