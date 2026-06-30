@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from service import config
-from service.services import gemini_stack_service
+from service.services import quiz_authoring
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -96,12 +96,18 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
+        # Agentic authoring (issue 217 PR3): the agent follows dependencies via Serena for deeper
+        # questions; the same token clones the repo. Falls back to the direct path.
         if request.granularity == "feature" and request.feature_id:
             label, content = await _feature_content(session, client, request)
-            generated = await gemini_stack_service.generate_quiz(label, content)
+            generated = await quiz_authoring.generate_quiz_agentic(
+                owner, repo, request.branch, label, content, token=token
+            )
         else:
             fc = await client.get_file_content(owner, repo, request.file_path, request.branch)
-            generated = await gemini_stack_service.generate_quiz(request.file_path, fc.content or "")
+            generated = await quiz_authoring.generate_quiz_agentic(
+                owner, repo, request.branch, request.file_path, fc.content or "", token=token
+            )
     finally:
         await client.aclose()
 

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import repayment_pr_generation
-from service.services import gemini_stack_service
+from service.services import gemini_stack_service, repayment_refactor
 from service.services.gemini_stack_service import _is_plausible_refactor
 from service.services.github_git_client import FileContent
 from shared.enums import JobStatus, JobType
@@ -57,8 +57,12 @@ def _patch(monkeypatch: pytest.MonkeyPatch, fake: _FakeClient) -> None:
     async def _fake_refactor(path: str, content: str, notes: str) -> dict[str, str]:
         return {"new_content": "def f():\n    return 1\n", "pr_title": "Repay", "pr_body": "fix"}
 
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}  # force the agentic path to fall back to the (patched) direct generate_refactor
+
     monkeypatch.setattr(repayment_pr_generation, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(repayment_pr_generation, "GitHubGitClient", lambda access_token: fake)
+    monkeypatch.setattr(repayment_refactor, "_run_refactor_agent", _empty_agent)
     monkeypatch.setattr(gemini_stack_service, "generate_refactor", _fake_refactor)
 
 
