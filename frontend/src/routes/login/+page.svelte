@@ -58,7 +58,7 @@
 <div class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
   <div class="text-center">
     <h1 class="text-3xl font-bold">DevDebtOps</h1>
-    <p class="mt-2 text-sm text-muted-foreground">Tech Debt Twin Agent</p>
+    <p class="mt-2 text-sm text-muted-foreground">コード品質とチーム理解度の可視化</p>
   </div>
 
   <div class="flex flex-col items-center gap-3">
