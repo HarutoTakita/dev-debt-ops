@@ -24,6 +24,7 @@ from shared.schemas.stack_analysis import GitHubRef
 class _FakeClient:
     def __init__(self, existing_pr: tuple[int, str] | None = None) -> None:
         self.created_pr = False
+        self.pr_title = ""
         self.branches: list[str] = []
         self._existing_pr = existing_pr  # simulate a prior partial run that already opened the PR
 
@@ -44,6 +45,7 @@ class _FakeClient:
 
     async def create_pull_request(self, owner: str, repo: str, **kwargs: object) -> tuple[int, str]:
         self.created_pr = True
+        self.pr_title = str(kwargs.get("title") or "")
         return 42, "https://github.com/acme/rosetta/pull/42"
 
     async def aclose(self) -> None:
@@ -115,11 +117,12 @@ async def test_process_opens_pr_and_marks_in_pr(
     assert result.pr_number == 42
     assert result.pr_url == "https://github.com/acme/rosetta/pull/42"
     assert result.branch == f"devdebtops/fix-{str(debt_id)[:8]}"
+    assert fake.pr_title.startswith("[DevDebtOps] ")  # 出所タグ（issue 227）
 
     async with session_maker() as session:
         debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
         assert debt.status == "in_pr"
-        assert debt.related_pr == "#42"
+        assert debt.related_pr == "https://github.com/acme/rosetta/pull/42"  # PR番号でなく URL（issue 227）
 
 
 async def test_process_idempotent_when_already_in_pr(
@@ -141,7 +144,7 @@ async def test_process_idempotent_when_already_in_pr(
     assert result.pr_number is None
     async with session_maker() as session:
         debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
-        assert debt.related_pr == "#42"  # unchanged
+        assert debt.related_pr == "https://github.com/acme/rosetta/pull/42"  # unchanged (URL, issue 227)
 
 
 async def test_process_reuses_existing_pr_when_debt_not_yet_in_pr(
@@ -164,7 +167,7 @@ async def test_process_reuses_existing_pr_when_debt_not_yet_in_pr(
     async with session_maker() as session:
         debt = (await session.execute(select(CodeDebt).where(CodeDebt.id == debt_id))).scalar_one()
         assert debt.status == "in_pr"
-        assert debt.related_pr == "#42"
+        assert debt.related_pr == "https://github.com/acme/rosetta/pull/42"
 
 
 def test_is_plausible_refactor_rejects_empty_and_runaway() -> None:

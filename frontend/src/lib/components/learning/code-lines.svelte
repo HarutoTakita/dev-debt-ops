@@ -82,7 +82,9 @@
     <div
       data-line={lineNo}
       class={cn(
-        "flex border-l-2 border-transparent",
+        // w-max + min-w-full: 行を内容幅（最低でもコンテナ幅）まで広げ、横スクロール時もハイライト背景が
+        // 最初の表示幅で切れず行全体に伸びる（issue 227）。
+        "flex w-max min-w-full border-l-2 border-transparent",
         isActive(lineNo) && "border-debt-knowledge bg-debt-knowledge/10",
       )}
     >

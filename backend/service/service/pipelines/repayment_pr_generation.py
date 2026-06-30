@@ -103,6 +103,8 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
                 token=token,
             )
             trace.append("generated refactor")
+            # PR タイトルの先頭に出所タグを付与（issue 227）。コミットメッセージも揃える。
+            pr_title = f"[DevDebtOps] {refactor['pr_title']}"
 
             base_sha = await client.get_branch_sha(request.owner, request.repo, request.branch)
             try:
@@ -118,7 +120,7 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
                 request.owner,
                 request.repo,
                 debt.file_path,
-                message=refactor["pr_title"],
+                message=pr_title,
                 content=refactor["new_content"],
                 branch=head_branch,
                 sha=head_file.sha,
@@ -128,7 +130,7 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
                 pr_number, pr_url = await client.create_pull_request(
                     request.owner,
                     request.repo,
-                    title=refactor["pr_title"],
+                    title=pr_title,
                     head=head_branch,
                     base=request.branch,
                     body=pr_body,
@@ -145,7 +147,9 @@ async def process(request: RepaymentPrGenerationRequest, ctx: PipelineContext) -
     finally:
         await client.aclose()
 
-    debt.related_pr = f"#{pr_number}"
+    # related_pr には PR の URL を保存する（issue 227）。フロントはこれをリンク href に使うため、PR 番号
+    # （#N）だと同一ページ内アンカーになり実 GitHub を開けない。related_issue（URL 保存）と対称にする。
+    debt.related_pr = pr_url
     debt.status = "in_pr"
     session.add(debt)
     await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
