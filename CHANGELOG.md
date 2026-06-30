@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- リポジトリ解析に **CodeGraphContext (CGC) コードグラフ MCP** を導入（issue 235 PR1）: Serena(LSP=ミクロ) に加え、全体アーキ・依存連鎖・**影響範囲(blast radius)**・dead code をマクロに俯瞰するコードグラフを Twin Agent の**両専門家**に付与。`agentic_analysis` が clone を `cgc index` で**事前構築**（`services/code_graph.py`・同期・graceful）し、エージェントは `agents/code_graph_mcp.py` の MCP（`codegraphcontext mcp start`・stdio・照会系 tool_filter）で `analyze_code_relationships` 等を照会。CGC は Python 3.13 非対応＋protobuf 衝突のため **`uv tool install -p 3.12 codegraphcontext --with kuzu`** で隔離導入し、**組み込み KuzuDB**（`CGC_RUNTIME_DB_TYPE=kuzudb`）で完結＝Neo4j 不要。CGC 不可/索引失敗時は従来解析を維持（graceful）。構築グラフの永続化＋将来 UI 表示は PR2 で対応。
+
 ### Changed
 
 - メンバー一覧の「組織全体の理解度への寄与（Coming Soon）」プレースホルダ列を削除（issue 233・実装予定なし）。未使用の `kc-contribution-cell` コンポーネントと `members_kc_tooltip` メッセージも除去。

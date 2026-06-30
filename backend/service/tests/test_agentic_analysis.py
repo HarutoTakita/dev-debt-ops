@@ -98,6 +98,23 @@ class TestTwinConstruction:
         assert sg in by_name["code_debt_agent"].tools  # Semgrep → code
         assert sg not in by_name["knowledge_debt_agent"].tools  # NOT on knowledge
 
+    def test_specialists_get_code_graph_toolset(self) -> None:
+        """CodeGraphContext (マクロ) → BOTH specialists; repo path is injected into the hint (issue 235)."""
+        from service.agents.code_graph_mcp import build_code_graph_toolset
+
+        cg = build_code_graph_toolset()  # construction is lazy; no subprocess spawned
+        loop = build_twin_loop(
+            client=AsyncMock(),
+            budget=RunBudget(),
+            recommendations=[],
+            code_graph_toolset=cg,
+            repo_dir="/tmp/clone-xyz",
+        )
+        by_name = {a.name: a for a in loop.sub_agents}
+        assert cg in by_name["code_debt_agent"].tools
+        assert cg in by_name["knowledge_debt_agent"].tools
+        assert "/tmp/clone-xyz" in by_name["code_debt_agent"].instruction  # repo_path injected into _CGC_HINT
+
     def test_recommend_remediation_records(self) -> None:
         """The remediation tool records structured recommendations and normalises the action."""
         recommendations: list[dict[str, str]] = []
@@ -111,7 +128,7 @@ class TestTwinConstruction:
 
 class TestRunnerMcpLifecycle:
     async def test_all_mcp_toolsets_closed_after_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """run_twin_agent builds Serena+Trivy+Semgrep (repo_dir) + GitHub (token) and closes them all (finally)."""
+        """run_twin_agent builds Serena+Trivy+Semgrep+CodeGraph (repo_dir) + GitHub (token) and closes them all."""
         from service.agents import runner
 
         closed = {"n": 0}
@@ -131,6 +148,7 @@ class TestRunnerMcpLifecycle:
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
         monkeypatch.setattr(runner, "build_trivy_toolset", lambda: _FakeToolset())
         monkeypatch.setattr(runner, "build_semgrep_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_twin_loop", lambda **_kwargs: object())
         monkeypatch.setattr(runner, "Runner", _FakeRunner)
@@ -144,7 +162,7 @@ class TestRunnerMcpLifecycle:
             repo_dir="/tmp/x",
             github_token="tok",
         )
-        assert closed["n"] == 4  # serena + trivy + semgrep + github all closed
+        assert closed["n"] == 5  # serena + trivy + semgrep + code_graph + github all closed
         assert trace == []
         assert recs == []
 
