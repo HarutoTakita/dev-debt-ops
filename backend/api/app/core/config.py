@@ -28,8 +28,10 @@ class Settings(BaseSettings):
         default=False,
         description="If True, the auth cookie is set with the Secure flag; must be True in non-dev environments.",
     )
-    JWT_LIFETIME_SECONDS: int = Field(default=1800, description="Access-token lifetime in seconds (30 min).")
-    REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(default=604_800, description="Refresh-token lifetime in seconds (7 d).")
+    JWT_LIFETIME_SECONDS: int = Field(default=28_800, description="Access-token lifetime in seconds (8 h).")
+    REFRESH_TOKEN_LIFETIME_SECONDS: int = Field(
+        default=2_592_000, description="Refresh-token lifetime in seconds (30 d)."
+    )
 
     # Guest demo (issue 069). When true, expose POST /api/v1/auth/demo + the login-screen
     # "お試しはこちら" button so visitors without a GitHub account can browse seeded sample data.
