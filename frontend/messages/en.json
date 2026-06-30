@@ -97,7 +97,7 @@
   "units_subtitle": "Work through each feature's learning plan, then measure your understanding with a quiz.",
   "page_overview_desc": "An at-a-glance view of understanding and code quality — see where to focus first.",
   "page_galaxy_desc": "Visualizes your understanding per feature as a graph.",
-  "page_matrix_desc": "Review technical debt file by file. The relevant code is highlighted line by line with an explanation of why its quality is low.",
+  "page_matrix_desc": "Review technical debt file by file. The relevant code is highlighted line by line with an explanation of why its quality is low, and you can auto-generate a fix PR with AI or create an assigned GitHub issue.",
   "page_repos_desc": "Browse source code and review or improve per-file technical debt.",
   "units_empty": "No features clustered yet. Run \"Analyze this repository\" first.",
   "unit_status_unstarted": "Not started",

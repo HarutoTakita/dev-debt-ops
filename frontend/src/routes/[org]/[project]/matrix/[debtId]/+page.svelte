@@ -5,6 +5,7 @@
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
   import DebtMetaPanel from "$lib/components/matrix/debt-meta-panel.svelte";
   import DebtStatusBadge from "$lib/components/matrix/debt-status-badge.svelte";
+  import DebtActions from "$lib/components/matrix/debt-actions.svelte";
   import CodeImprovement from "$lib/components/matrix/code-improvement.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -34,7 +35,9 @@
     </div>
 
     {#if debt.kind === "code"}
-      <!-- コード改善: 該当コードを行ハイライト + 「なぜ品質が低いか」を解説（PR は作らない） -->
+      <!-- 対応アクション: AI 修正 PR / 人に頼む（Issue 作成） -->
+      <DebtActions {orgSlug} {projectSlug} {debt} />
+      <!-- コード改善: 該当コードを行ハイライト + 「なぜ品質が低いか」を解説 -->
       <h2 class="font-display text-sm font-semibold">{m.code_improve_detail_heading()}</h2>
       <CodeImprovement {debt} />
       <DebtMetaPanel {debt} />
