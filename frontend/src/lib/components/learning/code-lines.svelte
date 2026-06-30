@@ -77,24 +77,26 @@
 </script>
 
 <div bind:this={codeEl} class={containerClass}>
-  {#each lines as html, i (i)}
-    {@const lineNo = i + 1}
-    <div
-      data-line={lineNo}
-      class={cn(
-        // w-max + min-w-full: 行を内容幅（最低でもコンテナ幅）まで広げ、横スクロール時もハイライト背景が
-        // 最初の表示幅で切れず行全体に伸びる（issue 227）。
-        "flex w-max min-w-full border-l-2 border-transparent",
-        isActive(lineNo) && "border-debt-knowledge bg-debt-knowledge/10",
-      )}
-    >
-      <span class="w-12 shrink-0 px-2 py-0.5 text-right text-muted-foreground/60 tabular-nums select-none">
-        {lineNo}
-      </span>
-      <!-- eslint-disable svelte/no-at-html-tags -- hljs はソースを HTML エスケープしてから着色するため安全 -->
-      <pre class="hljs overflow-visible !bg-transparent px-2 py-0.5 leading-relaxed"><code>{@html html || " "}</code
-        ></pre>
-      <!-- eslint-enable svelte/no-at-html-tags -->
-    </div>
-  {/each}
+  <!-- 内側ラッパを w-max（最長行の幅・最低でもコンテナ幅）にし、各行は自動幅でラッパ幅いっぱいに伸ばす。
+       これでハイライト背景が短い行でも最長行までの全幅に広がり、横スクロールしても途切れない（issue 231）。 -->
+  <div class="w-max min-w-full">
+    {#each lines as html, i (i)}
+      {@const lineNo = i + 1}
+      <div
+        data-line={lineNo}
+        class={cn(
+          "flex border-l-2 border-transparent",
+          isActive(lineNo) && "border-debt-knowledge bg-debt-knowledge/10",
+        )}
+      >
+        <span class="w-12 shrink-0 px-2 py-0.5 text-right text-muted-foreground/60 tabular-nums select-none">
+          {lineNo}
+        </span>
+        <!-- eslint-disable svelte/no-at-html-tags -- hljs はソースを HTML エスケープしてから着色するため安全 -->
+        <pre class="hljs overflow-visible !bg-transparent px-2 py-0.5 leading-relaxed"><code>{@html html || " "}</code
+          ></pre>
+        <!-- eslint-enable svelte/no-at-html-tags -->
+      </div>
+    {/each}
+  </div>
 </div>
