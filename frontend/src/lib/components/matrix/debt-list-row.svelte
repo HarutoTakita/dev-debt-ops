@@ -3,6 +3,7 @@
   import type { DebtItem } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import PriorityBadge from "./priority-badge.svelte";
+  import DebtStatusBadge from "./debt-status-badge.svelte";
   import KcGauge from "./kc-gauge.svelte";
   import DeveloperAvatar from "./developer-avatar.svelte";
   import DeveloperKey from "./developer-key.svelte";
@@ -19,6 +20,8 @@
   <div class="flex items-center gap-3">
     <PriorityBadge code={debt.code_debt_score} coverage={debt.knowledge_coverage} />
     <span class="min-w-0 flex-1 truncate font-mono text-sm">{debt.file_path}</span>
+    <!-- ステータス（未対応 / PR作成済み / 解決済み 等）を一覧でも一目で分かるように（issue 227） -->
+    <DebtStatusBadge status={debt.status} />
     <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
       {m.list_estimated({ hours: debt.estimated_repay_hours })}
     </span>

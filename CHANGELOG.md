@@ -6,7 +6,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- コード改善（コード品質マップ詳細）の UI を改善（issue 227）: (1) 該当コードを**抜粋のみ→ファイル全文表示**にし、検知箇所のハイライトを常時表示（`getFileContent` で全文取得し、検知時の抜粋位置を特定して該当行をハイライト。取得不可・未接続のゲストデモ・抜粋を特定できない場合は従来の抜粋表示にフォールバック＝GitHub 不要）。(2) **横スクロール時にハイライト背景が最初の表示幅で切れる**不具合を修正（`code-lines` の行を `w-max min-w-full` 化し行全幅に伸ばす）。(3) **コード負債一覧にステータスバッジ**（未対応 / PR作成済み / 解決済み 等）を追加。(4)「作成済みの PR / Issue を開く」リンクを**青字＋下線**に。
+
 ### Fixed
+
+- 返済 PR の「作成済みの PR を開く」がアプリの同一画面を開いてしまう不具合を修正（issue 227）: `code_debts.related_pr` に PR 番号 `#N` を保存していたため、リンク href が同一ページ内アンカーになっていた。`related_issue`（URL 保存）と対称に **PR の URL を保存**するよう `repayment_pr_generation` を修正（実 GitHub の PR 画面を開く）。あわせて返済 PR のタイトル先頭に **`[DevDebtOps]`** タグを付与。
 
 - Twin Agent（agentic 解析の判断層）だけが解析に失敗する不具合を修正（issue 225・#224 回帰）: detect-secrets 第2層の高エントロピー検知が、エージェントへの指示プロンプト内の **`owner/repo` スラッグ（例 `HarutoTakita/cyber-tech`）を秘密と誤検知**してマスクし、専門家エージェントが GitHub ツールを `repos/REDACTED/REDACTED` で呼んで 404 → ファイル探索不能で失敗していた。`redact_secrets` / `SecretRedactionPlugin` / `run_single_agent` に **allowlist**（owner / repo / `owner/repo` / branch・ref）を追加し、エージェントに与える既知の安全な識別子は秘匿対象から除外（detect-secrets パスでスキップ）。実際の秘密のマスクは不変（同一テキスト内に秘密があれば従来どおり伏字化）。`run_twin_agent` と walkthrough/refactor/quiz の各 `run_single_agent` 呼び出しに座標を配線。
 

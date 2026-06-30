@@ -60,7 +60,7 @@
   // プレビュー用の派生値。
   const fileName = $derived(debt.file_path.split("/").pop() ?? debt.file_path);
   const headBranch = $derived(`devdebtops/fix-${debt.id.slice(0, 8)}`);
-  const prTitle = $derived(`[修正] ${fileName} を改善`);
+  const prTitle = $derived(`[DevDebtOps] [修正] ${fileName} を改善`);
   const assigneeLabel = $derived(
     assigneeUserId
       ? (memberList.find((mem) => mem.user_id === assigneeUserId)?.user.display_name ??
@@ -214,7 +214,7 @@
         href={relatedPr}
         target="_blank"
         rel="noopener noreferrer"
-        class="mt-auto inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        class="mt-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-500 dark:text-blue-400"
       >
         <ExternalLink class="size-3.5" />
         {m.debt_view_pr()}
@@ -245,7 +245,7 @@
         href={relatedIssue}
         target="_blank"
         rel="noopener noreferrer"
-        class="mt-auto inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+        class="mt-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 underline underline-offset-2 hover:text-blue-500 dark:text-blue-400"
       >
         <ExternalLink class="size-3.5" />
         {m.debt_view_issue()}
