@@ -17,6 +17,7 @@ from google.genai.types import Content, Part
 from service.agents.budget import RunBudget
 from service.agents.github_mcp import build_github_toolset
 from service.agents.plugin import SecretRedactionPlugin, TraceRecorderPlugin
+from service.agents.semgrep_mcp import build_semgrep_toolset
 from service.agents.serena_mcp import build_serena_toolset
 from service.agents.trivy_mcp import build_trivy_toolset
 from service.agents.twin import build_twin_loop
@@ -47,7 +48,10 @@ async def run_twin_agent(
     serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
     trivy_toolset = build_trivy_toolset() if repo_dir else None
     github_toolset = build_github_toolset(github_token) if github_token else None
-    toolsets = [t for t in (serena_toolset, github_toolset, trivy_toolset) if t is not None]
+    # Semgrep MCP (in-house, stdio, in-venv) needs no clone — it scans the file contents the agent
+    # reads — so it grounds the code specialist on every run (issue 204).
+    semgrep_toolset = build_semgrep_toolset()
+    toolsets = [t for t in (serena_toolset, github_toolset, trivy_toolset, semgrep_toolset) if t is not None]
     root = build_twin_loop(
         client=client,
         budget=budget,
@@ -55,6 +59,7 @@ async def run_twin_agent(
         serena_toolset=serena_toolset,
         github_toolset=github_toolset,
         trivy_toolset=trivy_toolset,
+        semgrep_toolset=semgrep_toolset,
         repo_dir=repo_dir,
     )
     session_service = InMemorySessionService()

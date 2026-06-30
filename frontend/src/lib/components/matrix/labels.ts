@@ -8,6 +8,8 @@ export function categoryLabel(d: DebtItem): string {
       duplicate: m.debt_type_duplicate(),
       dead: m.debt_type_dead(),
       complexity: m.debt_type_complexity(),
+      security: m.debt_type_security(),
+      smell: m.debt_type_smell(),
       other: m.debt_type_other(),
     }[d.type];
   }

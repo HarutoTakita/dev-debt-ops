@@ -13,6 +13,7 @@ dependencies = [
     # stack-analysis パイプライン (issue 018): ADK + Vertex AI + GitHub クライアント
     "google-adk[mcp]>=0.4.0",                          # [mcp] extra: McpToolset で Serena(LSP) MCP に接続 (issue 069)
     "google-genai>=1.0.0",
+    "semgrep>=1.0.0",                                  # 技術負債の実静的解析 + 自作 Semgrep MCP サーバ (issue 204)
     "httpx>=0.28.1",
     "PyJWT>=2.8.0",
     "cryptography>=42.0.0",
