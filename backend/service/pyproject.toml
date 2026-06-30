@@ -14,6 +14,7 @@ dependencies = [
     "google-adk[mcp]>=0.4.0",                          # [mcp] extra: McpToolset で Serena(LSP) MCP に接続 (issue 069)
     "google-genai>=1.0.0",
     "semgrep>=1.0.0",                                  # 技術負債の実静的解析 + 自作 Semgrep MCP サーバ (issue 204)
+    "detect-secrets>=1.5.0",                           # LLM 送信前の秘密検知の第2層（高エントロピー/多プラグイン、issue 223）
     "httpx>=0.28.1",
     "PyJWT>=2.8.0",
     "cryptography>=42.0.0",
