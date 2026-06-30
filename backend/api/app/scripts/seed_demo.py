@@ -68,11 +68,22 @@ _NS = uuid.UUID("0de0b6b3-7c1e-4f8a-9d2e-069000000069")
 DEMO_ORG_SLUG = "demo"
 DEMO_ORG_NAME = "お試しデモ"
 DEMO_PROJECT_SLUG = "sample-shop"
-DEMO_PROJECT_NAME = "sample project"
+DEMO_PROJECT_NAME = "EC ストア"
 DEMO_REPO_OWNER = "devdebtops"
 DEMO_REPO_NAME = "sample-shop"
 DEMO_REPO_FULL_NAME = "devdebtops/sample-shop"
 DEMO_DEFAULT_BRANCH = "main"
+
+# Extra metadata-only projects so the sidebar has several to group into sections / star
+# (issue 069 demo; the sections/stars themselves are client-side — frontend project-sections store).
+# These carry no analysis rows; they exist to populate the project switcher.
+_EXTRA_PROJECTS: list[tuple[str, str]] = [
+    ("billing-service", "請求サービス"),
+    ("inventory-api", "在庫API"),
+    ("marketing-site", "マーケLP"),
+    ("internal-tools", "社内ツール"),
+    ("mobile-app", "モバイルアプリ"),
+]
 
 # The "現在" snapshot all latest-run screens read. A fixed commit so re-runs reuse the same runs.
 _HEAD_COMMIT = "0691a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9"
@@ -236,11 +247,51 @@ _DEPENDENCIES: list[tuple[str, str]] = [
 
 # Code-debt findings (file_path, type, severity, score, ai_prob, repay_hours, notes).
 _CODE_DEBTS: list[tuple[str, str, str, float, float, float, str]] = [
-    ("src/checkout/payment.py", "complexity", "critical", 0.86, 0.71, 6.0, "循環的複雑度 31 / 分岐の入れ子 6 段"),
-    ("src/catalog/search.ts", "duplicate", "high", 0.74, 0.44, 3.5, "検索フィルタ構築の重複クラスタ 4 箇所"),
-    ("src/checkout/cart.py", "complexity", "medium", 0.60, 0.33, 2.0, "在庫引当ロジックの分岐過多（複雑度 18）"),
-    ("src/auth/session.py", "dead", "medium", 0.50, 0.12, 1.5, "未到達のレガシー cookie 検証パス"),
-    ("src/lib/db.py", "other", "low", 0.22, 0.05, 0.5, "型ヒント欠落 / 例外の握り潰し 1 箇所"),
+    (
+        "src/checkout/payment.py",
+        "complexity",
+        "critical",
+        0.86,
+        0.71,
+        6.0,
+        "条件分岐が深く入れ子になっていて、処理の流れを追うのが難しい状態です。",
+    ),
+    (
+        "src/catalog/search.ts",
+        "duplicate",
+        "high",
+        0.74,
+        0.44,
+        3.5,
+        "検索フィルタを組み立てるほぼ同じ処理が複数箇所に重複しています。",
+    ),
+    (
+        "src/checkout/cart.py",
+        "complexity",
+        "medium",
+        0.60,
+        0.33,
+        2.0,
+        "在庫引当の条件分岐が多く、どの場合にどう動くのか把握しづらくなっています。",
+    ),
+    (
+        "src/auth/session.py",
+        "dead",
+        "medium",
+        0.50,
+        0.12,
+        1.5,
+        "どこからも呼ばれていない古いセッション検証のコードが残ったままになっています。",
+    ),
+    (
+        "src/lib/db.py",
+        "other",
+        "low",
+        0.22,
+        0.05,
+        0.5,
+        "型の情報が不足し、例外も握り潰されているため不具合に気づきにくい状態です。",
+    ),
 ]
 
 # Knowledge-debt findings (file_path, reason, severity, score, kc, ai_prob, repay_hours, notes).
@@ -356,7 +407,107 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "    smtp.send(order.email, body)\n"
     ),
 }
-_DEFAULT_SNIPPET = "# 該当コード断片（デモ用ダミー）"
+
+
+def _snippet_for(file_path: str, dtype: str) -> str:
+    """Return a realistic-looking source snippet for a demo file.
+
+    Curated files use ``_DEMO_SNIPPETS``; everything else gets a plausible snippet generated from the
+    file extension (.py / .ts / .svelte) and debt ``type`` (dead / duplicate / complexity / other), so the
+    detail page never shows a "デモ用ダミー" placeholder.
+    """
+    stem = file_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    ext = file_path.rsplit(".", 1)[-1]
+    snake = stem.replace("-", "_")
+    pascal = "".join(p.capitalize() for p in snake.split("_"))
+
+    if ext == "py":
+        if dtype == "complexity":
+            return (
+                f"def {snake}(ctx, *, retries=3):\n"
+                "    if ctx.enabled:\n"
+                "        for item in ctx.items:\n"
+                "            if item.valid and not item.skip:\n"
+                "                if item.weight > threshold(ctx):\n"
+                "                    apply(item)  # 深いネスト / 循環的複雑度が高い\n"
+                "    return ctx.result\n"
+            )
+        if dtype == "duplicate":
+            return (
+                f"def {snake}_a(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (1/3)\n\n"
+                f"def {snake}_b(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (2/3)\n\n"
+                f"def {snake}_c(x):\n"
+                "    return normalize(x.field) if x.field else default()  # 重複ブロック (3/3)\n"
+            )
+        if dtype == "dead":
+            return (
+                f"def {snake}(req):\n"
+                "    return handle(req)\n\n"
+                f"def _legacy_{snake}(req):  # どこからも呼ばれない未到達パス（dead）\n"
+                "    return req.get('legacy')\n"
+            )
+        return (
+            f"def {snake}(query, params):\n"
+            "    try:\n"
+            "        return run(query, params)\n"
+            "    except Exception:\n"
+            "        pass  # 例外の握り潰し / 戻り値の型ヒント欠落\n"
+        )
+
+    if ext in ("ts", "tsx", "js"):
+        if dtype == "complexity":
+            return (
+                f"export function {snake}(input: Input): Result {{\n"
+                "  if (input.enabled) {\n"
+                "    for (const it of input.items) {\n"
+                "      if (it.valid && !it.skip) {\n"
+                "        if (it.weight > threshold(input)) apply(it); // 深いネスト / 複雑度が高い\n"
+                "      }\n"
+                "    }\n"
+                "  }\n"
+                "  return input.result;\n"
+                "}\n"
+            )
+        if dtype == "duplicate":
+            return (
+                "function mapA(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (1/3)\n"
+                "function mapB(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (2/3)\n"
+                "function mapC(q: Query) { return q.field ? norm(q.field) : def(); } // 重複 (3/3)\n"
+            )
+        if dtype == "dead":
+            return (
+                f"export function {snake}(req: Req) {{\n  return handle(req);\n}}\n\n"
+                f"function legacy{pascal}(req: Req) {{ // 未使用・未到達（dead）\n  return req.legacy;\n}}\n"
+            )
+        return (
+            f"export function {snake}(data: any) {{ // any 型 / エラー握り潰し\n"
+            "  try {\n"
+            "    return parse(data);\n"
+            "  } catch {\n"
+            "    return null;\n"
+            "  }\n"
+            "}\n"
+        )
+
+    # .svelte（種別に応じたにおいのコメントを添える）
+    smell = {
+        "complexity": "テンプレートとロジックが密結合で分岐が多い",
+        "duplicate": "近接コンポーネントとマークアップが重複",
+        "dead": "参照されない props / 到達しないブロックあり",
+        "other": "型注釈が緩く副作用が見通しにくい",
+    }.get(dtype, "軽微な品質の問題あり")
+    return (
+        '<script lang="ts">\n'
+        f"  // {stem}.svelte — {smell}\n"
+        "  export let data;\n"
+        "  function handle() {\n"
+        "    /* ... */\n"
+        "  }\n"
+        "</script>\n\n"
+        "<div on:click={handle}>{data?.label}</div>\n"
+    )
 
 
 # Assigned developers per debt (debt natural key → list of (handle, coverage, certified_via)).
@@ -572,7 +723,7 @@ def _walkthrough_for(source_ref: str) -> tuple[str, list[dict]]:
     Uses the file's demo snippet (or the default) as inline source and splits it into a couple of
     line-anchored steps, so the code-理解 walkthrough renders without fetching source from GitHub.
     """
-    content = _DEMO_SNIPPETS.get(source_ref, _DEFAULT_SNIPPET)
+    content = _DEMO_SNIPPETS.get(source_ref) or _snippet_for(source_ref, "other")
     total = max(1, len(content.rstrip("\n").split("\n")))
     if total <= 2:
         return content, [
@@ -684,6 +835,10 @@ async def _ensure_org_and_project(session: AsyncSession, user_id: uuid.UUID) -> 
             created_by=user_id,
         )
         session.add(project)
+    elif isinstance(project, Project) and project.name != DEMO_PROJECT_NAME:
+        # 既存行でも表示名の変更（例: "sample project" → "EC ストア"）は反映する。
+        project.name = DEMO_PROJECT_NAME
+        session.add(project)
 
     await session.commit()
     # Re-fetch so callers get attached, refreshed instances.
@@ -692,6 +847,33 @@ async def _ensure_org_and_project(session: AsyncSession, user_id: uuid.UUID) -> 
     if not isinstance(org, Org) or not isinstance(project, Project):  # pragma: no cover - just inserted/loaded
         raise RuntimeError("demo org/project not found after upsert")
     return org, project
+
+
+async def _ensure_extra_projects(session: AsyncSession, org: Org, user_id: uuid.UUID) -> None:
+    """Create metadata-only extra projects in the demo org (idempotent).
+
+    They have no analysis rows — their purpose is to give the sidebar several projects to
+    organize into starred / sections (client-side feature). Deterministic uuid5 ids keep re-runs stable.
+    """
+    for slug, name in _EXTRA_PROJECTS:
+        project_id = _u("project", DEMO_ORG_SLUG, slug)
+        if await _get(session, Project, project_id) is None:
+            session.add(
+                Project(
+                    id=project_id,
+                    org_id=org.id,
+                    name=name,
+                    slug=slug,
+                    repo_owner=DEMO_REPO_OWNER,
+                    repo_name=slug,
+                    repo_full_name=f"{DEMO_REPO_OWNER}/{slug}",
+                    default_branch=DEMO_DEFAULT_BRANCH,
+                    repo_private=False,
+                    github_repo_id=None,
+                    created_by=user_id,
+                )
+            )
+    await session.commit()
 
 
 async def _ensure_runs(session: AsyncSession, project: Project) -> None:
@@ -830,7 +1012,7 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     status="open",
                     detected_at=now,
                     archaeology_notes=notes,
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, dtype),
                     code_debt_score=score,
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=ai_prob,
@@ -847,10 +1029,10 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
     curated = {fp for fp, *_ in _CODE_DEBTS}
     _types = ("complexity", "duplicate", "dead", "other")
     _notes = {
-        "complexity": "条件分岐が深く循環的複雑度が高め",
-        "duplicate": "近接した重複ブロックが数箇所",
-        "dead": "未参照の関数 / 到達不能な分岐あり",
-        "other": "型ヒント欠落・軽微な例外握り潰し",
+        "complexity": "条件分岐が多く入れ子も深いため、処理の流れを追いづらくなっています。",
+        "duplicate": "よく似た処理が複数箇所に重複していて、修正漏れが起きやすい状態です。",
+        "dead": "どこからも呼ばれていない関数や到達しない分岐が残っています。",
+        "other": "型の情報が不足し例外も握り潰されているため、不具合に気づきにくい状態です。",
     }
     for idx, (file_path, _language, _loc, _kc, score) in enumerate(_FILES):
         if file_path in curated:
@@ -870,7 +1052,7 @@ async def _ensure_code_debts(session: AsyncSession, project: Project, run_id: uu
                     status="open",
                     detected_at=now,
                     archaeology_notes=_notes[dtype],
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, dtype),
                     code_debt_score=score,
                     knowledge_coverage=kc_by_path.get(file_path, 0.0),
                     ai_generation_prob=round(score * 0.6, 2),
@@ -899,7 +1081,7 @@ async def _ensure_knowledge_debts(session: AsyncSession, project: Project, run_i
                     severity=severity,
                     status="open",
                     detected_at=now,
-                    code_snippet=_DEMO_SNIPPETS.get(file_path, _DEFAULT_SNIPPET),
+                    code_snippet=_DEMO_SNIPPETS.get(file_path) or _snippet_for(file_path, "other"),
                     code_debt_score=score,
                     knowledge_coverage=kc,
                     ai_generation_prob=ai_prob,
@@ -1101,7 +1283,8 @@ async def seed(session: AsyncSession) -> Project:
         The demo ``Project`` row.
     """
     user_id = await _resolve_demo_user_id()
-    _, project = await _ensure_org_and_project(session, user_id)
+    org, project = await _ensure_org_and_project(session, user_id)
+    await _ensure_extra_projects(session, org, user_id)
     await _ensure_runs(session, project)
 
     kc_run = _run_id(JobType.KC_ANALYSIS)

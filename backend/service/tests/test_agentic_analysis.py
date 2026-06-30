@@ -8,8 +8,7 @@ tested with GitHub + the agent run mocked.
 from unittest.mock import AsyncMock
 
 import pytest
-from google.adk.agents import LoopAgent
-from google.adk.planners import PlanReActPlanner
+from google.adk.agents import SequentialAgent
 
 from service.agents.budget import RunBudget
 from service.agents.plugin import TraceRecorderPlugin
@@ -23,6 +22,7 @@ from service.pipelines import (
     feature_clustering,
     kc_analysis,
     knowledge_debt_detection,
+    stack_analysis,
 )
 from service.services.github_git_client import FileContent, TreeItem
 from shared.enums import JobType, ResultStatus
@@ -48,20 +48,45 @@ def _request() -> AgenticAnalysisRequest:
 
 class TestTwinConstruction:
     def test_build_twin_loop_shape(self) -> None:
-        """LoopAgent wraps the coordinator; the coordinator delegates to 3 specialists + exit_loop."""
-        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], max_iterations=2)
-        assert isinstance(loop, LoopAgent)
-        assert loop.max_iterations == 2
-        assert len(loop.sub_agents) == 1
+        """Rule-based pipeline: a SequentialAgent runs knowledge → code → remediation in order."""
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[])
+        assert isinstance(loop, SequentialAgent)
+        names = [a.name for a in loop.sub_agents]
+        assert names == ["knowledge_debt_agent", "code_debt_agent", "remediation_strategist"]
 
-        coordinator = loop.sub_agents[0]
-        assert coordinator.name == "twin_agent"
-        assert isinstance(coordinator.planner, PlanReActPlanner)
-        tool_names = [getattr(tool, "name", getattr(tool, "__name__", "?")) for tool in coordinator.tools]
-        assert "knowledge_debt_agent" in tool_names
-        assert "code_debt_agent" in tool_names
-        assert "remediation_strategist" in tool_names
-        assert "exit_loop" in tool_names
+    def test_specialists_get_serena_toolset(self) -> None:
+        """The Serena (LSP) toolset is attached to BOTH detection specialists when provided."""
+        from service.agents.serena_mcp import build_serena_toolset
+
+        toolset = build_serena_toolset("/tmp/repo")  # construction is lazy; no subprocess spawned
+        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], serena_toolset=toolset)
+        by_name = {a.name: a for a in loop.sub_agents}
+        assert toolset in by_name["code_debt_agent"].tools
+        assert toolset in by_name["knowledge_debt_agent"].tools
+
+    def test_specialists_get_github_and_trivy_toolsets(self) -> None:
+        """MCP is stage-scoped: GitHub MCP → knowledge only; Trivy MCP → code only (+ clone path)."""
+        from service.agents.github_mcp import build_github_toolset
+        from service.agents.trivy_mcp import build_trivy_toolset
+
+        gh = build_github_toolset("tok")
+        tv = build_trivy_toolset()
+        loop = build_twin_loop(
+            client=AsyncMock(),
+            budget=RunBudget(),
+            recommendations=[],
+            github_toolset=gh,
+            trivy_toolset=tv,
+            repo_dir="/tmp/clone-xyz",
+        )
+        by_name = {a.name: a for a in loop.sub_agents}
+        code = by_name["code_debt_agent"]
+        know = by_name["knowledge_debt_agent"]
+        assert gh in know.tools  # GitHub → knowledge (process/history = knowledge-debt signal)
+        assert gh not in code.tools  # GitHub NOT on code
+        assert tv in code.tools  # Trivy → code (SCA/secret/misconfig = code-debt signal)
+        assert tv not in know.tools  # Trivy NOT on knowledge
+        assert "/tmp/clone-xyz" in code.instruction  # path injected for scan_filesystem
 
     def test_recommend_remediation_records(self) -> None:
         """The remediation tool records structured recommendations and normalises the action."""
@@ -72,6 +97,45 @@ class TestTwinConstruction:
         assert recommendations[0]["action"] == "quiz"
         assert recommendations[0]["target"] == "auth/login.py"
         assert recommendations[1]["action"] == "other"
+
+
+class TestRunnerMcpLifecycle:
+    async def test_all_mcp_toolsets_closed_after_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """run_twin_agent builds Serena+Trivy (repo_dir) + GitHub (token) and closes them all (finally)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        class _FakeRunner:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            async def run_async(self, **_kwargs: object):
+                return
+                yield  # unreachable — makes this an async generator
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_trivy_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_twin_loop", lambda **_kwargs: object())
+        monkeypatch.setattr(runner, "Runner", _FakeRunner)
+
+        trace, recs = await runner.run_twin_agent(
+            client=AsyncMock(),
+            owner="acme",
+            repo="rosetta",
+            branch="main",
+            budget=RunBudget(),
+            repo_dir="/tmp/x",
+            github_token="tok",
+        )
+        assert closed["n"] == 3  # serena + trivy + github all closed
+        assert trace == []
+        assert recs == []
 
 
 # --- repo tools (GitHub client mocked) -------------------------------------
@@ -136,6 +200,8 @@ class TestProcess:
         # each is invoked and that the agent judgement layer's trace/recommendations follow.
         for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
             mocker.patch.object(module, "process", AsyncMock())
+        # stack detection runs deterministically (not the ADK agent) — mock the populate helper.
+        mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
         # Learning + baseline-quiz generation runs server-side in the job (issue 069 Inc.2); mock it.
         mocker.patch.object(
             baseline_generation,
@@ -164,6 +230,7 @@ class TestProcess:
             "[backbone] code_debt_detection done",
             "[backbone] kc_analysis done",
             "[backbone] knowledge_debt_detection done",
+            "[backbone] stack_analysis done",
             "[generate] learning plan: auth",
             "[generate] quiz: auth",
             "[summary] 危険な機能を特定",

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
-  import { getFileContent, getRepositoryTree, listBranches, listDebts } from "$lib/api/client";
-  import type { Branch, CodeDebt, FileContent, Tree } from "$lib/api/schemas";
+  import { getFileContent, getRepositoryTree, listDebts } from "$lib/api/client";
+  import type { CodeDebt, FileContent, Tree } from "$lib/api/schemas";
   import FileTreeComponent from "$lib/components/repo/file-tree.svelte";
   import FileViewer from "$lib/components/repo/file-viewer.svelte";
+  import CodeLines from "$lib/components/learning/code-lines.svelte";
   import CodeDebtPanel from "$lib/components/repo/code-debt-panel.svelte";
   import RepoHeader from "$lib/components/repo/repo-header.svelte";
   import RepoPicker from "$lib/components/repo/repo-picker.svelte";
@@ -30,7 +31,6 @@
   ];
 
   let tree = $state<Tree | null>(null);
-  let branches = $state<Branch[]>([]);
   let selectedPath = $state<string | null>(null);
   let fileContent = $state<FileContent | null>(null);
   let fileLoading = $state(false);
@@ -46,6 +46,36 @@
   const debtCountByPath = $derived(new Map([...debtsByPath].map(([p, list]) => [p, list.length])));
   const openCount = $derived(codeDebts.filter((d) => d.status === "open").length);
   const selectedDebts = $derived(selectedPath ? (debtsByPath.get(selectedPath) ?? []) : []);
+
+  // 負債ブロックのクリックで、その抜粋(code_snippet)に対応する行範囲をコードビューでハイライトする。
+  let highlightStart = $state(0);
+  let highlightEnd = $state(0);
+  let activeDebtId = $state<string | null>(null);
+  // ソース（テキスト）なら行番号つきコードビューでハイライト可能。画像/バイナリは FileViewer に委譲。
+  const isTextFile = $derived(
+    !!selectedPath &&
+      !fileLoading &&
+      fileContent?.content != null &&
+      !/\.(png|jpe?g|gif|webp|svg|avif)$/i.test(selectedPath),
+  );
+
+  function highlightDebt(debt: CodeDebt) {
+    activeDebtId = debt.id;
+    const text = fileContent?.content ?? "";
+    const snippet = debt.code_snippet ?? "";
+    if (!text || !snippet) {
+      highlightStart = highlightEnd = 0;
+      return;
+    }
+    // 抜粋の先頭の非空行をファイル本文から探し、見つかった位置から抜粋行数ぶんをハイライト。
+    const lines = text.split("\n");
+    const firstLine = (snippet.split("\n").find((l) => l.trim()) ?? "").trim();
+    const idx = firstLine ? lines.findIndex((l) => l.includes(firstLine)) : -1;
+    const start = idx >= 0 ? idx + 1 : 1;
+    const snippetLines = snippet.replace(/\n+$/, "").split("\n").length;
+    highlightStart = start;
+    highlightEnd = Math.min(lines.length, start + snippetLines - 1);
+  }
 
   function loadDebts() {
     if (!orgSlug || !projectSlug) return;
@@ -93,25 +123,13 @@
     }
   }
 
-  async function loadBranches() {
-    if (!repo.connected) return;
-    const { owner, name } = repo.connected;
-    const cached = repo.branchCache.get(`${owner}/${name}`);
-    if (cached) branches = cached;
-    try {
-      const result = await listBranches(owner, name);
-      repo.branchCache.set(`${owner}/${name}`, result.branches);
-      branches = result.branches;
-    } catch {
-      if (!cached) branches = [];
-    }
-  }
-
   async function onFileSelect(path: string) {
     if (!repo.connected) return;
     selectedPath = path;
     fileLoading = true;
     fileContent = null;
+    highlightStart = highlightEnd = 0; // ファイル切替でハイライトをリセット
+    activeDebtId = null;
     try {
       fileContent = await getFileContent(repo.connected.owner, repo.connected.name, path, repo.selectedBranch);
     } catch {
@@ -121,18 +139,11 @@
     }
   }
 
-  async function onBranchChange(branch: string) {
-    repo.selectedBranch = branch;
-    await loadTree(branch);
-  }
-
   $effect(() => {
     if (repo.connected) {
-      loadBranches();
       loadTree(repo.selectedBranch);
     } else {
       tree = null;
-      branches = [];
       selectedPath = null;
       fileContent = null;
     }
@@ -150,7 +161,7 @@
 </script>
 
 <svelte:head>
-  <title>{m.nav_repos()} · DevDebtOps</title>
+  <title>{m.matrix_title()} · DevDebtOps</title>
 </svelte:head>
 
 {#if !repo.connected}
@@ -160,15 +171,9 @@
 {:else}
   <div class="flex h-full flex-col">
     <div class="shrink-0 px-4 pt-3 pb-1">
-      <PageHeading title={m.nav_repos()} description={m.page_repos_desc()} />
+      <PageHeading title={m.matrix_title()} description={m.page_repos_desc()} />
     </div>
-    <RepoHeader
-      {branches}
-      selectedBranch={repo.selectedBranch}
-      {selectedPath}
-      onbranchchange={onBranchChange}
-      ondisconnect={() => repo.disconnect()}
-    />
+    <RepoHeader {selectedPath} />
 
     <div class="flex flex-1 overflow-hidden">
       <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r" data-tour="repos-tree">
@@ -197,17 +202,33 @@
         </div>
 
         <div class="min-h-0 flex-1 overflow-hidden">
-          <FileViewer
-            path={selectedPath}
-            content={fileContent?.content ?? null}
-            size={fileContent?.size ?? 0}
-            loading={fileLoading}
-          />
+          {#if isTextFile && fileContent?.content != null}
+            <CodeLines
+              content={fileContent.content}
+              path={selectedPath ?? ""}
+              {highlightStart}
+              {highlightEnd}
+              containerClass="h-full overflow-auto font-mono text-xs"
+            />
+          {:else}
+            <FileViewer
+              path={selectedPath}
+              content={fileContent?.content ?? null}
+              size={fileContent?.size ?? 0}
+              loading={fileLoading}
+            />
+          {/if}
         </div>
 
         {#if selectedPath}
-          <div class="max-h-64 shrink-0 overflow-y-auto border-t bg-surface-sunken/40">
-            <CodeDebtPanel {orgSlug} {projectSlug} debts={selectedDebts} onchanged={loadDebts} />
+          <div class="max-h-40 shrink-0 overflow-y-auto border-t bg-surface-sunken/40">
+            <CodeDebtPanel
+              {orgSlug}
+              {projectSlug}
+              debts={selectedDebts}
+              onhighlight={highlightDebt}
+              activeId={activeDebtId}
+            />
           </div>
         {/if}
       </main>

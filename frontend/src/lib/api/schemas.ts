@@ -161,11 +161,29 @@ export const analyzeStackJobSchema = z.object({
   status: jobStatusEnum,
 });
 
-// GET /jobs/{id} のポーリングレスポンス（status + 進捗 trace + 完了時 tech_stack）。
+// 解析ジョブのライブ進捗（agentic）: 各サブステップの状態 + baseline の done/total（issue 069）。
+export const jobProgressStepSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  group: z.string().optional(), // 表示用グループ id（g_technical / g_knowledge / g_repay）
+  status: z.string(), // pending | running | completed | failed
+  done: z.number().optional(),
+  total: z.number().optional(),
+});
+export const jobProgressSchema = z.object({
+  steps: z.array(jobProgressStepSchema).default([]),
+  completed: z.number().default(0),
+  total: z.number().default(0),
+});
+export type JobProgress = z.infer<typeof jobProgressSchema>;
+export type JobProgressStep = z.infer<typeof jobProgressStepSchema>;
+
+// GET /jobs/{id} のポーリングレスポンス（status + 進捗 trace + サブステップ進捗 + 完了時 tech_stack）。
 export const jobStatusSchema = z.object({
   id: z.uuid(),
   status: jobStatusEnum,
   agent_trace: z.array(z.string()).default([]),
+  progress: jobProgressSchema.nullable().optional(),
   tech_stack: techStackSchema.nullable().optional(),
   error: z.string().nullable().optional(),
 });
@@ -276,6 +294,7 @@ export const codeDebtSchema = z.object({
   status: z.enum(["open", "in_pr", "resolved", "dismissed"]),
   detected_at: z.iso.datetime({ offset: true }),
   related_pr: z.string().nullable(),
+  related_issue: z.string().nullable().default(null),
   related_adr: z.string().nullable(),
   archaeology_notes: z.string(),
   code_snippet: z.string(),

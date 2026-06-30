@@ -5,6 +5,7 @@ the frontend ``codeDebtSchema`` / ``knowledgeDebtSchema`` / ``debtItemSchema`` c
 (cf. ``stack.py`` ``TechStackOut``). ``assigned_agent`` is the fixed literal added at delivery time.
 """
 
+import uuid
 from datetime import datetime
 from typing import Literal
 
@@ -31,6 +32,7 @@ class CodeDebtOut(BaseModel):
     status: str
     detected_at: datetime
     related_pr: str | None
+    related_issue: str | None = None
     related_adr: str | None
     archaeology_notes: str
     code_snippet: str
@@ -80,3 +82,12 @@ class DebtUpdate(BaseModel):
     assignee_github_handle: str | None = None
     assignee_certified_via: str | None = None
     assignee_coverage: float | None = None
+    # 人に頼む経路（issue 210）: ワークスペースのユーザーを担当に指定（任意）。issue 本文に担当者名を記す。
+    assignee_user_id: uuid.UUID | None = None
+
+
+class RepaymentPrCreate(BaseModel):
+    """Request body for repayment PR creation (issue 215). Optional PR base branch override."""
+
+    # PR 先（base）ブランチ。未指定ならプロジェクトの解析対象（既定）ブランチ。
+    base_branch: str | None = None

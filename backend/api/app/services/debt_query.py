@@ -134,6 +134,7 @@ async def _code_out(
         status=row.status,
         detected_at=row.detected_at,
         related_pr=row.related_pr,
+        related_issue=row.related_issue,
         related_adr=row.related_adr,
         archaeology_notes=row.archaeology_notes,
         code_snippet=row.code_snippet,

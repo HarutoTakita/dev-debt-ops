@@ -21,6 +21,7 @@ Learning-plan / quiz generation stay as their own fan-out steps (api ``baseline-
 """
 
 import logging
+import shutil
 from collections.abc import Awaitable, Callable
 
 from service import config
@@ -32,7 +33,10 @@ from service.pipelines import (
     feature_clustering,
     kc_analysis,
     knowledge_debt_detection,
+    stack_analysis,
 )
+from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
+from service.services import repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -55,14 +59,29 @@ async def _mint_installation_token(github: GitHubRef) -> str:
     return await app_service.get_installation_token(github.installation_id)
 
 
-async def _run_backbone_step(name: str, run: Callable[[], Awaitable[object]], steps: list[str]) -> None:
-    """Run one backbone sub-pipeline; record success/failure (a failure never aborts the run)."""
+async def _run_backbone_step(
+    name: str,
+    run: Callable[[], Awaitable[object]],
+    steps: list[str],
+    reporter: ProgressReporter | None = None,
+) -> None:
+    """Run one backbone sub-pipeline; record success/failure (a failure never aborts the run).
+
+    ``name`` doubles as the progress step key (matches ``AGENTIC_STEPS``), so the reporter reflects
+    each step's running → completed/failed transition for the live cockpit.
+    """
+    if reporter is not None:
+        await reporter.start(name)
     try:
         await run()
         steps.append(f"[backbone] {name} done")
+        if reporter is not None:
+            await reporter.complete(name)
     except Exception as exc:
         logger.exception("agentic backbone step failed: %s", name)
         steps.append(f"[backbone] {name} failed: {exc}")
+        if reporter is not None:
+            await reporter.fail(name)
 
 
 async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> AgenticAnalysisResult:
@@ -74,6 +93,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
     # feature clustering first (learning/quiz depend on it), then code debt, KC, knowledge debt.
     steps: list[str] = []
+    reporter = ProgressReporter(request.job_id, AGENTIC_STEPS)
     fc_req = FeatureClusteringRequest(
         job_id=request.job_id,
         job_type=JobType.FEATURE_CLUSTERING,
@@ -84,7 +104,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         requested_by=request.requested_by,
         project_id=request.project_id,
     )
-    await _run_backbone_step("feature_clustering", lambda: feature_clustering.process(fc_req, ctx), steps)
+    await _run_backbone_step("feature_clustering", lambda: feature_clustering.process(fc_req, ctx), steps, reporter)
     cd_req = CodeDebtDetectionRequest(
         job_id=request.job_id,
         job_type=JobType.CODE_DEBT_DETECTION,
@@ -95,7 +115,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         requested_by=request.requested_by,
         project_id=request.project_id,
     )
-    await _run_backbone_step("code_debt_detection", lambda: code_debt_detection.process(cd_req, ctx), steps)
+    await _run_backbone_step("code_debt_detection", lambda: code_debt_detection.process(cd_req, ctx), steps, reporter)
     kc_req = KcAnalysisRequest(
         job_id=request.job_id,
         job_type=JobType.KC_ANALYSIS,
@@ -106,7 +126,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         requested_by=request.requested_by,
         project_id=request.project_id,
     )
-    await _run_backbone_step("kc_analysis", lambda: kc_analysis.process(kc_req, ctx), steps)
+    await _run_backbone_step("kc_analysis", lambda: kc_analysis.process(kc_req, ctx), steps, reporter)
     kd_req = KnowledgeDebtDetectionRequest(
         job_id=request.job_id,
         job_type=JobType.KNOWLEDGE_DEBT_DETECTION,
@@ -117,15 +137,43 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         requested_by=request.requested_by,
         project_id=request.project_id,
     )
-    await _run_backbone_step("knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps)
+    await _run_backbone_step(
+        "knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps, reporter
+    )
+    # Tech-stack detection (issue 068): populates ``tech_stacks`` (owner/repo keyed) so the learning
+    # plan's "技術スタックを学ぶ" section has source terms. Must run before baseline generation below.
+    # Use the *deterministic* populate (not the ADK stack agent, which sometimes skips save_stack).
+    session = ctx.session
+
+    async def _populate_stack() -> None:
+        token = await _mint_installation_token(request.github)
+        client = GitHubGitClient(access_token=token)
+        try:
+            await stack_analysis.populate_tech_stack(client, session, request.owner, request.repo, request.branch)
+        finally:
+            await client.aclose()
+
+    await _run_backbone_step("stack_analysis", _populate_stack, steps, reporter)
 
     # 1b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
-    steps.extend(await baseline_generation.generate_learning_and_quizzes(request, ctx))
+    await reporter.start("baseline")
+
+    async def _on_baseline_progress(done: int, total: int) -> None:
+        await reporter.update("baseline", done=done, total=total)
+
+    steps.extend(
+        await baseline_generation.generate_learning_and_quizzes(request, ctx, on_progress=_on_baseline_progress)
+    )
+    await reporter.complete("baseline")
 
     # 2) Twin Agent judgement layer (autonomous cross-signal risk judgement + remediation).
+    # Shallow-clone the repo so the agent can navigate it semantically via Serena (LSP); a failed
+    # clone just disables Serena (the agent falls back to the REST repo tools).
+    await reporter.start("twin_agent")
     budget = RunBudget()
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
+    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
     try:
         trace, recommendations = await run_twin_agent(
             client=client,
@@ -133,9 +181,14 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             repo=request.repo,
             branch=request.branch,
             budget=budget,
+            repo_dir=repo_dir,
+            github_token=token,
         )
     finally:
         await client.aclose()
+        if repo_dir is not None:
+            shutil.rmtree(repo_dir, ignore_errors=True)
+    await reporter.complete("twin_agent")
 
     agent_trace = steps + trace
     summary = trace[-1] if trace else (steps[-1] if steps else "Twin Agent run produced no trace")

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1116" />
+      <stop offset="1" stop-color="#0b1016" />
+    </linearGradient>
+    <radialGradient id="glowTeal" cx="0.78" cy="0.12" r="0.7">
+      <stop offset="0" stop-color="#22b8c4" stop-opacity="0.22" />
+      <stop offset="1" stop-color="#22b8c4" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowAmber" cx="0.08" cy="0.92" r="0.6">
+      <stop offset="0" stop-color="#e0a23a" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#e0a23a" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect width="1200" height="630" fill="url(#glowTeal)" />
+  <rect width="1200" height="630" fill="url(#glowAmber)" />
+
+  <!-- 装飾: ノード‐リンク網（右側に薄く） -->
+  <g stroke="#3a8088" stroke-width="2" opacity="0.35">
+    <line x1="880" y1="150" x2="1010" y2="90" />
+    <line x1="880" y1="150" x2="980" y2="250" />
+    <line x1="1010" y1="90" x2="1110" y2="170" />
+    <line x1="980" y1="250" x2="1110" y2="170" />
+    <line x1="980" y1="250" x2="1040" y2="380" />
+    <line x1="1110" y1="170" x2="1150" y2="300" />
+  </g>
+  <g opacity="0.85">
+    <circle cx="880" cy="150" r="22" fill="#22b8c4" opacity="0.85" />
+    <circle cx="1010" cy="90" r="13" fill="#2ec5a8" opacity="0.8" />
+    <circle cx="980" cy="250" r="17" fill="#22b8c4" opacity="0.8" />
+    <circle cx="1110" cy="170" r="11" fill="#e0a23a" opacity="0.8" />
+    <circle cx="1040" cy="380" r="9" fill="#e0a23a" opacity="0.75" />
+    <circle cx="1150" cy="300" r="8" fill="#2a8f97" opacity="0.7" />
+  </g>
+
+  <!-- ロゴ（デュアルループ・マーク）＋ワードマーク -->
+  <g transform="translate(80, 70)">
+    <g transform="scale(1.5)">
+      <path d="M8.21 11.5 A9 9 0 0 1 23.79 11.5" fill="none" stroke="#22b8c4" stroke-width="3.2" stroke-linecap="round" />
+      <path d="M25.09 13.75 L22.14 12.45 L25.44 10.55 Z" fill="#22b8c4" />
+      <path d="M23.79 20.5 A9 9 0 0 1 8.21 20.5" fill="none" stroke="#e0a23a" stroke-width="3.2" stroke-linecap="round" />
+      <path d="M6.91 18.25 L9.86 19.55 L6.56 21.45 Z" fill="#e0a23a" />
+    </g>
+    <text x="62" y="34" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="700" fill="#e7edf3">DevDebtOps</text>
+  </g>
+
+  <!-- 見出し -->
+  <text x="80" y="300" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" fill="#f1f5f9">理解負債を、</text>
+  <text x="80" y="392" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800">
+    <tspan fill="#22b8c4">測って</tspan><tspan fill="#f1f5f9">返す。</tspan>
+  </text>
+
+  <!-- サブコピー -->
+  <text x="82" y="452" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">クイズで理解度を実測（git blame 非依存）し、学習で返済する閉ループ。</text>
+  <text x="82" y="490" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">理解負債と技術負債を、ひとつのダッシュボードで。</text>
+
+  <!-- 二負債チップ -->
+  <g font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="600">
+    <rect x="80" y="528" width="190" height="48" rx="24" fill="#22b8c4" fill-opacity="0.12" stroke="#22b8c4" stroke-opacity="0.4" />
+    <circle cx="108" cy="552" r="6" fill="#22b8c4" />
+    <text x="124" y="560" fill="#7fd8e0">理解負債</text>
+    <rect x="290" y="528" width="190" height="48" rx="24" fill="#e0a23a" fill-opacity="0.12" stroke="#e0a23a" stroke-opacity="0.4" />
+    <circle cx="318" cy="552" r="6" fill="#e0a23a" />
+    <text x="334" y="560" fill="#eec07a">技術負債</text>
+  </g>
+</svg>

@@ -1,12 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="8" fill="#0f172a"/>
-  <text
-    x="16"
-    y="23"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="20"
-    font-weight="bold"
-    fill="white"
-    text-anchor="middle"
-  >D</text>
+  <!-- DevDebtOps デュアルループ・マーク: ティール上弧（理解度・実測）＋アンバー下弧（コード・返済）が
+       矢じり付きで回り、「測って返す」閉ループを象徴する。理解負債=#22b8c4 / 技術負債=#e0a23a。 -->
+  <rect width="32" height="32" rx="8" fill="#0c1116" />
+  <path d="M8.21 11.5 A9 9 0 0 1 23.79 11.5" fill="none" stroke="#22b8c4" stroke-width="3.2" stroke-linecap="round" />
+  <path d="M25.09 13.75 L22.14 12.45 L25.44 10.55 Z" fill="#22b8c4" />
+  <path d="M23.79 20.5 A9 9 0 0 1 8.21 20.5" fill="none" stroke="#e0a23a" stroke-width="3.2" stroke-linecap="round" />
+  <path d="M6.91 18.25 L9.86 19.55 L6.56 21.45 Z" fill="#e0a23a" />
 </svg>

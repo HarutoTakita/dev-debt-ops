@@ -1,0 +1,109 @@
+name: Gemini PR Review
+
+# AI code review by Google's official run-gemini-cli action.
+#
+# Triggers:
+#   - pull_request (opened/reopened)  -> automatic review when a PR is created
+#   - issue_comment "@gemini-cli /review" on a PR -> on-demand re-review
+#
+# Auth: WIF only (no API key). Reuses the same provider as the deploy workflows
+# (vars.GCP_WIF_PROVIDER) but impersonates a dedicated least-privilege SA
+# (vars.GCP_GEMINI_SA) that holds only roles/aiplatform.user — NOT the broad
+# deploy SA. See infra/bootstrap/gcp/wif.tf + roles.tf. The bootstrap pool pins
+# SA impersonation to the OIDC `environment` claim, so this job MUST run inside a
+# GitHub Environment (here: staging) for auth to succeed. The model is served via
+# Vertex AI (use_vertex_ai).
+
+on:
+  pull_request:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+
+# One review at a time per PR; a newer trigger cancels an in-flight run.
+concurrency:
+  group: gemini-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    # pull_request: always. issue_comment: only on a PR, and only when the
+    # comment body contains the "@gemini-cli /review" command.
+    if: >-
+      ${{
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'issue_comment' &&
+         github.event.issue.pull_request != null &&
+         contains(github.event.comment.body, '@gemini-cli /review'))
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Required: the bootstrap WIF binding only grants impersonation to the
+    # `staging`/`production` environment principalSet. Without this the OIDC
+    # token carries no `environment` claim and WIF auth fails.
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write # WIF OIDC
+      issues: write # post review as an issue comment
+      pull-requests: write # post inline review comments
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run Gemini PR review
+        uses: google-github-actions/run-gemini-cli@v0.1.22
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: "true"
+          # Default token is enough to read the PR and post review comments
+          # because this job declares issues/pull-requests write above.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # WIF -> impersonate the dedicated aiplatform-only SA -> call Vertex AI Gemini.
+          gcp_workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          gcp_service_account: ${{ vars.GCP_GEMINI_SA }}
+          gcp_project_id: ${{ vars.GCP_PROJECT_ID }}
+          # Vertex AI の Gemini モデルはリージョン差が大きく、asia-northeast1 には
+          # gemini-cli のルーター用モデル（gemini-3.1-flash-lite 等）が無く 404 になる。
+          # `global` エンドポイントはモデル可用性が最も広いのでこれを使う（app の
+          # GCP_REGION とは別。ここは推論エンドポイントの location）。
+          gcp_location: global
+          use_vertex_ai: true
+          # Handle issue_comment triggers (GitHub models PR comments as issues).
+          github_pr_number: ${{ github.event.pull_request.number || github.event.issue.number }}
+          workflow_name: gemini-pr-review
+          settings: |-
+            {
+              "model": {
+                "maxSessionTurns": 60
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              }
+            }
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: "/pr-code-review"

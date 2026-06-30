@@ -22,8 +22,7 @@
   let name = $state("");
   let branch = $state("");
   let branches = $state<Branch[]>([]);
-  let saving = $state(false);
-  let savedAt = $state(false);
+  let saveStatus = $state<"idle" | "saving" | "saved" | "error">("idle");
   let error = $state<string | null>(null);
   let confirming = $state(false);
 
@@ -33,6 +32,18 @@
       name = current.name;
       branch = current.default_branch;
     }
+  });
+
+  // 自動保存（保存ボタン不要）: 名前/ブランチが現在値と変わったら debounce して保存する。
+  // current を読むため保存後の同期でも再評価され、値が一致したら何もしない（ループしない）。
+  $effect(() => {
+    const n = name.trim();
+    const b = branch.trim();
+    const c = current;
+    if (!c || !n || !b) return;
+    if (n === c.name && b === c.default_branch) return;
+    const t = setTimeout(() => void save(n, b), 600);
+    return () => clearTimeout(t);
   });
 
   // 既定ブランチをプルダウンで選べるよう、リポジトリのブランチ一覧を取得する。
@@ -60,21 +71,19 @@
     void members.load(orgSlug);
   });
 
-  async function save() {
+  async function save(n: string, b: string) {
     if (!current) return;
-    saving = true;
-    savedAt = false;
+    saveStatus = "saving";
     error = null;
     try {
-      const updated = await patchProject(orgSlug, projectSlug, { name: name.trim(), default_branch: branch.trim() });
+      const updated = await patchProject(orgSlug, projectSlug, { name: n, default_branch: b });
       project.setCurrent(updated);
       await project.loadList(orgSlug);
-      savedAt = true;
+      saveStatus = "saved";
       // slug は不変のままなので URL 遷移は不要（既定ブランチ/名前のみ変更）。
     } catch (e) {
       error = e instanceof Error ? e.message : m.project_settings_save_failed();
-    } finally {
-      saving = false;
+      saveStatus = "error";
     }
   }
 
@@ -101,10 +110,20 @@
 
   {#if current}
     <div class="mt-6 flex flex-col gap-5">
+      <!-- 表示順: プロジェクト名 → 接続リポジトリ → 解析対象ブランチ。保存ボタンなし（自動保存） -->
       <label class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_name_label()}</span>
         <Input bind:value={name} />
       </label>
+
+      <div class="flex flex-col gap-1.5">
+        <span class="text-sm font-medium">{m.project_settings_repo_label()}</span>
+        <p
+          class="rounded-md border border-sidebar-border bg-surface-sunken px-3 py-2 font-mono text-sm text-muted-foreground"
+        >
+          {current.repo_full_name}
+        </p>
+      </div>
 
       <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{m.project_settings_branch_label()}</span>
@@ -127,24 +146,15 @@
         </DropdownMenu.Root>
       </div>
 
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium">{m.project_settings_repo_label()}</span>
-        <p
-          class="rounded-md border border-sidebar-border bg-surface-sunken px-3 py-2 font-mono text-sm text-muted-foreground"
-        >
-          {current.repo_full_name}
-        </p>
-      </div>
-
-      {#if error}
-        <p class="text-sm text-danger">{error}</p>
-      {/if}
-
-      <div class="flex items-center gap-3">
-        <Button onclick={save} disabled={saving || !name.trim() || !branch.trim()}>
-          {m.project_settings_save()}
-        </Button>
-        {#if savedAt}<span class="text-sm text-success">{m.project_settings_saved()}</span>{/if}
+      <!-- 自動保存ステータス -->
+      <div class="h-5 text-sm">
+        {#if error}
+          <span class="text-danger">{error}</span>
+        {:else if saveStatus === "saving"}
+          <span class="text-muted-foreground">{m.project_settings_saving()}</span>
+        {:else if saveStatus === "saved"}
+          <span class="text-success">{m.project_settings_saved()}</span>
+        {/if}
       </div>
 
       <!-- メンバー（組織メンバーシップを流用。プロジェクトにアクセスできるユーザーを管理） -->

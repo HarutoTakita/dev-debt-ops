@@ -13,6 +13,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     status: "open",
     detected_at: "2026-06-10T03:12:00+09:00",
     related_pr: "#3789",
+    related_issue: null,
     related_adr: "ADR-0019",
     archaeology_notes:
       "PR #3789 で AI 生成・自動 approve。ADR-0019（権限判定は canAccess に集約）に違反する再実装で、3 ファイルに重複。",
@@ -79,6 +80,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     status: "in_pr",
     detected_at: "2026-06-12T09:00:00+09:00",
     related_pr: "#4012",
+    related_issue: null,
     related_adr: null,
     archaeology_notes: "呼び出しグラフ解析でどこからも参照されない死コード。削除 PR #4012 を作成済み。",
     code_snippet:
@@ -100,6 +102,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     status: "in_pr",
     detected_at: "2026-06-13T14:20:00+09:00",
     related_pr: "#4050",
+    related_issue: null,
     related_adr: null,
     archaeology_notes: "循環的複雑度 24。ネストした分岐が多く、AI 生成痕跡あり。",
     code_snippet:
@@ -143,6 +146,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     status: "resolved",
     detected_at: "2026-05-28T16:00:00+09:00",
     related_pr: "#3990",
+    related_issue: null,
     related_adr: "ADR-0019",
     archaeology_notes: "date-fns へ集約済み。返済 PR #3990 がマージされ解決。",
     code_snippet: "export const formatDate = (d: Date, locale: string) => new Intl.DateTimeFormat(locale).format(d);",
@@ -163,6 +167,7 @@ export const MOCK_DEBTS: DebtItem[] = [
     status: "open",
     detected_at: "2026-06-14T08:10:00+09:00",
     related_pr: null,
+    related_issue: null,
     related_adr: null,
     archaeology_notes: "決済リトライのバックオフが手書きで複雑。AI 生成痕跡があり、レビューも形式的だった。",
     code_snippet:

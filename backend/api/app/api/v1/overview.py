@@ -25,9 +25,11 @@ router = APIRouter(tags=["overview"])
 _GRANULARITIES = {"feature", "folder", "file"}
 
 # Analysis stages whose latest Job status we surface so the frontend cockpit can rehydrate after a
-# reload (the run store is in-memory). One JobType per cockpit stage. QUIZ_GENERATION is included so
-# the "用意" group's confirm_quizzes stage rehydrates as COMPLETED instead of staying idle → PROCESSING.
+# reload / re-login (the run store is in-memory). AGENTIC_ANALYSIS is the single cockpit stage in the
+# issue-069 redesign — without it the cockpit reset to the "analyze" button on every reload. The
+# legacy per-stage types stay so older runs / sub-pipeline jobs still rehydrate.
 _ANALYSIS_JOB_TYPES = [
+    JobType.AGENTIC_ANALYSIS,
     JobType.CODE_DEBT_DETECTION,
     JobType.KNOWLEDGE_DEBT_DETECTION,
     JobType.KC_ANALYSIS,
