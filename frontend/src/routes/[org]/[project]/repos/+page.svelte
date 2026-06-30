@@ -44,7 +44,6 @@
     return new Map(Object.entries(groups));
   });
   const debtCountByPath = $derived(new Map([...debtsByPath].map(([p, list]) => [p, list.length])));
-  const openCount = $derived(codeDebts.filter((d) => d.status === "open").length);
   const selectedDebts = $derived(selectedPath ? (debtsByPath.get(selectedPath) ?? []) : []);
 
   // 負債ブロックのクリックで、その抜粋(code_snippet)に対応する行範囲をコードビューでハイライトする。
@@ -189,8 +188,7 @@
       </aside>
 
       <main class="flex flex-1 flex-col overflow-hidden" data-tour="repos-viewer">
-        <div class="flex items-center justify-between gap-2 border-b px-3 py-1.5 text-xs">
-          <span class="text-muted-foreground tabular-nums">{m.code_improve_open_count({ count: openCount })}</span>
+        <div class="flex items-center justify-end gap-2 border-b px-3 py-1.5 text-xs">
           {#if codeDebts.length === 0}
             <a
               href={resolve(`/${orgSlug}/${projectSlug}`)}
