@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import quiz_generation, quiz_grading
-from service.services import gemini_stack_service
+from service.services import gemini_stack_service, quiz_authoring
 from service.services.github_git_client import FileContent
 from shared.enums import JobType
 from shared.models import QuizAnswer, QuizResult, QuizSession
@@ -60,6 +60,10 @@ async def test_generation_fills_questions(monkeypatch: pytest.MonkeyPatch, sessi
             "answer_key": {"q1": {"answer": "a", "rubric": "r"}},
         }
 
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}  # force the agentic path to fall back to the (patched) direct generate_quiz
+
+    monkeypatch.setattr(quiz_authoring, "_run_quiz_agent", _empty_agent)
     monkeypatch.setattr(gemini_stack_service, "generate_quiz", _fake_gen)
     sid = await _seed_session(session_maker)
     req = QuizGenerationRequest(

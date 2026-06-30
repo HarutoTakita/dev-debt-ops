@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import quiz_generation, quiz_grading
-from service.services import gemini_stack_service
+from service.services import gemini_stack_service, quiz_authoring
 from service.services.github_git_client import FileContent
 from shared.enums import JobStatus, JobType
 from shared.models import AnalysisRun, Feature, FeatureFile, FileKc, QuizSession
@@ -88,8 +88,12 @@ async def test_generation_feature_scope_builds_quiz(
         seen["content"] = content
         return {"questions": [{"id": "q1", "kind": "free_text", "prompt": "?", "difficulty": "L1"}], "answer_key": {}}
 
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}  # force the agentic path to fall back to the (patched) direct generate_quiz
+
     monkeypatch.setattr(quiz_generation, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(quiz_generation, "GitHubGitClient", lambda access_token: _FakeClient())
+    monkeypatch.setattr(quiz_authoring, "_run_quiz_agent", _empty_agent)
     monkeypatch.setattr(gemini_stack_service, "generate_quiz", _fake_gen)
 
     async with session_maker() as session:
