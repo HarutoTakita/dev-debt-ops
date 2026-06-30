@@ -41,7 +41,7 @@ from service.pipelines import (
     stack_analysis,
 )
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
-from service.services import code_graph, repo_checkout
+from service.services import code_graph, function_graph, repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -191,12 +191,16 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     client = GitHubGitClient(access_token=token)
     repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
     # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもエージェントはグラフ無しで継続（graceful）。
-    # 構築できたらノードリンクのスナップショットを抽出し、将来 UI 表示用に CodeGraph へ永続化する
-    # （抽出が空＝一時的失敗のときは上書きせず前回のスナップショットを温存）。
+    # 構築できたら CGC スナップショットを抽出し、加えて clone から決定的スナップショット（issue 250）を作って
+    # マージする。これで CGC が索引失敗/関数 0 件でも、理解度マップの L2/L3 が「どんな repo でも」表示される
+    # （CGC 優先・決定的が埋める）。マージ結果が空＝一時的失敗のときは上書きせず前回のスナップショットを温存。
+    cgc_snapshot: dict = {}
     if repo_dir is not None and await code_graph.build_graph(repo_dir):
-        snapshot = await code_graph.extract_snapshot(repo_dir)
-        if snapshot:
-            await _persist_code_graph(session, request.project_id, snapshot)
+        cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
+    det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
+    snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
+    if snapshot:
+        await _persist_code_graph(session, request.project_id, snapshot)
     try:
         trace, recommendations = await run_twin_agent(
             client=client,
