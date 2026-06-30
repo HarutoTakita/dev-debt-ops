@@ -323,7 +323,7 @@ export async function runAgenticAnalysis(orgSlug: string, projectSlug: string): 
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agentic-analysis`, {
     method: "POST",
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "Twin Agent 解析の開始に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "解析の開始に失敗しました"));
   return analyzeStackJobSchema.parse(await response.json());
 }
 
