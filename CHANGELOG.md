@@ -32,6 +32,8 @@
 
 ### Fixed
 
+- コード負債の検知が semgrep の一時ディレクトリ作成失敗（ディスク満杯 `[Errno 28] No space left on device`）で落ちる不具合を修正（issue 254）: `semgrep_scan.scan_files` は docstring で「`[]` on failure」を謳うのに、`tempfile.TemporaryDirectory(...)` 生成が try/except の外にあり ENOSPC が素通りして `code_debt_detection` step 全体を落としていた。一時ディレクトリ生成〜スキャンを `except OSError` で囲み、ディスク満杯等の環境要因では警告ログを残して `[]` を返す（ヒューリスティック検知は継続＝graceful）。回帰テストを追加。なお根本原因はディスク空き容量不足のため、運用側で空き確保（`docker system prune` 等）も必要。
+
 - リポジトリ解析モーダルで、解析が一度完了すると子サブステップのステータスが空（未実行）に戻ってしまう不具合を修正（issue 252）: コックピット再マウント時の `analysisRun.hydrate` が `analysis-status`（progress 非対応）からステージ状態だけ復元し子の `progress` を復元していなかったため、`childrenFor` が全子 pending（○）になっていた。`hydrate` を完了/失敗ステージで `getJob(job_id)` から `progress` も取得して復元、`#poll` は直近の非 null `progress` を保持、コックピット `childrenFor` はステージ完了時に live ステータス無しの子を「完了」既定にする安全網を追加。完了後も各子の ✓/× が維持される。
 
 - 理解度マップに CodeGraphContext のファイル/関数グラフが表示されない不具合を修正（issue 248）: `services/code_graph.py:extract_snapshot` が **cross-file エッジ（Level-2 の `file_edges`）が空だと早期に `{}` を返し**、per-file の `functions`/`function_calls`（Level-3）まで一切抽出・永続化していなかった。cross-file の関数呼び出しが解決されない小さめのリポジトリでは `code_graphs` 行が作られず、Level-2 は従来の wormhole にフォールバック・Level-3（ファイル内の関数コールグラフ）は常に空になっていた。`file_edges` / `functions` / `function_calls` を**独立に抽出**し、3 つすべて空のときのみ `{}` を返すよう修正（ファイル単位・関数単位のグラフがちゃんと表示される）。回帰テストを追加。
