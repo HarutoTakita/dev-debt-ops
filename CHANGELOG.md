@@ -8,6 +8,8 @@
 
 ### Added
 
+- 理解度マップの 3 段階グラフを **CodeGraphContext 非依存の決定的フォールバックでも生成**し「どんなリポジトリでも」表示されるようにした（issue 250）: L1（機能）・L2（機能内ファイル＝ノードは常時表示・エッジは wormhole フォールバック済み）は元々保証されていたが、**L3（ファイル内の関数コールグラフ）は CGC 専用**で、CGC が索引失敗・未対応・関数 0 件のとき空のままだった。新規 `services/function_graph.py` が clone 済みソースから決定的に L3 を生成する — Python は標準ライブラリ `ast`（関数ノード＋同一ファイル内コールエッジ）、TS/JS は正規表現（関数ノード）、`file_edges` は既存 `dependency_extraction.extract_dependencies` を再利用。`code_graph.merge_snapshots(cgc, det)` が **CGC を優先しつつ欠けた層を決定的スナップショットで埋める**（`functions`/`function_calls` は名前整合のため対で選択）。`agentic_analysis` が CGC スナップショットと決定的スナップショットをマージして永続化。対象言語は `is_source_file`（Python/TS/JS＝プロダクトの解析対象と一致）。frontend は無改修（既存の L3 描画・L2 フォールバックで動作）。
+
 - 理解度マップに **Level-3（ファイル内の関数コールグラフ）** を追加（issue 240）: Level-2（機能内ファイルグラフ）でファイルノードをクリックすると、そのファイル内部の**関数コールグラフ**にドリルダウンする（関数粒度の住処）。グラフは CodeGraphContext の `CONTAINS`/`CALLS`（同一ファイル内に絞った関数間コール）由来で、`extract_snapshot` が `functions`/`function_calls` をスナップショットに追加（`code_graphs`）。新規 `GET .../code-graph/file?path=`（`FileFunctionGraphOut`：observed/nodes/edges）で**ファイル単位に遅延取得**しペイロード肥大を回避。frontend は `buildFunctionGraph` + force-layout で描画し、関数ノードは KC を持たないため**中立スタイル**（理解度レンズは Level-1/2 のファイル・機能ノードに限定）。「← <ファイルパス>」で Level-2 に戻る。未接続（デモ）や取得失敗・関数 0 件は graceful（クリック無効化／空表示）。
 
 - 理解度マップ Level-2（機能内ファイルグラフ）のエッジを **CodeGraphContext で精緻化**（issue 238）: 機能ノードをクリックして開く構成ファイルの依存グラフのエッジを、従来の `dependencies`（import 抽出ベース）から CGC の**実コール集約**（関数 CALLS をファイルに集約、repo 相対パスで `file_kc` と一致）に切替。ファイルノードの KC 色は不変（理解度レンズは維持）、関数粒度はドリルダウン内に限定。`services/code_graph.py:extract_snapshot` を file↔file 集約エッジ（`{file_edges}`）へ、`code_graphs`/`GET .../code-graph`（`CodeGraphOut.file_edges`）と frontend スキーマを更新。`buildFileSubgraph` は CGC エッジを優先し、未構築時は従来 wormhole にフォールバック（graceful）。
