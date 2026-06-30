@@ -37,10 +37,8 @@
     {#if debt.kind === "code"}
       <!-- 対応アクション: AI 修正 PR / 人に頼む（Issue 作成） -->
       <DebtActions {orgSlug} {projectSlug} {debt} />
-      <!-- コード改善: 該当コードを行ハイライト + 「なぜ品質が低いか」を解説 -->
-      <h2 class="font-display text-sm font-semibold">{m.code_improve_detail_heading()}</h2>
+      <!-- コード改善: 左に該当コード（1 列・行ハイライト）、右に「品質が低い理由」+ メタ情報を縦 2 ブロック -->
       <CodeImprovement {debt} />
-      <DebtMetaPanel {debt} />
     {:else}
       <!-- 理解負債: 該当コード + 補足 / 右 = メタパネル -->
       <div class="grid gap-4 lg:grid-cols-[1.6fr_1fr]">

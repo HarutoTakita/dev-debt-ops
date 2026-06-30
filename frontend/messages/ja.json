@@ -502,6 +502,7 @@
   "code_improve_file_heading": "このファイルの技術負債",
   "code_improve_file_empty": "このファイルに技術負債はありません",
   "code_improve_detail_heading": "コード改善：品質が低い理由",
+  "code_improve_why_heading": "品質が低い理由",
   "code_improve_no_snippet": "該当コードの抜粋がありません。",
   "code_improve_no_reason": "品質が低い理由の記録がありません。",
   "code_improve_view_detail": "コード改善の詳細を見る",

@@ -502,6 +502,7 @@
   "code_improve_file_heading": "Technical debt in this file",
   "code_improve_file_empty": "No technical debt in this file",
   "code_improve_detail_heading": "Code improvement: why quality is low",
+  "code_improve_why_heading": "Why quality is low",
   "code_improve_no_snippet": "No code excerpt available.",
   "code_improve_no_reason": "No recorded reason for the low quality.",
   "code_improve_view_detail": "View code-improvement details",
