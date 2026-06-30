@@ -6,15 +6,16 @@
   import DeveloperKey from "./developer-key.svelte";
   import { categoryLabel, kindLabel, severityLabel } from "./labels";
 
-  // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。
-  type Props = { debt: DebtItem };
-  const { debt }: Props = $props();
+  // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。showKc=false で理解度(KC)行を省く
+  // （コード品質の文脈では不要 — issue 210）。
+  type Props = { debt: DebtItem; showKc?: boolean };
+  const { debt, showKc = true }: Props = $props();
 
   const rows = $derived([
     { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
     { label: m.debt_meta_kind(), value: `${kindLabel(debt.kind)} · ${categoryLabel(debt)}` },
     { label: m.debt_meta_cost(), value: m.list_estimated({ hours: debt.estimated_repay_hours }) },
-    { label: m.debt_meta_kc(), value: formatKcPct(debt.knowledge_coverage) },
+    ...(showKc ? [{ label: m.debt_meta_kc(), value: formatKcPct(debt.knowledge_coverage) }] : []),
   ]);
 </script>
 
