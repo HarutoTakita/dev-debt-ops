@@ -44,6 +44,20 @@ export type StageGroupDef = {
   stageIds: StageId[];
   deepLink: ((ctx: RunContext) => string) | null;
 };
+// 解析ジョブの内部サブステップ（backend の ProgressReporter `AGENTIC_STEPS` と key/group を一致させる）。
+// コックピットは実行前からこのカタログで各ブロックの内訳を表示し、実行ではライブ進捗で status のみを
+// 上書きする（issue 244）。label は i18n キーで持つ（backend ラベルに依存せず ja/en 両対応）。
+export type SubStepDef = { key: string; group: string; labelKey: string };
+export const AGENTIC_SUBSTEPS: SubStepDef[] = [
+  { key: "feature_clustering", group: "g_repay", labelKey: "analysis_substep_feature_clustering" },
+  { key: "code_debt_detection", group: "g_technical", labelKey: "analysis_substep_code_debt_detection" },
+  { key: "kc_analysis", group: "g_knowledge", labelKey: "analysis_substep_kc_analysis" },
+  { key: "knowledge_debt_detection", group: "g_knowledge", labelKey: "analysis_substep_knowledge_debt_detection" },
+  { key: "stack_analysis", group: "g_technical", labelKey: "analysis_substep_stack_analysis" },
+  { key: "baseline", group: "g_repay", labelKey: "analysis_substep_baseline" },
+  { key: "twin_agent", group: "g_repay", labelKey: "analysis_substep_agentic_reasoning" },
+];
+
 export const STAGE_GROUPS: StageGroupDef[] = [
   {
     id: "g_technical",
