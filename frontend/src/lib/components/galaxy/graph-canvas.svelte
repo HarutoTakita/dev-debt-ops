@@ -96,16 +96,16 @@
           onNodeHover?.(n);
         })
         .onEngineStop(() => g.zoomToFit(400, 40));
-      // ラベルはズームインした時だけ描画（過密回避）。ノード円は既定描画に任せ 'after' で重ねる。
+      // ラベル（ファイル名）は縮小時も含め常にノードの「右側」に小さい文字で表示する（issue 293, CGC 参考）。
+      // ノード円は既定描画に任せ 'after' で重ねる。フォントは globalScale で割り画面上ほぼ一定の小さめサイズに。
       g.nodeCanvasObjectMode(() => "after").nodeCanvasObject((node, ctx, scale) => {
-        if (scale < 1.3) return;
-        const label = node.label.length > 24 ? node.label.slice(0, 23) + "…" : node.label;
-        const fontSize = 10 / scale;
+        const label = node.label.length > 28 ? node.label.slice(0, 27) + "…" : node.label;
+        const fontSize = 9 / scale;
         ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
         ctx.fillStyle = labelColor;
-        ctx.fillText(label, node.x ?? 0, (node.y ?? 0) + nodeRadius(node) + 1 / scale);
+        ctx.fillText(label, (node.x ?? 0) + nodeRadius(node) + 3 / scale, node.y ?? 0);
       });
       // ノード円を明示的にポインタ判定領域として塗る（issue 286）。custom nodeCanvasObject を設定すると
       // クリック判定がそれに由来し、ラベルはズーム時のみ描画のため既定ズームでは判定領域が空になり
