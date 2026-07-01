@@ -1,9 +1,9 @@
 """In-house Semgrep MCP server (issue 069).
 
-Exposes the project's Semgrep scan over the Model Context Protocol so the Twin Agent's code-debt
-specialist can run real static analysis as an MCP tool (``service.agents.twin`` connects to it via
-``McpToolset`` over stdio). Wraps the same engine the deterministic ``code_debt_detection`` pipeline
-uses (``services.semgrep_scan``), so agent judgement and persisted findings share one source.
+Exposes the project's Semgrep scan over the Model Context Protocol as an MCP tool over stdio. Wraps
+the same engine the deterministic ``code_debt_detection`` pipeline uses (``services.semgrep_scan``).
+NOTE (issue 275): the agent-first ``run_analysis_agent`` no longer attaches this MCP — Semgrep runs as
+a deterministic program block in ``code_debt_detection``. Kept as a candidate for future agent wiring.
 
 Why in-house rather than the official ``semgrep-mcp`` package: that package pins ``mcp==1.12.x``,
 which conflicts with ``google-adk[mcp]`` (``mcp>=1.24``). A thin FastMCP server on our own

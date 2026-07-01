@@ -1,10 +1,10 @@
-"""Agentic-analysis trigger (issue 069).
+"""Agentic-analysis trigger (issue 069 → 266).
 
-``POST .../agentic-analysis`` enqueues an ``agentic_analysis`` Job (ADK Twin Agent) for the
-project's repository and returns ``202`` immediately — the Twin Agent (knowledge/code
-specialists + remediation strategist, wrapped in a LoopAgent) runs in the ``service`` container
-off the request path. The frontend polls ``GET /jobs/{job_id}`` for the trace + recommendations.
-Same issue-018 enqueue pattern as ``detect-debts``; method B keeps the GitHub secret off the queue.
+``POST .../agentic-analysis`` enqueues an ``agentic_analysis`` Job for the project's repository and
+returns ``202`` immediately — the agent-first analysis (Base Analysis Agent produces the 元データ,
+then the deterministic backbone formats/enhances it into the screen tables) runs in the ``service``
+container off the request path. The frontend polls ``GET /jobs/{job_id}`` for status + the agent
+trace. Same issue-018 enqueue pattern as ``detect-debts``; method B keeps the GitHub secret off the queue.
 """
 
 from typing import Annotated

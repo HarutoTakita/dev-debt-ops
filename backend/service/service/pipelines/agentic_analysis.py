@@ -129,8 +129,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # 1) Base Analysis Agent — the FIRST block (agent-first, issue 266). Shallow-clone so the agent
     # can navigate the repo via Serena (LSP); a failed clone just disables Serena. A failed/empty run
     # never aborts the analysis — the deterministic backbone below still produces the screen tables.
-    # NOTE: the progress key stays "twin_agent" in PR1 to avoid frontend churn (renamed in PR5).
-    await reporter.start("twin_agent")
+    await reporter.start("base_analysis")
     agent_trace: list[str] = []
     base_analysis = BaseAnalysis()
     budget = RunBudget()
@@ -159,7 +158,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         )
         if not base_analysis.is_empty():
             await _persist_base_analysis(session, request.project_id, base_analysis)
-        await reporter.complete("twin_agent")
+        await reporter.complete("base_analysis")
     except Exception as exc:
         # ベース解析エージェントはベストエフォート。Gemini の一時障害（502/503/500 等）やツール失敗で例外化しても、
         # 決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失って解析全体を FAILED＝run_task が全 flush を
@@ -167,7 +166,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         logger.exception("base analysis agent failed; continuing with the deterministic backbone")
         agent_trace = [f"[analysis_agent] failed: {exc}"]
         base_analysis = BaseAnalysis()
-        await reporter.fail("twin_agent")
+        await reporter.fail("base_analysis")
     finally:
         await client.aclose()
         if repo_dir is not None:
@@ -296,5 +295,4 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         branch=request.branch,
         summary=summary,
         agent_trace=all_trace,
-        recommendations=[],  # 判断レイヤ廃止に向け空（PR5 でフィールド自体を削除）
     )

@@ -6,8 +6,8 @@ which downstream blocks then format/enhance into the screen tables. Deterministi
 (KC blame, complexity/semgrep, ai-generation) run as their own program blocks — NOT as tools the LLM
 calls (a tool call = an extra model turn = latency/cost) — so this agent carries only exploration MCP.
 
-Shape: a two-stage ``SequentialAgent`` (proven more reliable than one monolithic agent — see
-``twin.py``: a Sequential exercises each stage every run instead of hoping one agent remembers):
+Shape: a two-stage ``SequentialAgent`` (proven more reliable than one monolithic agent — a Sequential
+exercises each stage every run instead of hoping one agent remembers to explore *and* save):
 
 1. ``analysis_explorer`` — MCP (Serena / GitHub / CodeGraphContext) + repo tools; explores structure,
    history and hotspots. Writes its findings to session state via ``output_key="exploration"``.

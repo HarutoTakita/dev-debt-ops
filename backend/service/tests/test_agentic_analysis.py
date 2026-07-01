@@ -8,13 +8,10 @@ directly; ``process`` is tested with GitHub + the agent run mocked.
 from unittest.mock import AsyncMock
 
 import pytest
-from google.adk.agents import SequentialAgent
 
 from service.agents.budget import RunBudget
 from service.agents.plugin import TraceRecorderPlugin
-from service.agents.remediation import build_remediation_tools
 from service.agents.tools import build_repo_tools
-from service.agents.twin import build_twin_loop
 from service.pipelines import (
     agentic_analysis,
     baseline_generation,
@@ -44,129 +41,7 @@ def _request() -> AgenticAnalysisRequest:
     )
 
 
-# --- Twin Agent graph construction (no network) ----------------------------
-
-
-class TestTwinConstruction:
-    def test_build_twin_loop_shape(self) -> None:
-        """Rule-based pipeline: a SequentialAgent runs knowledge → code → remediation in order."""
-        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[])
-        assert isinstance(loop, SequentialAgent)
-        names = [a.name for a in loop.sub_agents]
-        assert names == ["knowledge_debt_agent", "code_debt_agent", "remediation_strategist"]
-
-    def test_specialists_get_serena_toolset(self) -> None:
-        """The Serena (LSP) toolset is attached to BOTH detection specialists when provided."""
-        from service.agents.serena_mcp import build_serena_toolset
-
-        toolset = build_serena_toolset("/tmp/repo")  # construction is lazy; no subprocess spawned
-        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], serena_toolset=toolset)
-        by_name = {a.name: a for a in loop.sub_agents}
-        assert toolset in by_name["code_debt_agent"].tools
-        assert toolset in by_name["knowledge_debt_agent"].tools
-
-    def test_specialists_get_github_and_trivy_toolsets(self) -> None:
-        """MCP is stage-scoped: GitHub MCP → knowledge only; Trivy MCP → code only (+ clone path)."""
-        from service.agents.github_mcp import build_github_toolset
-        from service.agents.trivy_mcp import build_trivy_toolset
-
-        gh = build_github_toolset("tok")
-        tv = build_trivy_toolset()
-        loop = build_twin_loop(
-            client=AsyncMock(),
-            budget=RunBudget(),
-            recommendations=[],
-            github_toolset=gh,
-            trivy_toolset=tv,
-            repo_dir="/tmp/clone-xyz",
-        )
-        by_name = {a.name: a for a in loop.sub_agents}
-        code = by_name["code_debt_agent"]
-        know = by_name["knowledge_debt_agent"]
-        assert gh in know.tools  # GitHub → knowledge (process/history = knowledge-debt signal)
-        assert gh not in code.tools  # GitHub NOT on code
-        assert tv in code.tools  # Trivy → code (SCA/secret/misconfig = code-debt signal)
-        assert tv not in know.tools  # Trivy NOT on knowledge
-        assert "/tmp/clone-xyz" in code.instruction  # path injected for scan_filesystem
-
-    def test_code_specialist_gets_semgrep_toolset(self) -> None:
-        """Semgrep MCP → code specialist only (real static analysis = code-debt signal), issue 204."""
-        from service.agents.semgrep_mcp import build_semgrep_toolset
-
-        sg = build_semgrep_toolset()  # construction is lazy; no subprocess spawned
-        loop = build_twin_loop(client=AsyncMock(), budget=RunBudget(), recommendations=[], semgrep_toolset=sg)
-        by_name = {a.name: a for a in loop.sub_agents}
-        assert sg in by_name["code_debt_agent"].tools  # Semgrep → code
-        assert sg not in by_name["knowledge_debt_agent"].tools  # NOT on knowledge
-
-    def test_specialists_get_code_graph_toolset(self) -> None:
-        """CodeGraphContext (マクロ) → BOTH specialists; repo path is injected into the hint (issue 235)."""
-        from service.agents.code_graph_mcp import build_code_graph_toolset
-
-        cg = build_code_graph_toolset()  # construction is lazy; no subprocess spawned
-        loop = build_twin_loop(
-            client=AsyncMock(),
-            budget=RunBudget(),
-            recommendations=[],
-            code_graph_toolset=cg,
-            repo_dir="/tmp/clone-xyz",
-        )
-        by_name = {a.name: a for a in loop.sub_agents}
-        assert cg in by_name["code_debt_agent"].tools
-        assert cg in by_name["knowledge_debt_agent"].tools
-        assert "/tmp/clone-xyz" in by_name["code_debt_agent"].instruction  # repo_path injected into _CGC_HINT
-
-    def test_recommend_remediation_records(self) -> None:
-        """The remediation tool records structured recommendations and normalises the action."""
-        recommendations: list[dict[str, str]] = []
-        (recommend_remediation,) = build_remediation_tools(recommendations)
-        recommend_remediation(target="auth/login.py", debt_kind="knowledge", action="quiz", rationale="属人化")
-        recommend_remediation(target="x.py", debt_kind="code", action="bogus", rationale="r")
-        assert recommendations[0]["action"] == "quiz"
-        assert recommendations[0]["target"] == "auth/login.py"
-        assert recommendations[1]["action"] == "other"
-
-
 class TestRunnerMcpLifecycle:
-    async def test_all_mcp_toolsets_closed_after_run(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """run_twin_agent builds Serena+Trivy+Semgrep+CodeGraph (repo_dir) + GitHub (token) and closes them all."""
-        from service.agents import runner
-
-        closed = {"n": 0}
-
-        class _FakeToolset:
-            async def close(self) -> None:
-                closed["n"] += 1
-
-        class _FakeRunner:
-            def __init__(self, **_kwargs: object) -> None:
-                pass
-
-            async def run_async(self, **_kwargs: object):
-                return
-                yield  # unreachable — makes this an async generator
-
-        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
-        monkeypatch.setattr(runner, "build_trivy_toolset", lambda: _FakeToolset())
-        monkeypatch.setattr(runner, "build_semgrep_toolset", lambda: _FakeToolset())
-        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
-        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
-        monkeypatch.setattr(runner, "build_twin_loop", lambda **_kwargs: object())
-        monkeypatch.setattr(runner, "Runner", _FakeRunner)
-
-        trace, recs = await runner.run_twin_agent(
-            client=AsyncMock(),
-            owner="acme",
-            repo="rosetta",
-            branch="main",
-            budget=RunBudget(),
-            repo_dir="/tmp/x",
-            github_token="tok",
-        )
-        assert closed["n"] == 5  # serena + trivy + semgrep + code_graph + github all closed
-        assert trace == []
-        assert recs == []
-
     async def test_analysis_agent_closes_exploration_toolsets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """run_analysis_agent builds only the exploration MCP (Serena + CodeGraph on repo_dir, GitHub on
         token) — NOT Trivy/Semgrep (those run as deterministic blocks) — and closes them all."""
@@ -326,7 +201,6 @@ class TestProcess:
             "[generate] quiz: auth",
         ]
         assert result.summary == "[summary] 危険な機能を特定"
-        assert result.recommendations == []  # 判断レイヤ廃止に向け空
 
     async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
         """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""
@@ -356,7 +230,6 @@ class TestProcess:
         result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
 
         assert result.status == ResultStatus.COMPLETED  # backbone preserved; job reaches a terminal state
-        assert result.recommendations == []
         assert feature_clustering.process.await_count == 1  # backbone ran despite the agent failure
         assert any("[analysis_agent] failed" in s for s in result.agent_trace)
 

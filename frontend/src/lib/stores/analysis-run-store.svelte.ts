@@ -56,9 +56,10 @@ export const AGENTIC_SUBSTEPS: SubStepDef[] = [
   { key: "stack_analysis", group: "g_technical", labelKey: "analysis_substep_stack_analysis" },
   { key: "baseline", group: "g_repay", labelKey: "analysis_substep_baseline" },
 ];
-// 注: `twin_agent`（エージェントによる判断）は個々の成果グループの子ではなく、解析全体そのもの。コックピットは
-// 「エージェントによるリポジトリ解析」を最上部の親タスクとして描画し、3 グループをその子として入れ子表示する
-// （親のステータスは agentic ステージ全体に連動、issue 256/258）。よって substep カタログには含めない。
+// 注: `base_analysis`（エージェントによるリポジトリ解析＝元データ生成、最初に実行）は個々の成果グループの子では
+// なく、解析全体そのもの。コックピットは「エージェントによるリポジトリ解析」を最上部の親タスクとして描画し、
+// 3 グループをその子として入れ子表示する（親のステータスは agentic ステージ全体に連動、issue 256/258/275）。
+// よって substep カタログには含めない。
 
 export const STAGE_GROUPS: StageGroupDef[] = [
   {
