@@ -4,31 +4,32 @@
   import Maximize from "@lucide/svelte/icons/maximize";
   import type { PersonalGalaxy } from "$lib/api/schemas";
   import GraphCanvas from "./graph-canvas.svelte";
-  import { fileMasteryByPath } from "./galaxy-graph";
-  import {
-    toFeatureFunctionGraphData,
-    toFeatureGraphData,
-    toFileFunctionGraphData,
-    type GraphNode,
-  } from "./graph-data";
-  import { getFeatureFunctionGraph, getFileFunctionGraph } from "$lib/api/client";
-  import { formatKc } from "$lib/format/kc";
+  import { toFileFunctionGraphData, toFileGraphData, type GraphNode } from "./graph-data";
+  import { getFileFunctionGraph } from "$lib/api/client";
+  import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  // 3 段の理解度マップ。L1=機能ノード, L2=機能の関数レベルグラフ（file-hub + 関数）, L3=単一ファイルの関数
-  // コールグラフ。描画は force-graph(canvas) ラッパ GraphCanvas に委譲（力学配置/衝突回避/ズーム/パン/
-  // ドラッグ, issue 284）。orgSlug/projectSlug は L2/L3 の遅延取得に使う（未指定=デモでは取得しない）。
+  // 理解度マップ（issue 288）。既定は「ファイル単位グラフ」（プロジェクト全体・KC 着色）。機能フィルタで
+  // その機能に属するファイルのみに絞り込める。ファイルをクリックすると「そのファイル内の関数コールグラフ
+  // （Level 3）」へドリル。描画は force-graph(canvas) ラッパ GraphCanvas に委譲（力学配置/衝突回避/ズーム）。
+  // fileEdges: CodeGraphContext 由来の file↔file 結合（空なら galaxy.wormholes=import グラフにフォールバック）。
   const {
     galaxy,
     orgSlug = "",
     projectSlug = "",
-  }: { galaxy: PersonalGalaxy; orgSlug?: string; projectSlug?: string } = $props();
+    fileEdges = [],
+  }: {
+    galaxy: PersonalGalaxy;
+    orgSlug?: string;
+    projectSlug?: string;
+    fileEdges?: { source: string; target: string }[];
+  } = $props();
 
-  let selected = $state<string | null>(null); // 選択中の feature key（null = L1）
-  let selectedFile = $state<string | null>(null); // 選択中のファイル（非 null = L3）
+  let activeFeature = $state<string | null>(null); // フィルタ（null = 全ファイル）
+  let selectedFile = $state<string | null>(null); // 非 null = Level 3（ファイル内関数グラフ）
   let controls = $state<{ zoomIn: () => void; zoomOut: () => void; fit: () => void }>();
 
-  // --- L3: ファイル内の関数コールグラフ（file-hub クリック時に遅延取得） ---
+  // --- Level 3: ファイル内の関数コールグラフ（ファイルクリック時に遅延取得） ---
   let fnNodes = $state<string[]>([]);
   let fnEdges = $state<{ source: string; target: string }[]>([]);
   let fnLoading = $state(false);
@@ -50,80 +51,62 @@
     }
   }
 
-  // --- L2: 機能の関数レベルグラフ（機能クリック時に遅延取得） ---
-  let featNodes = $state<{ id: string; label: string; file: string; kind: "file" | "function" }[]>([]);
-  let featEdges = $state<{ source: string; target: string; type: "contains" | "calls" }[]>([]);
-  let featLoading = $state(false);
-  let featTruncated = $state(false);
-  async function openFeature(key: string) {
-    selected = key;
-    selectedFile = null;
-    if (!orgSlug || !projectSlug) {
-      featNodes = [];
-      featEdges = [];
-      return; // デモ/未接続では取得しない
-    }
-    featLoading = true;
-    featNodes = [];
-    featEdges = [];
-    featTruncated = false;
-    try {
-      const g = await getFeatureFunctionGraph(orgSlug, projectSlug, key);
-      if (selected !== key) return; // レース
-      featNodes = g.nodes;
-      featEdges = g.edges;
-      featTruncated = g.truncated;
-    } catch {
-      /* 取得失敗 → 空表示（graceful） */
-    } finally {
-      if (selected === key) featLoading = false;
-    }
-  }
+  // ファイル一覧（全 system のファイル）と、ファイル間エッジ（fileEdges 優先・無ければ wormhole=import）。
+  const files = $derived(galaxy.systems.flatMap((s) => s.files));
+  const edges = $derived(
+    fileEdges.length > 0 ? fileEdges : galaxy.wormholes.map((w) => ({ source: w.from, target: w.to })),
+  );
 
-  const selectedFeature = $derived(galaxy.features.find((f) => f.key === selected) ?? null);
-  // データ更新で選択中の機能が消えたら L1 に戻す。
-  $effect(() => {
-    if (selected !== null && !galaxy.features.some((f) => f.key === selected)) {
-      selected = null;
-      selectedFile = null;
-    }
-  });
-
-  const fileMap = $derived(fileMasteryByPath(galaxy)); // path → FileMastery（file-hub の KC 着色）
   const graphData = $derived.by(() => {
     if (selectedFile !== null) return toFileFunctionGraphData(fnNodes, fnEdges);
-    if (selected !== null) return toFeatureFunctionGraphData(featNodes, featEdges, fileMap);
-    return toFeatureGraphData(galaxy.features, galaxy.feature_edges);
+    return toFileGraphData(files, edges, activeFeature);
   });
 
   function handleNodeClick(node: GraphNode) {
     if (selectedFile !== null) return; // L3: ドリルなし
-    if (selected !== null) {
-      if (node.kind === "file" && node.file) openFile(node.file); // L2: file-hub → L3
-      return;
-    }
-    if (node.kind === "feature") openFeature(node.id); // L1: 機能 → L2
+    if (node.kind === "file") openFile(node.file ?? node.id); // ファイル → 関数グラフ
   }
 
   const backClass =
     "mb-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground";
   const zoomBtnClass =
     "rounded-md border bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:text-foreground";
+  function chipClass(active: boolean): string {
+    return cn(
+      "rounded-full border px-2.5 py-0.5 text-xs transition",
+      active
+        ? "border-debt-knowledge bg-debt-knowledge/15 text-foreground"
+        : "border-border bg-background text-muted-foreground hover:text-foreground",
+    );
+  }
 </script>
 
-<!-- 戻るナビ（1 段ずつ戻る） -->
 {#if selectedFile !== null}
+  <!-- Level 3 → ファイル単位グラフに戻る（フィルタは維持）。 -->
   <button type="button" onclick={() => (selectedFile = null)} class={backClass}>
     ← <span class="font-mono">{selectedFile}</span>
   </button>
-{:else if selected !== null && selectedFeature}
-  <button type="button" onclick={() => (selected = null)} class={backClass}>
-    ← {selectedFeature.name} · {formatKc(selectedFeature.kc)}
-  </button>
+{:else if galaxy.features.length > 0}
+  <!-- 機能フィルタ（≤5 個）。全て / 各機能でファイルを絞り込む。 -->
+  <div class="mb-2 flex flex-wrap items-center gap-1.5">
+    <span class="text-xs text-muted-foreground">{m.galaxy_filter_label()}:</span>
+    <button type="button" class={chipClass(activeFeature === null)} onclick={() => (activeFeature = null)}>
+      {m.galaxy_filter_all()}
+    </button>
+    {#each galaxy.features as f (f.key)}
+      <button
+        type="button"
+        class={chipClass(activeFeature === f.key)}
+        onclick={() => (activeFeature = activeFeature === f.key ? null : f.key)}
+      >
+        {f.name}
+      </button>
+    {/each}
+  </div>
 {/if}
 
 <div class="relative h-full min-h-[24rem] overflow-hidden rounded-lg border bg-card">
-  {#if galaxy.features.length === 0}
+  {#if files.length === 0}
     <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
       <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_features()}</p>
     </div>
@@ -135,22 +118,18 @@
       bindControls={(c) => (controls = c)}
     />
 
-    <!-- 遅延取得中 / 空 / 打ち切りのオーバーレイ（canvas の上に重ねる） -->
-    {#if (selectedFile !== null && fnLoading) || (selected !== null && selectedFile === null && featLoading)}
+    <!-- 遅延取得中 / 空のオーバーレイ（canvas の上に重ねる） -->
+    {#if selectedFile !== null && fnLoading}
       <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
         <span class="text-xs text-muted-foreground">{m.common_loading()}</span>
       </div>
-    {:else if (selectedFile !== null && fnNodes.length === 0) || (selected !== null && selectedFile === null && featNodes.length === 0)}
+    {:else if selectedFile !== null && fnNodes.length === 0}
       <div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center">
         <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_functions()}</p>
       </div>
-    {/if}
-
-    {#if selected !== null && selectedFile === null && featTruncated}
-      <div
-        class="pointer-events-none absolute bottom-2 left-2 rounded bg-muted/80 px-2 py-1 text-[10px] text-muted-foreground"
-      >
-        {m.galaxy_graph_truncated()}
+    {:else if selectedFile === null && graphData.nodes.length === 0}
+      <div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center">
+        <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_files()}</p>
       </div>
     {/if}
 
