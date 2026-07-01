@@ -200,8 +200,9 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
     now = datetime.now(UTC)
     trace: list[str] = []
 
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+    # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
+    shared_client = ctx.github_client
+    client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     # per-file signals: {path: {content, age_days, no_review}}
     signals: dict[str, dict] = {}
     commit_sha = ""
@@ -229,7 +230,8 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
         head = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
         commit_sha = head[0].sha if head else ""
     finally:
-        await client.aclose()
+        if shared_client is None:
+            await client.aclose()
     trace.append(f"fetched {len(signals)} source files")
 
     # AI-generation estimate for the fetched files.

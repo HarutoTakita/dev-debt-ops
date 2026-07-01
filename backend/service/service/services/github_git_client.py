@@ -447,3 +447,36 @@ class GitHubGitClient:
     async def aclose(self) -> None:
         """Close the underlying HTTP client."""
         await self._client.aclose()
+
+
+class CachingGitHubGitClient(GitHubGitClient):
+    """A ``GitHubGitClient`` that memoises read-only tree/file fetches for one analysis job.
+
+    The agentic backbone runs several sub-pipelines that each fetch the SAME repository tree and
+    overlapping file contents (feature clustering / code-debt / KC / knowledge-debt / stack all call
+    ``get_repository_tree``, and three of them re-read source files). Sharing ONE of these across the
+    backbone collapses those redundant GitHub reads (tree N×→1, files deduped) — a wall-clock + rate
+    limit win with no concurrency change (the backbone stays serial, so a plain dict memo suffices).
+
+    Only the hot read paths are cached. Callers treat the returned tree/``FileContent`` as read-only
+    (they iterate / read ``.content``); do not mutate them, as the same objects are shared.
+    """
+
+    def __init__(self, access_token: str) -> None:
+        super().__init__(access_token=access_token)
+        self._tree_cache: dict[tuple[str, str, str], list[TreeItem]] = {}
+        self._file_cache: dict[tuple[str, str, str, str], FileContent] = {}
+
+    async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
+        """Return the recursive file tree, cached per ``(owner, repo, branch)`` for the job's lifetime."""
+        key = (owner, repo, branch)
+        if key not in self._tree_cache:
+            self._tree_cache[key] = await super().get_repository_tree(owner, repo, branch)
+        return self._tree_cache[key]
+
+    async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
+        """Return a file's content, cached per ``(owner, repo, path, ref)`` for the job's lifetime."""
+        key = (owner, repo, path, ref)
+        if key not in self._file_cache:
+            self._file_cache[key] = await super().get_file_content(owner, repo, path, ref)
+        return self._file_cache[key]

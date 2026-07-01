@@ -113,8 +113,9 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
     session = ctx.session
     trace: list[str] = []
 
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+    # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
+    shared_client = ctx.github_client
+    client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
         source_paths = [t.path for t in tree if t.type == "blob" and code_analysis.is_source_file(t.path)][:_MAX_FILES]
@@ -126,7 +127,8 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
         commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
         commit_sha = commits[0].sha if commits else ""
     finally:
-        await client.aclose()
+        if shared_client is None:
+            await client.aclose()
     trace.append(f"fetched {len(source_paths)} source files")
 
     # Intra-repo import graph (main clustering signal).
