@@ -35,7 +35,11 @@ COPY --from=ghcr.io/github/github-mcp-server /server/github-mcp-server /usr/loca
 #    tree-sitter-language-pack is incompatible with 3.13 and it pins protobuf<3.21 — both would
 #    conflict with the service venv), with the embedded KuzuDB backend (`--with kuzu`, no Neo4j).
 # Installed into world-readable locations (/usr/local/bin, /opt/uv) so the unprivileged appuser can run them.
-ENV UV_TOOL_DIR=/opt/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin
+# UV_PYTHON_INSTALL_DIR も /opt/uv 配下へ固定する: `-p 3.12` はベースイメージに無いため uv が管理 CPython を
+# DL するが、既定では root ホーム (/root/.local/share/uv/python, mode 700) に置かれ、CGC のシェバンがそこを指す。
+# appuser (uid1001) は /root を辿れずインタプリタ起動が Errno 13 Permission denied → CGC MCP 全滅 → Twin Agent が
+# `analyze_code_relationships` 未登録で失敗する。world-readable な /opt/uv/python へ移し、直後の chmod で権限も付与（issue 235）。
+ENV UV_TOOL_DIR=/opt/uv/tools UV_TOOL_BIN_DIR=/usr/local/bin UV_PYTHON_INSTALL_DIR=/opt/uv/python
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
