@@ -65,7 +65,8 @@ _AUTHOR_INSTRUCTION = """\
 </exploration>
 
 この所見に基づき、【必ず一度だけ】save_base_analysis を呼んで元データを確定してください。各引数のスキーマ:
-- features[]: {{"key": "小文字 kebab/snake の安定 slug", "name": "名前", "description": "1〜2 行",
+- features[]: {{"key": "小文字 kebab/snake の安定 slug（英語可）",
+  "name": "日本語の分かりやすい機能名（例: 認証、課金、解析パイプライン）", "description": "1〜2 行（日本語）",
   "files": [{{"path": "探索で現れた正確なパス", "confidence": 0.0〜1.0}}],
   "key_concepts": ["学習上の重要概念", ...], "risk_notes": "理解リスクの叙述（任意）"}}
 - code_findings[]: {{"file_path": "パス", "type": "complexity|duplicate|dead|security|smell|other",
@@ -75,6 +76,8 @@ _AUTHOR_INSTRUCTION = """\
 - stack_terms[]: 技術スタックのヒント語（任意）
 - summary: 全体所見の 1〜3 行要約
 ルール: パスは探索で実在が確認できたものだけを使う。数値は入れない（判断・分類・根拠のみ）。
+機能名（name）と説明（description）は**必ず自然な日本語**にする
+（英語のクラス名／ファイル名／"~ API" 等の羅列にしない。key だけは英語 slug 可）。
 """
 
 

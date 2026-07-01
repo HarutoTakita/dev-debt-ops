@@ -27,10 +27,11 @@ _INSTRUCTION = """\
 2. 小さすぎる機能を量産せず、意味のある少数の機能にまとめる。
 
 最後に【必ず一度だけ】save_features を呼んで完了すること。features のスキーマ:
-- features[]: {"key": "short-stable-slug（小文字 kebab/snake・run 間で追跡できる安定した slug）",
-  "name": "人間可読な名前", "description": "1〜2 行の説明",
+- features[]: {"key": "short-stable-slug（小文字 kebab/snake・run 間で追跡できる安定した slug・英語可）",
+  "name": "日本語の分かりやすい機能名（例: 認証、課金、解析パイプライン）", "description": "1〜2 行の説明（日本語）",
   "files": [{"path": "一覧に現れた正確なパス", "confidence": 0.0〜1.0}]}
 ルール: パスは必ず一覧内のものだけを使う（1 ファイルが複数機能に属してよい）。confidence は所属の強さ。
+name / description は**必ず自然な日本語**にする（英語の名称や "~ API" の羅列にしない。key だけは英語 slug 可）。
 """
 
 
