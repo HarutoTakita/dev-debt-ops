@@ -3,7 +3,7 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
-  import { pageTours } from "./tour-steps";
+  import { pageTours, type TourPlacement } from "./tour-steps";
   import * as m from "$lib/paraglide/messages";
 
   // 自作の軽量プロダクトツアー（issue 066）。外部 CDN/ライブラリ非依存。
@@ -106,31 +106,63 @@
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const PAD = 6;
+  const PAD = 6; // ハイライトの外周パディング（切り抜き ring と揃える）
+  const GAP = 12; // ハイライトと吹き出しの間隔
+  const MARGIN = 8; // ビューポート端の最小マージン
   const BUBBLE_W = 320;
-  // 吹き出し位置（rect + placement から。ビューポート内にクランプ）。rect 無しは中央。
+  // 吹き出しの実測サイズ（bind:clientWidth/Height）。文言量で高さが変わるため実測し、ハイライトへの
+  // 被りを防ぐ。未計測時は既定値でフォールバック。
+  let bubbleW = $state(BUBBLE_W);
+  let bubbleH = $state(180);
+
+  // 吹き出し位置。ハイライト矩形に**重ならない**配置を選ぶ（従来はブロック高を 160px 固定で仮定し、端では
+  // ビューポートクランプがハイライト上へ押し戻していた）。優先 placement → 反対側 → 上下左右の順に、
+  // 「主軸は対象の外側・交差軸はビューポート内」に収まる側を採用。どこにも収まらない（対象が大きすぎる）
+  // 場合は、最も余白のある側のビューポート端に寄せて被りを最小化する。rect 無しは中央。
   const bubble = $derived.by(() => {
     if (!rect) return { left: -9999, top: -9999, centered: true };
     const r = rect;
-    let left: number;
-    let top: number;
-    if (step?.placement === "bottom") {
-      left = r.x;
-      top = r.y + r.h + PAD + 6;
-    } else if (step?.placement === "left") {
-      left = r.x - BUBBLE_W - PAD - 6;
-      top = r.y;
-    } else if (step?.placement === "top") {
-      left = r.x;
-      top = r.y - PAD - 160;
-    } else {
-      // right（既定）
-      left = r.x + r.w + PAD + 6;
-      top = r.y;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const W = bubbleW || BUBBLE_W;
+    const H = bubbleH || 180;
+    const clampX = (x: number) => Math.max(MARGIN, Math.min(x, vw - W - MARGIN));
+    const clampY = (y: number) => Math.max(MARGIN, Math.min(y, vh - H - MARGIN));
+    // 各サイドの候補（主軸=対象の外側に固定、交差軸のみビューポートへクランプ）。
+    const cand: Record<TourPlacement, { left: number; top: number }> = {
+      bottom: { left: clampX(r.x), top: r.y + r.h + PAD + GAP },
+      top: { left: clampX(r.x), top: r.y - PAD - GAP - H },
+      right: { left: r.x + r.w + PAD + GAP, top: clampY(r.y) },
+      left: { left: r.x - PAD - GAP - W, top: clampY(r.y) },
+    };
+    const fits = (c: { left: number; top: number }) =>
+      c.left >= MARGIN && c.top >= MARGIN && c.left + W <= vw - MARGIN && c.top + H <= vh - MARGIN;
+    const opposite: Record<TourPlacement, TourPlacement> = {
+      bottom: "top",
+      top: "bottom",
+      left: "right",
+      right: "left",
+    };
+    const preferred = step?.placement ?? "right";
+    const order: TourPlacement[] = [preferred, opposite[preferred], "bottom", "top", "right", "left"];
+    for (const side of order) {
+      if (fits(cand[side])) return { ...cand[side], centered: false };
     }
-    left = Math.max(8, Math.min(left, window.innerWidth - BUBBLE_W - 8));
-    top = Math.max(8, Math.min(top, window.innerHeight - 180));
-    return { left, top, centered: false };
+    // フォールバック: どの側も収まらない（対象がほぼ全画面など）→ 最も余白のある側の端に寄せる。
+    const space: Record<TourPlacement, number> = {
+      bottom: vh - (r.y + r.h),
+      top: r.y,
+      right: vw - (r.x + r.w),
+      left: r.x,
+    };
+    const best = order.reduce((a, b) => (space[b] > space[a] ? b : a));
+    const edge: Record<TourPlacement, { left: number; top: number }> = {
+      bottom: { left: clampX(r.x), top: vh - H - MARGIN },
+      top: { left: clampX(r.x), top: MARGIN },
+      right: { left: vw - W - MARGIN, top: clampY(r.y) },
+      left: { left: MARGIN, top: clampY(r.y) },
+    };
+    return { ...edge[best], centered: false };
   });
 
   function onNext() {
@@ -166,11 +198,13 @@
     {/if}
   </div>
 
-  <!-- 吹き出し -->
+  <!-- 吹き出し（実測サイズで被り回避の配置計算に使う） -->
   <div
     role="dialog"
     aria-modal="true"
     aria-label={step.title()}
+    bind:clientWidth={bubbleW}
+    bind:clientHeight={bubbleH}
     class="fixed z-[201] w-[320px] rounded-lg border bg-card p-4 shadow-xl"
     style={bubble.centered
       ? "left: 50%; top: 50%; transform: translate(-50%, -50%);"
