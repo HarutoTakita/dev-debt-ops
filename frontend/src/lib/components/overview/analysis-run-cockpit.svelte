@@ -4,7 +4,6 @@
   import {
     analysisRun,
     AGENTIC_SUBSTEPS,
-    BASE_GROUP_ID,
     STAGES,
     STAGE_GROUPS,
     type RunContext,
@@ -19,8 +18,9 @@
   const demoBlockHint = "（GitHub サインインが必要です）";
   const demoBlockTitle = `${demoBlockMain}${demoBlockHint}`;
 
-  // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。表示は「検知 / 計測 / 用意 /
-  // Twin Agent」のグループに集約し、各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
+  // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。最上部に親「エージェントによる
+  // リポジトリ解析」を置き、その子として「検知 / 整理 / 生成」の 3 グループを入れ子表示（issue 256/258）。
+  // 各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
   type Props = { ctx: RunContext };
   const { ctx }: Props = $props();
 
@@ -48,7 +48,6 @@
     analysis_substep_knowledge_debt_detection: m.analysis_substep_knowledge_debt_detection,
     analysis_substep_stack_analysis: m.analysis_substep_stack_analysis,
     analysis_substep_baseline: m.analysis_substep_baseline,
-    analysis_substep_agentic_reasoning: m.analysis_substep_agentic_reasoning,
   };
 
   function statusLabel(s: StageStatus): string {
@@ -111,9 +110,9 @@
     return fallback;
   }
 
-  // 全タスクの土台＝「エージェントによるリポジトリ解析」基盤ブロック（issue 256）。3 グループの下に独立表示。
-  const baseChildren = $derived(childrenFor(BASE_GROUP_ID));
-  const baseStatus = $derived(blockStatus(baseChildren, analysisRun.stages["agentic"]?.status ?? "idle"));
+  // 全タスクの親＝「エージェントによるリポジトリ解析」（issue 256/258）。3 グループをその子として入れ子表示し、
+  // 親のステータスは agentic ステージ全体（＝解析ジョブ全体）に連動させる。
+  const agenticStatus = $derived<StageStatus>(analysisRun.stages["agentic"]?.status ?? "idle");
 
   // グループの集約状態と、実行中サブステージのラベルを内部ステージ群から導出する。
   function groupView(g: StageGroupDef): { status: StageStatus; activeLabel: string | null } {
@@ -188,78 +187,62 @@
         ></div>
       </div>
     {/if}
-    <ul class="flex flex-col gap-1.5">
-      {#each STAGE_GROUPS as group (group.id)}
-        {@const gv = groupView(group)}
-        {@const children = childrenFor(group.id)}
-        {@const bs = blockStatus(children, gv.status)}
-        <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
-          <div class="flex items-center gap-3">
-            <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[bs]}`}>{statusLabel(bs)}</span>
-            <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
-            {#if gv.status === "COMPLETED" && group.deepLink}
-              <a
-                href={group.deepLink(ctx) as ResolvedPathname}
-                class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
-              >
-                {m.analysis_view()}
-              </a>
-            {:else if gv.status === "FAILED"}
-              <button
-                type="button"
-                onclick={() => retryGroup(group)}
-                class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
-              >
-                {m.analysis_retry_stage()}
-              </button>
-            {/if}
-          </div>
-          {#if children.length > 0}
-            <!-- このブロックに属する内部サブステップ（どこまで・どの程度進んだか）。 -->
-            <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
-              {#each children as s (s.key)}
-                <li class="flex items-center gap-2 text-xs">
-                  <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
-                    {stepMark(s.status)}
-                  </span>
-                  <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
-                    {s.label}
-                  </span>
-                  {#if s.total != null && s.total > 0}
-                    <span class="shrink-0 text-muted-foreground tabular-nums">{s.done ?? 0}/{s.total}</span>
-                  {/if}
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-
-    <!-- 全タスクの土台: エージェントによるリポジトリ解析（issue 256）。上の 3 グループはこの解析から生成される。 -->
-    <div class="mt-2 flex flex-col items-center gap-0.5 text-muted-foreground">
-      <span aria-hidden="true" class="text-[10px] leading-none">▲</span>
-      <p class="text-center text-[11px] leading-snug">{m.analysis_base_caption()}</p>
-    </div>
-    <div class="mt-1.5 rounded-md border border-debt-knowledge/40 bg-debt-knowledge/5 px-3 py-2 text-sm">
-      <div class="flex items-center gap-3">
-        <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[baseStatus]}`}>{statusLabel(baseStatus)}</span>
+    <!-- 全タスクの親: エージェントによるリポジトリ解析（issue 256/258）。3 グループはその子タスクとして入れ子表示。
+         親のステータスは解析ジョブ全体（agentic ステージ）に連動する。 -->
+    <div class="rounded-md border border-debt-knowledge/40 bg-debt-knowledge/5 px-3 py-2">
+      <div class="flex items-center gap-3 text-sm">
+        <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[agenticStatus]}`}
+          >{statusLabel(agenticStatus)}</span
+        >
         <span class="min-w-0 flex-1 truncate font-medium">{m.analysis_base_agentic()}</span>
       </div>
-      {#if baseChildren.length > 0}
-        <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
-          {#each baseChildren as s (s.key)}
-            <li class="flex items-center gap-2 text-xs">
-              <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
-                {stepMark(s.status)}
-              </span>
-              <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
-                {s.label}
-              </span>
-            </li>
-          {/each}
-        </ul>
-      {/if}
+      <ul class="mt-2 flex flex-col gap-1.5 border-t pt-2 pl-2">
+        {#each STAGE_GROUPS as group (group.id)}
+          {@const gv = groupView(group)}
+          {@const children = childrenFor(group.id)}
+          {@const bs = blockStatus(children, gv.status)}
+          <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
+            <div class="flex items-center gap-3">
+              <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[bs]}`}>{statusLabel(bs)}</span>
+              <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
+              {#if gv.status === "COMPLETED" && group.deepLink}
+                <a
+                  href={group.deepLink(ctx) as ResolvedPathname}
+                  class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
+                >
+                  {m.analysis_view()}
+                </a>
+              {:else if gv.status === "FAILED"}
+                <button
+                  type="button"
+                  onclick={() => retryGroup(group)}
+                  class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
+                >
+                  {m.analysis_retry_stage()}
+                </button>
+              {/if}
+            </div>
+            {#if children.length > 0}
+              <!-- このブロックに属する内部サブステップ（どこまで・どの程度進んだか）。 -->
+              <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
+                {#each children as s (s.key)}
+                  <li class="flex items-center gap-2 text-xs">
+                    <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
+                      {stepMark(s.status)}
+                    </span>
+                    <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
+                      {s.label}
+                    </span>
+                    {#if s.total != null && s.total > 0}
+                      <span class="shrink-0 text-muted-foreground tabular-nums">{s.done ?? 0}/{s.total}</span>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </li>
+        {/each}
+      </ul>
     </div>
     {#if auth.isDemo}
       <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
