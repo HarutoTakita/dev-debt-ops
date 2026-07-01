@@ -192,8 +192,35 @@ def _snippet(content: str) -> str:
     return "\n".join(content.splitlines()[:_MAX_SNIPPET_LINES])
 
 
-async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) -> KnowledgeDebtDetectionResult:
-    """Detect knowledge debts and upsert knowledge_debts / assigned_developers."""
+def _agent_notes_by_file(base_findings: list[dict] | None) -> dict[str, str]:
+    """Collapse the Base Analysis Agent's knowledge findings into one rationale string per file.
+
+    Used to *enrich* deterministic ``detection_notes`` — KC / coverage / scores stay deterministic
+    (issue 273, locked decision #3).
+    """
+    notes: dict[str, list[str]] = {}
+    for raw in base_findings or []:
+        if not isinstance(raw, dict):
+            continue
+        path = str(raw.get("file_path") or "").strip()
+        rationale = str(raw.get("rationale") or "").strip()
+        if path and rationale:
+            notes.setdefault(path, []).append(rationale)
+    return {path: " / ".join(dict.fromkeys(rs)) for path, rs in notes.items()}
+
+
+async def process(
+    request: KnowledgeDebtDetectionRequest,
+    ctx: PipelineContext,
+    *,
+    base_findings: list[dict] | None = None,
+) -> KnowledgeDebtDetectionResult:
+    """Detect knowledge debts and upsert knowledge_debts / assigned_developers.
+
+    ``base_findings`` (issue 273, agent-first): when provided — the Base Analysis Agent's
+    ``BaseAnalysis.knowledge_findings`` — the agent's rationale for a file is appended to that file's
+    ``detection_notes``. KC / coverage / scores stay deterministic. ``None`` → behaviour unchanged.
+    """
     if ctx.session is None:
         raise RuntimeError("knowledge_debt_detection pipeline requires a DB session in the pipeline context")
     session = ctx.session
@@ -249,6 +276,7 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
 
     project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
+    agent_notes = _agent_notes_by_file(base_findings)  # agent-first (issue 273): notes enrichment
     kc_by_file = await _kc_by_file(session, project_id)
     run = await _get_or_create_run(
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
@@ -273,7 +301,10 @@ async def process(request: KnowledgeDebtDetectionRequest, ctx: PipelineContext) 
         kc = kc_by_file.get(path, {})
         coverage = kc.get("coverage", 0.0)
         snippet = _snippet(sig["content"])
+        agent_note = agent_notes.get(path)
         for reason, notes in reasons:
+            if agent_note:
+                notes = f"{notes}\n\n【エージェント所見】{agent_note}"
             score = knowledge_analysis.reason_score(reason, ai_prob=ai_prob, age_days=age_days)
             debt_id = await _upsert_knowledge_debt(
                 session,
