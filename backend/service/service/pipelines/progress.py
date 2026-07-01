@@ -1,7 +1,7 @@
 """Live job-progress reporting for long multi-step pipelines (issue 069).
 
-The agentic-analysis job runs many sub-steps (deterministic backbone + learning/quiz generation +
-Twin Agent) under a SINGLE ``Job`` whose ``result_data`` / status are committed only once at the end
+The agentic-analysis job runs many sub-steps (Base Analysis Agent + deterministic backbone +
+learning/quiz generation) under a SINGLE ``Job`` whose ``result_data`` / status are committed once
 (atomicity, issue-042). That means the frontend's ``GET /jobs/{id}`` poll can't see internal progress.
 
 ``ProgressReporter`` writes a granular progress snapshot to ``jobs.progress`` in its OWN short-lived
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 # step names; ``group`` maps each sub-step to one of the cockpit's 3 display blocks (ids match the
 # frontend STAGE_GROUPS): g_technical(技術負債の検知) / g_knowledge(理解負債の整理) / g_repay(クイズと学習の生成).
 AGENTIC_STEPS: list[tuple[str, str, str]] = [
+    ("base_analysis", "エージェントによるリポジトリ解析", "g_repay"),
     ("feature_clustering", "機能クラスタリング", "g_repay"),
     ("code_debt_detection", "コード負債の検知", "g_technical"),
     ("kc_analysis", "理解度の計測", "g_knowledge"),
     ("knowledge_debt_detection", "理解負債の検知", "g_knowledge"),
     ("stack_analysis", "技術スタックの検出", "g_technical"),
     ("baseline", "学習プラン・クイズの生成", "g_repay"),
-    ("twin_agent", "Twin Agent による判断", "g_repay"),
 ]
 
 

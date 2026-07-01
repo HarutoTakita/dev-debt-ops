@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 解析アーキ再設計 PR5（issue 275・agent-first 完了）: **「判断（judgement）」レイヤを撤去**。旧 Twin Agent チェーン（`agents/twin.py` の knowledge→code→remediation `SequentialAgent`）と `agents/remediation.py`、`runner.run_twin_agent` を削除し、`AgenticAnalysisResult.recommendations`（どの画面にも未配信だった）フィールドを廃止。解析は「Base 解析エージェント（元データ生成）→ 決定的バックボーン（整形・強化）」の agent-first パイプラインに一本化された。進捗表示はエージェント段を先頭に移動し `twin_agent`→`base_analysis`（ラベル「エージェントによるリポジトリ解析」）へ改名。※ Trivy（SCA/secret/misconfig）MCP は旧判断エージェント専用だったため現状どの段でも未実行（決定的 Trivy ブロック化は今後の課題）。Semgrep は従来どおり `code_debt_detection` の決定的ブロックで実行。
+
 ### Added
 
 - 解析アーキ再設計 PR4（issue 273・agent-first）: **理解負債の説明を Base 解析エージェント所見で強化**。`knowledge_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（ai_generated/author_left/no_review）の各 `detection_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**KC/coverage/score は決定的のまま**（判断#3）。`agentic_analysis` の knowledge_debt ブロックが `base_analysis.knowledge_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
