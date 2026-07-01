@@ -23,10 +23,11 @@ from shared.models import Job
 logger = logging.getLogger(__name__)
 
 # Ordered sub-steps of the agentic-analysis job: (key, label, group). ``key`` matches the backbone
-# step names; ``group`` maps each sub-step to one of the cockpit's 3 display blocks (ids match the
-# frontend STAGE_GROUPS): g_technical(技術負債の検知) / g_knowledge(理解負債の整理) / g_repay(クイズと学習の生成).
+# step names; ``group`` maps each sub-step to one of the cockpit's 4 display blocks (ids match the
+# frontend STAGE_GROUPS): g_explore(リポジトリ探索) / g_technical(技術負債の検知) /
+# g_knowledge(理解負債の整理) / g_repay(クイズと学習の生成).
 AGENTIC_STEPS: list[tuple[str, str, str]] = [
-    ("base_analysis", "エージェントによるリポジトリ解析", "g_repay"),
+    ("base_analysis", "リポジトリ探索", "g_explore"),
     ("feature_clustering", "機能クラスタリング", "g_repay"),
     ("code_debt_detection", "コード負債の検知", "g_technical"),
     ("kc_analysis", "理解度の計測", "g_knowledge"),

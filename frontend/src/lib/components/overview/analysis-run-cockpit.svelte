@@ -25,6 +25,7 @@
   const { ctx }: Props = $props();
 
   const groupLabel: Record<string, () => string> = {
+    analysis_group_explore: m.analysis_group_explore,
     analysis_group_technical: m.analysis_group_technical,
     analysis_group_knowledge: m.analysis_group_knowledge,
     analysis_group_repay: m.analysis_group_repay,
@@ -42,6 +43,7 @@
   };
   // 内部サブステップのラベル（実行前から各ブロックの内訳を出すための静的カタログ用, issue 244）。
   const substepLabel: Record<string, () => string> = {
+    analysis_substep_base_analysis: m.analysis_substep_base_analysis,
     analysis_substep_feature_clustering: m.analysis_substep_feature_clustering,
     analysis_substep_code_debt_detection: m.analysis_substep_code_debt_detection,
     analysis_substep_kc_analysis: m.analysis_substep_kc_analysis,
