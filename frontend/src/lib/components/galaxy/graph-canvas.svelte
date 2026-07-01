@@ -123,6 +123,15 @@
         ctx.fillStyle = palette.fg;
         ctx.fillText(label, node.x ?? 0, (node.y ?? 0) + nodeRadius(node) + 1 / scale);
       });
+      // ノード円を明示的にポインタ判定領域として塗る（issue 286）。custom nodeCanvasObject を設定すると
+      // クリック判定がそれに由来し、ラベルはズーム時のみ描画のため既定ズームでは判定領域が空になり
+      // 「ノードが見えるのにクリックできない＝機能クリックでドリルしない」不具合になる。円で判定域を確定する。
+      g.nodePointerAreaPaint((node, color, ctx) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(node.x ?? 0, node.y ?? 0, nodeRadius(node), 0, 2 * Math.PI);
+        ctx.fill();
+      });
       g.d3Force("collide", forceCollide<GraphNode>((n) => nodeRadius(n) + 3).strength(1));
       g.width(cw || container.clientWidth).height(ch || container.clientHeight);
       g.graphData({ nodes, links });
