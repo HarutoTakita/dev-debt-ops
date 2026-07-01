@@ -150,10 +150,14 @@
   // graphData だけだと停止済みシミュレーションが再計算されず表示が変わらないことがあるため、明示的に
   // 再加熱＋アニメ再開して確実にレイアウト/描画を更新する（issue 290: 機能フィルタが効かない不具合）。
   $effect(() => {
+    // 依存(nodes/links)を graph の null チェックより「前」に必ず読む。force-graph は onMount 内で非同期
+    // import するため初回 effect 実行時は graph=null。早期 return より後で nodes/links を読むと、初回に
+    // 依存として登録されず、以降フィルタ変更で effect が再実行されない（＝グラフが更新されない）不具合になる。
+    const data = { nodes, links };
     hoveredId = null;
     neighborIds = neighborsOf(null, [], linkEnd);
     if (!graph) return;
-    graph.graphData({ nodes, links });
+    graph.graphData(data);
     graph.d3ReheatSimulation();
     graph.resumeAnimation();
   });
