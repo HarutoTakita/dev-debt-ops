@@ -191,7 +191,15 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             requested_by=request.requested_by,
             project_id=request.project_id,
         )
-        await _run_backbone_step("feature_clustering", lambda: feature_clustering.process(fc_req, ctx), steps, reporter)
+        # agent-first (issue 268): consume the Base Analysis Agent's features when present; else the
+        # deterministic clustering runs as fallback (clusters=None). This is the "features" block.
+        base_clusters = [f.model_dump() for f in base_analysis.features] or None
+        await _run_backbone_step(
+            "feature_clustering",
+            lambda: feature_clustering.process(fc_req, ctx, clusters=base_clusters),
+            steps,
+            reporter,
+        )
         cd_req = CodeDebtDetectionRequest(
             job_id=request.job_id,
             job_type=JobType.CODE_DEBT_DETECTION,
