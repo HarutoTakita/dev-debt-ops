@@ -68,6 +68,15 @@ def _resolve_python(module: str, level: int, src_path: str, repo: set[str]) -> s
         candidate = _norm(candidate)
         if candidate in repo:
             return candidate
+    # Nested-package fallback: many repos root first-party packages under src/ or backend/api/app/…,
+    # so an absolute import like ``app.foo`` resolves to ``backend/api/app/foo.py``, not repo-top
+    # ``app/foo.py``. Suffix-match a *uniquely* matching repo path so nested layouts still form edges
+    # (a big source of "孤立したクラスタ"). Ambiguous (multiple) matches are skipped to avoid wrong edges.
+    if level == 0:
+        for suffix in (f"/{stem}.py", f"/{stem}/__init__.py"):
+            matches = [p for p in repo if p.endswith(suffix)]
+            if len(matches) == 1:
+                return matches[0]
     return None
 
 

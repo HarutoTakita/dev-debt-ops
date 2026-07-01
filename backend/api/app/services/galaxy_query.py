@@ -75,22 +75,35 @@ async def build_galaxy(session: AsyncSession, project: Project, user: User) -> P
 
     rows = (await session.execute(select(FileKc).where(col(FileKc.run_id) == kc_run_id))).scalars().all()
     agg_files: list[str] = []  # file_path of aggregate rows = the file universe
+    agg_map: dict[str, FileKc] = {}  # file_path -> aggregate (team) KC row
     dev_map: dict[str, FileKc] = {}  # this developer's KC(file,dev) rows
     developer = fallback_dev
     for r in rows:
         if r.dev_id is None and r.github_handle is None:
             agg_files.append(r.file_path)
+            agg_map[r.file_path] = r
         elif r.dev_id == user.id:
             dev_map[r.file_path] = r
             if r.github_handle:
                 developer = r.github_handle
 
+    # ノード色は「その開発者の KC」を優先しつつ、未著作（dev_row 無し）でも unexplored 固定にせず
+    # **集計（チーム）KC** にフォールバックする。従来は閲覧者が当該ファイルの著者でないと全て unexplored=
+    # グレーになり「解析後も色が変わらない」不具合になっていた（パイプラインが算出した集計 mastery を未使用）。
     kc_by_file: dict[str, float] = {}
     mastery_by_file: dict[str, str] = {}
     for path in agg_files:
         dev_row = dev_map.get(path)
-        kc_by_file[path] = dev_row.kc if dev_row is not None else 0.0
-        mastery_by_file[path] = dev_row.mastery if dev_row is not None else "unexplored"
+        agg_row = agg_map.get(path)
+        if dev_row is not None:
+            kc_by_file[path] = dev_row.kc
+            mastery_by_file[path] = dev_row.mastery
+        elif agg_row is not None:
+            kc_by_file[path] = agg_row.kc
+            mastery_by_file[path] = agg_row.mastery
+        else:
+            kc_by_file[path] = 0.0
+            mastery_by_file[path] = "unexplored"
 
     # Feature mapping from the latest feature_clustering run (issue 052). Empty when none → file/module
     # view only (frontend falls back). A file may belong to multiple features (feature_files is many-to-many).

@@ -8,6 +8,10 @@
 
 ### Fixed
 
+- 理解度マップのグラフを 3 点修正（issue: 色/連結/言語）。
+  - **ノード色が理解度を反映しない**（解析後も全部グレー）問題を修正。`build_galaxy` は各ファイルの色を「閲覧者本人の KC」だけから決めており、本人が著作していないファイルは一律 `unexplored`（グレー）になっていた。本人の KC が無い場合は**集計（チーム）KC/mastery にフォールバック**するようにし、凡例どおり 理解済み/部分理解/未理解/未着手 で色分けされるようにした（読み取り経路の修正のため**再解析不要**で反映）。
+  - **各クラスタがバラバラ（孤立クラスタ）**になる問題を軽減。(1) フロント（`graph-data.ts`）で連結成分を求め、最大成分以外を最寄り（同ディレクトリ優先）ノードへ `sibling` エッジで橋渡しし、孤立ノード・孤立クラスタを無くして 1 つのグラフに繋ぐ（デッドコードで実エッジが無くても浮かせない。**再解析不要**）。(2) バックエンドの import 解決（`dependency_extraction`）に**ネストしたパッケージ配置の suffix 一致フォールバック**を追加（`from app.foo import bar` が `backend/api/app/foo.py` に解決）＋ `kc_analysis` の対象ファイル上限を 50→200 に引き上げ、実エッジ自体を増やした（**反映には再解析が必要**）。
+  - **Python ファイルしか出ない**問題を修正。`kc_analysis` の対象拡張子に **`.svelte` / `.vue`** を追加し、上限による切り詰めで言語が偏らないよう**言語バケットのラウンドロビン選択**にした（`.py` が先頭に並んでも `.ts`/`.svelte` が枠を確保できる。**反映には再解析が必要**）。
 - 「コードベース探索」（Base 解析エージェント）が**失敗になる**問題を修正。探索用の MCP サーバー（Serena / CodeGraphContext / GitHub）は「起動できなければ無し（graceful）」の想定だったが、stdio MCP は**遅延接続**のためバイナリが PATH に無いとエージェントが最初にそのツールを呼んだ時点で接続エラーが `run_async` を貫通し、`base_analysis` 段全体が失敗していた（決定的バックボーンは成功するため「コードベース探索だけ失敗」になる。例: `serena` / `github-mcp-server` 未インストールのローカル/サービス実行）。各ビルダ（`serena_mcp` / `code_graph_mcp` / `github_mcp`）で `shutil.which` によりバイナリ非存在時は**ツールセットを付けない（None）**ようにし、欠けている MCP が解析を落とさないよう真に graceful にした（REST リポジトリツールと利用可能な MCP だけで探索が走る）。
 - 機能クラスタリングの**機能名・説明が英語**（例: "API Core & Infrastructure" / "User Management API" / "Frontend Application"）になってしまう問題を修正。機能名を生成する 3 つのプロンプト（Base 解析エージェント `base_analysis_tools`、単体クラスタリング `feature_agent`、Gemini 直呼びフォールバック `gemini_stack_service._FEATURE_CLUSTERING_PROMPT`）に、`name`・`description` は**必ず自然な日本語**にする指示を追加（`key` は英語 slug のまま）。※機能名は解析時に永続化されるため、**反映には再解析が必要**。
 

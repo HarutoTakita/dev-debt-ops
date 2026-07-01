@@ -191,3 +191,18 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
         ).scalar_one()
         assert file_kc == 7  # upsert, not duplicated
         assert deps == 1
+
+
+def test_select_source_paths_is_language_fair() -> None:
+    # Round-robin across language buckets so .py doesn't starve the cap and hide .ts/.svelte
+    # (fixes: 理解度マップに Python しか出ない).
+    paths = [f"backend/{i}.py" for i in range(10)] + ["frontend/a.ts", "frontend/b.svelte"]
+    picked = kc_analysis._select_source_paths(paths, 4)
+    assert len(picked) == 4
+    assert any(p.endswith(".ts") for p in picked)
+    assert any(p.endswith(".svelte") for p in picked)
+
+
+def test_select_source_paths_honours_limit_and_covers_all_when_small() -> None:
+    paths = ["a.py", "b.ts", "c.svelte"]
+    assert set(kc_analysis._select_source_paths(paths, 10)) == set(paths)  # all fit under the cap

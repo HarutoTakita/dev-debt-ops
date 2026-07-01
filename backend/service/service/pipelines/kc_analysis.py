@@ -41,8 +41,9 @@ from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
 
-_MAX_FILES = 50  # blame is a GraphQL call per file; cap per run (MVP)
-_SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
+_MAX_FILES = 200  # blame is a GraphQL call per file; cap per run (aligned with feature_clustering)
+# 対象拡張子。Python / TS・JS に加えフロントの .svelte / .vue も含める（理解度マップに Python 以外も出す）。
+_SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue")
 
 # Authorship is evidence of *contact*, not verified mastery. Capping authorship-derived KC
 # just below the star threshold (0.7) keeps "I wrote it" at most ``dim_star`` — so a repo's
@@ -61,6 +62,41 @@ async def _mint_installation_token(github: GitHubRef) -> str:
 
 def _is_source(path: str) -> bool:
     return path.lower().endswith(_SOURCE_EXTS) and not is_vendored_path(path)
+
+
+def _language_bucket(path: str) -> str:
+    """Coarse language bucket for fair selection (so one language doesn't starve the cap)."""
+    p = path.lower()
+    if p.endswith(".py"):
+        return "python"
+    if p.endswith(".svelte"):
+        return "svelte"
+    if p.endswith(".vue"):
+        return "vue"
+    return "ts_js"
+
+
+def _select_source_paths(paths: list[str], limit: int) -> list[str]:
+    """Pick up to ``limit`` files, round-robin across language buckets.
+
+    A plain ``sorted()[:limit]`` truncation starves later languages: if Python files sort first, the
+    cap is exhausted by ``.py`` and no ``.ts`` / ``.svelte`` files survive → the理解度マップに Python
+    しか出ない。Round-robin across buckets keeps the mix representative when the repo exceeds the cap.
+    """
+    buckets: dict[str, list[str]] = {}
+    for p in paths:
+        buckets.setdefault(_language_bucket(p), []).append(p)
+    for b in buckets.values():
+        b.sort()
+    order = sorted(buckets)  # deterministic bucket order
+    out: list[str] = []
+    idx = 0
+    while len(out) < limit and any(buckets[b] for b in order):
+        bucket = buckets[order[idx % len(order)]]
+        if bucket:
+            out.append(bucket.pop(0))
+        idx += 1
+    return out
 
 
 def _module_of(path: str) -> str:
@@ -199,7 +235,9 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
-        source_paths = [t.path for t in tree if t.type == "blob" and _is_source(t.path)][:_MAX_FILES]
+        source_paths = _select_source_paths(
+            [t.path for t in tree if t.type == "blob" and _is_source(t.path)], _MAX_FILES
+        )
         files: dict[str, str] = {}
         blames: dict[str, list[BlameRange]] = {}
         for path in source_paths:
