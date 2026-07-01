@@ -54,9 +54,17 @@
   }
   function linkColor(link: GraphLink): string {
     const incident = hoveredId != null && (linkEnd(link.source) === hoveredId || linkEnd(link.target) === hoveredId);
-    if (hoveredId && !incident) return "rgba(100,116,139,0.12)";
-    if (incident) return "rgba(100,116,139,0.9)";
-    return link.kind === "calls" ? "rgba(100,116,139,0.55)" : "rgba(100,116,139,0.3)";
+    if (hoveredId && !incident) return "rgba(100,116,139,0.15)";
+    if (incident) return "rgba(100,116,139,0.95)";
+    // 既定エッジは見やすさ優先で少し濃く（issue 293: エッジが細く/薄く見えづらい）。sibling は補助線なので淡め。
+    if (link.kind === "sibling") return "rgba(100,116,139,0.4)";
+    return link.kind === "calls" ? "rgba(100,116,139,0.75)" : "rgba(100,116,139,0.55)";
+  }
+  // 線幅（issue 293: エッジを太く）。ホバー時の接続線は強調、通常は sibling を細め・実依存を太めに。
+  function linkWidth(link: GraphLink): number {
+    const incident = hoveredId != null && (linkEnd(link.source) === hoveredId || linkEnd(link.target) === hoveredId);
+    if (incident) return 4;
+    return link.kind === "sibling" ? 1.5 : 2.5;
   }
   // force-graph は link.source/target を id→ノード参照へ書き換えるため両対応で id を取り出す。
   function linkEnd(end: unknown): string {
@@ -84,10 +92,8 @@
         .nodeLabel((n) => n.label)
         .nodeColor(nodeColor)
         .linkColor(linkColor)
-        .linkWidth((l) =>
-          hoveredId != null && (linkEnd(l.source) === hoveredId || linkEnd(l.target) === hoveredId) ? 2 : 1,
-        )
-        .linkDirectionalArrowLength((l) => (l.kind === "calls" ? 3 : 0))
+        .linkWidth(linkWidth)
+        .linkDirectionalArrowLength((l) => (l.kind === "calls" ? 4 : 0))
         .linkDirectionalArrowRelPos(1)
         .onNodeClick((n) => onNodeClick?.(n))
         .onNodeHover((n) => {

@@ -196,9 +196,17 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         # agent-first (issue 268): consume the Base Analysis Agent's features when present; else the
         # deterministic clustering runs as fallback (clusters=None). This is the "features" block.
         base_clusters = [f.model_dump() for f in base_analysis.features] or None
+        # issue 293 (方針A): hand the repo call graph (CGC file_edges, already computed above) to the
+        # clustering block so it re-aligns feature memberships to graph communities (seeded label
+        # propagation). Empty/failed snapshot → [] → the block leaves memberships as the LLM authored.
+        fc_graph_edges = [
+            (e["source"], e["target"])
+            for e in (snapshot.get("file_edges") or [])
+            if isinstance(e, dict) and e.get("source") and e.get("target")
+        ]
         await _run_backbone_step(
             "feature_clustering",
-            lambda: feature_clustering.process(fc_req, ctx, clusters=base_clusters),
+            lambda: feature_clustering.process(fc_req, ctx, clusters=base_clusters, graph_edges=fc_graph_edges),
             steps,
             reporter,
         )
