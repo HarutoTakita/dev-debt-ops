@@ -10,10 +10,14 @@ run's minted GitHub App installation token, passed via env (never on argv). Only
 read tools is exposed via ``tool_filter`` to keep the agent's tool list small.
 """
 
+import logging
 import os
+import shutil
 
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
+
+logger = logging.getLogger(__name__)
 
 # Read-only toolset groups to enable on the server (bounds what exists at all).
 _GITHUB_TOOLSETS = "pull_requests,repos,code_security,dependabot"
@@ -30,13 +34,20 @@ _GITHUB_TOOLS = [
 ]
 
 
-def build_github_toolset(token: str) -> McpToolset:
+def build_github_toolset(token: str) -> McpToolset | None:
     """Build the GitHub MCP toolset (read-only stdio server authed with ``token``).
 
     ``token`` is the run's GitHub App installation token; it is passed via the
     ``GITHUB_PERSONAL_ACCESS_TOKEN`` env (not argv). Toolsets that the App lacks permission for
     (e.g. code scanning / Dependabot) simply 403 at call time — the agent ignores them (graceful).
+
+    Returns ``None`` when the ``github-mcp-server`` binary is not on PATH so a missing MCP server is
+    *graceful* (toolset absent) instead of crashing the Base Analysis run when the agent first calls a
+    GitHub tool (stdio MCP servers connect lazily → a missing binary otherwise raises mid-run).
     """
+    if shutil.which("github-mcp-server") is None:
+        logger.warning("github-mcp-server binary not found on PATH; skipping GitHub MCP toolset (graceful)")
+        return None
     env = {
         "GITHUB_PERSONAL_ACCESS_TOKEN": token,
         # mcp replaces the subprocess env wholesale when ``env`` is set, so carry PATH/HOME through.

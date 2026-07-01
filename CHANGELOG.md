@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- 「コードベース探索」（Base 解析エージェント）が**失敗になる**問題を修正。探索用の MCP サーバー（Serena / CodeGraphContext / GitHub）は「起動できなければ無し（graceful）」の想定だったが、stdio MCP は**遅延接続**のためバイナリが PATH に無いとエージェントが最初にそのツールを呼んだ時点で接続エラーが `run_async` を貫通し、`base_analysis` 段全体が失敗していた（決定的バックボーンは成功するため「コードベース探索だけ失敗」になる。例: `serena` / `github-mcp-server` 未インストールのローカル/サービス実行）。各ビルダ（`serena_mcp` / `code_graph_mcp` / `github_mcp`）で `shutil.which` によりバイナリ非存在時は**ツールセットを付けない（None）**ようにし、欠けている MCP が解析を落とさないよう真に graceful にした（REST リポジトリツールと利用可能な MCP だけで探索が走る）。
 - 機能クラスタリングの**機能名・説明が英語**（例: "API Core & Infrastructure" / "User Management API" / "Frontend Application"）になってしまう問題を修正。機能名を生成する 3 つのプロンプト（Base 解析エージェント `base_analysis_tools`、単体クラスタリング `feature_agent`、Gemini 直呼びフォールバック `gemini_stack_service._FEATURE_CLUSTERING_PROMPT`）に、`name`・`description` は**必ず自然な日本語**にする指示を追加（`key` は英語 slug のまま）。※機能名は解析時に永続化されるため、**反映には再解析が必要**。
 
 ### Changed

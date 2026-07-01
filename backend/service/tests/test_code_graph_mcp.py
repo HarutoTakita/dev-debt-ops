@@ -1,11 +1,13 @@
 """issue 235: CodeGraphContext MCP toolset builder — construction only (no process spawned)."""
 
+import pytest
 from google.adk.tools.mcp_tool import McpToolset
 
 from service.agents import code_graph_mcp
 
 
-def test_build_code_graph_toolset_shape() -> None:
+def test_build_code_graph_toolset_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(code_graph_mcp.shutil, "which", lambda _cmd: "/usr/bin/codegraphcontext")
     ts = code_graph_mcp.build_code_graph_toolset()
     assert isinstance(ts, McpToolset)
     sp = ts._connection_params.server_params
@@ -17,6 +19,12 @@ def test_build_code_graph_toolset_shape() -> None:
     # HOME は空文字でないこと（空だと CGC の Path.home() が CWD 相対 → PermissionError [Errno 13]）。
     assert sp.env.get("HOME")
     assert "PATH" in sp.env
+
+
+def test_build_code_graph_toolset_absent_when_binary_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Missing binary → None (graceful): a missing CGC MCP server must not crash the Base Analysis run.
+    monkeypatch.setattr(code_graph_mcp.shutil, "which", lambda _cmd: None)
+    assert code_graph_mcp.build_code_graph_toolset() is None
 
 
 def test_cgc_tool_filter_is_query_only() -> None:

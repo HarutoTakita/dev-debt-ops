@@ -9,8 +9,13 @@ env, so Serena's ``mcp`` dependency never conflicts with ``google-adk[mcp]`` (sa
 Semgrep MCP). Read-only / navigation tools only — editing / shell / memory tools are filtered out.
 """
 
+import logging
+import shutil
+
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
+
+logger = logging.getLogger(__name__)
 
 # Serena *semantic-navigation* tools we expose (editing / shell / memory / onboarding excluded).
 # Deliberately NOT exposed: read_file / list_dir / find_file — these duplicate the repo tools
@@ -27,12 +32,20 @@ _SERENA_TOOLS = [
 ]
 
 
-def build_serena_toolset(repo_dir: str) -> McpToolset:
+def build_serena_toolset(repo_dir: str) -> McpToolset | None:
     """Build the Serena MCP toolset pointed at an on-disk project tree (stdio, read-only nav tools).
 
     ``repo_dir`` is a checked-out repository (see ``services.repo_checkout``). Uses the ``ide``
     context + ``no-onboarding`` mode for non-interactive agent use, and the default LSP backend.
+
+    Returns ``None`` when the ``serena`` binary is not on PATH so a missing MCP server is truly
+    *graceful* (toolset absent) instead of crashing the whole Base Analysis run when the agent first
+    invokes a Serena tool (stdio MCP servers connect lazily → a missing binary otherwise raises
+    mid-run and fails "コードベース探索"). Deterministic blocks and the REST repo tools are unaffected.
     """
+    if shutil.which("serena") is None:
+        logger.warning("serena binary not found on PATH; skipping Serena MCP toolset (graceful)")
+        return None
     return McpToolset(
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
