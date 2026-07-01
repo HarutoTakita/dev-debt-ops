@@ -152,6 +152,46 @@ async def test_process_uses_provided_clusters_without_model(
         assert features == {"auth", "billing"}
 
 
+async def test_graph_community_expansion_grows_feature_along_edges(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """issue 293 (方針A): ``graph_edges`` re-aligns memberships — a file connected in the call graph
+    joins the seeded feature's community and is persisted at the propagated (lower) confidence."""
+
+    async def _fake_mint(github: GitHubRef) -> str:
+        return "tok"
+
+    monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
+    monkeypatch.setattr(feature_clustering, "GitHubGitClient", lambda access_token: _FakeClient(_FILES))
+    seed_clusters = [
+        {"key": "auth", "name": "認証", "description": "", "files": [{"path": "src/auth.py", "confidence": 0.9}]}
+    ]
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await feature_clustering.process(
+            request,
+            PipelineContext(session=session),
+            clusters=seed_clusters,
+            graph_edges=[("src/auth.py", "src/billing.py")],  # billing is graph-connected to the auth seed
+        )
+        await session.commit()
+
+    assert result.feature_count == 1
+    assert result.file_count == 2  # billing.py pulled into auth's community via the graph
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        ff = (await session.execute(select(FeatureFile).where(FeatureFile.run_id == run.id))).scalars().all()
+        by_path = {f.file_path: f for f in ff}
+        assert set(by_path) == {"src/auth.py", "src/billing.py"}
+        assert by_path["src/auth.py"].confidence == 0.9  # LLM-asserted confidence kept
+        assert by_path["src/billing.py"].confidence == 0.5  # propagated member, lower confidence
+
+
 async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
     _patch(monkeypatch, _CLUSTERS)
     request = _request()

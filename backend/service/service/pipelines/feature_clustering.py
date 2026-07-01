@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import code_analysis, feature_authoring
+from service.services import code_analysis, feature_authoring, feature_communities
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -33,6 +33,7 @@ from shared.schemas.stack_analysis import GitHubRef
 logger = logging.getLogger(__name__)
 
 _MAX_FILES = 200  # cap files fetched/clustered per run (REST + prompt budget; MVP)
+_PROPAGATED_CONFIDENCE = 0.5  # confidence for files added by graph-community propagation (vs LLM-asserted)
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -111,6 +112,7 @@ async def process(
     ctx: PipelineContext,
     *,
     clusters: list[dict] | None = None,
+    graph_edges: list[tuple[str, str]] | None = None,
 ) -> FeatureClusteringResult:
     """Cluster the repository's source files into features and upsert them under an analysis run.
 
@@ -119,6 +121,11 @@ async def process(
     is skipped (this pipeline just formats/persists the agent output). When ``None`` (standalone run,
     or an empty base) the existing agentic clustering runs (``cluster_features_agentic`` → direct
     Gemini fallback). Either way the tree is fetched so only real repo paths are accepted.
+
+    ``graph_edges`` (issue 293, 方針A): the repository's file↔file call graph (CGC ``file_edges``),
+    supplied by the agentic orchestrator. When present it re-aligns feature memberships to graph
+    communities (seeded label propagation) so each feature covers a connected, hub-centered region of
+    related code. When ``None`` (standalone run) the locally-built import graph is used instead.
     """
     if ctx.session is None:
         raise RuntimeError("feature_clustering pipeline requires a DB session in the pipeline context")
@@ -173,6 +180,44 @@ async def process(
             source_paths, edges, owner=request.owner, repo=request.repo
         )
     valid_paths = set(source_paths)
+
+    # Graph-community re-alignment (issue 293, 方針A): grow each feature along the repo call graph so
+    # memberships match hub-centered communities and each feature covers a connected region of related
+    # code (fixes "the filter leaves only 1–2 files"). Uses the CGC file_edges passed by the agentic
+    # orchestrator (from_base), else the locally-built import graph (standalone). LLM labels/names are
+    # kept; propagated files are added at a lower confidence.
+    effective_edges = graph_edges if graph_edges is not None else edges
+    if effective_edges:
+        seeds: dict[str, set[str]] = {}
+        for c in clusters:
+            if not isinstance(c, dict):
+                continue
+            key = str(c.get("key") or "").strip()
+            if not key:
+                continue
+            files_val = c.get("files")
+            members = files_val if isinstance(files_val, list) else []
+            paths = {str(f.get("path") or "") for f in members if isinstance(f, dict)}
+            seeds.setdefault(key, set()).update(p for p in paths if p in valid_paths)
+        communities = feature_communities.assign_communities(seeds, effective_edges, valid_paths)
+        for c in clusters:
+            if not isinstance(c, dict):
+                continue
+            key = str(c.get("key") or "").strip()
+            if not key:
+                continue
+            files_val = c.get("files")
+            members = list(files_val) if isinstance(files_val, list) else []
+            existing = {str(f.get("path") or "") for f in members if isinstance(f, dict)}
+            added: list[dict] = [
+                {"path": p, "confidence": _PROPAGATED_CONFIDENCE}
+                for p in sorted(communities.get(key, set()))
+                if p not in existing
+            ]
+            if added:
+                c["files"] = members + added
+        trace.append(f"graph-community expansion over {len(effective_edges)} edges")
+
     feature_count = 0
     file_count = 0
     for c in clusters:
