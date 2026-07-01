@@ -616,14 +616,16 @@ Return ONLY a valid JSON object — no markdown — with this exact schema:
   "features": [
     {{
       "key": "short-stable-slug",
-      "name": "human readable name",
-      "description": "1-2 line description of the feature",
+      "name": "日本語の分かりやすい機能名（例: 認証、課金、解析パイプライン）",
+      "description": "1〜2 行の説明（日本語）",
       "files": [{{"path": "exact/path/from/the/list", "confidence": 0.0}}]
     }}
   ]
 }}
 Rules:
-- ``key`` is a lowercase kebab/snake slug stable enough to track the feature across runs.
+- ``key`` is a lowercase kebab/snake slug stable enough to track the feature across runs (English slug OK).
+- ``name`` and ``description`` MUST be written in natural Japanese (日本語) — do NOT use English
+  names, class names, or "~ API" style labels. Only ``key`` may be English.
 - Only use file paths that appear in the list above. A file may belong to more than one feature.
 - ``confidence`` is in [0,1]: how strongly the file belongs to that feature.
 - Prefer a handful of meaningful features over many tiny ones.
