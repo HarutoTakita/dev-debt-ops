@@ -23,10 +23,12 @@ _STEPS_INSTRUCTION = """\
 「何をするコードか」「理解のために注目すべき点」を日本語で簡潔に説明してください。
 
 最後に【必ず一度だけ】save_learning_steps を呼んで完了すること。steps のスキーマ:
-- steps[]: {"source_ref": "<構成ファイル一覧のいずれか>", "title": "<ファイル名や扱う話題>",
+- steps[]: {"source_ref": "<構成ファイル一覧のいずれか>",
+  "title": "<理解する内容を表す学習見出し（例: 認証フローの全体像を掴む）。ファイル名やパスにしない>",
   "summary": "（日本語 2-3 文）", "estimated_minutes": 15,
   "priority": "required|recommended|supplementary|hands_on"}
-"source_ref" は必ず一覧内のファイルにすること。最大 8 ステップ。
+"source_ref" は必ず一覧内のファイルにすること。"title" は学習者が「何を理解する回か」分かる日本語の見出しにし、
+ファイル名・拡張子・パスをそのまま使わないこと。最大 8 ステップ。
 """
 
 _RESOURCES_INSTRUCTION = """\

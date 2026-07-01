@@ -476,12 +476,14 @@ _CODE_LEARNING_PROMPT = """\
 「何をするコードか」「理解のために注目すべき点」を日本語で簡潔に説明します。ONLY valid JSON（no markdown）:
 {{
   "steps": [
-    {{"source_ref": "<上記の構成ファイルのいずれか>", "title": "<ファイル名や扱う話題>",
+    {{"source_ref": "<上記の構成ファイルのいずれか>",
+      "title": "<理解する内容を表す学習見出し（例: 認証フローの全体像を掴む）。ファイル名やパスにしない>",
       "summary": "（日本語 2-3 文: 何をするコードか / 理解のポイント）",
       "estimated_minutes": 15, "priority": "required|recommended|supplementary|hands_on"}}
   ]
 }}
-"source_ref" は必ず上記の構成ファイルのいずれかにしてください。最大 {max_steps} ステップ。
+"source_ref" は必ず上記の構成ファイルのいずれかにしてください。"title" は学習者が「何を理解する回か」が分かる
+日本語の見出しにし、ファイル名・拡張子・パスをそのまま使わないこと。最大 {max_steps} ステップ。
 """
 
 

@@ -76,7 +76,8 @@ async def _internal_assets(
         picked[path] = {
             "origin": "team",
             "kind": "adr" if is_adr else "code",
-            "title": path.rsplit("/", 1)[-1],
+            # ADR は文書名が意味を持つのでファイル名のまま。コードは学習タイトルにする（issue 280）。
+            "title": path.rsplit("/", 1)[-1] if is_adr else _code_title(path),
             "source_ref": path,
             "url": None,
             "estimated_minutes": 15 if is_adr else 20,
@@ -114,6 +115,22 @@ async def _feature_file_paths(session: AsyncSession, feature_id: uuid.UUID, *, l
 _VALID_KINDS = frozenset({"adr", "video", "pr_comment", "wiki", "docs", "book", "article", "code"})
 
 
+def _code_title(path: str) -> str:
+    """A learning-oriented fallback title derived from a path (never the bare file name, issue 280)."""
+    name = path.rsplit("/", 1)[-1]
+    stem = name.rsplit(".", 1)[0] or name
+    return f"{stem} の実装を理解する"
+
+
+def _clean_step_title(title: object, path: str) -> str:
+    """Use the model's title, but replace it with a learning title if it's empty or just the file name/path."""
+    t = str(title or "").strip()
+    name = path.rsplit("/", 1)[-1]
+    if not t or t in (name, path) or t.lower().endswith(_SOURCE_EXTS):
+        return _code_title(path)
+    return t
+
+
 def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
     """Map Gemini code-learning steps to Section A (code) resources; fall back to listing files when empty."""
     valid = set(code_files)
@@ -129,7 +146,7 @@ def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
                 "origin": "team",
                 "section": "code",
                 "kind": "code",
-                "title": str(s.get("title") or sr.rsplit("/", 1)[-1]),
+                "title": _clean_step_title(s.get("title"), sr),
                 "summary": str(s.get("summary") or ""),
                 "source_ref": sr,
                 "url": None,
@@ -144,7 +161,7 @@ def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
                 "origin": "team",
                 "section": "code",
                 "kind": "code",
-                "title": sr.rsplit("/", 1)[-1],
+                "title": _code_title(sr),
                 "summary": "",
                 "source_ref": sr,
                 "url": None,
