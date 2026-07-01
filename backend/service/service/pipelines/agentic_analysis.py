@@ -1,23 +1,26 @@
-"""agentic-analysis pipeline (issue 069) — the ADK Twin Agent IS the repository analysis.
+"""agentic-analysis pipeline (issue 069 → 266) — agent-first repository analysis.
 
 ``shared.worker.run_task`` owns the ``Job`` lifecycle (PROCESSING → COMPLETED/FAILED,
 idempotency) and writes the returned result into ``Job.result_data``.
 
-Per issue 069 ("決定的＝ツール / 判断＝エージェント"), this pipeline produces the screen-filling
-outputs itself:
+Agent-first re-architecture (issue 266): the main repository analysis IS an agent. The pipeline runs
+as a sequence of *blocks*:
 
-1. **Deterministic backbone** — runs the existing detection/analysis pipelines (feature
-   clustering → code debt → KC → knowledge debt) on the shared session under THIS job, so each
-   creates its own ``analysis_run`` keyed by ``(job_id, kind)`` and upserts its tables
-   (``features`` / ``code_debts`` / ``file_kc`` / ``knowledge_debts``). This guarantees the
-   Matrix / Galaxy maps populate. All pipelines only ``flush``; ``run_task`` commits once.
-2. **Judgement layer** — the ADK Twin Agent (coordinator + knowledge/code specialists +
-   remediation strategist, in a LoopAgent) runs on top to produce the cross-signal risk
-   judgement and remediation recommendations recorded in ``result_data``.
+1. **Base Analysis Agent (block 0)** — the ADK ``run_analysis_agent`` runs FIRST, using the
+   exploration MCP toolsets (Serena / GitHub / CodeGraphContext) to produce ONE qualitative
+   ``BaseAnalysis`` (features / key concepts / code & knowledge risk narrative), persisted to
+   ``base_analysis_snapshots``. This is the "元データ" downstream blocks are meant to consume.
+2. **Deterministic backbone** — the existing detection/analysis pipelines (feature clustering →
+   code debt → KC → knowledge debt → stack → baseline). Each creates its own ``analysis_run`` keyed
+   by ``(job_id, kind)`` and upserts its tables so the Matrix / Galaxy maps populate. All pipelines
+   only ``flush``; ``run_task`` commits once.
+
+PR1 (issue 266) is additive: the base agent runs first and its output is persisted, but the
+deterministic backbone still fully produces the screen tables (source-of-truth unchanged). Later PRs
+make the backbone blocks *consume* ``base_analysis``. A failed/empty base agent never aborts the run
+— the deterministic backbone still completes the analysis (graceful degradation).
 
 GitHub token is method B (minted from the Secret Manager-backed App key); Vertex AI uses ADC.
-Learning-plan / quiz generation stay as their own fan-out steps (api ``baseline-plans`` /
-``baseline-quizzes``), driven by the cockpit after this job produces the feature clustering.
 """
 
 import logging
@@ -31,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from service import config
 from service.agents.budget import RunBudget
-from service.agents.runner import run_twin_agent
+from service.agents.runner import run_analysis_agent
 from service.pipelines import (
     baseline_generation,
     code_debt_detection,
@@ -45,9 +48,10 @@ from service.services import code_graph, function_graph, repo_checkout
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient
 from shared.enums import JobType, ResultStatus
-from shared.models import CodeGraph
+from shared.models import BaseAnalysisSnapshot, CodeGraph
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest, AgenticAnalysisResult
+from shared.schemas.base_analysis import BaseAnalysis
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest
 from shared.schemas.feature_clustering import FeatureClusteringRequest
 from shared.schemas.kc_analysis import KcAnalysisRequest
@@ -71,6 +75,19 @@ async def _persist_code_graph(session: AsyncSession, project_id: str, graph: dic
     pid = uuid.UUID(project_id)
     stmt = pg_insert(CodeGraph).values(id=uuid.uuid4(), project_id=pid, computed_at=now, graph=graph)
     stmt = stmt.on_conflict_do_update(constraint="uq_code_graphs_project", set_={"computed_at": now, "graph": graph})
+    await session.execute(stmt)
+    await session.flush()
+
+
+async def _persist_base_analysis(session: AsyncSession, project_id: str, base: BaseAnalysis) -> None:
+    """Upsert the project's latest Base Analysis Agent output (issue 266). Flush only; run_task commits."""
+    now = datetime.now(UTC)
+    pid = uuid.UUID(project_id)
+    payload = base.model_dump()
+    stmt = pg_insert(BaseAnalysisSnapshot).values(id=uuid.uuid4(), project_id=pid, computed_at=now, payload=payload)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_base_analysis_snapshots_project", set_={"computed_at": now, "payload": payload}
+    )
     await session.execute(stmt)
     await session.flush()
 
@@ -101,16 +118,64 @@ async def _run_backbone_step(
 
 
 async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> AgenticAnalysisResult:
-    """Run the deterministic backbone (produces map data) then the Twin Agent judgement layer."""
+    """Run the Base Analysis Agent (block 0) then the deterministic backbone (produces map data)."""
     if ctx.session is None:
         raise RuntimeError("agentic_analysis pipeline requires a DB session in the pipeline context")
 
-    # 1) Deterministic backbone — each sub-pipeline runs under THIS job_id, creating its own
-    # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
-    # feature clustering first (learning/quiz depend on it), then code debt, KC, knowledge debt.
     steps: list[str] = []
     reporter = ProgressReporter(request.job_id, AGENTIC_STEPS)
     session = ctx.session
+
+    # 1) Base Analysis Agent — the FIRST block (agent-first, issue 266). Shallow-clone so the agent
+    # can navigate the repo via Serena (LSP); a failed clone just disables Serena. A failed/empty run
+    # never aborts the analysis — the deterministic backbone below still produces the screen tables.
+    # NOTE: the progress key stays "twin_agent" in PR1 to avoid frontend churn (renamed in PR5).
+    await reporter.start("twin_agent")
+    agent_trace: list[str] = []
+    base_analysis = BaseAnalysis()
+    budget = RunBudget()
+    token = await _mint_installation_token(request.github)
+    client = GitHubGitClient(access_token=token)
+    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
+    # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもグラフ無しで継続（graceful）。CGC スナップショット
+    # ＋ clone からの決定的スナップショット（issue 250）をマージし、CGC が索引失敗/関数 0 件でも理解度マップの
+    # L2/L3 が「どんな repo でも」表示される。マージ結果が空＝一時的失敗のときは上書きせず前回を温存。
+    cgc_snapshot: dict = {}
+    if repo_dir is not None and await code_graph.build_graph(repo_dir):
+        cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
+    det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
+    snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
+    if snapshot:
+        await _persist_code_graph(session, request.project_id, snapshot)
+    try:
+        agent_trace, base_analysis = await run_analysis_agent(
+            client=client,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            budget=budget,
+            repo_dir=repo_dir,
+            github_token=token,
+        )
+        if not base_analysis.is_empty():
+            await _persist_base_analysis(session, request.project_id, base_analysis)
+        await reporter.complete("twin_agent")
+    except Exception as exc:
+        # ベース解析エージェントはベストエフォート。Gemini の一時障害（502/503/500 等）やツール失敗で例外化しても、
+        # 決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失って解析全体を FAILED＝run_task が全 flush を
+        # ロールバック、にしてはならない。ログを残し、元データ無しで決定的バックボーンを実行して COMPLETED に確定する。
+        logger.exception("base analysis agent failed; continuing with the deterministic backbone")
+        agent_trace = [f"[analysis_agent] failed: {exc}"]
+        base_analysis = BaseAnalysis()
+        await reporter.fail("twin_agent")
+    finally:
+        await client.aclose()
+        if repo_dir is not None:
+            shutil.rmtree(repo_dir, ignore_errors=True)
+
+    # 2) Deterministic backbone — each sub-pipeline runs under THIS job_id, creating its own
+    # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
+    # feature clustering first (learning/quiz depend on it), then code debt, KC, knowledge debt.
     # 取得の共通化: バックボーン全体で 1 つの読み取りキャッシュ付き GitHub クライアントを共有し、各ステップが
     # 個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を 1 回に集約する。標準呼び出し
     # （各パイプライン単体）では ctx.github_client は None のまま＝各自で取得する従来どおりの動作になる。
@@ -175,7 +240,7 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
 
         await _run_backbone_step("stack_analysis", _populate_stack, steps, reporter)
 
-        # 1b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
+        # 2b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
         await reporter.start("baseline")
 
         async def _on_baseline_progress(done: int, total: int) -> None:
@@ -186,63 +251,21 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         )
         await reporter.complete("baseline")
     finally:
-        # 共有クライアントを必ず閉じ、以降（Twin Agent）が ctx.github_client を継承しないよう解除する。
+        # 共有クライアントを必ず閉じる。
         await ctx.github_client.aclose()
         ctx.github_client = None
 
-    # 2) Twin Agent judgement layer (autonomous cross-signal risk judgement + remediation).
-    # Shallow-clone the repo so the agent can navigate it semantically via Serena (LSP); a failed
-    # clone just disables Serena (the agent falls back to the REST repo tools).
-    await reporter.start("twin_agent")
-    budget = RunBudget()
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
-    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
-    # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもエージェントはグラフ無しで継続（graceful）。
-    # 構築できたら CGC スナップショットを抽出し、加えて clone から決定的スナップショット（issue 250）を作って
-    # マージする。これで CGC が索引失敗/関数 0 件でも、理解度マップの L2/L3 が「どんな repo でも」表示される
-    # （CGC 優先・決定的が埋める）。マージ結果が空＝一時的失敗のときは上書きせず前回のスナップショットを温存。
-    cgc_snapshot: dict = {}
-    if repo_dir is not None and await code_graph.build_graph(repo_dir):
-        cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
-    det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
-    snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
-    if snapshot:
-        await _persist_code_graph(session, request.project_id, snapshot)
-    try:
-        trace, recommendations = await run_twin_agent(
-            client=client,
-            owner=request.owner,
-            repo=request.repo,
-            branch=request.branch,
-            budget=budget,
-            repo_dir=repo_dir,
-            github_token=token,
-        )
-        await reporter.complete("twin_agent")
-    except Exception as exc:
-        # Twin Agent は判断レイヤ（ベストエフォート）。Gemini の一時障害（502/503/500 等）やツール失敗で例外化
-        # しても、決定的バックボーン（コード負債/理解度/機能/学習・クイズ）の成果まで失って解析全体を
-        # FAILED＝run_task が全 flush をロールバック、にしてはならない。ログを残し、推奨なしで解析は COMPLETED
-        # として確定する（graceful degradation）。これにより一時的な 502 で解析全体が飛ぶ／終了状態に到達せず
-        # コックピットが「処理中」のまま固まる、という問題を防ぐ。
-        logger.exception("twin agent failed; completing analysis without agent recommendations")
-        trace, recommendations = [f"[twin_agent] failed: {exc}"], []
-        await reporter.fail("twin_agent")
-    finally:
-        await client.aclose()
-        if repo_dir is not None:
-            shutil.rmtree(repo_dir, ignore_errors=True)
-
-    agent_trace = steps + trace
-    summary = trace[-1] if trace else (steps[-1] if steps else "Twin Agent run produced no trace")
+    all_trace = agent_trace + steps
+    summary = agent_trace[-1] if agent_trace else (steps[-1] if steps else "analysis produced no trace")
     logger.info(
-        "agentic_analysis done owner=%s repo=%s backbone=%d trace=%d recommendations=%d",
+        "agentic_analysis done owner=%s repo=%s agent_trace=%d backbone=%d base(features=%d,code=%d,knowledge=%d)",
         request.owner,
         request.repo,
+        len(agent_trace),
         len(steps),
-        len(trace),
-        len(recommendations),
+        len(base_analysis.features),
+        len(base_analysis.code_findings),
+        len(base_analysis.knowledge_findings),
     )
     return AgenticAnalysisResult(
         job_id=request.job_id,
@@ -252,6 +275,6 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         repo=request.repo,
         branch=request.branch,
         summary=summary,
-        agent_trace=agent_trace,
-        recommendations=recommendations,
+        agent_trace=all_trace,
+        recommendations=[],  # 判断レイヤ廃止に向け空（PR5 でフィールド自体を削除）
     )
