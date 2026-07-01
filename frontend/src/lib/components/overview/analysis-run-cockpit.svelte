@@ -69,7 +69,7 @@
     FAILED: "text-destructive",
   };
 
-  // サブステップのライブ進捗（agentic ジョブが backbone 各段→学習生成→Twin Agent を進める様子, issue 069）。
+  // サブステップのライブ進捗（agentic ジョブが エージェント解析→backbone 各段→学習生成 を進める様子, issue 069/275）。
   const progress = $derived(analysisRun.stages["agentic"]?.progress ?? null);
   const progressPct = $derived(progress && progress.total > 0 ? (progress.completed / progress.total) * 100 : 0);
   const stepTone: Record<string, string> = {
