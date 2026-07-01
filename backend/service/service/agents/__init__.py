@@ -7,7 +7,11 @@ deterministic code-metric tools. Later phases wire these onto ``LlmAgent`` / ``L
 """
 
 from service.agents.budget import BudgetExceeded, RunBudget
-from service.agents.hooks import make_before_model_callback, make_before_tool_callback
+from service.agents.hooks import (
+    make_after_tool_callback,
+    make_before_model_callback,
+    make_before_tool_callback,
+)
 from service.agents.model import vertex_model_name
 from service.agents.plugin import SecretRedactionPlugin, TraceRecorderPlugin
 from service.agents.single_agent import run_single_agent
@@ -19,6 +23,7 @@ __all__ = [
     "SecretRedactionPlugin",
     "TraceRecorderPlugin",
     "event_to_trace",
+    "make_after_tool_callback",
     "make_before_model_callback",
     "make_before_tool_callback",
     "run_single_agent",

@@ -12,16 +12,17 @@ Semgrep MCP). Read-only / navigation tools only — editing / shell / memory too
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
 
-# Serena navigation tools we expose to the agent (editing / shell / memory / onboarding excluded).
+# Serena *semantic-navigation* tools we expose (editing / shell / memory / onboarding excluded).
+# Deliberately NOT exposed: read_file / list_dir / find_file — these duplicate the repo tools
+# (``build_repo_tools``) whose read_file is length-capped, whereas Serena's read_file returns the
+# full untruncated file. Keeping only symbol-level navigation forces the agent to target relevant
+# code (and pull large file bodies via the truncated repo tool), bounding the agent's context.
 _SERENA_TOOLS = [
     "find_symbol",
     "find_referencing_symbols",
     "find_declaration",
     "find_implementations",
     "get_symbols_overview",
-    "list_dir",
-    "find_file",
-    "read_file",
     "search_for_pattern",
 ]
 

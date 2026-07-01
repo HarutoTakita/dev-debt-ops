@@ -21,7 +21,7 @@ from google.adk.agents import LlmAgent, SequentialAgent  # ty: ignore[deprecated
 from google.adk.tools.mcp_tool import McpToolset
 
 from service.agents.budget import RunBudget
-from service.agents.hooks import make_before_model_callback, make_before_tool_callback
+from service.agents.hooks import make_after_tool_callback, make_before_model_callback, make_before_tool_callback
 from service.agents.model import build_agent_model
 from service.agents.remediation import build_remediation_agent
 from service.agents.tools import build_repo_tools
@@ -93,6 +93,9 @@ def _build_specialist(*, name: str, instruction: str, tools: list[Any], budget: 
         output_key=output_key,
         before_tool_callback=make_before_tool_callback(budget),
         before_model_callback=make_before_model_callback(budget),
+        # 大きなツール結果（Trivy/GitHub/CGC/Serena/Semgrep）を切り詰め、多ターンで履歴が肥大して毎回の
+        # リクエストが膨らむ（コスト増・502/タイムアウト誘発）のを防ぐ（issue 260 フォローアップ）。
+        after_tool_callback=make_after_tool_callback(),
     )
 
 
