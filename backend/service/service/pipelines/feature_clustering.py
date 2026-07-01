@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import code_analysis, gemini_stack_service
+from service.services import code_analysis, feature_authoring
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -148,7 +148,10 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
 
-    clusters = await gemini_stack_service.cluster_features(source_paths, edges)
+    # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
+    clusters = await feature_authoring.cluster_features_agentic(
+        source_paths, edges, owner=request.owner, repo=request.repo
+    )
     valid_paths = set(source_paths)
     feature_count = 0
     file_count = 0
