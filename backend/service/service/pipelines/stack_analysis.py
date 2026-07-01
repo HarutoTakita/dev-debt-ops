@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from service import config
+from service.services import stack_authoring
 from service.services.code_analysis import is_vendored_path
 from service.services.gemini_stack_service import analyze_tech_stack
 from service.services.github_app import GitHubAppService
@@ -258,14 +259,15 @@ async def populate_tech_stack(
     the same tools in a fixed sequence (list key files → read → ``analyze_tech_stack`` → upsert),
     so the judgement-free detection always persists. Flushes only; ``run_task`` owns the commit.
     """
-    list_key_files, read_file, classify_stack, save_stack = build_tools(github_client, session)
+    list_key_files, read_file, _classify_stack, save_stack = build_tools(github_client, session)
     paths = await list_key_files(owner, repo, branch)
     files: dict[str, str] = {}
     for path in paths:
         content = await read_file(owner, repo, path, branch)
         if content:
             files[path] = content
-    result = await classify_stack(files)
+    # 技術スタック判定はエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
+    result = await stack_authoring.classify_stack_agentic(files, owner=owner, repo=repo)
     await save_stack(owner, repo, branch, result)
 
 

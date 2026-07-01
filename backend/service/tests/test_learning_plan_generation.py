@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import learning_plan_generation
-from service.services import gemini_stack_service
 from service.services.github_git_client import CommitInfo, TreeItem
 from shared.enums import JobType
 from shared.models import LearningPlan, LearningResource, LearningStep
@@ -39,7 +38,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
         return "tok"
 
     async def _fake_code_steps(
-        feature_name: str, feature_description: str, file_paths: list[str], *, max_steps: int = 8
+        feature_name: str, feature_description: str, file_paths: list[str], *, owner: str = "", repo: str = ""
     ) -> list[dict]:
         # Section A: concept マッチで拾った 2 ファイルに説明つきステップを返す。
         return [
@@ -59,7 +58,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         ]
 
-    async def _fake_external(gap_concepts: list[str]) -> list[dict]:
+    async def _fake_external(gap_concepts: list[str], *, owner: str = "", repo: str = "") -> list[dict]:
         # Section B: tech_stack 由来の一般リソース（mock は入力を無視）。
         return [
             {
@@ -81,8 +80,10 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(learning_plan_generation, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(learning_plan_generation, "GitHubGitClient", lambda access_token: _FakeClient())
-    monkeypatch.setattr(gemini_stack_service, "generate_external_resources", _fake_external)
-    monkeypatch.setattr(gemini_stack_service, "generate_code_learning_steps", _fake_code_steps)
+    # 学習生成はエージェント経由（issue 263）。パイプラインテストでは orchestrator を直接差し替える。
+    la = learning_plan_generation.learning_authoring
+    monkeypatch.setattr(la, "generate_external_resources_agentic", _fake_external)
+    monkeypatch.setattr(la, "generate_code_learning_steps_agentic", _fake_code_steps)
 
 
 async def _seed_plan(session_maker: async_sessionmaker) -> uuid.UUID:
