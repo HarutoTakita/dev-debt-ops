@@ -8,6 +8,8 @@
 
 ### Added
 
+- 解析アーキ再設計 PR4（issue 273・agent-first）: **理解負債の説明を Base 解析エージェント所見で強化**。`knowledge_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（ai_generated/author_left/no_review）の各 `detection_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**KC/coverage/score は決定的のまま**（判断#3）。`agentic_analysis` の knowledge_debt ブロックが `base_analysis.knowledge_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
+
 - 解析アーキ再設計 PR3（issue 271・agent-first）: **コード負債の説明を Base 解析エージェント所見で強化**。`code_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（複雑度/重複/デッド/semgrep）で確定した各 finding の `archaeology_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**score/severity/metrics は決定的のまま**（数値の裏付けを維持）。`agentic_analysis` の code_debt ブロックが `base_analysis.code_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
 
 - 解析アーキ再設計 PR2（issue 268・agent-first）: **理解度マップの「機能」をエージェント出力から生成**。`feature_clustering.process` に任意の `clusters` 引数を追加し、Base 解析エージェントの `BaseAnalysis.features` があればそれを整形・永続化して**クラスタリングのモデル呼び出しを省略**（リポジトリツリーは取得しパスの実在は検証）。base が空/単体実行では従来のエージェント的クラスタリング（`cluster_features_agentic`→直 Gemini）にフォールバック。`features`/`feature_files`（Galaxy）が「メイン解析エージェント出力の整形」になり、画面テーブル・読み取り経路は不変。

@@ -240,8 +240,14 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             requested_by=request.requested_by,
             project_id=request.project_id,
         )
+        # agent-first (issue 273): enrich deterministic knowledge debts with the agent's rationale
+        # (detection_notes only; KC/coverage/scores stay deterministic). Empty base → None (no change).
+        base_knowledge_findings = [f.model_dump() for f in base_analysis.knowledge_findings] or None
         await _run_backbone_step(
-            "knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps, reporter
+            "knowledge_debt_detection",
+            lambda: knowledge_debt_detection.process(kd_req, ctx, base_findings=base_knowledge_findings),
+            steps,
+            reporter,
         )
 
         # Tech-stack detection (issue 068): populates ``tech_stacks`` (owner/repo keyed) so the learning

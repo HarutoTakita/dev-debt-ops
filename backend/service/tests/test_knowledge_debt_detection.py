@@ -199,6 +199,45 @@ async def test_process_detects_each_reason_and_joins_kc(
         assert by_handle["dave"].certified_via == "review"
 
 
+def test_agent_notes_by_file_collapses_rationales() -> None:
+    """issue 273: agent knowledge findings collapse to one rationale per file (empty/malformed dropped)."""
+    base = [
+        {"file_path": "pkg/ai.py", "rationale": "属人化"},
+        {"file_path": "pkg/ai.py", "rationale": "未レビュー"},
+        {"file_path": "x.py", "rationale": ""},
+        {"nope": 1},
+    ]
+    assert knowledge_debt_detection._agent_notes_by_file(base) == {"pkg/ai.py": "属人化 / 未レビュー"}
+    assert knowledge_debt_detection._agent_notes_by_file(None) == {}
+
+
+async def test_process_enriches_detection_notes_from_base(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """issue 273 (agent-first): the agent's rationale is appended to detection_notes; KC unchanged."""
+    _patch(monkeypatch, {"pkg/ai.py": 0.9})
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+    await _seed_kc(session_maker, request.project_id)
+    base_findings = [{"file_path": "pkg/ai.py", "reason": "ai_generated", "rationale": "AI 生成が疑わしい"}]
+
+    async with session_maker() as session:
+        await knowledge_debt_detection.process(request, PipelineContext(session=session), base_findings=base_findings)
+        await session.commit()
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        ai_debt = (
+            await session.execute(
+                select(KnowledgeDebt).where(KnowledgeDebt.run_id == run.id, KnowledgeDebt.reason == "ai_generated")
+            )
+        ).scalar_one()
+        assert "【エージェント所見】AI 生成が疑わしい" in ai_debt.detection_notes
+        assert ai_debt.knowledge_coverage == 0.8  # deterministic KC unchanged
+
+
 async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
     _patch(monkeypatch, {"pkg/ai.py": 0.9})
     request = _request()
