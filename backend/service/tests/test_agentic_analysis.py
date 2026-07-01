@@ -299,6 +299,10 @@ class TestProcess:
         assert knowledge_debt_detection.process.await_count == 1
         assert baseline_generation.generate_learning_and_quizzes.await_count == 1
         persist_base.assert_awaited_once()  # non-empty base analysis persisted
+        # agent-first (issue 268): the base features flow into the feature-clustering block as `clusters`.
+        fc_clusters = feature_clustering.process.call_args.kwargs["clusters"]
+        assert fc_clusters is not None
+        assert fc_clusters[0]["key"] == "auth"
         assert result.agent_trace == [
             "[summary] 危険な機能を特定",  # agent-first: the agent trace precedes the backbone steps
             "[backbone] feature_clustering done",
@@ -323,6 +327,8 @@ class TestProcess:
         assert result.status == ResultStatus.COMPLETED
         persist_base.assert_not_awaited()
         assert feature_clustering.process.await_count == 1  # backbone still produces the screen tables
+        # empty base → feature-clustering falls back to the deterministic model path (clusters=None).
+        assert feature_clustering.process.call_args.kwargs["clusters"] is None
 
     async def test_agent_failure_still_completes(self, mocker) -> None:
         """issue 260/266: a base-agent failure (e.g. transient Gemini 502) must NOT fail/roll back the

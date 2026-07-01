@@ -115,6 +115,43 @@ async def test_process_clusters_and_persists(
         }
 
 
+async def test_process_uses_provided_clusters_without_model(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """issue 268 (agent-first): when clusters are provided (Base Analysis Agent output), the pipeline
+    formats/persists them directly and does NOT call the clustering model; tree paths are still validated."""
+
+    async def _fake_mint(github: GitHubRef) -> str:
+        return "tok"
+
+    monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
+    monkeypatch.setattr(feature_clustering, "GitHubGitClient", lambda access_token: _FakeClient(_FILES))
+    called = {"n": 0}
+
+    async def _should_not_run(*_a: object, **_k: object) -> list[dict]:
+        called["n"] += 1
+        return []
+
+    monkeypatch.setattr(feature_clustering.feature_authoring, "cluster_features_agentic", _should_not_run)
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await feature_clustering.process(request, PipelineContext(session=session), clusters=_CLUSTERS)
+        await session.commit()
+
+    assert called["n"] == 0  # the clustering model was skipped — base output used directly
+    assert result.feature_count == 2
+    assert result.file_count == 2  # the non-existent path is still dropped (tree validated)
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        features = {f.key for f in (await session.execute(select(Feature).where(Feature.run_id == run.id))).scalars()}
+        assert features == {"auth", "billing"}
+
+
 async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
     _patch(monkeypatch, _CLUSTERS)
     request = _request()

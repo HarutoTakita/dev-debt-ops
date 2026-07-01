@@ -106,12 +106,25 @@ async def _upsert_feature_file(
     await session.execute(stmt)
 
 
-async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> FeatureClusteringResult:
-    """Cluster the repository's source files into features and upsert them under an analysis run."""
+async def process(
+    request: FeatureClusteringRequest,
+    ctx: PipelineContext,
+    *,
+    clusters: list[dict] | None = None,
+) -> FeatureClusteringResult:
+    """Cluster the repository's source files into features and upsert them under an analysis run.
+
+    ``clusters`` (issue 268, agent-first): when provided (non-None) — e.g. the Base Analysis Agent's
+    ``BaseAnalysis.features`` — those clusters are used directly and the feature-clustering model call
+    is skipped (this pipeline just formats/persists the agent output). When ``None`` (standalone run,
+    or an empty base) the existing agentic clustering runs (``cluster_features_agentic`` → direct
+    Gemini fallback). Either way the tree is fetched so only real repo paths are accepted.
+    """
     if ctx.session is None:
         raise RuntimeError("feature_clustering pipeline requires a DB session in the pipeline context")
     session = ctx.session
     trace: list[str] = []
+    from_base = clusters is not None
 
     # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
     shared_client = ctx.github_client
@@ -120,10 +133,12 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
         source_paths = [t.path for t in tree if t.type == "blob" and code_analysis.is_source_file(t.path)][:_MAX_FILES]
         files: dict[str, str] = {}
-        for path in source_paths:
-            fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
-            if fc.content is not None:
-                files[path] = fc.content
+        if not from_base:
+            # File contents are only needed to build the import graph that feeds the clustering model.
+            for path in source_paths:
+                fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
+                if fc.content is not None:
+                    files[path] = fc.content
         commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
         commit_sha = commits[0].sha if commits else ""
     finally:
@@ -131,16 +146,17 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
             await client.aclose()
     trace.append(f"fetched {len(source_paths)} source files")
 
-    # Intra-repo import graph (main clustering signal).
-    repo_paths = set(files)
+    # Intra-repo import graph (main clustering signal) — only when we run the clustering model.
     edges: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for path, content in files.items():
-        for edge in extract_dependencies(path, content, repo_paths):
-            key = (edge.from_path, edge.to_path)
-            if key not in seen:
-                seen.add(key)
-                edges.append(key)
+    if not from_base:
+        repo_paths = set(files)
+        seen: set[tuple[str, str]] = set()
+        for path, content in files.items():
+            for edge in extract_dependencies(path, content, repo_paths):
+                key = (edge.from_path, edge.to_path)
+                if key not in seen:
+                    seen.add(key)
+                    edges.append(key)
 
     project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
@@ -148,10 +164,14 @@ async def process(request: FeatureClusteringRequest, ctx: PipelineContext) -> Fe
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
 
-    # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
-    clusters = await feature_authoring.cluster_features_agentic(
-        source_paths, edges, owner=request.owner, repo=request.repo
-    )
+    if from_base:
+        # Format/persist the Base Analysis Agent's features (no model call).
+        trace.append(f"using {len(clusters)} features from base analysis")
+    else:
+        # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
+        clusters = await feature_authoring.cluster_features_agentic(
+            source_paths, edges, owner=request.owner, repo=request.repo
+        )
     valid_paths = set(source_paths)
     feature_count = 0
     file_count = 0
