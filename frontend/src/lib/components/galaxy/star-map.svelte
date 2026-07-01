@@ -8,9 +8,10 @@
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  // 理解度マップ（issue 288/290）: プロジェクト全体の「ファイル単位グラフ」。ノード=ファイル（KC で色分け）、
-  // エッジ=ファイル間の呼び出し/依存。機能フィルタでその機能に属するファイルのみに絞り込める。描画は
-  // force-graph(canvas) ラッパ GraphCanvas に委譲（力学配置/衝突回避/ズーム/パン）。
+  // 理解度マップ（issue 288/290/293）: プロジェクト全体の「ファイル単位グラフ」。ノード=ファイル（KC で色分け）、
+  // エッジ=ファイル間の呼び出し/依存。機能フィルタは「その機能のファイル＋グラフ隣接（1 ホップ）」に広げ、
+  // 関連コードを含む連結クラスタを表示する（toFileGraphData 参照）。孤立ノードも同関数内で最寄りへ接続。
+  // 描画は force-graph(canvas) ラッパ GraphCanvas に委譲（力学配置/衝突回避/ズーム/パン）。
   // fileEdges: CodeGraphContext 由来の file↔file 結合。import 由来の wormhole と併せて連結性を上げる。
   const {
     galaxy,
@@ -23,8 +24,8 @@
   let activeFeature = $state<string | null>(null); // フィルタ（null = 全ファイル）
   let controls = $state<{ zoomIn: () => void; zoomOut: () => void; fit: () => void }>();
 
-  // ファイル一覧（全 system のファイル）と、ファイル間エッジ。孤立ノードを減らすため CGC の file_edges と
-  // import 由来 wormhole の「和」を使う（重複は toFileGraphData 側で除去）。
+  // ファイル一覧（全 system のファイル）と、ファイル間エッジ。連結性を上げるため CGC の file_edges と
+  // import 由来 wormhole の「和」を使う（重複除去・孤立ノード接続・機能近傍展開は toFileGraphData 側）。
   const files = $derived(galaxy.systems.flatMap((s) => s.files));
   const edges = $derived([...fileEdges, ...galaxy.wormholes.map((w) => ({ source: w.from, target: w.to }))]);
   const graphData = $derived(toFileGraphData(files, edges, activeFeature));

@@ -510,7 +510,7 @@
   "analysis_substep_knowledge_debt_detection": "Knowledge debt detection",
   "analysis_substep_stack_analysis": "Tech stack detection",
   "analysis_substep_baseline": "Learning plan & quiz generation",
-  "analysis_substep_base_analysis": "Codebase exploration & base data",
+  "analysis_substep_base_analysis": "Codebase exploration",
   "analysis_base_agentic": "Agent-based repository analysis",
   "analysis_retry_stage": "Retry",
   "matrix_detect_cta": "Detect technical debt",

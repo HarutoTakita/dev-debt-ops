@@ -24,10 +24,15 @@ describe("toFileGraphData", () => {
     expect(links.every((l) => l.kind === "calls")).toBe(true);
   });
 
-  it("filters to a feature's files and drops edges leaving the set", () => {
+  it("expands a feature filter to its graph neighborhood (includes related files)", () => {
+    // seed = auth の {a.py, b.py}。a.py の隣接 c.py（billing）もグラフ 1 ホップで含める（関連コード）。
     const { nodes, links } = toFileGraphData(files, edges, "auth");
-    expect(nodes.map((n) => n.id).sort()).toEqual(["a.py", "b.py"]); // c.py は billing のみ → 除外
-    expect(links).toEqual([{ source: "a.py", target: "b.py", kind: "calls" }]); // a→c は c 除外で落ちる
+    expect(nodes.map((n) => n.id).sort()).toEqual(["a.py", "b.py", "c.py"]);
+    const calls = links
+      .filter((l) => l.kind === "calls")
+      .map((l) => `${l.source}->${l.target}`)
+      .sort();
+    expect(calls).toEqual(["a.py->b.py", "a.py->c.py"]);
   });
 
   it("drops unknown/self edges", () => {
@@ -41,5 +46,18 @@ describe("toFileGraphData", () => {
       null,
     );
     expect(links).toEqual([{ source: "a.py", target: "b.py", kind: "calls" }]);
+  });
+
+  it("connects isolated nodes to their nearest sibling (no isolated node remains)", () => {
+    // エッジ無し → 本来は全ノード孤立。sibling エッジで最も近い（同ディレクトリ優先）ノードへつなぐ。
+    const { nodes, links } = toFileGraphData([file("dir/x.py"), file("dir/y.py"), file("other/z.py")], [], null);
+    expect(nodes).toHaveLength(3);
+    const deg = new Map<string, number>();
+    for (const l of links) {
+      deg.set(l.source, (deg.get(l.source) ?? 0) + 1);
+      deg.set(l.target, (deg.get(l.target) ?? 0) + 1);
+    }
+    expect(nodes.every((n) => (deg.get(n.id) ?? 0) >= 1)).toBe(true); // 孤立ノードなし
+    expect(links.some((l) => l.kind === "sibling")).toBe(true);
   });
 });

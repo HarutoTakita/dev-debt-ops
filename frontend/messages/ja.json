@@ -510,7 +510,7 @@
   "analysis_substep_knowledge_debt_detection": "理解負債の検知",
   "analysis_substep_stack_analysis": "技術スタックの検出",
   "analysis_substep_baseline": "学習プラン・クイズの生成",
-  "analysis_substep_base_analysis": "コードベース探索・元データ生成",
+  "analysis_substep_base_analysis": "コードベース探索",
   "analysis_base_agentic": "エージェントによるリポジトリ解析",
   "analysis_retry_stage": "再実行",
   "matrix_detect_cta": "技術負債を検知する",
