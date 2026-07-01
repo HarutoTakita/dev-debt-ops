@@ -1,8 +1,8 @@
-"""agentic-analysis pipeline + Twin Agent graph tests (issue 069).
+"""agentic-analysis pipeline + Twin Agent graph tests (issue 069 → 266).
 
-The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_twin_agent`` is patched, mirroring
-``test_stack_analysis``. Construction / tool / plugin logic is exercised directly; ``process`` is
-tested with GitHub + the agent run mocked.
+The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_analysis_agent`` / ``run_twin_agent``
+are patched, mirroring ``test_stack_analysis``. Construction / tool / plugin logic is exercised
+directly; ``process`` is tested with GitHub + the agent run mocked.
 """
 
 from unittest.mock import AsyncMock
@@ -28,6 +28,7 @@ from service.services.github_git_client import FileContent, TreeItem
 from shared.enums import JobType, ResultStatus
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest
+from shared.schemas.base_analysis import BaseAnalysis, BaseFeature
 from shared.schemas.stack_analysis import GitHubRef
 
 
@@ -166,6 +167,44 @@ class TestRunnerMcpLifecycle:
         assert trace == []
         assert recs == []
 
+    async def test_analysis_agent_closes_exploration_toolsets(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """run_analysis_agent builds only the exploration MCP (Serena + CodeGraph on repo_dir, GitHub on
+        token) — NOT Trivy/Semgrep (those run as deterministic blocks) — and closes them all."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        class _FakeRunner:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            async def run_async(self, **_kwargs: object):
+                return
+                yield  # unreachable — makes this an async generator
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
+        monkeypatch.setattr(runner, "Runner", _FakeRunner)
+
+        trace, base = await runner.run_analysis_agent(
+            client=AsyncMock(),
+            owner="acme",
+            repo="rosetta",
+            branch="main",
+            budget=RunBudget(),
+            repo_dir="/tmp/x",
+            github_token="tok",
+        )
+        assert closed["n"] == 3  # serena + code_graph + github (no trivy/semgrep)
+        assert trace == []
+        assert base.is_empty()  # no save_base_analysis was called → empty base
+
 
 # --- repo tools (GitHub client mocked) -------------------------------------
 
@@ -224,14 +263,11 @@ class TestPlugin:
 
 
 class TestProcess:
-    async def test_process_runs_backbone_then_agent(self, mocker) -> None:
-        # Deterministic backbone pipelines are mocked (they upsert tables in real runs); assert
-        # each is invoked and that the agent judgement layer's trace/recommendations follow.
+    def _mock_backbone(self, mocker) -> None:
+        """Mock every deterministic backbone step + GitHub token/client + clone (return None)."""
         for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
             mocker.patch.object(module, "process", AsyncMock())
-        # stack detection runs deterministically (not the ADK agent) — mock the populate helper.
         mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
-        # Learning + baseline-quiz generation runs server-side in the job (issue 069 Inc.2); mock it.
         mocker.patch.object(
             baseline_generation,
             "generate_learning_and_quizzes",
@@ -239,12 +275,19 @@ class TestProcess:
         )
         mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
         mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
-        recs = [{"target": "auth.py", "debt_kind": "knowledge", "action": "quiz", "rationale": "属人化"}]
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value=None))
+
+    async def test_process_runs_agent_first_then_backbone(self, mocker) -> None:
+        # Agent-first (issue 266): the Base Analysis Agent runs FIRST, then the deterministic backbone
+        # (mocked) still produces the screen tables. Assert order and that a non-empty base is persisted.
+        self._mock_backbone(mocker)
+        base = BaseAnalysis(features=[BaseFeature(key="auth", name="Auth")], summary="s")
         mocker.patch.object(
             agentic_analysis,
-            "run_twin_agent",
-            AsyncMock(return_value=(["[summary] 危険な機能を特定"], recs)),
+            "run_analysis_agent",
+            AsyncMock(return_value=(["[summary] 危険な機能を特定"], base)),
         )
+        persist_base = mocker.patch.object(agentic_analysis, "_persist_base_analysis", AsyncMock())
 
         ctx = PipelineContext(session=AsyncMock())
         result = await agentic_analysis.process(_request(), ctx)
@@ -255,7 +298,9 @@ class TestProcess:
         assert feature_clustering.process.await_count == 1
         assert knowledge_debt_detection.process.await_count == 1
         assert baseline_generation.generate_learning_and_quizzes.await_count == 1
+        persist_base.assert_awaited_once()  # non-empty base analysis persisted
         assert result.agent_trace == [
+            "[summary] 危険な機能を特定",  # agent-first: the agent trace precedes the backbone steps
             "[backbone] feature_clustering done",
             "[backbone] code_debt_detection done",
             "[backbone] kc_analysis done",
@@ -263,39 +308,44 @@ class TestProcess:
             "[backbone] stack_analysis done",
             "[generate] learning plan: auth",
             "[generate] quiz: auth",
-            "[summary] 危険な機能を特定",
         ]
         assert result.summary == "[summary] 危険な機能を特定"
-        assert result.recommendations == recs
+        assert result.recommendations == []  # 判断レイヤ廃止に向け空
 
-    async def test_twin_agent_failure_still_completes(self, mocker) -> None:
-        """issue 260: a Twin Agent failure (e.g. transient Gemini 502) must NOT fail/roll back the whole
-        analysis — the deterministic backbone results persist and the job completes without recommendations."""
-        for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
-            mocker.patch.object(module, "process", AsyncMock())
-        mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
+    async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
+        """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""
+        self._mock_backbone(mocker)
+        mocker.patch.object(agentic_analysis, "run_analysis_agent", AsyncMock(return_value=([], BaseAnalysis())))
+        persist_base = mocker.patch.object(agentic_analysis, "_persist_base_analysis", AsyncMock())
+
+        result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        assert result.status == ResultStatus.COMPLETED
+        persist_base.assert_not_awaited()
+        assert feature_clustering.process.await_count == 1  # backbone still produces the screen tables
+
+    async def test_agent_failure_still_completes(self, mocker) -> None:
+        """issue 260/266: a base-agent failure (e.g. transient Gemini 502) must NOT fail/roll back the
+        whole analysis — the deterministic backbone still runs and the job completes."""
+        self._mock_backbone(mocker)
         mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
-        mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
-        mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
-        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value=None))
-        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(side_effect=RuntimeError("502 Bad Gateway")))
+        mocker.patch.object(
+            agentic_analysis, "run_analysis_agent", AsyncMock(side_effect=RuntimeError("502 Bad Gateway"))
+        )
 
         result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
 
         assert result.status == ResultStatus.COMPLETED  # backbone preserved; job reaches a terminal state
         assert result.recommendations == []
-        assert any("[twin_agent] failed" in s for s in result.agent_trace)
+        assert feature_clustering.process.await_count == 1  # backbone ran despite the agent failure
+        assert any("[analysis_agent] failed" in s for s in result.agent_trace)
 
     async def test_persists_deterministic_snapshot_when_cgc_empty(self, mocker) -> None:
         """issue 250: when CGC indexes but returns an empty snapshot, the deterministic source-based
         snapshot (function_graph) fills L3 and is persisted, so the map shows for any repo."""
-        for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
-            mocker.patch.object(module, "process", AsyncMock())
-        mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
+        self._mock_backbone(mocker)
         mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
-        mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
-        mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
-        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(return_value=([], [])))
+        mocker.patch.object(agentic_analysis, "run_analysis_agent", AsyncMock(return_value=([], BaseAnalysis())))
         # clone + CGC build succeed, but CGC yields nothing → deterministic fallback fills L3.
         mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value="/tmp/clone"))
         mocker.patch.object(agentic_analysis.code_graph, "build_graph", AsyncMock(return_value=True))
