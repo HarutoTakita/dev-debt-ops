@@ -251,6 +251,7 @@ class TestProcess:
 
         assert result.status == ResultStatus.COMPLETED
         assert result.job_type == JobType.AGENTIC_ANALYSIS
+        assert ctx.github_client is None  # 取得共通化: 共有クライアントは finally で必ず解放される
         assert feature_clustering.process.await_count == 1
         assert knowledge_debt_detection.process.await_count == 1
         assert baseline_generation.generate_learning_and_quizzes.await_count == 1

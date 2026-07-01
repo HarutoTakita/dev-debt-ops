@@ -43,7 +43,7 @@ from service.pipelines import (
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
 from service.services import code_graph, function_graph, repo_checkout
 from service.services.github_app import GitHubAppService
-from service.services.github_git_client import GitHubGitClient
+from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient
 from shared.enums import JobType, ResultStatus
 from shared.models import CodeGraph
 from shared.pipelines.context import PipelineContext
@@ -110,77 +110,85 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # feature clustering first (learning/quiz depend on it), then code debt, KC, knowledge debt.
     steps: list[str] = []
     reporter = ProgressReporter(request.job_id, AGENTIC_STEPS)
-    fc_req = FeatureClusteringRequest(
-        job_id=request.job_id,
-        job_type=JobType.FEATURE_CLUSTERING,
-        owner=request.owner,
-        repo=request.repo,
-        branch=request.branch,
-        github=request.github,
-        requested_by=request.requested_by,
-        project_id=request.project_id,
-    )
-    await _run_backbone_step("feature_clustering", lambda: feature_clustering.process(fc_req, ctx), steps, reporter)
-    cd_req = CodeDebtDetectionRequest(
-        job_id=request.job_id,
-        job_type=JobType.CODE_DEBT_DETECTION,
-        owner=request.owner,
-        repo=request.repo,
-        branch=request.branch,
-        github=request.github,
-        requested_by=request.requested_by,
-        project_id=request.project_id,
-    )
-    await _run_backbone_step("code_debt_detection", lambda: code_debt_detection.process(cd_req, ctx), steps, reporter)
-    kc_req = KcAnalysisRequest(
-        job_id=request.job_id,
-        job_type=JobType.KC_ANALYSIS,
-        owner=request.owner,
-        repo=request.repo,
-        branch=request.branch,
-        github=request.github,
-        requested_by=request.requested_by,
-        project_id=request.project_id,
-    )
-    await _run_backbone_step("kc_analysis", lambda: kc_analysis.process(kc_req, ctx), steps, reporter)
-    kd_req = KnowledgeDebtDetectionRequest(
-        job_id=request.job_id,
-        job_type=JobType.KNOWLEDGE_DEBT_DETECTION,
-        owner=request.owner,
-        repo=request.repo,
-        branch=request.branch,
-        github=request.github,
-        requested_by=request.requested_by,
-        project_id=request.project_id,
-    )
-    await _run_backbone_step(
-        "knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps, reporter
-    )
-    # Tech-stack detection (issue 068): populates ``tech_stacks`` (owner/repo keyed) so the learning
-    # plan's "技術スタックを学ぶ" section has source terms. Must run before baseline generation below.
-    # Use the *deterministic* populate (not the ADK stack agent, which sometimes skips save_stack).
     session = ctx.session
+    # 取得の共通化: バックボーン全体で 1 つの読み取りキャッシュ付き GitHub クライアントを共有し、各ステップが
+    # 個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を 1 回に集約する。標準呼び出し
+    # （各パイプライン単体）では ctx.github_client は None のまま＝各自で取得する従来どおりの動作になる。
+    ctx.github_client = CachingGitHubGitClient(access_token=await _mint_installation_token(request.github))
+    try:
+        fc_req = FeatureClusteringRequest(
+            job_id=request.job_id,
+            job_type=JobType.FEATURE_CLUSTERING,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            github=request.github,
+            requested_by=request.requested_by,
+            project_id=request.project_id,
+        )
+        await _run_backbone_step("feature_clustering", lambda: feature_clustering.process(fc_req, ctx), steps, reporter)
+        cd_req = CodeDebtDetectionRequest(
+            job_id=request.job_id,
+            job_type=JobType.CODE_DEBT_DETECTION,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            github=request.github,
+            requested_by=request.requested_by,
+            project_id=request.project_id,
+        )
+        await _run_backbone_step(
+            "code_debt_detection", lambda: code_debt_detection.process(cd_req, ctx), steps, reporter
+        )
+        kc_req = KcAnalysisRequest(
+            job_id=request.job_id,
+            job_type=JobType.KC_ANALYSIS,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            github=request.github,
+            requested_by=request.requested_by,
+            project_id=request.project_id,
+        )
+        await _run_backbone_step("kc_analysis", lambda: kc_analysis.process(kc_req, ctx), steps, reporter)
+        kd_req = KnowledgeDebtDetectionRequest(
+            job_id=request.job_id,
+            job_type=JobType.KNOWLEDGE_DEBT_DETECTION,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            github=request.github,
+            requested_by=request.requested_by,
+            project_id=request.project_id,
+        )
+        await _run_backbone_step(
+            "knowledge_debt_detection", lambda: knowledge_debt_detection.process(kd_req, ctx), steps, reporter
+        )
 
-    async def _populate_stack() -> None:
-        token = await _mint_installation_token(request.github)
-        client = GitHubGitClient(access_token=token)
-        try:
-            await stack_analysis.populate_tech_stack(client, session, request.owner, request.repo, request.branch)
-        finally:
-            await client.aclose()
+        # Tech-stack detection (issue 068): populates ``tech_stacks`` (owner/repo keyed) so the learning
+        # plan's "技術スタックを学ぶ" section has source terms. Must run before baseline generation below.
+        # Use the *deterministic* populate (not the ADK stack agent, which sometimes skips save_stack).
+        async def _populate_stack() -> None:
+            await stack_analysis.populate_tech_stack(
+                ctx.github_client, session, request.owner, request.repo, request.branch
+            )
 
-    await _run_backbone_step("stack_analysis", _populate_stack, steps, reporter)
+        await _run_backbone_step("stack_analysis", _populate_stack, steps, reporter)
 
-    # 1b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
-    await reporter.start("baseline")
+        # 1b) Learning plans + baseline quizzes per feature (server-side, no browser orchestration).
+        await reporter.start("baseline")
 
-    async def _on_baseline_progress(done: int, total: int) -> None:
-        await reporter.update("baseline", done=done, total=total)
+        async def _on_baseline_progress(done: int, total: int) -> None:
+            await reporter.update("baseline", done=done, total=total)
 
-    steps.extend(
-        await baseline_generation.generate_learning_and_quizzes(request, ctx, on_progress=_on_baseline_progress)
-    )
-    await reporter.complete("baseline")
+        steps.extend(
+            await baseline_generation.generate_learning_and_quizzes(request, ctx, on_progress=_on_baseline_progress)
+        )
+        await reporter.complete("baseline")
+    finally:
+        # 共有クライアントを必ず閉じ、以降（Twin Agent）が ctx.github_client を継承しないよう解除する。
+        await ctx.github_client.aclose()
+        ctx.github_client = None
 
     # 2) Twin Agent judgement layer (autonomous cross-signal risk judgement + remediation).
     # Shallow-clone the repo so the agent can navigate it semantically via Serena (LSP); a failed

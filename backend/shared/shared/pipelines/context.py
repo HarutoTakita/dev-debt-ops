@@ -9,6 +9,7 @@ boundary as the Job update. The trivial ``echo`` / ``ping`` probes ignore the co
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,3 +22,9 @@ class PipelineContext:
 
     blob: BlobClient | None = None
     session: AsyncSession | None = None
+    # Optional shared GitHub client for a multi-step job (e.g. agentic_analysis). When set, sub-pipelines
+    # reuse it instead of minting a token + creating their own — so a read-caching client can collapse the
+    # repository tree / file fetches that every backbone step would otherwise repeat. ``None`` (standalone
+    # invocation) keeps the previous per-pipeline behaviour. Typed ``Any`` because the concrete
+    # ``GitHubGitClient`` lives in the ``service`` package, which ``shared`` must not import.
+    github_client: Any = None

@@ -20,6 +20,8 @@
 
 ### Changed
 
+- リポジトリ解析バックボーンの GitHub 取得を共通化（並列化の前段・低リスク最適化）: 各サブパイプライン（feature_clustering / code_debt_detection / kc_analysis / knowledge_debt_detection / stack_analysis）が個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を、**ジョブ内で 1 つの読み取りキャッシュ付きクライアント `CachingGitHubGitClient`（`get_repository_tree`/`get_file_content` を引数キーでメモ化）を共有**して集約。`agentic_analysis` が起動時に生成し `PipelineContext.github_client` 経由で各ステップへ渡す（`try/finally` で確実にクローズ）。各パイプライン単体呼び出しでは `ctx.github_client` は `None` のままで従来どおり自前取得（動作不変）。GitHub の呼び出し回数・レート消費・wall-clock を削減。※ baseline の学習/クイズ fan-out の取得共通化と、依存のないステップの並列実行は後続で検討。
+
 - Twin Agent のコンテキスト/ペイロード肥大を抑制（issue 260 フォローアップ）: 多ターンのツール利用でツール結果が会話履歴に蓄積し毎回のリクエストが膨らむ（コスト増・502/タイムアウト誘発）のを防ぐため、(1) 大きなツール結果（Trivy 全体スキャン JSON・GitHub PR/コミット・CodeGraphContext 照会・Serena/Semgrep 結果）を **`after_tool_callback` で ~12k 文字に切り詰め**（`agents/hooks.py:make_after_tool_callback`、両専門家に配線）、(2) Serena の tool_filter から **`read_file`/`list_dir`/`find_file` を除外**（長さ制限付きの repo ツールと重複し、Serena の `read_file` は全文無制限で肥大要因のため）シンボル・ナビゲーションに限定。
 
 - 解析モーダルで**「エージェントによるリポジトリ解析」を最上部の親タスク**として表示するよう変更（issue 258・256 の改訂）: 基盤ブロックを下部からモーダル**最上部**へ移し、3 つの成果グループ（技術負債の検知 / 理解負債の整理 / クイズと学習の生成）を**その子タスクとして入れ子**表示（親のステータスは解析ジョブ全体に連動）。冗長だったキャプション「上の検知・整理・生成は〜」を削除し、`twin_agent` の子ラベル「エージェントによる判断」を廃して呼称を**「エージェントによるリポジトリ解析」に統一**（`twin_agent` は substep カタログから除外し、親そのものが解析全体を表す）。frontend のみ。
