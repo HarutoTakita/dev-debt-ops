@@ -8,6 +8,8 @@
 
 ### Added
 
+- 解析アーキ再設計 PR3（issue 271・agent-first）: **コード負債の説明を Base 解析エージェント所見で強化**。`code_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（複雑度/重複/デッド/semgrep）で確定した各 finding の `archaeology_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**score/severity/metrics は決定的のまま**（数値の裏付けを維持）。`agentic_analysis` の code_debt ブロックが `base_analysis.code_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
+
 - 解析アーキ再設計 PR2（issue 268・agent-first）: **理解度マップの「機能」をエージェント出力から生成**。`feature_clustering.process` に任意の `clusters` 引数を追加し、Base 解析エージェントの `BaseAnalysis.features` があればそれを整形・永続化して**クラスタリングのモデル呼び出しを省略**（リポジトリツリーは取得しパスの実在は検証）。base が空/単体実行では従来のエージェント的クラスタリング（`cluster_features_agentic`→直 Gemini）にフォールバック。`features`/`feature_files`（Galaxy）が「メイン解析エージェント出力の整形」になり、画面テーブル・読み取り経路は不変。
 
 - 解析アーキ再設計 PR1（issue 266・agent-first の第一歩）: **Base 解析エージェントを解析パイプラインの先頭ブロック**として実行し、後続処理の土台となる定性的な「元データ」`BaseAnalysis`（features／学習概念／コード・理解リスクの叙述）を生成・永続化するようにした。Twin Agent を転用した 2 段 `SequentialAgent`（`analysis_explorer`→`base_author`）で、探索は MCP（Serena／GitHub／CodeGraphContext）に限定し（決定的計測 Trivy/Semgrep は後段のプログラムブロックが担うため付与しない）、`save_base_analysis` 確定ツールで出力を確定（ADK は `output_schema`×`tools` 併用不可のため）。新規 `shared/schemas/base_analysis.py`・`shared/models/base_analysis_snapshot.py`（project 単位 upsert・Alembic `0027`）・`service/agents/base_analysis_tools.py`・`runner.run_analysis_agent`。**本 PR は追加のみ**で、決定的バックボーン（機能/コード負債/理解度/学習・クイズ）は従来どおり画面テーブルを生成＝source-of-truth 不変。エージェントが失敗/空でもバックボーンが解析を完了する（graceful）。KC は git blame の決定的計測のまま。判断（recommendations）は空にし、後続 PR で削除予定。

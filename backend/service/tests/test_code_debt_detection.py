@@ -113,6 +113,46 @@ class TestDetectors:
         assert "app/main.py" not in dead  # entrypoint
 
 
+class TestAgentEnrichment:
+    """issue 271: the Base Analysis Agent's rationale enriches archaeology_notes (numbers unchanged)."""
+
+    def test_agent_notes_by_file_collapses_rationales(self) -> None:
+        base = [
+            {"file_path": "a.py", "rationale": "属人化"},
+            {"file_path": "a.py", "rationale": "未レビュー"},
+            {"file_path": "b.py", "rationale": ""},  # empty rationale dropped
+            {"no_path": 1},  # malformed dropped
+        ]
+        notes = code_debt_detection._agent_notes_by_file(base)
+        assert notes == {"a.py": "属人化 / 未レビュー"}
+        assert code_debt_detection._agent_notes_by_file(None) == {}
+
+    def test_enrich_findings_appends_only_to_flagged_files(self) -> None:
+        findings = [
+            code_debt_detection.Finding(
+                file_path="a.py",
+                type="complexity",
+                score=0.8,
+                archaeology_notes="det-a",
+                code_snippet="",
+                estimated_repay_hours=1.0,
+            ),
+            code_debt_detection.Finding(
+                file_path="c.py",
+                type="dead",
+                score=0.5,
+                archaeology_notes="det-c",
+                code_snippet="",
+                estimated_repay_hours=1.0,
+            ),
+        ]
+        code_debt_detection._enrich_findings(findings, {"a.py": "属人化"})
+        assert "det-a" in findings[0].archaeology_notes
+        assert "【エージェント所見】属人化" in findings[0].archaeology_notes
+        assert findings[0].score == 0.8  # numbers unchanged
+        assert findings[1].archaeology_notes == "det-c"  # no agent note for c.py → unchanged
+
+
 # --- pipeline -------------------------------------------------------------
 
 _MAIN = (
