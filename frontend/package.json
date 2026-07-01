@@ -68,6 +68,8 @@
     "zod": "^4.4.3"
   },
   "dependencies": {
+    "d3-force-3d": "^3.0.6",
+    "force-graph": "^1.51.4",
     "marked": "^18.0.5"
   }
 }
