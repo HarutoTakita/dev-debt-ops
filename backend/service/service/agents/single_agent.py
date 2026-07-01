@@ -3,7 +3,7 @@
 Drives one ADK agent to completion under a ``Runner`` wired with the run-wide plugins every
 agentic pipeline wants: ``TraceRecorderPlugin`` (records the ``agent_trace``) and
 ``SecretRedactionPlugin`` (masks secrets in every model request). Generalises the boilerplate in
-``runner.run_twin_agent`` / ``stack_analysis.run_stack_analysis`` so the walkthrough / refactor /
+``runner.run_analysis_agent`` / ``stack_analysis.run_stack_analysis`` so the walkthrough / refactor /
 quiz pipelines (PR2/PR3) only build their agent + tools and call this — they all get tracing and
 secret redaction for free, and any MCP stdio subprocesses are always shut down.
 
