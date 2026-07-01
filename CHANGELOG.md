@@ -8,6 +8,8 @@
 
 ### Changed
 
+- 理解度マップのグラフ表示を **`force-graph`(canvas) に刷新**（issue 284）。自作の静的 force レイアウトは衝突回避が無くノードが重なって見えなかったため、CodeGraphContext 同様の force-directed インタラクティブグラフへ置換。`force-graph` ＋ `d3-force-3d` の `forceCollide` で**ノード重なりを構造的に解消**し、ドラッグ/ズーム/パン/ホバー強調・矢印付き有向エッジ（`calls`）を追加。file-hub は KC で着色（理解度レンズ維持）、関数はファイル別色。3 段ドリル（機能→関数グラフ→単一ファイル）・遅延取得・loading/empty/truncated・戻るナビは維持。新規 `graph-canvas.svelte`（SSR/prerender 安全な動的 import・`_destructor` teardown・テーマ変更で再配色）＋ `graph-data.ts`（純粋変換）。自作 `force-layout.ts` は撤去。backend/API 変更なし。※レイアウトは force-directed のため毎回同一配置ではない（`onEngineStop`→`zoomToFit` で常に全体をフレーム）。
+
 - 理解度マップ: 機能ノードのクリック後を**関数レベルグラフに刷新**（issue 282）。従来はファイル粒度で数個のノードが接続されず散らばっていた。CodeGraphContext の関数レベル構造を活用し、**ファイル=ハブノード＋関数=子ノード**を `CONTAINS`（ハブ→関数）＋`CALLS`（関数→関数・ファイル跨ぎ含む）で接続。全関数が必ずファイルハブにつながるため孤立ノードが消え、CGC 公式ビューのような密なクラスタ構造になる。クリックした機能の構成ファイルにスコープ（遅延取得・ノード上限＋`truncated` 表示）。ファイルハブは KC で着色（理解度レンズ維持）・クリックで Level-3（単一ファイル）へドリル。
   - backend: `code_graph.extract_snapshot` の `function_calls` を**ファイル跨ぎ**も含む `{source_file,source,target_file,target}` 形に拡張（従来は cross-file を `file_edges` に集約して破棄・intra-file のみ保持）。新 API `GET .../code-graph/feature?key=`（機能→ファイル集合を解決し file-hub/function ノード＋CONTAINS/CALLS を返す）。Level-3 エンドポイントは新形に追従＋旧形 stale 行を防御。`function_graph`（決定的フォールバック）も新形に整合。DB マイグレーション不要。
   - frontend: 新 `getFeatureFunctionGraph`／`featureFunctionGraphSchema`／`buildFeatureFunctionGraph`。`star-map` の Level-2 を遅延取得の関数グラフに差し替え（旧 `buildFileSubgraph`／`codeGraphEdges` 配線は撤去）。
