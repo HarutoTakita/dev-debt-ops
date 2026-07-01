@@ -24,7 +24,7 @@
         <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_status()}</th>
         <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_file()}</th>
         <th class="py-1.5 pr-3 text-right font-normal">{m.galaxy_list_kc()}</th>
-        <th class="py-1.5 pr-3 font-normal">{m.galaxy_list_module()}</th>
+        <th class="hidden py-1.5 pr-3 font-normal sm:table-cell">{m.galaxy_list_module()}</th>
         <th class="py-1.5 font-normal"><span class="sr-only">{m.galaxy_repay_with_quiz()}</span></th>
       </tr>
     </thead>
@@ -34,10 +34,10 @@
           <td class="py-1.5 pr-3">
             <span class="inline-flex items-center gap-1.5">
               <span class={cn("size-2.5 rounded-full", masteryDot[f.mastery])}></span>
-              <span class="text-xs text-muted-foreground">{masteryLabel(f.mastery)}</span>
+              <span class="hidden text-xs text-muted-foreground sm:inline">{masteryLabel(f.mastery)}</span>
             </span>
           </td>
-          <td class="py-1.5 pr-3 font-mono text-xs">
+          <td class="py-1.5 pr-3 font-mono text-xs break-all">
             {f.path}
             {#if f.mastered}<Check
                 class="ml-1 inline size-3 text-success"
@@ -45,7 +45,7 @@
               />{/if}
           </td>
           <td class="py-1.5 pr-3 text-right tabular-nums">{formatKcPct(f.kc)}</td>
-          <td class="py-1.5 pr-3 text-xs text-muted-foreground">{f.module}</td>
+          <td class="hidden py-1.5 pr-3 text-xs text-muted-foreground sm:table-cell">{f.module}</td>
           <td class="py-1.5 text-right">
             {#if f.mastery === "black_hole" || f.mastery === "dim_star"}
               <a

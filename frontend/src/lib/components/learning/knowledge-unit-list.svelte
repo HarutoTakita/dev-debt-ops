@@ -64,7 +64,9 @@
               >{statusOf(u.status).label()}</span
             >
             <span class="shrink-0 text-xs text-muted-foreground">{m.kc_label()} {kcPct(u.knowledge_coverage)}%</span>
-            <span class="shrink-0 text-xs text-muted-foreground">{m.unit_files_count({ count: u.file_count })}</span>
+            <span class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
+              >{m.unit_files_count({ count: u.file_count })}</span
+            >
           </div>
           <div class="mt-2 flex flex-wrap items-center gap-2">
             {#if u.learning_plan_id}
