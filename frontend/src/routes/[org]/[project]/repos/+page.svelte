@@ -174,8 +174,12 @@
     </div>
     <RepoHeader {selectedPath} />
 
-    <div class="flex flex-1 overflow-hidden">
-      <aside class="flex w-64 shrink-0 flex-col overflow-y-auto border-r" data-tour="repos-tree">
+    <!-- モバイルは縦積み（ツリー上・ビューア下）、lg 以上で従来の左右 2 ペイン。 -->
+    <div class="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      <aside
+        class="flex max-h-56 w-full shrink-0 flex-col overflow-y-auto border-b lg:max-h-none lg:w-64 lg:border-r lg:border-b-0"
+        data-tour="repos-tree"
+      >
         {#if treeLoading}
           <div class="flex flex-col gap-2 p-3" aria-busy="true">
             {#each ghostTree as w (w)}

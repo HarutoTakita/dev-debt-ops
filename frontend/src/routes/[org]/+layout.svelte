@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import { afterNavigate } from "$app/navigation";
   import { cn } from "$lib/utils";
   import * as Sheet from "$lib/components/ui/sheet";
   import Topbar from "$lib/components/shell/topbar.svelte";
@@ -17,6 +18,11 @@
   $effect(() => {
     const orgSlug = page.params.org;
     if (orgSlug && onboarding.consumeAutoStart(orgSlug)) onboarding.start(tourSteps);
+  });
+
+  // モバイル: ドロワー内のリンクで遷移したら Sheet を閉じる（開いたまま遷移先を覆う不具合を防ぐ）。
+  afterNavigate(() => {
+    sidebar.mobileOpen = false;
   });
 </script>
 

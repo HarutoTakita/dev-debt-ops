@@ -52,9 +52,10 @@
     </button>
   </div>
 
-  <!-- 本体: 左コード / 右解答 -->
-  <div class="grid min-h-0 flex-1 gap-4 overflow-hidden p-4 lg:grid-cols-2">
-    <div class="min-h-0">
+  <!-- 本体: 左コード / 右解答。モバイルは縦積み＋ページスクロール（各ペインが潰れないよう高さを確保）、
+       lg 以上で左右 2 ペイン＋各ペイン内スクロール。 -->
+  <div class="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2 lg:overflow-hidden">
+    <div class="min-h-0 max-lg:h-72">
       {#if q.code_snippet}
         <CodeSnippetPanel snippet={q.code_snippet} />
       {:else}
@@ -63,7 +64,7 @@
         </div>
       {/if}
     </div>
-    <div class="flex min-h-0 flex-col gap-3 overflow-auto">
+    <div class="flex min-h-0 flex-col gap-3 lg:overflow-auto">
       <span class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums">{q.difficulty}</span>
       <p class="text-sm font-medium">{q.prompt}</p>
       <AnswerInput question={q} {value} {onanswer} />
