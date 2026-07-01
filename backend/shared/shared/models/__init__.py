@@ -2,6 +2,7 @@
 
 from shared.models.analysis_run import AnalysisRun
 from shared.models.assigned_developer import AssignedDeveloper
+from shared.models.base_analysis_snapshot import BaseAnalysisSnapshot
 from shared.models.code_debt import CodeDebt
 from shared.models.code_graph import CodeGraph
 from shared.models.debt_trend_point import DebtTrendPoint
@@ -21,6 +22,7 @@ from shared.models.tech_stack import TechStack
 __all__ = [
     "AnalysisRun",
     "AssignedDeveloper",
+    "BaseAnalysisSnapshot",
     "CodeDebt",
     "CodeGraph",
     "DebtTrendPoint",
