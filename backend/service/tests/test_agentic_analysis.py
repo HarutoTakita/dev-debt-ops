@@ -28,7 +28,7 @@ from service.services.github_git_client import FileContent, TreeItem
 from shared.enums import JobType, ResultStatus
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest
-from shared.schemas.base_analysis import BaseAnalysis, BaseCodeFinding, BaseFeature
+from shared.schemas.base_analysis import BaseAnalysis, BaseCodeFinding, BaseFeature, BaseKnowledgeFinding
 from shared.schemas.stack_analysis import GitHubRef
 
 
@@ -284,6 +284,7 @@ class TestProcess:
         base = BaseAnalysis(
             features=[BaseFeature(key="auth", name="Auth")],
             code_findings=[BaseCodeFinding(file_path="auth.py", type="complexity", rationale="属人化")],
+            knowledge_findings=[BaseKnowledgeFinding(file_path="auth.py", reason="no_review", rationale="未レビュー")],
             summary="s",
         )
         mocker.patch.object(
@@ -311,6 +312,9 @@ class TestProcess:
         cd_base = code_debt_detection.process.call_args.kwargs["base_findings"]
         assert cd_base is not None
         assert cd_base[0]["file_path"] == "auth.py"
+        kd_base = knowledge_debt_detection.process.call_args.kwargs["base_findings"]
+        assert kd_base is not None
+        assert kd_base[0]["reason"] == "no_review"
         assert result.agent_trace == [
             "[summary] 危険な機能を特定",  # agent-first: the agent trace precedes the backbone steps
             "[backbone] feature_clustering done",
@@ -338,6 +342,7 @@ class TestProcess:
         # empty base → feature-clustering falls back to the deterministic model path (clusters=None).
         assert feature_clustering.process.call_args.kwargs["clusters"] is None
         assert code_debt_detection.process.call_args.kwargs["base_findings"] is None
+        assert knowledge_debt_detection.process.call_args.kwargs["base_findings"] is None
 
     async def test_agent_failure_still_completes(self, mocker) -> None:
         """issue 260/266: a base-agent failure (e.g. transient Gemini 502) must NOT fail/roll back the
