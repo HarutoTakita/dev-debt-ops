@@ -93,8 +93,11 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
         )
 
     owner, _, repo = request.repo_full_name.partition("/")
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+    token = await _mint_installation_token(request.github)  # required for the agentic quiz's clone
+    # Reuse the job's shared read-caching client for file fetches when present (agentic backbone),
+    # else mint our own. The clone inside generate_quiz_agentic still uses ``token``.
+    shared_client = ctx.github_client
+    client = shared_client or GitHubGitClient(access_token=token)
     try:
         # Agentic authoring (issue 217 PR3): the agent follows dependencies via Serena for deeper
         # questions; the same token clones the repo. Falls back to the direct path.
@@ -109,7 +112,8 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
                 owner, repo, request.branch, request.file_path, fc.content or "", token=token
             )
     finally:
-        await client.aclose()
+        if shared_client is None:
+            await client.aclose()
 
     quiz.questions = generated["questions"]
     quiz.answer_key = generated["answer_key"]
