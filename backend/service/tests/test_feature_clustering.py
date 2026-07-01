@@ -10,8 +10,10 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from service.agents.budget import RunBudget
+from service.agents.feature_agent import build_feature_agent
 from service.pipelines import feature_clustering
-from service.services import gemini_stack_service
+from service.services import feature_authoring, gemini_stack_service
 from service.services.github_git_client import CommitInfo, FileContent, TreeItem
 from shared.enums import JobStatus, JobType
 from shared.models import AnalysisRun, Feature, FeatureFile, Job
@@ -53,12 +55,13 @@ def _patch(monkeypatch: pytest.MonkeyPatch, clusters: list[dict]) -> None:
     async def _fake_mint(github: GitHubRef) -> str:
         return "tok"
 
-    async def _fake_cluster(paths: list[str], edges: list[tuple[str, str]]) -> list[dict]:
+    async def _fake_cluster(paths: list[str], edges: list[tuple[str, str]], *, owner: str, repo: str) -> list[dict]:
         return clusters
 
     monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(feature_clustering, "GitHubGitClient", lambda access_token: _FakeClient(_FILES))
-    monkeypatch.setattr(gemini_stack_service, "cluster_features", _fake_cluster)
+    # 機能クラスタリングはエージェント経由（issue 263）。パイプラインテストでは orchestrator を直接差し替える。
+    monkeypatch.setattr(feature_clustering.feature_authoring, "cluster_features_agentic", _fake_cluster)
 
 
 async def _seed_job(session_maker: async_sessionmaker, job_id: str) -> None:
@@ -136,3 +139,34 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
         ).scalar_one()
         assert feat_count == 2
         assert ff_count == 2
+
+
+# --- agentic feature clustering (issue 263) --------------------------------
+
+
+def test_feature_agent_save_tool_captures() -> None:
+    """The agent's save_features tool records the features into the shared ``captured`` dict."""
+    captured: dict = {}
+    agent = build_feature_agent(budget=RunBudget(), captured=captured)
+    (save_features,) = [t for t in agent.tools if getattr(t, "__name__", "") == "save_features"]
+    save_features([{"key": "auth", "name": "Auth", "description": "d", "files": []}, {"no_key": 1}])
+    assert [f["key"] for f in captured["features"]] == ["auth"]  # entries without a key are dropped
+
+
+async def test_cluster_features_agentic_falls_back_when_agent_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """If the agent saves nothing (or errors), we fall back to the direct Gemini clustering."""
+
+    async def _noop_run(**_kwargs: object) -> list[str]:
+        return []  # agent produced no save_features call → captured stays empty
+
+    async def _fake_direct(paths: list[str], edges: list[tuple[str, str]]) -> list[dict]:
+        return [{"key": "fallback", "name": "F", "description": "", "files": []}]
+
+    monkeypatch.setattr(feature_authoring, "run_single_agent", _noop_run)
+    monkeypatch.setattr(gemini_stack_service, "cluster_features", _fake_direct)
+    out = await feature_authoring.cluster_features_agentic(["a.py"], [], owner="o", repo="r")
+    assert [f["key"] for f in out] == ["fallback"]
+
+
+async def test_cluster_features_agentic_empty_paths_is_noop() -> None:
+    assert await feature_authoring.cluster_features_agentic([], [], owner="o", repo="r") == []
