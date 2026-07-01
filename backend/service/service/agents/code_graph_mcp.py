@@ -11,12 +11,16 @@ via ``CGC_RUNTIME_DB_TYPE=kuzudb`` in the env (see ``services.code_graph.CGC_DB_
 tools only — indexing / watch / delete tools are excluded because the pipeline owns graph building.
 """
 
+import logging
 import os
+import shutil
 
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
 
 from service.services.code_graph import CGC_DB_ENV, CGC_HOME
+
+logger = logging.getLogger(__name__)
 
 # CGC analysis/query tools exposed to the agent (indexing/watch/delete/cypher excluded — the pipeline
 # builds the graph; raw Cypher is withheld to keep the agent on the high-level analysis API).
@@ -30,7 +34,7 @@ _CGC_TOOLS = [
 ]
 
 
-def build_code_graph_toolset() -> McpToolset:
+def build_code_graph_toolset() -> McpToolset | None:
     """Build the CGC MCP toolset (stdio, embedded KuzuDB) for the Twin Agent's specialists.
 
     The agent passes the repository path (the checked-out clone dir) as ``repo_path`` in tool args to
@@ -38,7 +42,14 @@ def build_code_graph_toolset() -> McpToolset:
     so ``PATH`` is carried through and ``HOME`` is the resolved ``CGC_HOME`` (never the empty string —
     an empty HOME makes CGC's ``Path.home()`` resolve under CWD and fail with PermissionError). ``CGC_DB_ENV``
     forces the embedded KuzuDB backend + pinned path so the server reads the same graph the CLI built.
+
+    Returns ``None`` when the ``codegraphcontext`` binary is not on PATH so a missing MCP server is
+    *graceful* (toolset absent) instead of crashing the Base Analysis run when the agent first calls a
+    CGC tool (stdio MCP servers connect lazily → a missing binary otherwise raises mid-run).
     """
+    if shutil.which("codegraphcontext") is None:
+        logger.warning("codegraphcontext binary not found on PATH; skipping CGC MCP toolset (graceful)")
+        return None
     return McpToolset(
         connection_params=StdioConnectionParams(
             server_params=StdioServerParameters(
