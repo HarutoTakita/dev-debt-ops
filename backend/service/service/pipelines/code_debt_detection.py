@@ -62,6 +62,31 @@ def _snippet(content: str) -> str:
     return "\n".join(content.splitlines()[:_MAX_SNIPPET_LINES])
 
 
+def _agent_notes_by_file(base_findings: list[dict] | None) -> dict[str, str]:
+    """Collapse the Base Analysis Agent's code findings into one rationale string per file.
+
+    Used to *enrich* deterministic findings' ``archaeology_notes`` — the hard numbers
+    (score / severity / metrics) stay deterministic (issue 271, locked decision #1).
+    """
+    notes: dict[str, list[str]] = {}
+    for raw in base_findings or []:
+        if not isinstance(raw, dict):
+            continue
+        path = str(raw.get("file_path") or "").strip()
+        rationale = str(raw.get("rationale") or "").strip()
+        if path and rationale:
+            notes.setdefault(path, []).append(rationale)
+    return {path: " / ".join(dict.fromkeys(rs)) for path, rs in notes.items()}
+
+
+def _enrich_findings(findings: list[Finding], agent_notes: dict[str, str]) -> None:
+    """Append the agent's rationale to each finding on an agent-flagged file (in place)."""
+    for f in findings:
+        note = agent_notes.get(f.file_path)
+        if note:
+            f.archaeology_notes = f"{f.archaeology_notes}\n\n【エージェント所見】{note}"
+
+
 # 「なぜ品質が低いか」の説明文（解析時に生成）。指標値だけでなく、理由・影響・改善の方向まで
 # 1 つの文章で示し、コード改善ビューでそのまま読めるようにする（issue 210）。
 def _complexity_notes(cc: int) -> str:
@@ -249,8 +274,19 @@ async def _delete_stale_debts(session: AsyncSession, *, run_id: uuid.UUID, curre
     await session.execute(stmt)
 
 
-async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> CodeDebtDetectionResult:
-    """Detect code debts for the repository and upsert them under an analysis run."""
+async def process(
+    request: CodeDebtDetectionRequest,
+    ctx: PipelineContext,
+    *,
+    base_findings: list[dict] | None = None,
+) -> CodeDebtDetectionResult:
+    """Detect code debts for the repository and upsert them under an analysis run.
+
+    ``base_findings`` (issue 271, agent-first): when provided — the Base Analysis Agent's
+    ``BaseAnalysis.code_findings`` — each deterministic finding on an agent-flagged file has the
+    agent's rationale appended to its ``archaeology_notes``. Scores/severity/metrics stay
+    deterministic. When ``None`` (standalone run, or an empty base) behaviour is unchanged.
+    """
     if ctx.session is None:
         raise RuntimeError("code_debt_detection pipeline requires a DB session in the pipeline context")
     session = ctx.session
@@ -294,6 +330,9 @@ async def process(request: CodeDebtDetectionRequest, ctx: PipelineContext) -> Co
             )
     for f in findings:
         f.ai_generation_prob = ai_probs.get(f.file_path, 0.0)
+
+    # agent-first (issue 271): enrich deterministic findings with the agent's rationale (notes only).
+    _enrich_findings(findings, _agent_notes_by_file(base_findings))
 
     project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
