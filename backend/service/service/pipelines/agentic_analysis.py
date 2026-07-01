@@ -44,7 +44,7 @@ from service.pipelines import (
     stack_analysis,
 )
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
-from service.services import code_graph, function_graph, repo_checkout
+from service.services import code_graph, function_graph, repo_checkout, trivy_scan
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -146,6 +146,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
     if snapshot:
         await _persist_code_graph(session, request.project_id, snapshot)
+    # Trivy SCA/secret/misconfig (issue 278): a deterministic scan over the SAME clone (no extra
+    # checkout). Runs regardless of the agent outcome; graceful []. Fed into the code-debt block below.
+    trivy_findings: list[trivy_scan.TrivyAggregate] = await trivy_scan.scan_repo(repo_dir) if repo_dir else []
     try:
         agent_trace, base_analysis = await run_analysis_agent(
             client=client,
@@ -214,7 +217,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         base_code_findings = [f.model_dump() for f in base_analysis.code_findings] or None
         await _run_backbone_step(
             "code_debt_detection",
-            lambda: code_debt_detection.process(cd_req, ctx, base_findings=base_code_findings),
+            lambda: code_debt_detection.process(
+                cd_req, ctx, base_findings=base_code_findings, trivy_findings=trivy_findings
+            ),
             steps,
             reporter,
         )

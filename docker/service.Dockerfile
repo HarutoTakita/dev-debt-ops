@@ -50,7 +50,8 @@ RUN apt-get update \
     # `uv x` fallback is an invalid subcommand → provide a uvx shim (uvx == `uv tool run`).
     && printf '#!/bin/sh\nexec uv tool run "$@"\n' > /usr/local/bin/uvx && chmod 0755 /usr/local/bin/uvx \
     && chmod -R a+rX /opt/uv \
-    # Trivy (issue 069): SCA / secrets / misconfig signal axis via its `trivy mcp` plugin.
+    # Trivy (issue 069 → 278): SCA / secrets / misconfig signal axis. Run as a deterministic CLI block
+    # (services.trivy_scan → code_debts); the `trivy mcp` plugin was dropped with the Twin Agent.
     && curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v0.71.2 \
     && apt-get purge -y curl && apt-get autoremove -y && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /root/.cache /root/.npm
@@ -68,13 +69,12 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/shared /app/shared
 COPY --from=builder --chown=appuser:appuser /app/service/service /app/service
 USER appuser
-# Pre-warm MCP runtimes into appuser caches so the first analysis doesn't download mid-run
+# Pre-warm runtimes into appuser caches so the first analysis doesn't download mid-run
 # (avoids the connect-timeout race). All best-effort: runtime works regardless.
 #  - Serena's Python LS (pyright) into the uv cache
-#  - Trivy's `mcp` plugin (~/.trivy) + its vulnerability/secret/misconfig DBs (~/.cache/trivy)
+#  - Trivy's vulnerability/secret/misconfig DBs (~/.cache/trivy) for the deterministic CLI scan
 RUN printf '' | timeout 180 uvx -p 3.13 --from pyright==1.1.403 pyright-langserver --stdio || true
-RUN trivy plugin install mcp || true \
-    && mkdir -p /tmp/trivy-warm && printf '{}' > /tmp/trivy-warm/package.json \
+RUN mkdir -p /tmp/trivy-warm && printf '{}' > /tmp/trivy-warm/package.json \
     && timeout 300 trivy fs --scanners vuln,secret,misconfig --quiet /tmp/trivy-warm || true \
     && rm -rf /tmp/trivy-warm
 EXPOSE 8000

@@ -14,8 +14,8 @@ Design:
   ``(run_id, file_path, type)``; ``debt_type`` is ``security`` (security/correctness) or ``smell``
   (maintainability/best-practice/performance/other).
 
-The same scan logic is exposed to the Twin Agent through the in-house Semgrep MCP server
-(``service.agents.semgrep_mcp_server``), so the agent's judgement is grounded in the same engine.
+Runs as a deterministic program block inside ``code_debt_detection`` (issue 278: the Semgrep MCP
+layer that once exposed this to the agent was removed — Semgrep runs here, not as an agent tool).
 """
 
 import asyncio

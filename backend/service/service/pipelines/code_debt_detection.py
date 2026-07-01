@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import code_analysis, gemini_stack_service, semgrep_scan
+from service.services import code_analysis, gemini_stack_service, semgrep_scan, trivy_scan
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobStatus, JobType, ResultStatus
@@ -196,6 +196,55 @@ def _semgrep_to_findings(aggregates: list[semgrep_scan.SemgrepAggregate], files:
     return out
 
 
+def _trivy_to_findings(aggregates: list[trivy_scan.TrivyAggregate] | None, files: dict[str, str]) -> list[Finding]:
+    """Convert Trivy per-file aggregates into code-debt ``Finding`` rows (issue 278).
+
+    Snippet is best-effort — Trivy often flags lockfiles/manifests not in the fetched source set,
+    so ``files.get`` may be empty. ``estimated_repay_hours`` scales with the finding count.
+    """
+    out: list[Finding] = []
+    for agg in aggregates or []:
+        count = sum(v for k, v in agg.metrics.items() if k.startswith("trivy_"))
+        out.append(
+            Finding(
+                file_path=agg.file_path,
+                type=agg.debt_type,
+                score=agg.score,
+                archaeology_notes=agg.notes,
+                code_snippet=_snippet(files.get(agg.file_path, "")),
+                metrics=agg.metrics,
+                estimated_repay_hours=round(min(max(count, 1) * 0.5, 8.0), 1),
+            )
+        )
+    return out
+
+
+def _merge_by_file_type(findings: list[Finding]) -> list[Finding]:
+    """Collapse findings sharing ``(file_path, type)`` so multiple detectors don't clobber each other.
+
+    Only same-``(file, type)`` findings merge (e.g. Semgrep + Trivy both ``security`` on one file);
+    distinct types (complexity / duplicate / dead / security / smell) stay separate rows. Keeps the
+    worst score, concatenates distinct notes, and unions metrics — matching the ``code_debts`` unique
+    key ``(run_id, file_path, type)`` so the later upsert writes one row per key.
+    """
+    merged: dict[tuple[str, str], Finding] = {}
+    for f in findings:
+        key = (f.file_path, f.type)
+        existing = merged.get(key)
+        if existing is None:
+            merged[key] = f
+            continue
+        existing.score = max(existing.score, f.score)
+        existing.estimated_repay_hours = max(existing.estimated_repay_hours, f.estimated_repay_hours)
+        existing.ai_generation_prob = max(existing.ai_generation_prob, f.ai_generation_prob)
+        if f.archaeology_notes and f.archaeology_notes not in existing.archaeology_notes:
+            existing.archaeology_notes = f"{existing.archaeology_notes} / {f.archaeology_notes}"[:1000]
+        if not existing.code_snippet and f.code_snippet:
+            existing.code_snippet = f.code_snippet
+        existing.metrics = {**existing.metrics, **f.metrics}
+    return list(merged.values())
+
+
 async def _get_or_create_run(
     session: AsyncSession, *, job_id: uuid.UUID, project_id: uuid.UUID, commit_sha: str, branch: str
 ) -> AnalysisRun:
@@ -279,6 +328,7 @@ async def process(
     ctx: PipelineContext,
     *,
     base_findings: list[dict] | None = None,
+    trivy_findings: list[trivy_scan.TrivyAggregate] | None = None,
 ) -> CodeDebtDetectionResult:
     """Detect code debts for the repository and upsert them under an analysis run.
 
@@ -286,6 +336,10 @@ async def process(
     ``BaseAnalysis.code_findings`` — each deterministic finding on an agent-flagged file has the
     agent's rationale appended to its ``archaeology_notes``. Scores/severity/metrics stay
     deterministic. When ``None`` (standalone run, or an empty base) behaviour is unchanged.
+
+    ``trivy_findings`` (issue 278): pre-computed Trivy SCA/secret/misconfig aggregates (the agentic
+    pipeline runs Trivy on its existing clone and passes them in) — persisted as ``security``
+    code-debt rows. ``None`` (standalone run) simply omits Trivy.
     """
     if ctx.session is None:
         raise RuntimeError("code_debt_detection pipeline requires a DB session in the pipeline context")
@@ -314,6 +368,12 @@ async def process(
     # Real static analysis via Semgrep (security / smell), merged with the heuristic findings.
     # Graceful: scan_files returns [] on any failure, so detection still works without Semgrep.
     findings.extend(_semgrep_to_findings(await semgrep_scan.scan_files(files), files))
+
+    # Trivy SCA/secret/misconfig (issue 278): pre-computed by the caller on its clone → `security` rows.
+    findings.extend(_trivy_to_findings(trivy_findings, files))
+
+    # Collapse any (file_path, type) collisions (e.g. Semgrep + Trivy both `security` on one file).
+    findings = _merge_by_file_type(findings)
 
     # AI-generation estimate only for files that already have a finding (bounds the Gemini call).
     flagged_paths = {f.file_path for f in findings}

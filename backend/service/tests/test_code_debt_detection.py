@@ -153,6 +153,63 @@ class TestAgentEnrichment:
         assert findings[1].archaeology_notes == "det-c"  # no agent note for c.py → unchanged
 
 
+class TestTrivyAndMerge:
+    """issue 278: Trivy aggregates → security Findings, and (file,type) collisions merge (not clobber)."""
+
+    def test_trivy_to_findings(self) -> None:
+        from service.services.trivy_scan import TrivyAggregate
+
+        aggs = [
+            TrivyAggregate(
+                file_path="requirements.txt", debt_type="security", score=0.9, notes="Trivy…", metrics={"trivy_vuln": 2}
+            )
+        ]
+        findings = code_debt_detection._trivy_to_findings(aggs, files={})
+        assert len(findings) == 1
+        assert findings[0].type == "security"
+        assert findings[0].file_path == "requirements.txt"
+        assert findings[0].score == 0.9
+        assert code_debt_detection._trivy_to_findings(None, files={}) == []
+
+    def test_merge_by_file_type_collapses_same_key(self) -> None:
+        F = code_debt_detection.Finding
+        findings = [
+            F(
+                file_path="a.py",
+                type="security",
+                score=0.5,
+                archaeology_notes="semgrep note",
+                code_snippet="s",
+                estimated_repay_hours=1.0,
+            ),
+            F(
+                file_path="a.py",
+                type="security",
+                score=0.9,
+                archaeology_notes="trivy note",
+                code_snippet="",
+                estimated_repay_hours=2.0,
+                metrics={"trivy_secret": 1},
+            ),
+            F(
+                file_path="a.py",
+                type="complexity",
+                score=0.4,
+                archaeology_notes="cc",
+                code_snippet="",
+                estimated_repay_hours=1.0,
+            ),
+        ]
+        merged = {(f.file_path, f.type): f for f in code_debt_detection._merge_by_file_type(findings)}
+        assert set(merged) == {("a.py", "security"), ("a.py", "complexity")}  # complexity stays separate
+        sec = merged[("a.py", "security")]
+        assert sec.score == 0.9  # max
+        assert "semgrep note" in sec.archaeology_notes  # combined notes
+        assert "trivy note" in sec.archaeology_notes
+        assert sec.code_snippet == "s"  # first non-empty kept
+        assert sec.metrics.get("trivy_secret") == 1  # metrics unioned
+
+
 # --- pipeline -------------------------------------------------------------
 
 _MAIN = (
