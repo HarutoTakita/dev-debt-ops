@@ -137,7 +137,9 @@ def build_snapshot(files: dict[str, str]) -> dict:
         for src, dst in calls:
             if len(function_calls) >= _FN_LIMIT:
                 break
-            function_calls.append({"file": path, "source": src, "target": dst})
+            # Deterministic fallback resolves intra-file calls only → both endpoints share `path`
+            # (matches the CGC snapshot shape; cross-file calls come from CGC, issue 282).
+            function_calls.append({"source_file": path, "source": src, "target_file": path, "target": dst})
 
     repo_paths = set(files)
     file_edges: list[dict[str, str]] = []

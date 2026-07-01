@@ -54,7 +54,12 @@ class TestBuildSnapshot:
         assert {"file": "app/util.py", "name": "helper"} in snap["functions"]
         assert {"file": "app/main.py", "name": "run"} in snap["functions"]
         # intra-file call (run -> inner, both in main.py); cross-file helper() is NOT a function_call edge
-        assert {"file": "app/main.py", "source": "run", "target": "inner"} in snap["function_calls"]
+        assert {
+            "source_file": "app/main.py",
+            "source": "run",
+            "target_file": "app/main.py",
+            "target": "inner",
+        } in snap["function_calls"]
         # file_edges from the import graph (main imports util)
         assert {"source": "app/main.py", "target": "app/util.py"} in snap["file_edges"]
 
