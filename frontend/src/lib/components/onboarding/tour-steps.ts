@@ -59,6 +59,13 @@ export const tourSteps: TourStep[] = [
     placement: "right",
   },
   {
+    id: "settings",
+    target: "nav-settings",
+    title: m.tour_settings_title,
+    body: m.tour_settings_body,
+    placement: "right",
+  },
+  {
     // 最重要操作。トップバー右上の「解析」ボタン（常時表示）をハイライト。
     id: "analysis",
     target: "analysis-run",
@@ -118,6 +125,14 @@ export const pageTours: Record<string, TourStep[]> = {
       body: m.tour_gx_views_body,
       placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
+    },
+    {
+      id: "galaxy-filter",
+      target: "galaxy-filter",
+      reveal: "galaxy-tab-map",
+      title: m.tour_gx_filter_title,
+      body: m.tour_gx_filter_body,
+      placement: "bottom",
     },
     {
       id: "galaxy-map",

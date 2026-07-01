@@ -45,7 +45,7 @@
 <div class="flex h-full flex-col gap-2">
   {#if galaxy.features.length > 0}
     <!-- 機能フィルタ（≤5 個）。全て / 各機能でファイルを絞り込む。 -->
-    <div class="flex flex-wrap items-center gap-1.5">
+    <div class="flex flex-wrap items-center gap-1.5" data-tour="galaxy-filter">
       <span class="text-xs text-muted-foreground">{m.galaxy_filter_label()}:</span>
       <button type="button" class={chipClass(activeFeature === null)} onclick={() => (activeFeature = null)}>
         {m.galaxy_filter_all()}
