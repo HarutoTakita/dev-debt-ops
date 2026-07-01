@@ -3,27 +3,24 @@
   import ZoomOut from "@lucide/svelte/icons/zoom-out";
   import Maximize from "@lucide/svelte/icons/maximize";
   import type { PersonalGalaxy } from "$lib/api/schemas";
-  import StarNode from "./star-node.svelte";
   import { computeForceLayout, type Point } from "./force-layout";
-  import { buildFeatureGraph, buildFileSubgraph, buildFunctionGraph } from "./galaxy-graph";
-  import { getFileFunctionGraph } from "$lib/api/client";
+  import { buildFeatureFunctionGraph, buildFeatureGraph, buildFunctionGraph, fileMasteryByPath } from "./galaxy-graph";
+  import { getFeatureFunctionGraph, getFileFunctionGraph } from "$lib/api/client";
   import { formatKc } from "$lib/format/kc";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
-  // 2 段の理解度マップ（issue 065）。Level 1 = 機能（feature）ノード + 機能間グラフ。機能クリックで
-  // Level 2（その機能の構成ファイルの依存グラフ）へインプレースズーム。「← 戻る」で Level 1 に戻る。
+  // 3 段の理解度マップ。Level 1 = 機能（feature）ノード + 機能間グラフ。機能クリックで Level 2（その機能の
+  // 関数レベルグラフ = ファイル=ハブ + 関数ノード, CONTAINS+CALLS, issue 282）へ。ファイルハブのクリックで
+  // Level 3（そのファイル内の関数コールグラフ, issue 240）へ。「← 戻る」で 1 段ずつ戻る。
   // Map/Set の構築は galaxy-graph.ts / force-layout.ts（.ts 側）で完結させる（prefer-svelte-reactivity）。
-  // codeGraphEdges: CodeGraphContext の file↔file 結合（issue 238）。Level-2 のエッジに優先使用（空なら wormhole）。
-  // orgSlug/projectSlug: Level-3（ファイル内関数グラフ, issue 240）の遅延取得に使う。
+  // orgSlug/projectSlug: Level-2/3 の遅延取得に使う（未指定＝デモでは遅延取得しない）。
   const {
     galaxy,
-    codeGraphEdges = [],
     orgSlug = "",
     projectSlug = "",
   }: {
     galaxy: PersonalGalaxy;
-    codeGraphEdges?: { source: string; target: string }[];
     orgSlug?: string;
     projectSlug?: string;
   } = $props();
@@ -98,20 +95,66 @@
     }),
   );
 
-  // --- Level 2: 機能内ファイルグラフ ---
-  const sub = $derived(selected ? buildFileSubgraph(galaxy, selected, codeGraphEdges) : null);
-  const slayout = $derived(
-    computeForceLayout(sub ? sub.files.map((f) => f.path) : [], sub ? sub.edges.map((e) => [e.a, e.b] as const) : []),
+  // --- Level 2: 機能の関数レベルグラフ（issue 282、機能クリック時に遅延取得） ---
+  // ファイル=ハブノード + その関数=子ノード。CONTAINS（ハブ→関数）＋CALLS（関数→関数・ファイル跨ぎ含む）で
+  // 接続し、全関数が必ずハブにつながる＝孤立ノードが出ない。ファイルハブは KC で着色（理解度レンズ維持）。
+  let featNodes = $state<{ id: string; label: string; file: string; kind: "file" | "function" }[]>([]);
+  let featEdges = $state<{ source: string; target: string; type: "contains" | "calls" }[]>([]);
+  let featLoading = $state(false);
+  let featTruncated = $state(false);
+
+  async function openFeature(key: string) {
+    selected = key;
+    selectedFile = null;
+    hovered = null;
+    if (!orgSlug || !projectSlug) {
+      featNodes = [];
+      featEdges = [];
+      return; // デモ/未接続では遅延取得しない
+    }
+    featLoading = true;
+    featNodes = [];
+    featEdges = [];
+    featTruncated = false;
+    try {
+      const g = await getFeatureFunctionGraph(orgSlug, projectSlug, key);
+      if (selected !== key) return; // 別機能へ切替済み（レース）なら破棄
+      featNodes = g.nodes;
+      featEdges = g.edges;
+      featTruncated = g.truncated;
+    } catch {
+      /* 取得失敗 → 空表示（graceful） */
+    } finally {
+      if (selected === key) featLoading = false;
+    }
+  }
+
+  const fileMap = $derived(fileMasteryByPath(galaxy)); // path → FileMastery（ハブの着色に使用）
+  const featGraph = $derived(buildFeatureFunctionGraph(featNodes, featEdges));
+  const featLayout = $derived(
+    computeForceLayout(
+      featNodes.map((n) => n.id),
+      featEdges.map((e) => [e.source, e.target] as const),
+    ),
   );
-  const sLines = $derived(
-    sub
-      ? sub.edges.map(({ a, b }) => {
-          const pa = slayout.get(a) ?? FALLBACK;
-          const pb = slayout.get(b) ?? FALLBACK;
-          return { a, b, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y };
-        })
-      : [],
+  const featLines = $derived(
+    featGraph.edges.map(({ a, b }) => {
+      const pa = featLayout.get(a) ?? FALLBACK;
+      const pb = featLayout.get(b) ?? FALLBACK;
+      return { a, b, x1: pa.x, y1: pa.y, x2: pb.x, y2: pb.y };
+    }),
   );
+
+  // 関数ノードの淡い色相（ファイル単位でクラスタ色を分ける）。Map を作らない純関数。
+  function fileHue(file: string): number {
+    let h = 0;
+    for (let i = 0; i < file.length; i++) h = (h * 31 + file.charCodeAt(i)) % 360;
+    return h;
+  }
+  // ファイルハブの色（KC/mastery。Level-1 の featureClass と同じ理解度レンズ）。
+  function hubClass(file: string): string {
+    return featureClass(fileMap.get(file)?.mastery ?? "unexplored");
+  }
 
   function edgeActive(l: { a: string; b: string }): boolean {
     return hovered !== null && (l.a === hovered || l.b === hovered);
@@ -305,10 +348,7 @@
             onmouseleave={() => (hovered = null)}
             onfocusin={() => (hovered = f.key)}
             onfocusout={() => (hovered = null)}
-            onclick={() => {
-              selected = f.key;
-              hovered = null;
-            }}
+            onclick={() => openFeature(f.key)}
           >
             <span class="block max-w-36 truncate text-xs font-semibold">{f.name}</span>
             <span class="block text-[10px] opacity-80">
@@ -372,8 +412,8 @@
             </div>
           {/each}
         {/if}
-      {:else if sub}
-        <!-- Level 2: 機能内ファイル依存グラフ -->
+      {:else if selected !== null}
+        <!-- Level 2: 機能の関数レベルグラフ（issue 282）。ファイル=ハブ, 関数=子。CONTAINS+CALLS で接続。 -->
         <svg class="pointer-events-none absolute inset-0 size-full" viewBox="0 0 100 100">
           <defs>
             <marker
@@ -388,7 +428,7 @@
               <path d="M0,0 L10,5 L0,10 z" fill="rgba(100,116,139,0.85)" />
             </marker>
           </defs>
-          {#each sLines as l (l.a + " " + l.b)}
+          {#each featLines as l (l.a + " " + l.b)}
             <line
               class="graph-el"
               x1={l.x1}
@@ -402,24 +442,66 @@
           {/each}
         </svg>
 
-        {#each sub.files as file (file.path)}
-          {@const p = slayout.get(file.path) ?? FALLBACK}
-          <!-- ファイルクリックで Level 3（ファイル内関数グラフ）へ。orgSlug/projectSlug 未指定（デモ）では openFile は no-op。 -->
-          <button
-            type="button"
-            data-node
-            class="graph-el absolute -translate-x-1/2 -translate-y-1/2 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(sub.neighbors, file.path) ? 0.35 : 1};"
-            aria-label={file.path}
-            onmouseenter={() => (hovered = file.path)}
-            onmouseleave={() => (hovered = null)}
-            onfocusin={() => (hovered = file.path)}
-            onfocusout={() => (hovered = null)}
-            onclick={() => openFile(file.path)}
-          >
-            <StarNode {file} />
-          </button>
-        {/each}
+        {#if featLoading}
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span class="text-xs text-muted-foreground">{m.common_loading()}</span>
+          </div>
+        {:else if featNodes.length === 0}
+          <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
+            <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_functions()}</p>
+          </div>
+        {:else}
+          {#each featNodes as node (node.id)}
+            {@const p = featLayout.get(node.id) ?? FALLBACK}
+            {#if node.kind === "file"}
+              <!-- ファイルハブ: KC で着色。クリックで Level 3（ファイル内関数グラフ）へドリル。 -->
+              <button
+                type="button"
+                data-node
+                class={cn(
+                  "graph-el absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border px-2 py-1 text-center shadow-sm",
+                  "hover:ring-2 hover:ring-ring/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  hubClass(node.file),
+                )}
+                style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(featGraph.neighbors, node.id) ? 0.35 : 1};"
+                aria-label={node.file}
+                onmouseenter={() => (hovered = node.id)}
+                onmouseleave={() => (hovered = null)}
+                onfocusin={() => (hovered = node.id)}
+                onfocusout={() => (hovered = null)}
+                onclick={() => openFile(node.file)}
+              >
+                <span class="block max-w-32 truncate font-mono text-[11px] font-semibold">{node.label}</span>
+              </button>
+            {:else}
+              <!-- 関数ノード: ファイル別の淡い色相でクラスタを見分ける（KC は持たない）。 -->
+              <div
+                data-node
+                class="graph-el absolute -translate-x-1/2 -translate-y-1/2 rounded-full border px-1.5 py-0.5 text-center shadow-sm"
+                style="left: {p.x}%; top: {p.y}%; opacity: {dimmed(featGraph.neighbors, node.id)
+                  ? 0.35
+                  : 1}; border-color: hsl({fileHue(node.file)} 45% 55% / 0.7); background-color: hsl({fileHue(
+                  node.file,
+                )} 45% 55% / 0.12);"
+                role="group"
+                aria-label={node.label}
+                onmouseenter={() => (hovered = node.id)}
+                onmouseleave={() => (hovered = null)}
+                onfocusin={() => (hovered = node.id)}
+                onfocusout={() => (hovered = null)}
+              >
+                <span class="block max-w-28 truncate font-mono text-[10px] text-foreground">{node.label}</span>
+              </div>
+            {/if}
+          {/each}
+          {#if featTruncated}
+            <div
+              class="pointer-events-none absolute bottom-2 left-2 rounded bg-muted/80 px-2 py-1 text-[10px] text-muted-foreground"
+            >
+              {m.galaxy_graph_truncated()}
+            </div>
+          {/if}
+        {/if}
       {/if}
     </div>
 

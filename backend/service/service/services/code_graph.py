@@ -119,8 +119,10 @@ async def extract_snapshot(repo_dir: str) -> dict:
     Returns ``{"file_edges": [...], "functions": [...], "function_calls": [...]}`` for persistence:
     - ``file_edges`` (Level-2): cross-file function calls aggregated to files
       (``File-[:CONTAINS]->Function-[:CALLS]->Function<-[:CONTAINS]-File``) — the feature's file subgraph.
-    - ``functions`` / ``function_calls`` (Level-3, issue 240): per-file functions and intra-file call
-      edges, for the on-demand file drilldown.
+    - ``functions``: per-file function nodes (``{file, name}``).
+    - ``function_calls``: function-level CALLS with both endpoints' files
+      (``{source_file, source, target_file, target}``) — intra- AND cross-file (issue 282), so the
+      feature graph connects functions across files. The single-file drilldown filters to same-file.
     CGC's ``File.relative_path`` is repo-relative, matching ``file_kc`` paths so the frontend joins by
     path. The three layers are extracted **independently** (a repo may have intra-file functions but no
     cross-file calls, or vice versa). Best-effort + bounded (``LIMIT``); returns ``{}`` only when all
@@ -146,16 +148,21 @@ async def extract_snapshot(repo_dir: str) -> dict:
         "MATCH (f:File)-[:CONTAINS]->(fn:Function) WHERE fn.name <> '<module>' "
         f"RETURN DISTINCT f.relative_path AS file, fn.name AS name LIMIT {_SNAPSHOT_FN_LIMIT}"
     )
+    # Function-level CALLS with BOTH endpoints' files (intra- AND cross-file), so the feature graph can
+    # connect functions across files (issue 282). Cross-file calls used to be aggregated away into
+    # `file_edges`; here we keep the function-level endpoints. Self-edges (same file + same name) dropped.
     call_rows = await _cgc_query(
-        "MATCH (f:File)-[:CONTAINS]->(a:Function)-[:CALLS]->(b:Function)<-[:CONTAINS]-(f) "
-        "WHERE a.name <> '<module>' AND b.name <> '<module>' AND a.name <> b.name "
-        f"RETURN DISTINCT f.relative_path AS file, a.name AS source, b.name AS target LIMIT {_SNAPSHOT_FN_LIMIT}"
+        "MATCH (fa:File)-[:CONTAINS]->(a:Function)-[:CALLS]->(b:Function)<-[:CONTAINS]-(fb:File) "
+        "WHERE a.name <> '<module>' AND b.name <> '<module>' "
+        "AND NOT (fa.relative_path = fb.relative_path AND a.name = b.name) "
+        "RETURN DISTINCT fa.relative_path AS source_file, a.name AS source, "
+        f"fb.relative_path AS target_file, b.name AS target LIMIT {_SNAPSHOT_FN_LIMIT}"
     )
     functions = [{"file": r["file"], "name": r["name"]} for r in fn_rows if r.get("file") and r.get("name")]
     function_calls = [
-        {"file": r["file"], "source": r["source"], "target": r["target"]}
+        {"source_file": r["source_file"], "source": r["source"], "target_file": r["target_file"], "target": r["target"]}
         for r in call_rows
-        if r.get("file") and r.get("source") and r.get("target")
+        if r.get("source_file") and r.get("source") and r.get("target_file") and r.get("target")
     ]
     if not edges and not functions and not function_calls:
         return {}

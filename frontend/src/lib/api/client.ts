@@ -11,6 +11,7 @@ import {
   codeWalkthroughSchema,
   codeWalkthroughJobSchema,
   codeGraphSchema,
+  featureFunctionGraphSchema,
   fileFunctionGraphSchema,
   learningPlanSchema,
   learningStepSchema,
@@ -39,6 +40,7 @@ import {
   type LearningStep,
   type CodeWalkthrough,
   type CodeGraph,
+  type FeatureFunctionGraph,
   type FileFunctionGraph,
   type Overview,
   type PersonalGalaxy,
@@ -659,4 +661,16 @@ export async function getFileFunctionGraph(
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/code-graph/file?${params}`);
   if (!response.ok) throw new Error(await errorDetail(response, "関数グラフの取得に失敗しました"));
   return fileFunctionGraphSchema.parse(await response.json());
+}
+
+// 機能の関数レベルグラフ（Level-2, issue 282）: 機能ノードのクリック時に遅延取得。
+export async function getFeatureFunctionGraph(
+  orgSlug: string,
+  projectSlug: string,
+  featureKey: string,
+): Promise<FeatureFunctionGraph> {
+  const params = new URLSearchParams({ key: featureKey });
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/code-graph/feature?${params}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "機能グラフの取得に失敗しました"));
+  return featureFunctionGraphSchema.parse(await response.json());
 }

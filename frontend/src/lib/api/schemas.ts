@@ -550,3 +550,17 @@ export const fileFunctionGraphSchema = z.object({
   edges: z.array(z.object({ source: z.string(), target: z.string() })).default([]),
 });
 export type FileFunctionGraph = z.infer<typeof fileFunctionGraphSchema>;
+
+// 機能の関数レベルグラフ（Level-2, issue 282）。ファイル=ハブ, 関数=子ノード。CONTAINS+CALLS で接続。
+// 機能ノードのクリック時に遅延取得する。id は "file::<path>" / "<file>::<name>" の合成。
+export const featureFunctionGraphSchema = z.object({
+  observed: z.boolean(),
+  nodes: z
+    .array(z.object({ id: z.string(), label: z.string(), file: z.string(), kind: z.enum(["file", "function"]) }))
+    .default([]),
+  edges: z
+    .array(z.object({ source: z.string(), target: z.string(), type: z.enum(["contains", "calls"]) }))
+    .default([]),
+  truncated: z.boolean().default(false),
+});
+export type FeatureFunctionGraph = z.infer<typeof featureFunctionGraphSchema>;

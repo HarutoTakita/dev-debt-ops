@@ -53,17 +53,18 @@ async def test_build_graph_empty_repo_dir_returns_false() -> None:
 
 async def test_extract_snapshot_builds_file_and_function_graph(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _fake_query(cypher: str) -> list[dict]:
-        if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # intra-file function calls (Level-3 edges)
-            return [{"file": "mod.py", "source": "a", "target": "b"}]
+        if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # function calls with both files (issue 282)
+            return [{"source_file": "mod.py", "source": "a", "target_file": "util.py", "target": "b"}]  # cross-file
         if "CONTAINS]->(fn:Function)" in cypher:  # per-file functions (Level-3 nodes)
-            return [{"file": "mod.py", "name": "a"}, {"file": "mod.py", "name": "b"}]
+            return [{"file": "mod.py", "name": "a"}, {"file": "util.py", "name": "b"}]
         return [{"source": "app.py", "target": "mod.py"}]  # file↔file (Level-2 edges)
 
     monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)
     snap = await code_graph.extract_snapshot("/tmp/repo")
     assert snap["file_edges"] == [{"source": "app.py", "target": "mod.py"}]
     assert {"file": "mod.py", "name": "a"} in snap["functions"]
-    assert {"file": "mod.py", "source": "a", "target": "b"} in snap["function_calls"]
+    # cross-file call kept with both endpoints' files (previously collapsed away into file_edges).
+    assert {"source_file": "mod.py", "source": "a", "target_file": "util.py", "target": "b"} in snap["function_calls"]
 
 
 async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -72,7 +73,7 @@ async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeyp
 
     async def _fake_query(cypher: str) -> list[dict]:
         if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # intra-file calls present
-            return [{"file": "mod.py", "source": "a", "target": "b"}]
+            return [{"source_file": "mod.py", "source": "a", "target_file": "mod.py", "target": "b"}]
         if "CONTAINS]->(fn:Function)" in cypher:  # functions present
             return [{"file": "mod.py", "name": "a"}, {"file": "mod.py", "name": "b"}]
         return []  # no cross-file (Level-2) edges
@@ -81,7 +82,7 @@ async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeyp
     snap = await code_graph.extract_snapshot("/tmp/repo")
     assert snap["file_edges"] == []
     assert {"file": "mod.py", "name": "a"} in snap["functions"]
-    assert {"file": "mod.py", "source": "a", "target": "b"} in snap["function_calls"]
+    assert {"source_file": "mod.py", "source": "a", "target_file": "mod.py", "target": "b"} in snap["function_calls"]
 
 
 async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,12 +101,12 @@ async def test_extract_snapshot_empty_repo_dir() -> None:
 _CGC = {
     "file_edges": [{"source": "a.py", "target": "b.py"}],
     "functions": [{"file": "a.py", "name": "cgc_fn"}],
-    "function_calls": [{"file": "a.py", "source": "cgc_fn", "target": "cgc_fn2"}],
+    "function_calls": [{"source_file": "a.py", "source": "cgc_fn", "target_file": "b.py", "target": "cgc_fn2"}],
 }
 _DET = {
     "file_edges": [{"source": "c.py", "target": "d.py"}],
     "functions": [{"file": "c.py", "name": "det_fn"}],
-    "function_calls": [{"file": "c.py", "source": "det_fn", "target": "det_fn2"}],
+    "function_calls": [{"source_file": "c.py", "source": "det_fn", "target_file": "c.py", "target": "det_fn2"}],
 }
 
 

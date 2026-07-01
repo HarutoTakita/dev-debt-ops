@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 理解度マップ: 機能ノードのクリック後を**関数レベルグラフに刷新**（issue 282）。従来はファイル粒度で数個のノードが接続されず散らばっていた。CodeGraphContext の関数レベル構造を活用し、**ファイル=ハブノード＋関数=子ノード**を `CONTAINS`（ハブ→関数）＋`CALLS`（関数→関数・ファイル跨ぎ含む）で接続。全関数が必ずファイルハブにつながるため孤立ノードが消え、CGC 公式ビューのような密なクラスタ構造になる。クリックした機能の構成ファイルにスコープ（遅延取得・ノード上限＋`truncated` 表示）。ファイルハブは KC で着色（理解度レンズ維持）・クリックで Level-3（単一ファイル）へドリル。
+  - backend: `code_graph.extract_snapshot` の `function_calls` を**ファイル跨ぎ**も含む `{source_file,source,target_file,target}` 形に拡張（従来は cross-file を `file_edges` に集約して破棄・intra-file のみ保持）。新 API `GET .../code-graph/feature?key=`（機能→ファイル集合を解決し file-hub/function ノード＋CONTAINS/CALLS を返す）。Level-3 エンドポイントは新形に追従＋旧形 stale 行を防御。`function_graph`（決定的フォールバック）も新形に整合。DB マイグレーション不要。
+  - frontend: 新 `getFeatureFunctionGraph`／`featureFunctionGraphSchema`／`buildFeatureFunctionGraph`。`star-map` の Level-2 を遅延取得の関数グラフに差し替え（旧 `buildFileSubgraph`／`codeGraphEdges` 配線は撤去）。
+
 ### Fixed
 
 - 学習プラン「このコードを理解する」の各ステップのタイトルが**プログラムのファイル名**になってしまう不具合を修正（issue 280）。原因はコード学習ステップ生成のプロンプト／エージェント指示が `title` に「ファイル名や扱う話題」とファイル名使用を許容していたこと。プロンプトを「その回で理解する内容を表す学習見出し（ファイル名・パスにしない）」に変更し、`learning_plan_generation` 側でもモデルがファイル名/パスをそのまま返した場合や生成が空のフォールバック時に学習タイトル（例: `login の実装を理解する`）へ置換するガードを追加。
