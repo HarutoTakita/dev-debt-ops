@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 解析コックピットを **4 ブロック構成**に変更（agent-first 追従）: ベースのリポジトリ解析（`base_analysis`）に専用のステータス表示場所がなかったため、**「リポジトリ探索」ブロックを先頭に追加**し、`リポジトリ探索 → 技術負債の検知 → 理解負債の整理 → クイズと学習の生成` の順で進捗を表示するようにした。`base_analysis` サブステップを新グループ `g_explore` 配下に出し、進捗バー・ステータスバッジがベース解析の running/completed/failed を反映。i18n（ja/en）に `analysis_group_explore`・`analysis_substep_base_analysis` を追加。backend `progress.py` の `base_analysis` を `g_explore` グループに整合。
+
 ### Removed
 
 - デッドコード削除（issue 278）: 旧 Twin Agent 専用だった **Trivy/Semgrep の MCP レイヤ**（`agents/trivy_mcp.py`・`agents/semgrep_mcp.py`・`agents/semgrep_mcp_server.py`＋`tests/test_trivy_mcp.py`）を削除（#276 で唯一の呼び出し元が消え、呼び出し元ゼロになっていた）。Dockerfile の `trivy plugin install mcp` も削除（Trivy バイナリ本体は CLI ブロックで使うため残置）。Semgrep はエンジン自体は `code_debt_detection` の決定的ブロック（`services/semgrep_scan.py`）で従来どおり稼働。

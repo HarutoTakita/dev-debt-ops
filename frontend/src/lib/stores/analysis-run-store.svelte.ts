@@ -49,6 +49,9 @@ export type StageGroupDef = {
 // 上書きする（issue 244）。label は i18n キーで持つ（backend ラベルに依存せず ja/en 両対応）。
 export type SubStepDef = { key: string; group: string; labelKey: string };
 export const AGENTIC_SUBSTEPS: SubStepDef[] = [
+  // `base_analysis`（エージェントによるリポジトリ解析＝最初に走る元データ生成）を「リポジトリ探索」ブロックの
+  // 子として表示し、ベース解析の進捗/ステータスにも表示場所を持たせる（それ以前は最上位親に集約されていた）。
+  { key: "base_analysis", group: "g_explore", labelKey: "analysis_substep_base_analysis" },
   { key: "feature_clustering", group: "g_repay", labelKey: "analysis_substep_feature_clustering" },
   { key: "code_debt_detection", group: "g_technical", labelKey: "analysis_substep_code_debt_detection" },
   { key: "kc_analysis", group: "g_knowledge", labelKey: "analysis_substep_kc_analysis" },
@@ -56,12 +59,15 @@ export const AGENTIC_SUBSTEPS: SubStepDef[] = [
   { key: "stack_analysis", group: "g_technical", labelKey: "analysis_substep_stack_analysis" },
   { key: "baseline", group: "g_repay", labelKey: "analysis_substep_baseline" },
 ];
-// 注: `base_analysis`（エージェントによるリポジトリ解析＝元データ生成、最初に実行）は個々の成果グループの子では
-// なく、解析全体そのもの。コックピットは「エージェントによるリポジトリ解析」を最上部の親タスクとして描画し、
-// 3 グループをその子として入れ子表示する（親のステータスは agentic ステージ全体に連動、issue 256/258/275）。
-// よって substep カタログには含めない。
 
+// 表示順: リポジトリ探索 → 技術負債の検知 → 理解負債の整理 → クイズと学習の生成（issue 275 フォローアップ）。
 export const STAGE_GROUPS: StageGroupDef[] = [
+  {
+    id: "g_explore",
+    labelKey: "analysis_group_explore",
+    stageIds: ["agentic"],
+    deepLink: null, // ベース解析（元データ）は専用画面を持たないためリンク無し
+  },
   {
     id: "g_technical",
     labelKey: "analysis_group_technical",
