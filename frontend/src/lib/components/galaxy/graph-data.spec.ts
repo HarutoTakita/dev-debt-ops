@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toFileFunctionGraphData, toFileGraphData } from "./graph-data";
+import { toFileGraphData } from "./graph-data";
 import type { FileMastery } from "$lib/api/schemas";
 
 // issue 288: ドメイン → force-graph {nodes,links} 変換。純粋・決定的（描画自体は canvas で別途）。
@@ -29,19 +29,17 @@ describe("toFileGraphData", () => {
     expect(nodes.map((n) => n.id).sort()).toEqual(["a.py", "b.py"]); // c.py は billing のみ → 除外
     expect(links).toEqual([{ source: "a.py", target: "b.py", kind: "calls" }]); // a→c は c 除外で落ちる
   });
-});
 
-describe("toFileFunctionGraphData", () => {
-  it("builds function nodes + calls links, dropping unknown/self", () => {
-    const { nodes, links } = toFileFunctionGraphData(
-      ["helper", "inner"],
+  it("drops unknown/self edges", () => {
+    const { links } = toFileGraphData(
+      [file("a.py"), file("b.py")],
       [
-        { source: "helper", target: "inner" },
-        { source: "helper", target: "ghost" }, // unknown → dropped
-        { source: "helper", target: "helper" }, // self → dropped
+        { source: "a.py", target: "b.py" },
+        { source: "a.py", target: "ghost" }, // unknown → dropped
+        { source: "a.py", target: "a.py" }, // self → dropped
       ],
+      null,
     );
-    expect(nodes.map((n) => n.id).sort()).toEqual(["helper", "inner"]);
-    expect(links).toEqual([{ source: "helper", target: "inner", kind: "calls" }]);
+    expect(links).toEqual([{ source: "a.py", target: "b.py", kind: "calls" }]);
   });
 });

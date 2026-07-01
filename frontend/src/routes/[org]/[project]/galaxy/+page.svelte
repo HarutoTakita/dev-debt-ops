@@ -55,7 +55,7 @@
       <Tabs.Content value="map" class="mt-3 flex min-h-0 flex-1 flex-col gap-3">
         <Tooltip.Provider delayDuration={150}>
           <div class="min-h-0 flex-1" data-tour="galaxy-map">
-            <StarMap galaxy={galaxy.galaxy} fileEdges={galaxy.codeGraphEdges} {orgSlug} {projectSlug} />
+            <StarMap galaxy={galaxy.galaxy} fileEdges={galaxy.codeGraphEdges} />
           </div>
         </Tooltip.Provider>
         <GalaxyLegend />
