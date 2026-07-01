@@ -101,7 +101,7 @@ async def test_galaxy_projects_personal_kc(authenticated_client: AsyncClient) ->
     body = resp.json()
     assert body["observed"] is True
     assert body["developer"] == "me-handle"
-    assert body["org_kc"] == 0.4  # mean(0.8 login, 0.0 token-unexplored)
+    assert body["org_kc"] == 0.65  # mean(0.8 login dev-KC, 0.5 token team-KC fallback)
 
     systems = {s["module"]: s for s in body["systems"]}
     auth = systems["auth"]
@@ -109,9 +109,11 @@ async def test_galaxy_projects_personal_kc(authenticated_client: AsyncClient) ->
     assert files["auth/login.py"]["kc"] == 0.8  # this developer's KC(file,dev)
     assert files["auth/login.py"]["mastery"] == "star"
     assert files["auth/login.py"]["mastered"] is True
-    assert files["auth/token.py"]["kc"] == 0.0  # untouched by this dev → unexplored
-    assert files["auth/token.py"]["mastery"] == "unexplored"
-    assert auth["kc"] == 0.4  # mean of the two files' dev KC
+    # Untouched by this dev → falls back to the aggregate (team) KC/mastery instead of grey unexplored,
+    # so node colors reflect the codebase even when the viewer didn't author the file.
+    assert files["auth/token.py"]["kc"] == 0.5
+    assert files["auth/token.py"]["mastery"] == "dim_star"
+    assert auth["kc"] == 0.65  # mean of the two files' KC (dev for login, team fallback for token)
 
     assert body["wormholes"] == [{"from": "auth/login.py", "to": "auth/token.py"}]
 
