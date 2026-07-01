@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
-from service.services import gemini_stack_service
+from service.services import learning_authoring
 from service.services.code_analysis import is_vendored_path
 from service.services.code_walkthrough import build_walkthrough
 from service.services.github_app import GitHubAppService
@@ -283,8 +283,12 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
                 await client.aclose()
         code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
         code_desc = ""
+    # 学習ステップ/外部リソースはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。各 1 呼び出し。
+    plan_owner, _, plan_repo = request.repo_full_name.partition("/")
     try:
-        code_steps = await gemini_stack_service.generate_code_learning_steps(code_name, code_desc, code_files)
+        code_steps = await learning_authoring.generate_code_learning_steps_agentic(
+            code_name, code_desc, code_files, owner=plan_owner, repo=plan_repo
+        )
     except ValueError:
         logger.warning("Gemini code-learning unavailable; listing files without explanations")
         code_steps = []
@@ -293,7 +297,9 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
     # Section B: 技術スタックの一般学習リソース。
     try:
         terms = await _stack_terms(session, request)
-        stack = _stack_resources(await gemini_stack_service.generate_external_resources(terms))
+        stack = _stack_resources(
+            await learning_authoring.generate_external_resources_agentic(terms, owner=plan_owner, repo=plan_repo)
+        )
     except ValueError:
         logger.warning("Gemini stack-learning unavailable; code section only")
         stack = []
