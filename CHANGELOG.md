@@ -36,6 +36,8 @@
 
 ### Fixed
 
+- 「エージェントによるリポジトリ解析」だけが失敗し解析全体が飛ぶ／コックピットが「処理中」のまま固まる不具合を修正（issue 260）: Twin Agent（判断レイヤ）の呼び出し `run_twin_agent` が `try/finally`（後片付けのみ）で括られ **except を持たなかった**ため、Gemini の一時障害（`502 Bad Gateway` 等）で例外化すると `run_task` が **全 flush をロールバックしてジョブを FAILED** にし、決定的バックボーン（コード負債/理解度/機能/学習・クイズ）の成果まで失われていた。Twin Agent はベストエフォートの判断レイヤなので、失敗してもログを残して**推奨なしで解析を COMPLETED として確定**する（graceful degradation・バックボーン成果は保持・ジョブは終了状態に到達）よう `except` を追加。あわせて `gemini_stack_service._generate` の再試行対象に **502/504** を追加（`{429,500,502,503,504}`。Google の 502 応答も "try again" を明示）。回帰テストを追加。
+
 - コード負債の検知が semgrep の一時ディレクトリ作成失敗（ディスク満杯 `[Errno 28] No space left on device`）で落ちる不具合を修正（issue 254）: `semgrep_scan.scan_files` は docstring で「`[]` on failure」を謳うのに、`tempfile.TemporaryDirectory(...)` 生成が try/except の外にあり ENOSPC が素通りして `code_debt_detection` step 全体を落としていた。一時ディレクトリ生成〜スキャンを `except OSError` で囲み、ディスク満杯等の環境要因では警告ログを残して `[]` を返す（ヒューリスティック検知は継続＝graceful）。回帰テストを追加。なお根本原因はディスク空き容量不足のため、運用側で空き確保（`docker system prune` 等）も必要。
 
 - リポジトリ解析モーダルで、解析が一度完了すると子サブステップのステータスが空（未実行）に戻ってしまう不具合を修正（issue 252）: コックピット再マウント時の `analysisRun.hydrate` が `analysis-status`（progress 非対応）からステージ状態だけ復元し子の `progress` を復元していなかったため、`childrenFor` が全子 pending（○）になっていた。`hydrate` を完了/失敗ステージで `getJob(job_id)` から `progress` も取得して復元、`#poll` は直近の非 null `progress` を保持、コックピット `childrenFor` はステージ完了時に live ステータス無しの子を「完了」既定にする安全網を追加。完了後も各子の ✓/× が維持される。
