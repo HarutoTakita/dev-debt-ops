@@ -293,6 +293,7 @@
   "galaxy_my_kc": "自分の理解度",
   "galaxy_no_features": "機能がまだありません。「解析」を実行すると機能ごとのマップが表示されます。",
   "galaxy_no_functions": "このファイルには関数のコール関係が見つかりませんでした。",
+  "galaxy_graph_truncated": "関数が多いため一部のみ表示しています",
   "galaxy_file_count": "{count} ファイル",
   "galaxy_zoom_in": "拡大",
   "galaxy_zoom_out": "縮小",
