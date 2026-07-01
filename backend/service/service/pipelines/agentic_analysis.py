@@ -210,8 +210,14 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             requested_by=request.requested_by,
             project_id=request.project_id,
         )
+        # agent-first (issue 271): enrich deterministic code debts with the agent's rationale (notes
+        # only; scores/severity stay deterministic). Empty base → base_findings=None (no change).
+        base_code_findings = [f.model_dump() for f in base_analysis.code_findings] or None
         await _run_backbone_step(
-            "code_debt_detection", lambda: code_debt_detection.process(cd_req, ctx), steps, reporter
+            "code_debt_detection",
+            lambda: code_debt_detection.process(cd_req, ctx, base_findings=base_code_findings),
+            steps,
+            reporter,
         )
         kc_req = KcAnalysisRequest(
             job_id=request.job_id,

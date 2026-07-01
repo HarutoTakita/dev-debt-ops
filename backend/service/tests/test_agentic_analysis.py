@@ -28,7 +28,7 @@ from service.services.github_git_client import FileContent, TreeItem
 from shared.enums import JobType, ResultStatus
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest
-from shared.schemas.base_analysis import BaseAnalysis, BaseFeature
+from shared.schemas.base_analysis import BaseAnalysis, BaseCodeFinding, BaseFeature
 from shared.schemas.stack_analysis import GitHubRef
 
 
@@ -281,7 +281,11 @@ class TestProcess:
         # Agent-first (issue 266): the Base Analysis Agent runs FIRST, then the deterministic backbone
         # (mocked) still produces the screen tables. Assert order and that a non-empty base is persisted.
         self._mock_backbone(mocker)
-        base = BaseAnalysis(features=[BaseFeature(key="auth", name="Auth")], summary="s")
+        base = BaseAnalysis(
+            features=[BaseFeature(key="auth", name="Auth")],
+            code_findings=[BaseCodeFinding(file_path="auth.py", type="complexity", rationale="属人化")],
+            summary="s",
+        )
         mocker.patch.object(
             agentic_analysis,
             "run_analysis_agent",
@@ -303,6 +307,10 @@ class TestProcess:
         fc_clusters = feature_clustering.process.call_args.kwargs["clusters"]
         assert fc_clusters is not None
         assert fc_clusters[0]["key"] == "auth"
+        # agent-first (issue 271): base code findings flow into the code-debt block as `base_findings`.
+        cd_base = code_debt_detection.process.call_args.kwargs["base_findings"]
+        assert cd_base is not None
+        assert cd_base[0]["file_path"] == "auth.py"
         assert result.agent_trace == [
             "[summary] 危険な機能を特定",  # agent-first: the agent trace precedes the backbone steps
             "[backbone] feature_clustering done",
@@ -329,6 +337,7 @@ class TestProcess:
         assert feature_clustering.process.await_count == 1  # backbone still produces the screen tables
         # empty base → feature-clustering falls back to the deterministic model path (clusters=None).
         assert feature_clustering.process.call_args.kwargs["clusters"] is None
+        assert code_debt_detection.process.call_args.kwargs["base_findings"] is None
 
     async def test_agent_failure_still_completes(self, mocker) -> None:
         """issue 260/266: a base-agent failure (e.g. transient Gemini 502) must NOT fail/roll back the
