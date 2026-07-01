@@ -8,6 +8,8 @@
 
 ### Changed
 
+- 理解度マップを**「ファイル単位グラフ＋機能フィルタ」構成に再編**（issue 288）。機能クラスタは高々 5 個程度でグラフ表示の意味が薄いため、**機能グラフ（Level 1）と機能→関数グラフ（Level 2）を廃止**。既定で**プロジェクト全体のファイル単位グラフ**（ノード=ファイル・KC 着色、エッジ=`code-graph` の file_edges／無ければ import 由来 wormhole）を force-graph で表示し、**機能フィルタ**（`galaxy.features` のチップ・フロント完結）でその機能に属するファイルのみへ絞り込めるようにした。ファイルをクリックすると従来どおり**そのファイル内の関数コールグラフ（Level 3）へドリル**（「← 戻る」でファイルグラフへ・フィルタ維持）。`graph-data.ts` に `toFileGraphData` を追加し機能変換を削除、`galaxy-graph.ts` の未使用ビルダを一掃、`galaxy-store` に file_edges 取得を復活。backend/API 変更なし。
+
 - 理解度マップのグラフ表示を **`force-graph`(canvas) に刷新**（issue 284）。自作の静的 force レイアウトは衝突回避が無くノードが重なって見えなかったため、CodeGraphContext 同様の force-directed インタラクティブグラフへ置換。`force-graph` ＋ `d3-force-3d` の `forceCollide` で**ノード重なりを構造的に解消**し、ドラッグ/ズーム/パン/ホバー強調・矢印付き有向エッジ（`calls`）を追加。file-hub は KC で着色（理解度レンズ維持）、関数はファイル別色。3 段ドリル（機能→関数グラフ→単一ファイル）・遅延取得・loading/empty/truncated・戻るナビは維持。新規 `graph-canvas.svelte`（SSR/prerender 安全な動的 import・`_destructor` teardown・テーマ変更で再配色）＋ `graph-data.ts`（純粋変換）。自作 `force-layout.ts` は撤去。backend/API 変更なし。※レイアウトは force-directed のため毎回同一配置ではない（`onEngineStop`→`zoomToFit` で常に全体をフレーム）。（issue 286: custom `nodeCanvasObject` がポインタ判定領域を上書きし既定ズームでノードをクリックできず機能クリックでドリルしない不具合を、`nodePointerAreaPaint` でノード円を判定域として塗ることで修正。）
 
 - 理解度マップ: 機能ノードのクリック後を**関数レベルグラフに刷新**（issue 282）。従来はファイル粒度で数個のノードが接続されず散らばっていた。CodeGraphContext の関数レベル構造を活用し、**ファイル=ハブノード＋関数=子ノード**を `CONTAINS`（ハブ→関数）＋`CALLS`（関数→関数・ファイル跨ぎ含む）で接続。全関数が必ずファイルハブにつながるため孤立ノードが消え、CGC 公式ビューのような密なクラスタ構造になる。クリックした機能の構成ファイルにスコープ（遅延取得・ノード上限＋`truncated` 表示）。ファイルハブは KC で着色（理解度レンズ維持）・クリックで Level-3（単一ファイル）へドリル。
