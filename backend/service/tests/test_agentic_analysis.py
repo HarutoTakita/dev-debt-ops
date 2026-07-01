@@ -190,6 +190,8 @@ class TestProcess:
         kd_base = knowledge_debt_detection.process.call_args.kwargs["base_findings"]
         assert kd_base is not None
         assert kd_base[0]["reason"] == "no_review"
+        # issue 278: no clone in this test (shallow_clone→None) → Trivy skipped, empty findings passed.
+        assert code_debt_detection.process.call_args.kwargs["trivy_findings"] == []
         assert result.agent_trace == [
             "[summary] 危険な機能を特定",  # agent-first: the agent trace precedes the backbone steps
             "[backbone] feature_clustering done",
@@ -201,6 +203,24 @@ class TestProcess:
             "[generate] quiz: auth",
         ]
         assert result.summary == "[summary] 危険な機能を特定"
+
+    async def test_trivy_runs_on_clone_and_feeds_code_debt(self, mocker) -> None:
+        """issue 278: with a clone present, Trivy scans it and its findings flow into the code-debt block."""
+        self._mock_backbone(mocker)
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value="/tmp/clone"))
+        mocker.patch.object(agentic_analysis.code_graph, "build_graph", AsyncMock(return_value=False))
+        mocker.patch.object(agentic_analysis.function_graph, "read_repo_sources", return_value={})
+        mocker.patch.object(agentic_analysis.function_graph, "build_snapshot", return_value={})
+        mocker.patch.object(agentic_analysis, "run_analysis_agent", AsyncMock(return_value=([], BaseAnalysis())))
+        from service.services.trivy_scan import TrivyAggregate
+
+        agg = TrivyAggregate(file_path="requirements.txt", debt_type="security", score=0.9, notes="Trivy…")
+        scan = mocker.patch.object(agentic_analysis.trivy_scan, "scan_repo", AsyncMock(return_value=[agg]))
+
+        await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        scan.assert_awaited_once_with("/tmp/clone")
+        assert code_debt_detection.process.call_args.kwargs["trivy_findings"] == [agg]
 
     async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
         """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""
