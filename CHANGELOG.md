@@ -8,9 +8,13 @@
 
 ### Removed
 
+- デッドコード削除（issue 278）: 旧 Twin Agent 専用だった **Trivy/Semgrep の MCP レイヤ**（`agents/trivy_mcp.py`・`agents/semgrep_mcp.py`・`agents/semgrep_mcp_server.py`＋`tests/test_trivy_mcp.py`）を削除（#276 で唯一の呼び出し元が消え、呼び出し元ゼロになっていた）。Dockerfile の `trivy plugin install mcp` も削除（Trivy バイナリ本体は CLI ブロックで使うため残置）。Semgrep はエンジン自体は `code_debt_detection` の決定的ブロック（`services/semgrep_scan.py`）で従来どおり稼働。
+
 - 解析アーキ再設計 PR5（issue 275・agent-first 完了）: **「判断（judgement）」レイヤを撤去**。旧 Twin Agent チェーン（`agents/twin.py` の knowledge→code→remediation `SequentialAgent`）と `agents/remediation.py`、`runner.run_twin_agent` を削除し、`AgenticAnalysisResult.recommendations`（どの画面にも未配信だった）フィールドを廃止。解析は「Base 解析エージェント（元データ生成）→ 決定的バックボーン（整形・強化）」の agent-first パイプラインに一本化された。進捗表示はエージェント段を先頭に移動し `twin_agent`→`base_analysis`（ラベル「エージェントによるリポジトリ解析」）へ改名。※ Trivy（SCA/secret/misconfig）MCP は旧判断エージェント専用だったため現状どの段でも未実行（決定的 Trivy ブロック化は今後の課題）。Semgrep は従来どおり `code_debt_detection` の決定的ブロックで実行。
 
 ### Added
+
+- **Trivy セキュリティスキャンを決定的ブロックとして復活**（issue 278）: agent-first 再設計で旧 Twin Agent を削除した際に解析から消えていた Trivy（SCA/secret/misconfig）を、エージェントのツールではなく**決定的プログラムブロック**として再導入。新規 `services/trivy_scan.py`（`semgrep_scan` と同型の CLI ラッパ・graceful）が `agentic_analysis` の**既存 shallow clone を再利用**して `trivy fs` を実行し、ファイル単位に集約。`code_debt_detection.process(..., trivy_findings=)` が結果を `code_debts`（type=`security`・frontend enum 準拠）として永続化。複数検知が同一 `(file, type)` に当たる場合は max score＋notes 連結でマージ（Semgrep security と衝突しても失わない）。単体実行時は Trivy 未指定＝従来動作。
 
 - 解析アーキ再設計 PR4（issue 273・agent-first）: **理解負債の説明を Base 解析エージェント所見で強化**。`knowledge_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（ai_generated/author_left/no_review）の各 `detection_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**KC/coverage/score は決定的のまま**（判断#3）。`agentic_analysis` の knowledge_debt ブロックが `base_analysis.knowledge_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
 
