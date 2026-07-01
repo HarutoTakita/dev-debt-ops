@@ -1,48 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { toFeatureFunctionGraphData, toFeatureGraphData, toFileFunctionGraphData } from "./graph-data";
-import type { FeatureNode, FileMastery } from "$lib/api/schemas";
+import { toFileFunctionGraphData, toFileGraphData } from "./graph-data";
+import type { FileMastery } from "$lib/api/schemas";
 
-// issue 284: ドメイン → force-graph {nodes,links} 変換。純粋・決定的（描画自体は canvas で別途）。
-describe("graph-data transforms", () => {
-  it("toFeatureGraphData maps features to nodes + feature links", () => {
-    const features: FeatureNode[] = [
-      { key: "auth", name: "Auth", kc: 0.5, mastery: "star", file_count: 3 },
-      { key: "billing", name: "Billing", kc: 0.2, mastery: "black_hole", file_count: 2 },
-    ];
-    const { nodes, links } = toFeatureGraphData(features, [{ from: "auth", to: "billing" }]);
-    expect(nodes.map((n) => n.id).sort()).toEqual(["auth", "billing"]);
-    expect(nodes.every((n) => n.kind === "feature")).toBe(true);
-    expect(links).toEqual([{ source: "auth", target: "billing", kind: "feature" }]);
+// issue 288: ドメイン → force-graph {nodes,links} 変換。純粋・決定的（描画自体は canvas で別途）。
+function file(path: string, feature_keys: string[] = [], mastery: FileMastery["mastery"] = "star"): FileMastery {
+  return { path, module: path.split("/")[0], kc: 0.5, mastery, mastered: false, feature_keys };
+}
+
+describe("toFileGraphData", () => {
+  const files = [file("a.py", ["auth"]), file("b.py", ["auth"]), file("c.py", ["billing"])];
+  const edges = [
+    { source: "a.py", target: "b.py" },
+    { source: "a.py", target: "c.py" },
+    { source: "a.py", target: "ghost" }, // 未知端点 → 落ちる
+  ];
+
+  it("builds file nodes + file edges over the whole project when featureKey is null", () => {
+    const { nodes, links } = toFileGraphData(files, edges, null);
+    expect(nodes.map((n) => n.id).sort()).toEqual(["a.py", "b.py", "c.py"]);
+    expect(nodes.every((n) => n.kind === "file")).toBe(true);
+    expect(nodes.find((n) => n.id === "a.py")?.label).toBe("a.py"); // basename ラベル
+    expect(links).toHaveLength(2); // a→b, a→c（a→ghost は除外）
+    expect(links.every((l) => l.kind === "calls")).toBe(true);
   });
 
-  it("toFeatureFunctionGraphData keeps kind + link type, colors file-hub by KC, sizes by degree", () => {
-    const featNodes = [
-      { id: "file::a.py", label: "a.py", file: "a.py", kind: "file" },
-      { id: "a.py::login", label: "login", file: "a.py", kind: "function" },
-      { id: "file::b.py", label: "b.py", file: "b.py", kind: "file" },
-      { id: "b.py::verify", label: "verify", file: "b.py", kind: "function" },
-    ];
-    const featEdges = [
-      { source: "file::a.py", target: "a.py::login", type: "contains" as const },
-      { source: "file::b.py", target: "b.py::verify", type: "contains" as const },
-      { source: "a.py::login", target: "b.py::verify", type: "calls" as const },
-    ];
-    const fileMap = new Map<string, FileMastery>([
-      ["a.py", { path: "a.py", module: "m", kc: 0.9, mastery: "star", mastered: true, feature_keys: [] }],
-    ]);
-    const { nodes, links } = toFeatureFunctionGraphData(featNodes, featEdges, fileMap);
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    expect(byId.get("file::a.py")?.mastery).toBe("star"); // file-hub colored by KC
-    expect(byId.get("file::b.py")?.mastery).toBeUndefined(); // not in fileMap → no mastery
-    expect(byId.get("a.py::login")?.mastery).toBeUndefined(); // functions carry no KC
-    // link kinds preserved (contains vs calls) for arrow styling.
-    expect(links).toContainEqual({ source: "a.py::login", target: "b.py::verify", kind: "calls" });
-    expect(links.filter((l) => l.kind === "contains")).toHaveLength(2);
-    // degree scaling: login has degree 2 (contains + calls), verify degree 2 as well; hub a.py degree 1.
-    expect(byId.get("a.py::login")!.val).toBeGreaterThan(byId.get("file::a.py")!.val - 100); // sanity: numbers
+  it("filters to a feature's files and drops edges leaving the set", () => {
+    const { nodes, links } = toFileGraphData(files, edges, "auth");
+    expect(nodes.map((n) => n.id).sort()).toEqual(["a.py", "b.py"]); // c.py は billing のみ → 除外
+    expect(links).toEqual([{ source: "a.py", target: "b.py", kind: "calls" }]); // a→c は c 除外で落ちる
   });
+});
 
-  it("toFileFunctionGraphData builds function nodes + calls links, dropping unknowns/self", () => {
+describe("toFileFunctionGraphData", () => {
+  it("builds function nodes + calls links, dropping unknown/self", () => {
     const { nodes, links } = toFileFunctionGraphData(
       ["helper", "inner"],
       [
