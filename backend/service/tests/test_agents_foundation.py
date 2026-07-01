@@ -150,6 +150,36 @@ def test_before_model_callback_raises_when_exhausted() -> None:
         callback(object(), object())
 
 
+def test_after_tool_callback_passes_small_results_through() -> None:
+    """A small tool result is left untouched (returns None → ADK keeps the original)."""
+    from service.agents.hooks import make_after_tool_callback
+
+    callback = make_after_tool_callback()
+    assert callback(tool_response={"ok": True, "items": [1, 2, 3]}) is None
+
+
+def test_after_tool_callback_truncates_large_results() -> None:
+    """An oversized tool result is replaced with a bounded stand-in (issue 260 follow-up)."""
+    from service.agents.hooks import _MAX_TOOL_RESULT_CHARS, make_after_tool_callback
+
+    callback = make_after_tool_callback()
+    huge = {"vulnerabilities": ["x" * 50 for _ in range(2000)]}  # serialises well past the cap
+    out = callback(tool_response=huge)
+    assert out is not None
+    assert out["truncated"] is True
+    assert len(out["result"]) <= _MAX_TOOL_RESULT_CHARS + 100  # cap + short suffix
+    assert out["original_chars"] > _MAX_TOOL_RESULT_CHARS
+
+
+def test_after_tool_callback_ignores_missing_or_unserializable() -> None:
+    """No tool_response → None; a non-JSON-serialisable response is left to ADK (None)."""
+    from service.agents.hooks import make_after_tool_callback
+
+    callback = make_after_tool_callback()
+    assert callback() is None
+    assert callback(tool_response=object()) is None
+
+
 # --- tools (delegate to code_analysis) -------------------------------------
 
 
