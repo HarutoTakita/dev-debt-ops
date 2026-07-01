@@ -7,6 +7,7 @@ service runtime SA must hold ``roles/aiplatform.user``.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 
@@ -201,17 +202,37 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
     return raw
 
 
+# AI-generation probability is a function of a file's *content*, so memoise by a content hash: the
+# agentic backbone estimates the same files from two steps (code_debt + knowledge_debt), and files
+# often recur across runs. This dedupes the Gemini call at file granularity — a fully-cached call
+# makes no request at all. Bounded (FIFO) so a long-lived worker never grows the cache unbounded.
+_AI_GEN_CACHE: dict[str, float] = {}
+_AI_GEN_CACHE_MAX = 4096
+
+
+def _content_key(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
+
+
 async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
     """Return a per-file AI-generation probability (0..1) estimated by Gemini via Vertex AI.
 
-    Files absent from the model's reply (or an unparseable reply) default to ``0.0`` at the
-    call site. Raises ValueError if GOOGLE_CLOUD_PROJECT or credentials are not configured.
+    Results are memoised by file-content hash, so repeated / cross-step estimates of the same file
+    skip the model. Files absent from the model's reply (or an unparseable reply) default to ``0.0``
+    at the call site. Raises ValueError if GOOGLE_CLOUD_PROJECT or credentials are not configured
+    (only when there is at least one uncached file to estimate).
     """
     if not file_map:
         return {}
 
+    keys = {path: _content_key(content) for path, content in file_map.items()}
+    probs: dict[str, float] = {path: _AI_GEN_CACHE[k] for path, k in keys.items() if k in _AI_GEN_CACHE}
+    uncached = {path: content for path, content in file_map.items() if path not in probs}
+    if not uncached:
+        return probs  # every file already estimated — no Gemini call
+
     client = _build_client()
-    prompt = _AI_GENERATION_PROMPT.format(file_section=_build_file_section(file_map))
+    prompt = _AI_GENERATION_PROMPT.format(file_section=_build_file_section(uncached))
 
     response = await _generate(
         client,
@@ -226,15 +247,21 @@ async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
     except (json.JSONDecodeError, AttributeError):
-        return {}
+        return probs
 
-    probs: dict[str, float] = {}
     if isinstance(raw, dict):
         for path, value in raw.items():
+            if path not in uncached:
+                continue
             try:
-                probs[path] = max(0.0, min(1.0, float(value)))
+                prob = max(0.0, min(1.0, float(value)))
             except (TypeError, ValueError):
                 continue
+            probs[path] = prob
+            _AI_GEN_CACHE[keys[path]] = prob
+    # Bound the cache (FIFO): drop oldest entries once over the cap.
+    while len(_AI_GEN_CACHE) > _AI_GEN_CACHE_MAX:
+        del _AI_GEN_CACHE[next(iter(_AI_GEN_CACHE))]
     return probs
 
 

@@ -212,19 +212,20 @@ async def _pregenerate_walkthroughs(
     session: AsyncSession,
     request: LearningPlanGenerationRequest,
     code_to_walk: list[tuple[LearningResource, str]],
+    shared_client: GitHubGitClient | None = None,
 ) -> None:
     """Pre-generate + persist line-anchored walkthroughs for the plan's code files (concurrent, capped).
 
     Network/Gemini work runs concurrently (semaphore-capped); the session is only touched serially after.
     Per-file failures are swallowed (the resource keeps an empty walkthrough; the on-demand path can retry).
+    Reuses ``shared_client`` (the job's read-caching client) when given, else mints its own.
     """
     if not code_to_walk:
         return
     owner, _, repo = request.repo_full_name.partition("/")
     if not owner or not repo:
         return
-    token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+    client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     sem = asyncio.Semaphore(5)
 
     async def _walk(resource: LearningResource, path: str) -> None:
@@ -234,7 +235,8 @@ async def _pregenerate_walkthroughs(
     try:
         await asyncio.gather(*(_walk(res, path) for res, path in code_to_walk), return_exceptions=True)
     finally:
-        await client.aclose()
+        if shared_client is None:
+            await client.aclose()
     for resource, _path in code_to_walk:
         session.add(resource)
 
@@ -272,12 +274,13 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
         code_files = await _feature_file_paths(session, feature.id)
         code_name, code_desc = feature.name, feature.description
     else:
-        token = await _mint_installation_token(request.github)
-        client = GitHubGitClient(access_token=token)
+        shared_client = ctx.github_client
+        client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
         try:
             code_files = [r["source_ref"] for r in await _internal_assets(client, request, now) if r.get("source_ref")]
         finally:
-            await client.aclose()
+            if shared_client is None:
+                await client.aclose()
         code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
         code_desc = ""
     try:
@@ -326,7 +329,7 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
 
     # 解析時に各コードファイルの行ごと解説（walkthrough）を事前生成し保存する（ユーザーが開いた瞬間に即表示）。
     # GitHub 取得 + Gemini 生成はファイルごとに独立なので、セマフォで上限を設けつつ並行実行して待ち時間を抑える。
-    await _pregenerate_walkthroughs(session, request, code_to_walk)
+    await _pregenerate_walkthroughs(session, request, code_to_walk, shared_client=ctx.github_client)
 
     plan.estimated_total_minutes = total_minutes
     session.add(plan)
