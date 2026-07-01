@@ -1,8 +1,8 @@
 """agentic-analysis pipeline + Twin Agent graph tests (issue 069 → 266).
 
-The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_analysis_agent`` / ``run_twin_agent``
-are patched, mirroring ``test_stack_analysis``. Construction / tool / plugin logic is exercised
-directly; ``process`` is tested with GitHub + the agent run mocked.
+The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_analysis_agent`` is patched, mirroring
+``test_stack_analysis``. Construction / tool / plugin logic is exercised directly; ``process`` is
+tested with GitHub + the agent run mocked.
 """
 
 from unittest.mock import AsyncMock
