@@ -211,11 +211,20 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             repo_dir=repo_dir,
             github_token=token,
         )
+        await reporter.complete("twin_agent")
+    except Exception as exc:
+        # Twin Agent は判断レイヤ（ベストエフォート）。Gemini の一時障害（502/503/500 等）やツール失敗で例外化
+        # しても、決定的バックボーン（コード負債/理解度/機能/学習・クイズ）の成果まで失って解析全体を
+        # FAILED＝run_task が全 flush をロールバック、にしてはならない。ログを残し、推奨なしで解析は COMPLETED
+        # として確定する（graceful degradation）。これにより一時的な 502 で解析全体が飛ぶ／終了状態に到達せず
+        # コックピットが「処理中」のまま固まる、という問題を防ぐ。
+        logger.exception("twin agent failed; completing analysis without agent recommendations")
+        trace, recommendations = [f"[twin_agent] failed: {exc}"], []
+        await reporter.fail("twin_agent")
     finally:
         await client.aclose()
         if repo_dir is not None:
             shutil.rmtree(repo_dir, ignore_errors=True)
-    await reporter.complete("twin_agent")
 
     agent_trace = steps + trace
     summary = trace[-1] if trace else (steps[-1] if steps else "Twin Agent run produced no trace")

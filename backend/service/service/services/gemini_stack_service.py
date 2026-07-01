@@ -119,9 +119,10 @@ def _build_client() -> genai.Client:
     )
 
 
-# HTTP statuses worth retrying with backoff: 429 (RESOURCE_EXHAUSTED / quota & rate limits),
-# 503 (UNAVAILABLE) and 500 (transient server error). 4xx other than 429 are caller bugs — don't retry.
-_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 503})
+# HTTP statuses worth retrying with backoff: 429 (RESOURCE_EXHAUSTED / quota & rate limits) and the
+# transient 5xx (500 INTERNAL, 502 Bad Gateway, 503 UNAVAILABLE, 504 Gateway Timeout) — Google's own
+# 502 body says "try again in 30 seconds". 4xx other than 429 are caller bugs — don't retry.
+_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 _GENERATE_MAX_ATTEMPTS = 6
 _GENERATE_BASE_BACKOFF_SECONDS = 2.0
 

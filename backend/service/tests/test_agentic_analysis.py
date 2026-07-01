@@ -267,6 +267,24 @@ class TestProcess:
         assert result.summary == "[summary] 危険な機能を特定"
         assert result.recommendations == recs
 
+    async def test_twin_agent_failure_still_completes(self, mocker) -> None:
+        """issue 260: a Twin Agent failure (e.g. transient Gemini 502) must NOT fail/roll back the whole
+        analysis — the deterministic backbone results persist and the job completes without recommendations."""
+        for module in (feature_clustering, code_debt_detection, kc_analysis, knowledge_debt_detection):
+            mocker.patch.object(module, "process", AsyncMock())
+        mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
+        mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
+        mocker.patch.object(agentic_analysis, "_mint_installation_token", AsyncMock(return_value="tok"))
+        mocker.patch.object(agentic_analysis, "GitHubGitClient", return_value=AsyncMock())
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value=None))
+        mocker.patch.object(agentic_analysis, "run_twin_agent", AsyncMock(side_effect=RuntimeError("502 Bad Gateway")))
+
+        result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        assert result.status == ResultStatus.COMPLETED  # backbone preserved; job reaches a terminal state
+        assert result.recommendations == []
+        assert any("[twin_agent] failed" in s for s in result.agent_trace)
+
     async def test_persists_deterministic_snapshot_when_cgc_empty(self, mocker) -> None:
         """issue 250: when CGC indexes but returns an empty snapshot, the deterministic source-based
         snapshot (function_graph) fills L3 and is persisted, so the map shows for any repo."""
