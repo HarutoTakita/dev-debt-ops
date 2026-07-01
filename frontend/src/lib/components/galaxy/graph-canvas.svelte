@@ -32,38 +32,22 @@
   let hoveredId: string | null = null;
   let neighborIds: Set<string> = neighborsOf(null, [], linkEnd);
 
-  // テーマ色（canvas は Tailwind クラス不可なので CSS 変数を実値解決）。テーマ変更時に再解決＋再描画。
-  let palette = { knowledge: "#14b8a6", destructive: "#ef4444", muted: "#94a3b8", border: "#cbd5e1", fg: "#0f172a" };
-  function resolvePalette() {
-    const s = getComputedStyle(document.documentElement);
-    const v = (name: string, fallback: string) => s.getPropertyValue(name).trim() || fallback;
-    palette = {
-      knowledge: v("--debt-knowledge", palette.knowledge),
-      destructive: v("--destructive", palette.destructive),
-      muted: v("--muted-foreground", palette.muted),
-      border: v("--border", palette.border),
-      fg: v("--foreground", palette.fg),
-    };
-  }
-
-  // ファイル別の淡い色相（関数ノードのクラスタ色）。Map を作らない純関数。
-  function fileHue(file: string): number {
-    let h = 0;
-    for (let i = 0; i < file.length; i++) h = (h * 31 + file.charCodeAt(i)) % 360;
-    return h;
-  }
-  function masteryColor(mastery: string | undefined): string {
-    if (mastery === "black_hole") return palette.destructive;
-    if (mastery === "unexplored" || mastery === undefined) return palette.muted;
-    return palette.knowledge; // star / dim_star
-  }
-  function baseColor(node: GraphNode): string {
-    if (node.kind === "function") return `hsl(${fileHue(node.file ?? node.id)} 55% 60%)`;
-    return masteryColor(node.mastery); // feature / file-hub → KC lens
+  // KC 状態 → 色（凡例 galaxy-legend の masteryDot に対応）。canvas 安全な固定色で確実に色分けする（issue 290）。
+  const MASTERY_COLOR: Record<string, string> = {
+    star: "#14b8a6", // 完全理解（ティール）
+    dim_star: "#5eead4", // 部分理解（淡いティール）
+    black_hole: "#ef4444", // 未理解（赤）
+    unexplored: "#94a3b8", // 未着手（グレー）
+  };
+  const DIM_COLOR = "rgba(148,163,184,0.25)"; // ホバー時の非近傍ノード（減光）
+  let labelColor = "#334155"; // ラベル文字色（テーマの --foreground を解決）
+  function resolveLabelColor() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim();
+    if (v) labelColor = v;
   }
   function nodeColor(node: GraphNode): string {
-    if (hoveredId && node.id !== hoveredId && !neighborIds.has(node.id)) return palette.border; // 減光
-    return baseColor(node);
+    if (hoveredId && node.id !== hoveredId && !neighborIds.has(node.id)) return DIM_COLOR; // 減光
+    return MASTERY_COLOR[node.mastery ?? "unexplored"] ?? MASTERY_COLOR.unexplored;
   }
   function nodeRadius(node: GraphNode): number {
     return Math.sqrt(node.val) * (graph?.nodeRelSize() ?? 4);
@@ -92,7 +76,7 @@
         import("d3-force-3d"),
       ]);
       if (disposed) return;
-      resolvePalette();
+      resolveLabelColor();
       const g = new ForceGraph<GraphNode, GraphLink>(container)
         .nodeId("id")
         .nodeRelSize(4)
@@ -120,7 +104,7 @@
         ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = palette.fg;
+        ctx.fillStyle = labelColor;
         ctx.fillText(label, node.x ?? 0, (node.y ?? 0) + nodeRadius(node) + 1 / scale);
       });
       // ノード円を明示的にポインタ判定領域として塗る（issue 286）。custom nodeCanvasObject を設定すると
@@ -145,7 +129,7 @@
 
     // テーマ切替（document.documentElement の class 変化）で配色を再解決し再描画。
     const themeObserver = new MutationObserver(() => {
-      resolvePalette();
+      resolveLabelColor();
       graph?.graphData(graph.graphData()); // 再描画をトリガ
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
@@ -162,11 +146,16 @@
     graph = null;
   });
 
-  // データ差し替え（レベル変更）で graphData を再投入。インスタンスは再生成しない。
+  // データ差し替え（フィルタ/レベル変更）で graphData を再投入し再描画。インスタンスは再生成しない。
+  // graphData だけだと停止済みシミュレーションが再計算されず表示が変わらないことがあるため、明示的に
+  // 再加熱＋アニメ再開して確実にレイアウト/描画を更新する（issue 290: 機能フィルタが効かない不具合）。
   $effect(() => {
     hoveredId = null;
     neighborIds = neighborsOf(null, [], linkEnd);
-    graph?.graphData({ nodes, links });
+    if (!graph) return;
+    graph.graphData({ nodes, links });
+    graph.d3ReheatSimulation();
+    graph.resumeAnimation();
   });
 
   // リサイズ反映。
