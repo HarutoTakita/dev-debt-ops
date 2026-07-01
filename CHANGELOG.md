@@ -20,6 +20,8 @@
 
 ### Changed
 
+- 解析パイプラインの最適化 Phase 0（issue 261）: (1) **baseline fan-out（学習/クイズ生成）に共有クライアントを配線** — `learning_plan_generation`（walkthrough 事前生成・内部アセット取得）と `quiz_generation`（機能コンテンツ取得）が `ctx.github_client`（`CachingGitHubGitClient`）を再利用し、機能ごとに繰り返していたリポジトリ取得をキャッシュへ集約（クイズの clone 用トークンは従来どおり）。(2) **`estimate_ai_generation` をファイル内容ハッシュでメモ化** — code_debt と knowledge_debt が同一ファイルへ二重に Gemini 判定するのを排除し、全キャッシュ時は Gemini 呼び出し自体を省略（FIFO 上限つき）。出力（`ai_generation_prob` / knowledge の `reason`）は不変。各パイプライン単体呼び出しは `ctx.github_client=None` で従来動作。
+
 - リポジトリ解析バックボーンの GitHub 取得を共通化（並列化の前段・低リスク最適化）: 各サブパイプライン（feature_clustering / code_debt_detection / kc_analysis / knowledge_debt_detection / stack_analysis）が個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を、**ジョブ内で 1 つの読み取りキャッシュ付きクライアント `CachingGitHubGitClient`（`get_repository_tree`/`get_file_content` を引数キーでメモ化）を共有**して集約。`agentic_analysis` が起動時に生成し `PipelineContext.github_client` 経由で各ステップへ渡す（`try/finally` で確実にクローズ）。各パイプライン単体呼び出しでは `ctx.github_client` は `None` のままで従来どおり自前取得（動作不変）。GitHub の呼び出し回数・レート消費・wall-clock を削減。※ baseline の学習/クイズ fan-out の取得共通化と、依存のないステップの並列実行は後続で検討。
 
 - Twin Agent のコンテキスト/ペイロード肥大を抑制（issue 260 フォローアップ）: 多ターンのツール利用でツール結果が会話履歴に蓄積し毎回のリクエストが膨らむ（コスト増・502/タイムアウト誘発）のを防ぐため、(1) 大きなツール結果（Trivy 全体スキャン JSON・GitHub PR/コミット・CodeGraphContext 照会・Serena/Semgrep 結果）を **`after_tool_callback` で ~12k 文字に切り詰め**（`agents/hooks.py:make_after_tool_callback`、両専門家に配線）、(2) Serena の tool_filter から **`read_file`/`list_dir`/`find_file` を除外**（長さ制限付きの repo ツールと重複し、Serena の `read_file` は全文無制限で肥大要因のため）シンボル・ナビゲーションに限定。
