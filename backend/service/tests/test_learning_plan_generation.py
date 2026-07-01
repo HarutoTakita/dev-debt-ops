@@ -18,6 +18,38 @@ from shared.schemas.stack_analysis import GitHubRef
 _RECENT = (datetime.now(UTC) - timedelta(days=30)).isoformat()
 
 
+class TestCodeTitles:
+    """issue 280: 「このコードを理解する」のタイトルがファイル名にならず学習タイトルになること。"""
+
+    def test_code_title_is_learning_phrase_not_filename(self) -> None:
+        assert learning_plan_generation._code_title("src/auth/login.py") == "login の実装を理解する"
+        assert learning_plan_generation._code_title("main.ts") == "main の実装を理解する"
+
+    def test_clean_step_title_replaces_filename_or_path(self) -> None:
+        f = learning_plan_generation._clean_step_title
+        assert f("認証フローの全体像を掴む", "src/login.py") == "認証フローの全体像を掴む"  # 良いタイトルは維持
+        assert f("login.py", "src/login.py") == "login の実装を理解する"  # ファイル名 → 置換
+        assert f("src/login.py", "src/login.py") == "login の実装を理解する"  # パス → 置換
+        assert f("", "src/login.py") == "login の実装を理解する"  # 空 → 置換
+        assert f(None, "src/login.py") == "login の実装を理解する"
+
+    def test_code_resources_fallback_titles_are_not_filenames(self) -> None:
+        res = learning_plan_generation._code_resources([], ["src/a.py", "src/b.ts"])
+        titles = [r["title"] for r in res]
+        assert "a.py" not in titles
+        assert "b.ts" not in titles
+        assert all("理解する" in t for t in titles)
+
+    def test_code_resources_keeps_good_model_title_but_cleans_filename(self) -> None:
+        steps = [
+            {"source_ref": "src/a.py", "title": "認証の流れを理解する", "summary": "x"},
+            {"source_ref": "src/b.py", "title": "b.py"},  # モデルがファイル名を返した → 置換
+        ]
+        by_ref = {r["source_ref"]: r for r in learning_plan_generation._code_resources(steps, ["src/a.py", "src/b.py"])}
+        assert by_ref["src/a.py"]["title"] == "認証の流れを理解する"
+        assert by_ref["src/b.py"]["title"] == "b の実装を理解する"
+
+
 class _FakeClient:
     async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
         return [
