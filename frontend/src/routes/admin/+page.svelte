@@ -9,6 +9,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
+  import * as m from "$lib/paraglide/messages";
 
   // ユーザー管理画面（issue 300・superuser 限定。ガードは +page.ts）。クレジットの付与を行う。
   let users = $state<User[]>([]);
@@ -40,7 +41,7 @@
   async function grant(u: User) {
     const amount = amounts[u.id] ?? 5;
     if (!Number.isFinite(amount) || amount < 1) {
-      toast.error("1 以上の数値を入力してください");
+      toast.error(m.admin_grant_invalid());
       return;
     }
     busy = { ...busy, [u.id]: true };
@@ -48,10 +49,10 @@
       const updated = await grantUserCredits(u.id, Math.floor(amount));
       users = users.map((x) => (x.id === u.id ? updated : x));
       toast.success(
-        `${u.email} に ${Math.floor(amount)} クレジットを付与しました（残高 ${updated.analysis_credits}）`,
+        m.admin_grant_success({ email: u.email, amount: Math.floor(amount), balance: updated.analysis_credits }),
       );
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "クレジットの付与に失敗しました");
+    } catch {
+      toast.error(m.admin_grant_error());
     } finally {
       busy = { ...busy, [u.id]: false };
     }
@@ -59,40 +60,40 @@
 </script>
 
 <svelte:head>
-  <title>ユーザー管理 · DevDebtOps</title>
+  <title>{m.shell_user_admin()} · DevDebtOps</title>
 </svelte:head>
 
 <div class="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
   <div class="flex flex-wrap items-center gap-2">
     <a href={resolve("/")} class="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
       <ArrowLeft class="size-4" />
-      アプリに戻る
+      {m.common_back_to_app()}
     </a>
   </div>
 
   <div class="flex items-center gap-2">
     <Shield class="size-5 text-debt-knowledge" />
-    <h1 class="font-display text-xl font-semibold">ユーザー管理</h1>
+    <h1 class="font-display text-xl font-semibold">{m.shell_user_admin()}</h1>
   </div>
-  <p class="text-sm text-muted-foreground">解析クレジットの付与を行います。</p>
+  <p class="text-sm text-muted-foreground">{m.admin_desc()}</p>
 
-  <Input bind:value={query} placeholder="メールアドレス / 表示名で絞り込み" class="max-w-sm" />
+  <Input bind:value={query} placeholder={m.admin_search_placeholder()} class="max-w-sm" />
 
   {#if loading}
-    <p class="py-16 text-center text-sm text-muted-foreground">読み込み中…</p>
+    <p class="py-16 text-center text-sm text-muted-foreground">{m.admin_loading()}</p>
   {:else if error}
-    <p class="py-16 text-center text-sm text-muted-foreground">ユーザー一覧の取得に失敗しました。</p>
+    <p class="py-16 text-center text-sm text-muted-foreground">{m.admin_load_error()}</p>
   {:else if filtered.length === 0}
-    <p class="py-16 text-center text-sm text-muted-foreground">該当するユーザーがいません。</p>
+    <p class="py-16 text-center text-sm text-muted-foreground">{m.admin_empty()}</p>
   {:else}
     <div class="overflow-hidden rounded-lg border">
       <table class="w-full text-sm">
         <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
           <tr>
-            <th class="px-3 py-2 font-medium">ユーザー</th>
-            <th class="px-3 py-2 font-medium">ロール</th>
-            <th class="px-3 py-2 text-right font-medium">残クレジット</th>
-            <th class="px-3 py-2 font-medium">クレジット付与</th>
+            <th class="px-3 py-2 font-medium">{m.admin_col_user()}</th>
+            <th class="px-3 py-2 font-medium">{m.field_role()}</th>
+            <th class="px-3 py-2 text-right font-medium">{m.admin_col_credits()}</th>
+            <th class="px-3 py-2 font-medium">{m.admin_col_grant()}</th>
           </tr>
         </thead>
         <tbody>
@@ -104,11 +105,11 @@
               </td>
               <td class="px-3 py-2">
                 {#if u.is_superuser}
-                  <Badge variant="default">管理者</Badge>
+                  <Badge variant="default">{m.role_admin()}</Badge>
                 {:else if u.is_demo}
-                  <Badge variant="outline">デモ</Badge>
+                  <Badge variant="outline">{m.role_demo()}</Badge>
                 {:else}
-                  <Badge variant="secondary">一般</Badge>
+                  <Badge variant="secondary">{m.role_user()}</Badge>
                 {/if}
               </td>
               <td class="px-3 py-2 text-right font-medium tabular-nums">{u.analysis_credits}</td>
@@ -121,7 +122,9 @@
                     oninput={(e) => (amounts = { ...amounts, [u.id]: e.currentTarget.valueAsNumber })}
                     class="h-8 w-20"
                   />
-                  <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => grant(u)}>付与</Button>
+                  <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => grant(u)}
+                    >{m.admin_grant()}</Button
+                  >
                 </div>
               </td>
             </tr>
