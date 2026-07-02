@@ -26,6 +26,7 @@ from the ``api`` workspace member, e.g.::
 
 import argparse
 import asyncio
+import hashlib
 import posixpath
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -100,7 +101,7 @@ _RUN_KINDS = (
 # 横軸 / Galaxy file universe を、code_debt_score は縦軸（静的品質）を駆動する。両軸とも [0.1,0.9]
 # に広く散らし、4 象限すべてに点が乗るよう調整（上端=低負債=クリーンへの偏りを解消）。各ファイルは
 # _ensure_code_debts で 1 件の CodeDebt を持つため、散布図の縦位置は code_debt_score を直接反映する。
-_FILES: list[tuple[str, str, int, float, float]] = [
+_CORE_FILES: list[tuple[str, str, int, float, float]] = [
     # checkout（決済・カート）— ホットスポット機能
     ("src/checkout/payment.py", "Python", 412, 0.18, 0.86),  # 最危険: 低 KC × 高コード負債
     ("src/checkout/cart.py", "Python", 233, 0.34, 0.60),
@@ -138,7 +139,7 @@ _FILES: list[tuple[str, str, int, float, float]] = [
 ]
 
 # Feature clusters (key, name, description, [member file paths]).
-_FEATURES: list[tuple[str, str, str, list[str]]] = [
+_CORE_FEATURES: list[tuple[str, str, str, list[str]]] = [
     (
         "checkout",
         "決済・カート",
@@ -203,7 +204,7 @@ _FEATURES: list[tuple[str, str, str, list[str]]] = [
 
 # Intra-repo import edges (wormholes) for the galaxy. Mix of intra-feature (L2 のファイルグラフ) と
 # 機能をまたぐ依存（L1 の機能間エッジになる）を持たせて、グラフらしい接続にする。
-_DEPENDENCIES: list[tuple[str, str]] = [
+_CORE_DEPENDENCIES: list[tuple[str, str]] = [
     # checkout 内部
     ("src/checkout/payment.py", "src/checkout/cart.py"),
     ("src/checkout/cart.py", "src/checkout/order.py"),
@@ -244,6 +245,370 @@ _DEPENDENCIES: list[tuple[str, str]] = [
     ("src/shipping/shipping.py", "src/user/address.py"),
     ("src/notifications/email.py", "src/user/profile.py"),
 ]
+
+# --- デモ拡張（issue: 理解度マップが薄い）------------------------------------------------------------
+# 実リポジトリらしい規模感（〜200 ノード）にするため、キュレーション済みのコア機能に加えて EC ストアの
+# 追加ドメインを生成する。件数・KC・依存はすべて**決定的**（パス由来のハッシュ）に導出し、再シードしても
+# 同じデータ（＝uuid5 の id 安定）になるようにする。KC は理解済み/部分/未理解/未着手が混ざる分布にして、
+# 理解度マップの色が偏らず「見栄え」するようにする。
+#
+# (feature key, 表示名, 説明, ディレクトリ, [basename.ext, ...])
+_EXTRA_FEATURES: list[tuple[str, str, str, str, list[str]]] = [
+    (
+        "payments",
+        "決済ゲートウェイ",
+        "外部決済(Stripe/PayPal)連携・返金・Webhook・照合。決済の中核と密結合。",
+        "src/payments",
+        [
+            "gateway.py",
+            "stripe.py",
+            "paypal.py",
+            "refund.py",
+            "webhook.py",
+            "capture.py",
+            "currency.py",
+            "receipt.py",
+            "fraud_check.py",
+            "retry_policy.py",
+            "ledger.py",
+            "reconcile.py",
+            "settlement.py",
+        ],
+    ),
+    (
+        "orders",
+        "注文管理",
+        "注文の作成・状態遷移・返品/キャンセル・履歴。決済/配送/在庫をつなぐハブ。",
+        "src/orders",
+        [
+            "order_service.py",
+            "order_repository.py",
+            "order_state.py",
+            "invoice.py",
+            "returns.py",
+            "cancellation.py",
+            "fulfillment.py",
+            "order_events.py",
+            "order_api.ts",
+            "order_history.py",
+            "order_search.ts",
+            "order_export.py",
+        ],
+    ),
+    (
+        "reviews",
+        "レビュー・評価",
+        "商品レビュー・評価・モデレーション・スパム判定。",
+        "src/reviews",
+        [
+            "review.py",
+            "rating.py",
+            "moderation.py",
+            "review_api.ts",
+            "review-list.svelte",
+            "helpfulness.py",
+            "spam_filter.py",
+            "review_repository.py",
+            "review-form.svelte",
+        ],
+    ),
+    (
+        "recommendations",
+        "レコメンド",
+        "協調フィルタ/コンテンツベースの推薦・ランキング・類似度。",
+        "src/reco",
+        [
+            "engine.py",
+            "collaborative.py",
+            "content_based.py",
+            "ranking.py",
+            "feature_store.py",
+            "popular.py",
+            "reco_api.ts",
+            "embeddings.py",
+            "similarity.py",
+            "reco-widget.svelte",
+        ],
+    ),
+    (
+        "promotions",
+        "プロモーション",
+        "キャンペーン・割引・クーポン・ロイヤリティ・A/B テスト。",
+        "src/promotions",
+        [
+            "campaign.py",
+            "discount.py",
+            "coupon_engine.py",
+            "banner.ts",
+            "promo-banner.svelte",
+            "ab_test.py",
+            "loyalty.py",
+            "points.py",
+            "gift_card.py",
+        ],
+    ),
+    (
+        "admin",
+        "管理画面",
+        "管理ダッシュボード・ユーザー/注文/カタログ管理・監査ログ・権限。",
+        "src/admin",
+        [
+            "dashboard.svelte",
+            "admin_api.ts",
+            "users_admin.py",
+            "orders_admin.py",
+            "catalog_admin.py",
+            "audit_log.py",
+            "roles.py",
+            "admin-table.svelte",
+            "settings-page.svelte",
+            "permissions_admin.py",
+            "reports_admin.py",
+        ],
+    ),
+    (
+        "analytics",
+        "分析・計測",
+        "イベント計測・集計パイプライン・レポート・ファネル/コホート。",
+        "src/analytics",
+        [
+            "tracker.ts",
+            "events.py",
+            "pipeline.py",
+            "report.py",
+            "funnel.py",
+            "cohort.py",
+            "dashboard_api.ts",
+            "aggregate.py",
+            "export_csv.py",
+            "realtime.ts",
+        ],
+    ),
+    (
+        "search",
+        "検索・インデックス",
+        "検索インデックス・クエリ解析・ランキング・サジェスト・ファセット。",
+        "src/search",
+        [
+            "indexer.py",
+            "query_parser.py",
+            "ranker.py",
+            "synonyms.py",
+            "facets.py",
+            "suggest.ts",
+            "elastic_client.py",
+            "tokenizer.py",
+            "highlight.py",
+        ],
+    ),
+    (
+        "cms",
+        "コンテンツ管理",
+        "CMS ページ/ブロック・メディア・SEO・サイトマップ。",
+        "src/cms",
+        [
+            "page.py",
+            "block.py",
+            "editor.svelte",
+            "media.py",
+            "seo.py",
+            "sitemap.py",
+            "render.ts",
+            "cms_api.ts",
+            "navigation.py",
+        ],
+    ),
+    (
+        "platform",
+        "共通基盤",
+        "設定・ロギング・キャッシュ・HTTP・イベントバス・API ルーティング等の横断基盤。",
+        "src/core",
+        [
+            "config.py",
+            "logger.py",
+            "cache.py",
+            "http_client.py",
+            "errors.py",
+            "validators.py",
+            "pagination.py",
+            "event_bus.py",
+            "feature_flags.py",
+            "metrics.py",
+            "serializers.py",
+            "middleware.py",
+            "db_session.py",
+            "routes.py",
+            "deps.py",
+            "health.py",
+        ],
+    ),
+    (
+        "models",
+        "データモデル",
+        "ORM モデル・スキーマ・共通 Mixin。各ドメインから参照される。",
+        "src/models",
+        [
+            "user.py",
+            "order.py",
+            "product.py",
+            "cart.py",
+            "payment.py",
+            "review.py",
+            "base.py",
+            "mixins.py",
+            "inventory.py",
+            "shipment.py",
+        ],
+    ),
+    (
+        "ui-kit",
+        "UI 部品",
+        "共通 UI コンポーネント（ボタン/モーダル/テーブル等）と多言語。",
+        "src/ui/components",
+        [
+            "button.svelte",
+            "modal.svelte",
+            "data-table.svelte",
+            "form-field.svelte",
+            "toast.svelte",
+            "nav-bar.svelte",
+            "pagination.svelte",
+            "card.svelte",
+            "badge.svelte",
+            "spinner.svelte",
+            "tabs.svelte",
+            "tooltip.svelte",
+            "dropdown.svelte",
+        ],
+    ),
+    (
+        "ops",
+        "運用・外部連携・セキュリティ",
+        "ジョブ/キュー・ERP/CRM 連携・ストレージ・CSRF/暗号化など運用面。",
+        "src/ops",
+        [
+            "worker.py",
+            "queue.py",
+            "scheduler.py",
+            "email_job.py",
+            "reindex_job.py",
+            "cleanup_job.py",
+            "dead_letter.py",
+            "erp_sync.py",
+            "crm_sync.py",
+            "webhook_dispatcher.py",
+            "s3_storage.py",
+            "sendgrid.ts",
+            "twilio.py",
+            "csrf.py",
+            "rate_limiter.py",
+            "encryption.py",
+        ],
+    ),
+    (
+        "pricing",
+        "価格計算",
+        "価格・税・為替・端数処理・バンドル・マージン。",
+        "src/pricing",
+        ["pricing.py", "tax.py", "currency_rates.py", "rounding.py", "price_rules.py", "bundle.py", "margin.py"],
+    ),
+    (
+        "wishlist",
+        "お気に入り",
+        "ウィッシュリスト・共有・再入荷通知。",
+        "src/wishlist",
+        ["wishlist.py", "wishlist_api.ts", "wishlist-page.svelte", "share.py", "notify_back_in_stock.py"],
+    ),
+    (
+        "support",
+        "サポート",
+        "問い合わせチケット・チャット・FAQ・エスカレーション。",
+        "src/support",
+        ["ticket.py", "chat.ts", "faq.py", "support-widget.svelte", "escalation.py", "knowledge_base.py"],
+    ),
+]
+
+# 追加機能のハブを、意味的に近いコア/追加ファイルへつなぐ機能間エッジ（グラフを 1 つに連結し密度を上げる）。
+_EXTRA_CROSS: list[tuple[str, str]] = [
+    ("payments", "src/checkout/payment.py"),
+    ("orders", "src/checkout/order.py"),
+    ("reviews", "src/catalog/product.ts"),
+    ("recommendations", "src/catalog/search.ts"),
+    ("promotions", "src/checkout/coupon.py"),
+    ("admin", "src/auth/session.py"),
+    ("analytics", "src/orders/order_events.py"),
+    ("search", "src/catalog/search.ts"),
+    ("cms", "src/catalog/category.ts"),
+    ("models", "src/lib/db.py"),
+    ("ui-kit", "src/ui/product-card.svelte"),
+    ("ops", "src/notifications/email.py"),
+    ("pricing", "src/checkout/order.py"),
+    ("wishlist", "src/user/profile.py"),
+    ("support", "src/user/profile.py"),
+    # 多くのドメインが共通基盤(platform)に依存 → 中心ハブとして連結性を高める。
+    ("payments", "src/core/config.py"),
+    ("orders", "src/core/db_session.py"),
+    ("search", "src/core/cache.py"),
+    ("analytics", "src/core/event_bus.py"),
+    ("reviews", "src/models/review.py"),
+    ("orders", "src/models/order.py"),
+    ("payments", "src/models/payment.py"),
+]
+
+_EXT_LANG = {"py": "Python", "ts": "TypeScript", "tsx": "TSX", "svelte": "Svelte", "js": "JavaScript"}
+
+
+def _lang_of(basename: str) -> str:
+    return _EXT_LANG.get(basename.rsplit(".", 1)[-1], "Python")
+
+
+def _det01(salt: str, path: str) -> float:
+    """Deterministic float in [0,1) from (salt, path) — stable across re-seeds (no RNG)."""
+    return (int(hashlib.md5(f"{salt}:{path}".encode()).hexdigest()[:8], 16) % 1000) / 1000
+
+
+def _kc_of(path: str) -> float:
+    """Varied but deterministic KC so map colors are a mix (理解済み/部分/未理解/未着手)."""
+    if _det01("kc", path) < 0.10:
+        return 0.0  # ~10% は未着手（unexplored / グレー）
+    return round(0.12 + _det01("kcv", path) * 0.83, 2)  # 0.12〜0.95 に分布
+
+
+def _build_extra() -> tuple[list, list, list]:
+    files: list[tuple[str, str, int, float, float]] = []
+    features: list[tuple[str, str, str, list[str]]] = []
+    deps: list[tuple[str, str]] = []
+    hub: dict[str, str] = {}
+    for key, name, desc, directory, basenames in _EXTRA_FEATURES:
+        paths = [f"{directory}/{bn}" for bn in basenames]
+        for p in paths:
+            files.append(
+                (
+                    p,
+                    _lang_of(p.rsplit("/", 1)[-1]),
+                    40 + int(_det01("loc", p) * 360),
+                    _kc_of(p),
+                    round(_det01("score", p) * 0.9, 2),
+                )
+            )
+        features.append((key, name, desc, paths))
+        hub[key] = paths[0]
+        for i in range(1, len(paths)):
+            deps.append((paths[i], paths[i - 1]))  # 機能内チェーン
+            if i >= 2:
+                deps.append((paths[i], paths[0]))  # ハブへも張って密度を上げる
+    for key, target in _EXTRA_CROSS:
+        if key in hub:
+            deps.append((hub[key], target))
+    return files, features, deps
+
+
+_extra_files, _extra_features, _extra_deps = _build_extra()
+
+# 最終データ = キュレーション済みコア + 生成した追加ドメイン（合計 〜200 ファイル）。
+_FILES: list[tuple[str, str, int, float, float]] = _CORE_FILES + _extra_files
+_FEATURES: list[tuple[str, str, str, list[str]]] = _CORE_FEATURES + _extra_features
+_DEPENDENCIES: list[tuple[str, str]] = _CORE_DEPENDENCIES + _extra_deps
 
 # Code-debt findings (file_path, type, severity, score, ai_prob, repay_hours, notes).
 _CODE_DEBTS: list[tuple[str, str, str, float, float, float, str]] = [
