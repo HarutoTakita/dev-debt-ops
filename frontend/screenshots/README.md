@@ -48,8 +48,19 @@ BASE_URL=http://localhost:8080 bun run screenshots
 
 ## 出力
 
-- 画像: `docs/取扱説明書/images/screens/<NN-key>.png`
-- メタ情報: `docs/取扱説明書/screens.manifest.json`（`key → { title, route, file, capturedAt }`）
+`bun run screenshots` は **PC 版**と**モバイル(レスポンシブUI)版**の 2 プロジェクトで撮影する（Playwright の
+`projects`。振り分けは helpers がビューポート幅で自動判定）:
+
+- PC 版（`desktop`, 1440x900）
+  - 画像: `docs/取扱説明書/images/screens/<NN-key>.png`
+  - メタ情報: `docs/取扱説明書/screens.manifest.json`（`key → { title, route, file, capturedAt }`）
+- モバイル版（`mobile`, 390x844, isMobile）
+  - 画像: `docs/取扱説明書/images/screens-mobile/<NN-key>.png`
+  - メタ情報: `docs/取扱説明書/screens-mobile.manifest.json`
+
+モバイルは主要ページ（`pages.spec` / `quiz.spec`）のみ撮影する。デスクトップ専用クローム（サイドバーの
+ヘルプ/セクション、コマンドパレット ⌘K 等）を撮る `ui.spec` / `sidebar.spec` は mobile ではスキップする。
+片方だけ撮る場合は `--project=desktop` / `--project=mobile` を付ける（例: `bun run screenshots -- --project=mobile`）。
 
 ## 撮影するページ
 

@@ -5,7 +5,15 @@ import { shot, startDemo, BASE } from "./helpers";
  * アプリのクローム/UI（デモで撮れるもの）: 理解度マップのリスト表示・ヘルプメニュー・
  * オンボーディングガイド・変更履歴(CHANGELOG)。すべてクライアント側 UI でデモログインのまま撮れる。
  * UI 操作依存のため best-effort。
+ *
+ * デスクトップ専用のクローム（サイドバーのヘルプ/セクション、コマンドパレット ⌘K トリガ等）が中心で、
+ * モバイルでは非表示/ドロワー化されるため、mobile プロジェクトではスキップする（レスポンシブ版は
+ * 主要ページ pages.spec / quiz.spec で撮る）。
  */
+// eslint-disable-next-line no-empty-pattern -- Playwright は fixtures 引数に分割代入パターンを要求する
+test.beforeEach(async ({}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "デスクトップ専用クロームのためモバイルでは撮影しない");
+});
 
 // 理解度マップ（galaxy）の「リスト」タブ表示。
 test("理解度マップのリスト表示", async ({ page }) => {
