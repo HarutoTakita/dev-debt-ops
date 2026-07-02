@@ -1,0 +1,74 @@
+{
+  "01-login": {
+    "title": "ログイン / お試しデモ入口",
+    "route": "/login",
+    "file": "docs/取扱説明書/images/screens-mobile/01-login.png",
+    "capturedAt": "2026-07-02T14:09:12.877Z"
+  },
+  "02-org-dashboard": {
+    "title": "組織ダッシュボード（プロジェクト一覧）",
+    "route": "/demo",
+    "file": "docs/取扱説明書/images/screens-mobile/02-org-dashboard.png",
+    "capturedAt": "2026-07-02T14:09:03.377Z"
+  },
+  "03-overview": {
+    "title": "プロジェクト概要 / 解析ラン・コックピット",
+    "route": "/demo/sample-shop",
+    "file": "docs/取扱説明書/images/screens-mobile/03-overview.png",
+    "capturedAt": "2026-07-02T14:09:04.122Z"
+  },
+  "04-matrix": {
+    "title": "コード品質マップ（二軸マトリクス）",
+    "route": "/demo/sample-shop/matrix",
+    "file": "docs/取扱説明書/images/screens-mobile/04-matrix.png",
+    "capturedAt": "2026-07-02T14:09:04.839Z"
+  },
+  "05-matrix-detail": {
+    "title": "負債の詳細（返済プラン・担当）",
+    "route": "/demo/sample-shop/matrix/a825198b-baea-5904-b467-a839abd11be3",
+    "file": "docs/取扱説明書/images/screens-mobile/05-matrix-detail.png",
+    "capturedAt": "2026-07-02T14:09:09.324Z"
+  },
+  "06-galaxy": {
+    "title": "Knowledge Galaxy（理解度マップ）",
+    "route": "/demo/sample-shop/galaxy",
+    "file": "docs/取扱説明書/images/screens-mobile/06-galaxy.png",
+    "capturedAt": "2026-07-02T14:09:05.598Z"
+  },
+  "07-learning": {
+    "title": "クイズと学習（統合ハブ）",
+    "route": "/demo/sample-shop/learning",
+    "file": "docs/取扱説明書/images/screens-mobile/07-learning.png",
+    "capturedAt": "2026-07-02T14:09:06.363Z"
+  },
+  "08-learning-code": {
+    "title": "コード学習ウォークスルー",
+    "route": "/demo/sample-shop/learning/code/ba52955c-34cf-593d-9f71-206466c4b09c",
+    "file": "docs/取扱説明書/images/screens-mobile/08-learning-code.png",
+    "capturedAt": "2026-07-02T14:09:10.227Z"
+  },
+  "09-quiz-session": {
+    "title": "クイズ受験（集中モード）",
+    "route": "/demo/sample-shop/quizzes/228fd61f-f0d7-562c-a4ce-29ae25e727eb",
+    "file": "docs/取扱説明書/images/screens-mobile/09-quiz-session.png",
+    "capturedAt": "2026-07-02T14:09:13.958Z"
+  },
+  "10-quiz-result": {
+    "title": "クイズ採点結果（理解度の更新）",
+    "route": "/demo/sample-shop/quizzes/228fd61f-f0d7-562c-a4ce-29ae25e727eb/result",
+    "file": "docs/取扱説明書/images/screens-mobile/10-quiz-result.png",
+    "capturedAt": "2026-07-02T14:09:14.871Z"
+  },
+  "11-repos": {
+    "title": "コード改善（ファイルツリー + 負債）",
+    "route": "/demo/sample-shop/repos",
+    "file": "docs/取扱説明書/images/screens-mobile/11-repos.png",
+    "capturedAt": "2026-07-02T14:09:11.824Z"
+  },
+  "12-settings": {
+    "title": "プロジェクト設定",
+    "route": "/demo/sample-shop/settings",
+    "file": "docs/取扱説明書/images/screens-mobile/12-settings.png",
+    "capturedAt": "2026-07-02T14:09:07.118Z"
+  }
+}
