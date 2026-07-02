@@ -46,7 +46,9 @@ async def list_users(
         stmt = stmt.where(or_(func.lower(User.email).like(pattern), func.lower(User.display_name).like(pattern)))
     stmt = stmt.order_by(User.created_at.desc()).offset(offset).limit(limit)
     result = await session.exec(stmt)
-    return list(result.all())
+    # `User.oauth_accounts` は lazy="joined"（コレクションの joined eager load）のため、
+    # 重複行を畳む unique() が必須（未呼び出しだと InvalidRequestError）。
+    return list(result.unique().all())
 
 
 @router.patch(
