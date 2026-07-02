@@ -65,6 +65,12 @@ variable "analysis_credits_enabled" {
   default     = false
 }
 
+variable "admin_emails" {
+  description = "Comma-separated admin emails (issue 300). The only accounts granted superuser / admin-screen access; reconciled on every login. Empty = no admins."
+  type        = string
+  default     = ""
+}
+
 # --- Secrets (never written to tfvars; injected via TF_VAR_* from CI) ---
 
 variable "secret_key" {

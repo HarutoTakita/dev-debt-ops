@@ -1,6 +1,7 @@
 <script lang="ts">
   import LogOut from "@lucide/svelte/icons/log-out";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
+  import Shield from "@lucide/svelte/icons/shield";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { toggleMode } from "mode-watcher";
@@ -32,6 +33,13 @@
   <DropdownMenu.Content align="end" class="w-56">
     <DropdownMenu.Label class="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenu.Label>
     <DropdownMenu.Separator />
+    {#if auth.isAdmin}
+      <DropdownMenu.Item onSelect={() => goto(resolve("/admin"))}>
+        <Shield class="size-4" />
+        <span>ユーザー管理</span>
+      </DropdownMenu.Item>
+      <DropdownMenu.Separator />
+    {/if}
     <DropdownMenu.Item onSelect={() => toggleMode()}>
       <SunMoon class="size-4" />
       <span>{m.shell_toggle_theme()}</span>

@@ -16,6 +16,11 @@ class AuthStore {
     return this.user?.is_demo ?? false;
   }
 
+  /** True for admin (superuser) accounts — .env `ADMIN_EMAILS` driven (issue 300). Gates the admin screen. */
+  get isAdmin() {
+    return this.user?.is_superuser ?? false;
+  }
+
   /** Remaining repository-analysis credits for the signed-in user (issue 298). */
   get analysisCredits() {
     return this.user?.analysis_credits ?? 0;

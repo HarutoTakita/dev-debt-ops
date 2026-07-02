@@ -167,9 +167,17 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         request: Request | None = None,
         response: object | None = None,
     ) -> None:
-        """Update `last_active_at` to the current UTC timestamp on every successful login."""
+        """Stamp `last_active_at` and reconcile the admin role from `ADMIN_EMAILS` (issue 300).
+
+        Roles are `.env`-driven: `is_superuser` is set to whether the user's email is listed in
+        `ADMIN_EMAILS`, so GitHub-SSO users are general users unless explicitly named (and any account
+        no longer listed is demoted on its next login). This is the single source of truth for admin.
+        """
         session = cast(SQLAlchemyUserDatabase[User, uuid.UUID], self.user_db).session
         user.last_active_at = datetime.now(UTC)
+        desired_admin = user.email.lower() in settings.admin_email_set()
+        if user.is_superuser != desired_admin:
+            user.is_superuser = desired_admin
         session.add(user)
         await session.commit()
 

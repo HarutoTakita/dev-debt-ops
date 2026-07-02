@@ -29,6 +29,7 @@ import {
   repositoryListSchema,
   techStackSchema,
   treeSchema,
+  userSchema,
   type AnalyzeStackJob,
   type BranchList,
   type AnalysisStatus,
@@ -59,6 +60,7 @@ import {
   type Severity,
   type TechStack,
   type Tree,
+  type User,
 } from "./schemas";
 
 export type {
@@ -185,6 +187,24 @@ export async function removeMember(orgSlug: string, userId: string): Promise<voi
     method: "DELETE",
   });
   if (!response.ok) throw new Error(await errorDetail(response, "Failed to remove member"));
+}
+
+// 管理（superuser 限定・issue 300）: ユーザー一覧とクレジット付与。
+
+export async function listUsers(q?: string): Promise<User[]> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  const response = await apiFetch(`/api/v1/users${qs}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "ユーザー一覧の取得に失敗しました"));
+  return z.array(userSchema).parse(await response.json());
+}
+
+export async function grantUserCredits(userId: string, amount: number): Promise<User> {
+  const response = await apiFetch(`/api/v1/users/${userId}/credits`, {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "クレジットの付与に失敗しました"));
+  return userSchema.parse(await response.json());
 }
 
 // Projects — リポジトリ単位の観測対象（1 プロジェクト = 1 リポジトリ）
