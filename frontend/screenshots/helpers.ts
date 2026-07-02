@@ -14,8 +14,11 @@ import { fileURLToPath } from "node:url";
 // このファイル（frontend/screenshots/）からリポジトリルートは ../../。cwd に依存せず解決する。
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "../../");
+// PC 版とモバイル(レスポンシブ)版で出力先/manifest を分ける。振り分けは shot() 内でビューポート幅から判定。
 const SHOT_ROOT = path.resolve(REPO_ROOT, "docs/取扱説明書/images/screens");
 const MANIFEST = path.resolve(REPO_ROOT, "docs/取扱説明書/screens.manifest.json");
+const SHOT_ROOT_MOBILE = path.resolve(REPO_ROOT, "docs/取扱説明書/images/screens-mobile");
+const MANIFEST_MOBILE = path.resolve(REPO_ROOT, "docs/取扱説明書/screens-mobile.manifest.json");
 
 // シード済みデモワークスペース（backend/api/app/scripts/seed_demo.py と一致させること）。
 export const ORG = "demo";
@@ -25,18 +28,18 @@ export const BASE = `/${ORG}/${PROJECT}`;
 type ShotMeta = { title: string; route: string; file: string; capturedAt: string };
 
 /** manifest.json に1ページ分のメタ情報を upsert する（key で冪等。仕様書生成の入力になる）。 */
-function upsertManifest(key: string, entry: Omit<ShotMeta, "capturedAt">): void {
+function upsertManifest(manifestPath: string, key: string, entry: Omit<ShotMeta, "capturedAt">): void {
   let manifest: Record<string, ShotMeta>;
   try {
-    manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf-8"));
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
   } catch {
     manifest = {};
   }
   manifest[key] = { ...entry, capturedAt: new Date().toISOString() };
   // キー（= 表示順の番号プレフィックス）でソートして安定出力。
   const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
-  fs.mkdirSync(path.dirname(MANIFEST), { recursive: true });
-  fs.writeFileSync(MANIFEST, JSON.stringify(sorted, null, 2) + "\n");
+  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+  fs.writeFileSync(manifestPath, JSON.stringify(sorted, null, 2) + "\n");
 }
 
 /**
@@ -48,8 +51,13 @@ export async function shot(
   key: string,
   opts: { title: string; route?: string; fit?: boolean } = { title: "" },
 ): Promise<string> {
-  fs.mkdirSync(SHOT_ROOT, { recursive: true });
-  const file = path.join(SHOT_ROOT, `${key}.png`);
+  // ビューポート幅で PC 版 / モバイル版の出力先・manifest を振り分ける（mobile プロジェクト = 幅 390px）。
+  const vp = page.viewportSize();
+  const isMobile = !!vp && vp.width < 700;
+  const shotRoot = isMobile ? SHOT_ROOT_MOBILE : SHOT_ROOT;
+  const manifestPath = isMobile ? MANIFEST_MOBILE : MANIFEST;
+  fs.mkdirSync(shotRoot, { recursive: true });
+  const file = path.join(shotRoot, `${key}.png`);
 
   // ネットワーク・ローディング表示・スピナーが落ち着くまで待つ。
   await page.waitForLoadState("networkidle").catch(() => {});
@@ -144,7 +152,7 @@ export async function shot(
       }
     });
   }
-  upsertManifest(key, {
+  upsertManifest(manifestPath, key, {
     title: opts.title || key,
     route: opts.route ?? new URL(page.url()).pathname,
     file: path.relative(REPO_ROOT, file),
