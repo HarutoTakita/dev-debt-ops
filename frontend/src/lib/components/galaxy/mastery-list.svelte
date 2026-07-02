@@ -9,8 +9,14 @@
   import { masteryDot, masteryLabel } from "./galaxy-labels";
 
   // §5.5 個人認定の簡易版。KC 昇順（ブラックホール=危険を上位）に並べる。
-  const { galaxy }: { galaxy: PersonalGalaxy } = $props();
-  const files = $derived(galaxy.systems.flatMap((s) => s.files).sort((a, b) => a.kc - b.kc));
+  // activeFeature 指定時はその機能に属するファイル（feature_keys 一致）だけに絞る（マップと共通のフィルタ）。
+  const { galaxy, activeFeature = null }: { galaxy: PersonalGalaxy; activeFeature?: string | null } = $props();
+  const files = $derived(
+    galaxy.systems
+      .flatMap((s) => s.files)
+      .filter((f) => !activeFeature || f.feature_keys.includes(activeFeature))
+      .sort((a, b) => a.kc - b.kc),
+  );
 
   const orgSlug = $derived(page.params.org ?? "");
   const projectSlug = $derived(page.params.project ?? "");

@@ -8,6 +8,9 @@
 
 ### Changed
 
+- 理解度（KC）算出を見直し、**著作（git blame）由来の KC を「未理解（black_hole）」に引き下げ**た。従来は著作 KC の上限が 0.6（`dim_star`）で、支配的な著者がいるほぼ全ファイルが teal（理解済み風）になり「マップがほぼ全部理解済み」に見えていた。上限を `dim_star` 閾値（0.4）未満（0.35）に下げ、**著作＝接触であって理解ではない**（理解はクイズで実測）という前提に合わせた。クイズ認定 KC は従来どおり上限なしで `dim_star`/`star` に到達する。※反映には再解析が必要。
+- 理解度マップの**機能フィルタをリスト表示にも適用**。従来マップ専用だったフィルタを親（`galaxy/+page`）に持ち上げてタブ上部に常設し、マップ・リストの両ビューで同じ機能フィルタが効くようにした（共通コンポーネント `galaxy-feature-filter.svelte`）。リストは選択機能の所属ファイル（`feature_keys` 一致）に絞り込む。
+
 - 理解度マップのグラフ構築を **CodeGraphContext(CGC) 主ソース**に変更（imports＋calls）。従来 `code_graph.extract_snapshot` の `file_edges` はクロスファイル **CALLS のみ**だったが、CGC の **`(File)-[:IMPORTS]->(Module)`** も抽出して結合するようにした。CGC は import 指定子の全文（TS の `./galaxy-graph`・`$lib/api/schemas`、Python の `app.services.galaxy_query` 等）を Module 名に持つため、**リーフ名を抽出 → リポジトリ内ファイルへ一意 basename 一致で解決**（外部パッケージ・曖昧・自己参照は除外）してファイル間エッジ化する。CGC は Python だけでなく **TS/JS 等も解析**する（実測で `.ts` を索引・imports 抽出を確認）ため、`file_edges` が calls＋imports の CGC 主ソースになる。フロントは従来どおり `file_edges` と import 由来 `wormholes` を和で使うため CGC が主・regex import が補助になり、**機能フィルタ（`feature_keys` ベース）は不変で動作**。※反映には再解析が必要。`.svelte` は CGC 非対応のため引き続き blame ノード＋補助で扱う。
 
 ### Changed

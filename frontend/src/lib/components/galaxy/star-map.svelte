@@ -5,23 +5,23 @@
   import type { PersonalGalaxy } from "$lib/api/schemas";
   import GraphCanvas from "./graph-canvas.svelte";
   import { toFileGraphData } from "./graph-data";
-  import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
   // 理解度マップ（issue 288/290/293）: プロジェクト全体の「ファイル単位グラフ」。ノード=ファイル（KC で色分け）、
-  // エッジ=ファイル間の呼び出し/依存。機能フィルタは「その機能のファイル＋グラフ隣接（1 ホップ）」に広げ、
-  // 関連コードを含む連結クラスタを表示する（toFileGraphData 参照）。孤立ノードも同関数内で最寄りへ接続。
-  // 描画は force-graph(canvas) ラッパ GraphCanvas に委譲（力学配置/衝突回避/ズーム/パン）。
+  // エッジ=ファイル間の呼び出し/依存。機能フィルタ（`activeFeature`）は親（+page）が保持しマップ／リスト共用。
+  // 指定時は「その機能のファイル＋グラフ隣接（1 ホップ）」に広げ、関連コードを含む連結クラスタを表示する
+  // （toFileGraphData 参照）。孤立ノードも同関数内で最寄りへ接続。描画は force-graph(canvas) ラッパへ委譲。
   // fileEdges: CodeGraphContext 由来の file↔file 結合。import 由来の wormhole と併せて連結性を上げる。
   const {
     galaxy,
     fileEdges = [],
+    activeFeature = null,
   }: {
     galaxy: PersonalGalaxy;
     fileEdges?: { source: string; target: string }[];
+    activeFeature?: string | null;
   } = $props();
 
-  let activeFeature = $state<string | null>(null); // フィルタ（null = 全ファイル）
   let controls = $state<{ zoomIn: () => void; zoomOut: () => void; fit: () => void }>();
 
   // ファイル一覧（全 system のファイル）と、ファイル間エッジ。連結性を上げるため CGC の file_edges と
@@ -32,36 +32,9 @@
 
   const zoomBtnClass =
     "rounded-md border bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:text-foreground";
-  function chipClass(active: boolean): string {
-    return cn(
-      "rounded-full border px-2.5 py-0.5 text-xs transition",
-      active
-        ? "border-debt-knowledge bg-debt-knowledge/15 text-foreground"
-        : "border-border bg-background text-muted-foreground hover:text-foreground",
-    );
-  }
 </script>
 
 <div class="flex h-full flex-col gap-2">
-  {#if galaxy.features.length > 0}
-    <!-- 機能フィルタ（≤5 個）。全て / 各機能でファイルを絞り込む。 -->
-    <div class="flex flex-wrap items-center gap-1.5" data-tour="galaxy-filter">
-      <span class="text-xs text-muted-foreground">{m.galaxy_filter_label()}:</span>
-      <button type="button" class={chipClass(activeFeature === null)} onclick={() => (activeFeature = null)}>
-        {m.galaxy_filter_all()}
-      </button>
-      {#each galaxy.features as f (f.key)}
-        <button
-          type="button"
-          class={chipClass(activeFeature === f.key)}
-          onclick={() => (activeFeature = activeFeature === f.key ? null : f.key)}
-        >
-          {f.name}
-        </button>
-      {/each}
-    </div>
-  {/if}
-
   <div class="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-card">
     {#if files.length === 0}
       <div class="absolute inset-0 flex items-center justify-center p-6 text-center">

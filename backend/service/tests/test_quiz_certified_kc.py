@@ -99,7 +99,7 @@ async def test_grading_certifies_kc_to_star(monkeypatch: pytest.MonkeyPatch, ses
         ).scalar_one()
         assert dev_row.certified_via == "quiz"
         assert dev_row.kc == 0.9
-        assert dev_row.mastery == "star"  # > 0.6 authorship ceiling
+        assert dev_row.mastery == "star"  # quiz KC is uncapped; authorship is capped to black_hole (0.35)
         # aggregate row re-derived to the max dev KC.
         agg = (
             await session.execute(

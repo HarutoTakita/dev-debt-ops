@@ -6,11 +6,14 @@ thresholds, extracts intra-repo dependency edges (wormholes), and upserts ``file
 under an ``analysis_run``. ``shared.worker.run_task`` owns the Job lifecycle + ``result_data``.
 
 KC formula is an MVP: KC(file,dev) = the developer's blame line-share (``certified_via="authorship"``),
-*capped at ``_AUTHORSHIP_KC_CEILING`` so authorship alone never reaches ``star``* (issue-048 — authoring
-a file is contact, not verified mastery). half-life / decay are unknown (no spec in repo) and
-intentionally omitted. KC(file) aggregate = max of dev KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``.
-quiz-certified KC (034) only updates rows later (uncapped → can reach ``star``) — this pipeline writes the
-``certified_via`` column and upsert path it will reuse.
+*capped at ``_AUTHORSHIP_KC_CEILING`` (below the ``dim_star`` threshold) so authorship alone maps to
+**``black_hole`` = 未理解, not "understood"*** — authoring a file is *contact*, not verified mastery, and
+understanding is meant to be **measured by quizzes**, not inferred from blame (product premise / issue-048).
+Otherwise every authored file reads as teal ("理解済み") and the map looks done before any quiz is taken.
+half-life / decay are unknown (no spec in repo) and intentionally omitted. KC(file) aggregate = max of dev
+KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``. quiz-certified KC (034) updates rows later
+(uncapped → can reach ``dim_star`` / ``star``) — this pipeline writes the ``certified_via`` column and
+upsert path it will reuse.
 
 Idempotent across at-least-once redelivery: the run is keyed by ``job_id`` and rows upsert on their
 unique constraints (dev rows on ``(run_id, file_path, dev_id)``; aggregate rows on the partial index
@@ -45,11 +48,12 @@ _MAX_FILES = 200  # blame is a GraphQL call per file; cap per run (aligned with 
 # 対象拡張子。Python / TS・JS に加えフロントの .svelte / .vue も含める（理解度マップに Python 以外も出す）。
 _SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue")
 
-# Authorship is evidence of *contact*, not verified mastery. Capping authorship-derived KC
-# just below the star threshold (0.7) keeps "I wrote it" at most ``dim_star`` — so a repo's
-# sole author no longer reads as having mastered every file. Verified KC (quiz/review, issue
-# 034) writes uncapped rows and can reach ``star``. (issue-048)
-_AUTHORSHIP_KC_CEILING = 0.6
+# Authorship is evidence of *contact*, not verified mastery. Cap authorship-derived KC **below the
+# ``dim_star`` threshold (0.4)** so "I wrote it" maps to ``black_hole`` (未理解), never teal — otherwise
+# a repo's dominant author makes almost every file read as understood before any quiz, and the map looks
+# "done". Understanding is measured by quizzes: verified KC (quiz/review, issue 034) writes uncapped rows
+# and can reach ``dim_star`` / ``star``. (issue-048 revisited)
+_AUTHORSHIP_KC_CEILING = 0.35
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -276,7 +280,8 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
         dev_kcs: list[float] = []
         for identity, ratio in dev_ratios:
             dev_id = await resolve_author_user_id(session, identity)
-            # Cap authorship KC below the star threshold (issue-048): writing a file ≠ mastering it.
+            # Cap authorship KC below the dim_star threshold → black_hole (未理解): writing a file is
+            # contact, not verified mastery; understanding is raised by quizzes, not blame (issue-048 revisited).
             kc_auth = min(ratio, _AUTHORSHIP_KC_CEILING)
             await _upsert_file_kc(
                 session,
