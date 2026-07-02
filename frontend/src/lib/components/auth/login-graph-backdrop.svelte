@@ -1,8 +1,10 @@
 <script lang="ts">
   import LoginGraphCanvas from "./login-graph-canvas.svelte";
+  import Logo from "$lib/components/logo.svelte";
 
   // ログイン中（OAuth コールバック）のローディング・スプラッシュ。背景は共通の動くノード‐リンクグラフ
-  // （login-graph-canvas, 参考LP 参照）に刷新し、中央に「DevDebtOps」ブランドとメッセージを重ねる。
+  // （login-graph-canvas, 参考LP 参照）に刷新し、中央にアプリアイコン（favicon.svg = Logo）と
+  // 「DevDebtOps」・メッセージを重ねる。
   let { message = "" }: { message?: string } = $props();
 </script>
 
@@ -10,10 +12,7 @@
   <LoginGraphCanvas />
 
   <div class="content">
-    <div class="brand" aria-hidden="true">
-      <span class="sq know"></span>
-      <span class="sq code"></span>
-    </div>
+    <Logo class="size-16 drop-shadow-[0_0_18px_rgba(34,184,196,0.35)]" />
     <h1 class="name">DevDebtOps</h1>
     {#if message}
       <p class="msg">{message}</p>
@@ -49,22 +48,6 @@
       opacity: 1;
       transform: translateY(0);
     }
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-  }
-  .sq {
-    height: 0.9rem;
-    width: 0.9rem;
-    border-radius: 0.2rem;
-  }
-  .sq.know {
-    background: #22b8c4;
-  }
-  .sq.code {
-    margin-left: -0.3rem;
-    background: #e0a23a;
   }
   .name {
     font-size: 2.25rem;
