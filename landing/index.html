@@ -3,27 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>DevDebtOps — 理解負債を、測って返す</title>
+    <title>DevDebtOps — 理解度を、測って埋める</title>
     <meta
       name="description"
-      content="チームの『コードのわかってなさ（理解負債）』をクイズで実測し、学習で返済する閉ループ。技術負債はリファクタで返す。理解度とコード品質を一枚で。"
+      content="チームの『コードのわかってなさ（理解ギャップ）』をクイズで実測し、学習で埋める閉ループ。品質の低いコードは AI の修正 PR で改善。理解度とコード品質を一枚で。"
     />
     <meta property="og:site_name" content="DevDebtOps" />
-    <meta property="og:title" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta property="og:title" content="DevDebtOps — 理解度を、測って埋める" />
     <meta
       property="og:description"
-      content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
+      content="理解度をクイズで実測（git blame 非依存）し、学習で埋める閉ループ。理解ギャップとコード品質を可視化→改善。"
     />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta property="og:image:alt" content="DevDebtOps — 理解度を、測って埋める" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="DevDebtOps — 理解負債を、測って返す" />
+    <meta name="twitter:title" content="DevDebtOps — 理解度を、測って埋める" />
     <meta
       name="twitter:description"
-      content="理解度をクイズで実測（git blame 非依存）し、学習で返済する閉ループ。理解負債と技術負債を可視化→返済。"
+      content="理解度をクイズで実測（git blame 非依存）し、学習で埋める閉ループ。理解ギャップとコード品質を可視化→改善。"
     />
     <meta name="twitter:image" content="og-image.png" />
     <!-- Tailwind はビルド時にコンパイルして同梱（Play CDN は本番非推奨のため不使用）。`npm run build:css` で生成。 -->
@@ -153,12 +153,12 @@
           </p>
           <h1 class="text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">
             誰も理解していないコードを、<br class="hidden sm:block" />
-            <span class="text-know">可視化</span>して<span class="text-code">返済</span>する。
+            <span class="text-know">可視化</span>して<span class="text-code">解消</span>する。
           </h1>
           <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-300 lg:mx-0">
             GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
-            技術負債は AI が<strong class="font-semibold text-white">リファクタ PR</strong>で返す。
-            属人化と技術負債を、ひとつのダッシュボードで管理します。
+            品質の低いコードは AI が<strong class="font-semibold text-white">修正 PR</strong>で改善。
+            属人化とコード品質を、ひとつのダッシュボードで管理します。
           </p>
           <div class="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <a
@@ -216,10 +216,10 @@
                   <!-- サイドバー -->
                   <div class="hidden w-36 shrink-0 space-y-1 overflow-hidden border-r border-white/10 p-3 text-xs text-slate-400 sm:block">
                     <div class="rounded bg-white/5 px-2 py-1 text-slate-200">ダッシュボード</div>
-                    <div class="pt-1 text-[10px] tracking-wide text-know uppercase">理解負債</div>
+                    <div class="pt-1 text-[10px] tracking-wide text-know uppercase">理解度</div>
                     <div class="px-2 py-1">理解度マップ</div>
                     <div class="px-2 py-1">クイズと学習</div>
-                    <div class="pt-1 text-[10px] tracking-wide text-code uppercase">技術負債</div>
+                    <div class="pt-1 text-[10px] tracking-wide text-code uppercase">コード品質</div>
                     <div class="px-2 py-1">コード品質マップ</div>
                     <div class="px-2 py-1">コード改善</div>
                   </div>
@@ -264,9 +264,9 @@
     <!-- 課題 -->
     <section class="mx-auto max-w-6xl px-6 py-20">
       <div class="mx-auto max-w-2xl text-center">
-        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">負債は「コード」だけじゃない</h2>
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">課題は「コード」だけじゃない</h2>
         <p class="mt-4 leading-relaxed text-slate-400">
-          動くが誰も中身を理解していないコードは、技術負債とは別の<strong class="text-white">理解負債</strong>。
+          動くが誰も中身を理解していないコードは、コード品質の問題とは別の<strong class="text-white">理解ギャップ</strong>。
           変更速度・レビュー品質・オンボーディングを静かに蝕みます。
         </p>
       </div>
@@ -289,7 +289,7 @@
           <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
           <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            技術負債は山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
+            品質の低いコードは山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
           </p>
         </div>
       </div>
@@ -297,24 +297,24 @@
 
     <!-- 2×2 解決 -->
     <section id="how" class="mx-auto max-w-6xl px-6 py-12">
-      <h2 class="text-center text-2xl font-bold sm:text-3xl">2つの負債を、可視化して返済する</h2>
+      <h2 class="text-center text-2xl font-bold sm:text-3xl">理解度とコード品質を、可視化して改善する</h2>
       <div class="mt-10 grid gap-6 md:grid-cols-2">
         <div class="rounded-2xl border border-know/25 bg-[#131a22] p-6">
           <h3 class="flex items-center gap-2 text-xl font-semibold text-know">
-            <span class="size-2.5 rounded-full bg-know"></span> 理解負債
+            <span class="size-2.5 rounded-full bg-know"></span> 理解度
           </h3>
           <ul class="mt-4 space-y-3 text-slate-300">
             <li><strong class="text-white">可視化｜理解度マップ</strong> — 誰がどこを理解しているかをファイル単位のグラフで俯瞰。</li>
-            <li><strong class="text-white">返済｜クイズと学習</strong> — クイズで実測し、学習プランで埋める。合格で理解度↑。</li>
+            <li><strong class="text-white">改善｜クイズと学習</strong> — クイズで実測し、学習プランで埋める。合格で理解度↑。</li>
           </ul>
         </div>
         <div class="rounded-2xl border border-code/25 bg-[#131a22] p-6">
           <h3 class="flex items-center gap-2 text-xl font-semibold text-code">
-            <span class="size-2.5 rounded-full bg-code"></span> 技術負債
+            <span class="size-2.5 rounded-full bg-code"></span> コード品質
           </h3>
           <ul class="mt-4 space-y-3 text-slate-300">
-            <li><strong class="text-white">可視化｜コード品質マップ</strong> — ファイル単位で技術負債の分布を俯瞰。</li>
-            <li><strong class="text-white">返済｜コード改善</strong> — AI に頼む（修正 PR）／人に頼む（Issue）で返済。</li>
+            <li><strong class="text-white">可視化｜コード品質マップ</strong> — ファイル単位で品質の低いコードの分布を俯瞰。</li>
+            <li><strong class="text-white">改善｜コード改善</strong> — AI に頼む（修正 PR）／人に頼む（Issue）で対応。</li>
           </ul>
         </div>
       </div>
@@ -323,10 +323,10 @@
     <!-- 閉ループ -->
     <section class="mx-auto max-w-6xl px-6 py-20">
       <div class="mx-auto max-w-2xl text-center">
-        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">実測 → 返済の閉ループ</h2>
+        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">実測 → 改善の閉ループ</h2>
         <p class="mt-4 leading-relaxed text-slate-400">
           検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。主役は<strong class="text-white"
-            >理解度の実測と返済</strong
+            >理解度の実測と向上</strong
           >です。
         </p>
       </div>
@@ -343,13 +343,13 @@
         </li>
         <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-know">03</span>
-          <h3 class="mt-1 font-semibold text-white">学習で返済</h3>
+          <h3 class="mt-1 font-semibold text-white">学習で深める</h3>
           <p class="mt-1 text-sm leading-relaxed text-slate-400">チーム資産を優先した学習プランで理解度を引き上げる。</p>
         </li>
         <li class="rounded-2xl border border-code/20 bg-[#131a22] p-5">
           <span class="text-xs font-bold text-code">04</span>
-          <h3 class="mt-1 font-semibold text-white">リファクタ PR</h3>
-          <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に返済 PR を作成する。</p>
+          <h3 class="mt-1 font-semibold text-white">修正 PR</h3>
+          <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に修正 PR を作成する。</p>
         </li>
       </ol>
     </section>
@@ -359,7 +359,7 @@
       <div class="text-center">
         <p class="text-sm font-medium text-know">FEATURES</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">アプリにできること</h2>
-        <p class="mx-auto mt-3 max-w-2xl text-slate-400">解析からダッシュボード、可視化、返済までを 1 つのワークスペースで。</p>
+        <p class="mx-auto mt-3 max-w-2xl text-slate-400">解析からダッシュボード、可視化、改善までを 1 つのワークスペースで。</p>
       </div>
 
       <div class="mt-14 space-y-20">
@@ -369,10 +369,10 @@
             <p class="text-xs font-semibold tracking-wide text-know uppercase">Dashboard</p>
             <h3 class="mt-2 text-xl font-bold sm:text-2xl">ダッシュボード — 全体像を一目で</h3>
             <p class="mt-3 text-slate-300">
-              チーム理解度（KC）とコード品質を一枚で俯瞰。「学習を優先すべき領域」と推移を確認できます。閲覧専用に保ち、解析はトップバーから実行します。
+              チームの理解度とコード品質を一枚で俯瞰。「学習を優先すべき領域」と推移を確認できます。閲覧専用に保ち、解析はトップバーから実行します。
             </p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
-              <li>・理解度ヒーロー（チーム KC）＋最危険ファイル</li>
+              <li>・チーム理解度のサマリ＋低品質ファイル</li>
               <li>・理解度 × コード品質の推移グラフ</li>
               <li>・優先対応リスト</li>
             </ul>
@@ -420,15 +420,15 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div>
             <p class="text-xs font-semibold tracking-wide text-code uppercase">Code Quality Map</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード品質マップ — 負債の分布を俯瞰</h3>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード品質マップ — 品質の分布を俯瞰</h3>
             <p class="mt-3 text-slate-300">
-              ソースコードをファイル単位で閲覧し、どのファイルに技術負債が多いかを俯瞰。重複・複雑度・dead code・AI 生成痕跡の検知結果を理解度と重ね、着手すべきホットスポットを見つけます。
+              ソースコードをファイル単位で閲覧し、どのファイルに品質の問題が多いかを俯瞰。重複・複雑度・dead code・AI 生成痕跡の検知結果を理解度と重ね、着手すべきホットスポットを見つけます。
             </p>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
             <img
               src="assets/screens/11-repos.png"
-              alt="コード品質マップ — ファイルツリーとコード閲覧、ファイル単位の技術負債表示"
+              alt="コード品質マップ — ファイルツリーとコード閲覧、ファイル単位の品質の問題を表示"
               class="w-full"
               width="1600"
               height="1000"
@@ -441,9 +441,9 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div class="md:order-2">
             <p class="text-xs font-semibold tracking-wide text-know uppercase">Quizzes &amp; Learning</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">クイズと学習 — 実測して返済する</h3>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl">クイズと学習 — 実測して理解を深める</h3>
             <p class="mt-3 text-slate-300">
-              「クイズ（実測）」で L1〜L5 の問題に答えて理解度を計測し、「学習（返済）」でプランを進めて引き上げます。git blame に頼らず能動的に計測するので、単独開発・コードを書かない PM でも計測できます。
+              「クイズ」で L1〜L5 の問題に答えて理解度を計測し、「学習」でプランを進めて理解度を引き上げます。git blame に頼らず能動的に計測するので、単独開発・コードを書かない PM でも計測できます。
             </p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
               <li><strong class="text-white">・このコードを理解する</strong> — リポジトリ特有の機能をコードウォークスルーで学ぶ</li>
@@ -618,8 +618,8 @@
 
     <!-- CTA -->
     <section id="cta" class="mx-auto max-w-6xl px-6 py-20 text-center">
-      <h2 class="text-3xl font-bold">チームの理解負債を、今日から見える化</h2>
-      <p class="mx-auto mt-4 max-w-xl text-slate-400">GitHub リポジトリを接続して解析するだけ。技術負債と理解負債の両輪を回し始めましょう。</p>
+      <h2 class="text-3xl font-bold">チームの理解度を、今日から見える化</h2>
+      <p class="mx-auto mt-4 max-w-xl text-slate-400">GitHub リポジトリを接続して解析するだけ。理解度とコード品質の両輪を回し始めましょう。</p>
       <a
         id="foot-cta"
         href="/login"

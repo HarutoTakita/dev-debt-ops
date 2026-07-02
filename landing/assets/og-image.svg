@@ -49,22 +49,22 @@
   </g>
 
   <!-- 見出し -->
-  <text x="80" y="300" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" fill="#f1f5f9">理解負債を、</text>
+  <text x="80" y="300" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800" fill="#f1f5f9">理解度を、</text>
   <text x="80" y="392" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800">
-    <tspan fill="#22b8c4">測って</tspan><tspan fill="#f1f5f9">返す。</tspan>
+    <tspan fill="#22b8c4">測って</tspan><tspan fill="#f1f5f9">埋める。</tspan>
   </text>
 
   <!-- サブコピー -->
-  <text x="82" y="452" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">クイズで理解度を実測（git blame 非依存）し、学習で返済する閉ループ。</text>
-  <text x="82" y="490" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">理解負債と技術負債を、ひとつのダッシュボードで。</text>
+  <text x="82" y="452" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">クイズで理解度を実測（git blame 非依存）し、学習で埋める閉ループ。</text>
+  <text x="82" y="490" font-family="Inter, system-ui, sans-serif" font-size="27" font-weight="400" fill="#94a3b8">理解度とコード品質を、ひとつのダッシュボードで。</text>
 
-  <!-- 二負債チップ -->
+  <!-- 2 軸チップ -->
   <g font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="600">
     <rect x="80" y="528" width="190" height="48" rx="24" fill="#22b8c4" fill-opacity="0.12" stroke="#22b8c4" stroke-opacity="0.4" />
     <circle cx="108" cy="552" r="6" fill="#22b8c4" />
-    <text x="124" y="560" fill="#7fd8e0">理解負債</text>
+    <text x="124" y="560" fill="#7fd8e0">理解度</text>
     <rect x="290" y="528" width="190" height="48" rx="24" fill="#e0a23a" fill-opacity="0.12" stroke="#e0a23a" stroke-opacity="0.4" />
     <circle cx="318" cy="552" r="6" fill="#e0a23a" />
-    <text x="334" y="560" fill="#eec07a">技術負債</text>
+    <text x="334" y="560" fill="#eec07a">コード品質</text>
   </g>
 </svg>
