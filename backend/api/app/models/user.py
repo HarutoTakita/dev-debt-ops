@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
-from sqlalchemy import BigInteger, Boolean, DateTime, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, sa_created_at, sa_deleted_at, sa_updated_at
@@ -33,4 +33,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     token_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
     # True for the shared guest-demo account (issue 069): read-only, no GitHub OAuth.
     is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Remaining repository-analysis credits (issue 298). Each analysis run consumes one; starts at 0
+    # and is topped up by an admin. Only enforced when ``ANALYSIS_CREDITS_ENABLED`` (superusers bypass).
+    analysis_credits: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", back_populates="user", lazy="joined")

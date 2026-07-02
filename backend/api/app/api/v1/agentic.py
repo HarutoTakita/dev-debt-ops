@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Path, status
 from app.api.deps import CurrentUser, OrgScope, SessionDep
 from app.api.v1.github import InstallationIdDep
 from app.schemas.job import JobEnqueuedOut
+from app.services.credits import consume_analysis_credit
 from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
@@ -42,6 +43,9 @@ async def trigger_agentic_analysis(
     """Enqueue an ``agentic_analysis`` job for the project's repository and return ``202``."""
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
+    # Consume one analysis credit before enqueuing (issue 298). No-op unless ANALYSIS_CREDITS_ENABLED;
+    # superusers bypass; guest-demo users are already blocked upstream by InstallationIdDep (403).
+    await consume_analysis_credit(session, current_user)
     payload = {
         "owner": project.repo_owner,
         "repo": project.repo_name,

@@ -10,7 +10,7 @@ from service.pipelines import quiz_generation, quiz_grading
 from service.services import gemini_stack_service, quiz_authoring
 from service.services.github_git_client import FileContent
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Feature, FeatureFile, FileKc, QuizSession
+from shared.models import AnalysisRun, Feature, FeatureFile, FileKc, QuizAnswer, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.quiz import QuizGenerationRequest, QuizGradingRequest
 from shared.schemas.stack_analysis import GitHubRef
@@ -63,10 +63,12 @@ async def _seed_feature_session(
             feature_id=feature_id,
             is_baseline=True,
             status="grading",
-            questions=[{"id": "q1", "kind": "free_text", "prompt": "?", "difficulty": "L1"}],
-            answer_key={"q1": {"answer": "a", "rubric": "r"}},
+            questions=[{"id": "q1", "kind": "multiple_choice", "prompt": "P1", "difficulty": "L1"}],
+            answer_key={"q1": {"answer": "a", "rubric": ""}},
         )
         session.add(qs)
+        await session.flush()
+        session.add(QuizAnswer(session_id=qs.id, question_id="q1", value="a"))  # correct → rule-based score 1.0
         await session.commit()
         return qs.id
 
@@ -133,9 +135,7 @@ async def test_generation_feature_scope_builds_quiz(
     assert "Authentication" in seen["content"]
 
 
-async def test_grading_feature_expands_kc_to_all_files(
-    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
-) -> None:
+async def test_grading_feature_expands_kc_to_all_files(session_maker: async_sessionmaker) -> None:
     """A feature-scope quiz reflects the score onto every file in the feature (issue 054)."""
     project_id, developer_id = uuid.uuid4(), uuid.uuid4()
     feature_id = await _seed_feature(session_maker, project_id, ["src/auth.py", "src/token.py"])
@@ -144,16 +144,7 @@ async def test_grading_feature_expands_kc_to_all_files(
         session_maker, project_id=project_id, developer_id=developer_id, feature_id=feature_id
     )
 
-    async def _fake_mint(github: GitHubRef) -> str:
-        return "tok"
-
-    async def _fake_grade(payload: str) -> dict:
-        return {"score": 0.9, "understood": [], "gap_concepts": []}
-
-    monkeypatch.setattr(quiz_grading, "_mint_installation_token", _fake_mint)
-    monkeypatch.setattr(quiz_grading, "GitHubGitClient", lambda access_token: _FakeClient())
-    monkeypatch.setattr(gemini_stack_service, "grade_quiz", _fake_grade)
-
+    # Grading is rule-based (issue 298): the seeded correct answer scores 1.0 with no GitHub/Gemini.
     req = QuizGradingRequest(
         job_id=str(uuid.uuid4()),
         job_type=JobType.QUIZ_GRADING,
@@ -180,7 +171,7 @@ async def test_grading_feature_expands_kc_to_all_files(
         )
         paths = {r.file_path for r in rows}
         assert paths == {"src/auth.py", "src/token.py"}
-        assert all(r.kc == 0.9 and r.mastery == "star" for r in rows)
+        assert all(r.kc == 1.0 and r.mastery == "star" for r in rows)
         # one dev row per file (no duplicates).
         n = (
             await session.execute(

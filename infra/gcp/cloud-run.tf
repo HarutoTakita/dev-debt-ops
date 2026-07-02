@@ -12,22 +12,23 @@ locals {
   service_oidc_audience = "https://${local.name_prefix}-service"
 
   api_plain_env = {
-    ENVIRONMENT           = var.environment
-    COOKIE_SECURE         = "true"
-    GOOGLE_CLOUD_PROJECT  = var.gcp_project_id
-    GOOGLE_CLOUD_LOCATION = var.region
-    TASKS_QUEUE           = var.tasks_queue
-    TASKS_INVOKER_SA      = google_service_account.tasks_invoker.email
-    JOB_PAYLOAD_BUCKET    = google_storage_bucket.job_payloads.name
-    SERVICE_TASKS_URL     = google_cloud_run_v2_service.service.uri
-    USE_MOCK_QUEUE        = "false"
-    USE_MOCK_WORKER       = "false"
-    USE_MOCK_BLOB         = "false"
-    GITHUB_APP_ID         = var.github_app_id
-    GITHUB_APP_SLUG       = var.github_app_slug
-    GITHUB_CLIENT_ID      = var.github_client_id
-    FRONTEND_ORIGIN       = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
-    SERVICE_OIDC_AUDIENCE = local.service_oidc_audience
+    ENVIRONMENT              = var.environment
+    COOKIE_SECURE            = "true"
+    GOOGLE_CLOUD_PROJECT     = var.gcp_project_id
+    GOOGLE_CLOUD_LOCATION    = var.region
+    TASKS_QUEUE              = var.tasks_queue
+    TASKS_INVOKER_SA         = google_service_account.tasks_invoker.email
+    JOB_PAYLOAD_BUCKET       = google_storage_bucket.job_payloads.name
+    SERVICE_TASKS_URL        = google_cloud_run_v2_service.service.uri
+    USE_MOCK_QUEUE           = "false"
+    USE_MOCK_WORKER          = "false"
+    USE_MOCK_BLOB            = "false"
+    GITHUB_APP_ID            = var.github_app_id
+    GITHUB_APP_SLUG          = var.github_app_slug
+    GITHUB_CLIENT_ID         = var.github_client_id
+    FRONTEND_ORIGIN          = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
+    SERVICE_OIDC_AUDIENCE    = local.service_oidc_audience
+    ANALYSIS_CREDITS_ENABLED = tostring(var.analysis_credits_enabled)
   }
 
   api_secret_env = {

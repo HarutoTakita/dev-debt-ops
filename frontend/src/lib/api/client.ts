@@ -125,11 +125,14 @@ export async function listOrgs(): Promise<Org[]> {
 }
 
 // 公開ランタイム設定（認証前に SPA が参照）: デモボタンの出し分けに使う（issue 069）。
-export async function getPublicConfig(): Promise<{ demo_mode_enabled: boolean }> {
+export async function getPublicConfig(): Promise<{ demo_mode_enabled: boolean; analysis_credits_enabled: boolean }> {
   const response = await apiFetch("/api/v1/config");
-  if (!response.ok) return { demo_mode_enabled: false };
-  const data = (await response.json()) as { demo_mode_enabled?: boolean };
-  return { demo_mode_enabled: Boolean(data.demo_mode_enabled) };
+  if (!response.ok) return { demo_mode_enabled: false, analysis_credits_enabled: false };
+  const data = (await response.json()) as { demo_mode_enabled?: boolean; analysis_credits_enabled?: boolean };
+  return {
+    demo_mode_enabled: Boolean(data.demo_mode_enabled),
+    analysis_credits_enabled: Boolean(data.analysis_credits_enabled),
+  };
 }
 
 // ゲストデモログイン（issue 069）: GitHub 不要。共有デモユーザーとして cookie を発行する（204）。

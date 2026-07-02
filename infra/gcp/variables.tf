@@ -59,6 +59,12 @@ variable "dlp_enabled" {
   default     = false
 }
 
+variable "analysis_credits_enabled" {
+  description = "Gate repository analysis / repayment-PR on per-user analysis credits (issue 298). Default false (unlimited); enable for the public hackathon to bound Gemini cost."
+  type        = bool
+  default     = false
+}
+
 # --- Secrets (never written to tfvars; injected via TF_VAR_* from CI) ---
 
 variable "secret_key" {

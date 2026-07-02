@@ -87,27 +87,16 @@ async def test_generation_fills_questions(monkeypatch: pytest.MonkeyPatch, sessi
         assert qs.answer_key["q1"]["answer"] == "a"
 
 
-async def test_grading_writes_result_and_completes(
-    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
-) -> None:
-    _patch_common(monkeypatch, quiz_grading)
-
-    async def _fake_grade(payload: str) -> dict:
-        return {
-            "score": 0.8,
-            "understood": [{"id": "c1", "label": "ok"}],
-            "gap_concepts": [{"id": "c2", "label": "gap"}],
-        }
-
-    monkeypatch.setattr(gemini_stack_service, "grade_quiz", _fake_grade)
+async def test_grading_writes_result_and_completes(session_maker: async_sessionmaker) -> None:
+    """Grading is rule-based (issue 298): a correct choice quiz scores 1.0 with no GitHub/Gemini."""
     sid = await _seed_session(
         session_maker,
-        questions=[{"id": "q1", "kind": "free_text", "prompt": "?", "difficulty": "L1"}],
-        answer_key={"q1": {"answer": "a", "rubric": "r"}},
+        questions=[{"id": "q1", "kind": "multiple_choice", "prompt": "P1", "difficulty": "L1"}],
+        answer_key={"q1": {"answer": "a", "rubric": ""}},
         status="grading",
     )
     async with session_maker() as session:
-        session.add(QuizAnswer(session_id=sid, question_id="q1", value="my answer"))
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="a"))
         await session.commit()
 
     req = QuizGradingRequest(
@@ -115,22 +104,22 @@ async def test_grading_writes_result_and_completes(
         job_type=JobType.QUIZ_GRADING,
         session_id=str(sid),
         project_id=str(uuid.uuid4()),
-        github=GitHubRef(installation_id=1),
+        github=GitHubRef(installation_id=1),  # retained on schema; ignored by rule-based grading
         requested_by="u",
     )
     async with session_maker() as session:
         result = await quiz_grading.process(req, PipelineContext(session=session))
         await session.commit()  # run_task owns the commit in production (issue-042)
 
-    assert result.score == 0.8
+    assert result.score == 1.0
     assert result.kc_before == 0.2
-    assert result.kc_after > 0.2  # provisional bump toward 1.0
+    assert result.kc_after > 0.2  # no kc_analysis run to anchor → kc_after = score
     async with session_maker() as session:
         qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
         assert qs.status == "completed"
         qr = (await session.execute(select(QuizResult).where(QuizResult.session_id == sid))).scalar_one()
-        assert qr.understood[0]["id"] == "c1"
-        assert qr.gap_concepts[0]["id"] == "c2"
+        assert qr.understood[0]["id"] == "q1"
+        assert qr.gap_concepts == []
 
 
 async def test_grading_offline_choice_quiz_without_github(session_maker: async_sessionmaker) -> None:
@@ -203,18 +192,14 @@ async def test_grading_offline_partial_score(session_maker: async_sessionmaker) 
         assert [c["id"] for c in qr.gap_concepts] == ["q2"]
 
 
-async def test_grading_idempotent_when_completed(
-    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
-) -> None:
-    _patch_common(monkeypatch, quiz_grading)
-    graded_calls = {"n": 0}
-
-    async def _fake_grade(payload: str) -> dict:
-        graded_calls["n"] += 1
-        return {"score": 0.5, "understood": [], "gap_concepts": []}
-
-    monkeypatch.setattr(gemini_stack_service, "grade_quiz", _fake_grade)
+async def test_grading_idempotent_when_completed(session_maker: async_sessionmaker) -> None:
+    """A completed session is not re-graded — the persisted score is echoed unchanged (issue-042)."""
     sid = await _seed_session(session_maker, status="completed")
+    async with session_maker() as session:
+        qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
+        qs.score = 0.5
+        session.add(qs)
+        await session.commit()
     req = QuizGradingRequest(
         job_id=str(uuid.uuid4()),
         job_type=JobType.QUIZ_GRADING,
@@ -224,5 +209,5 @@ async def test_grading_idempotent_when_completed(
         requested_by="u",
     )
     async with session_maker() as session:
-        await quiz_grading.process(req, PipelineContext(session=session))
-    assert graded_calls["n"] == 0  # completed → not re-graded
+        result = await quiz_grading.process(req, PipelineContext(session=session))
+    assert result.score == 0.5  # completed → echoed, not re-graded
