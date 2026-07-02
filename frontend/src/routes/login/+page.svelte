@@ -94,7 +94,7 @@
               </button>
             {/snippet}
           </Tooltip.Trigger>
-          <Tooltip.Content class="max-w-xs text-center">
+          <Tooltip.Content side="bottom" sideOffset={6} class="max-w-xs text-center">
             GitHub アカウントなしで、サンプルプロジェクトをすぐに体験できます。
           </Tooltip.Content>
         </Tooltip.Root>
