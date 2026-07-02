@@ -5,6 +5,7 @@
   import { apiFetch, demoLogin, getPublicConfig, listOrgs } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
   import * as Tooltip from "$lib/components/ui/tooltip";
+  import LoginGraphCanvas from "$lib/components/auth/login-graph-canvas.svelte";
 
   let loading = $state(false);
   let demoEnabled = $state(false);
@@ -55,17 +56,20 @@
   <title>サインイン · DevDebtOps</title>
 </svelte:head>
 
-<div class="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-  <div class="text-center">
-    <h1 class="text-3xl font-bold">DevDebtOps</h1>
-    <p class="mt-2 text-sm text-muted-foreground">コード品質とチーム理解度の可視化</p>
+<div class="relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden p-8">
+  <!-- 背景: 動くノード‐リンクグラフ（参考LP 参照）。中身は z-10 で前面に出す。 -->
+  <LoginGraphCanvas />
+
+  <div class="relative z-10 text-center">
+    <h1 class="text-3xl font-bold text-slate-50">DevDebtOps</h1>
+    <p class="mt-2 text-sm text-slate-400">コード品質とチーム理解度の可視化</p>
   </div>
 
-  <div class="flex flex-col items-center gap-3">
+  <div class="relative z-10 flex flex-col items-center gap-3">
     <button
       onclick={signIn}
       disabled={loading}
-      class="inline-flex items-center gap-3 rounded-lg bg-foreground px-6 py-3 font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+      class="inline-flex items-center gap-3 rounded-lg bg-white px-6 py-3 font-medium text-slate-900 shadow-lg transition-colors hover:bg-slate-100 disabled:opacity-50"
     >
       <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path
@@ -84,7 +88,7 @@
                 {...props}
                 onclick={startDemo}
                 disabled={demoLoading}
-                class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                class="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-6 py-3 text-sm font-medium text-slate-100 backdrop-blur-sm transition-colors hover:bg-white/10 disabled:opacity-50"
               >
                 {demoLoading ? "準備中..." : "お試しはこちら"}
               </button>
@@ -96,7 +100,7 @@
         </Tooltip.Root>
       </Tooltip.Provider>
       {#if demoError}
-        <p class="text-xs text-destructive">デモの開始に失敗しました。時間をおいて再度お試しください。</p>
+        <p class="text-xs text-red-400">デモの開始に失敗しました。時間をおいて再度お試しください。</p>
       {/if}
     {/if}
   </div>
