@@ -998,14 +998,444 @@ _PLAN_RESOURCES: list[dict] = [
 ]
 
 
+_LANG_BY_EXT = {"py": "python", "ts": "typescript", "tsx": "tsx", "svelte": "svelte", "js": "javascript"}
+
+
+def _code_snippet(path: str) -> dict:
+    """Build a quiz ``code_snippet`` dict from a seeded demo file (reuses its realistic source)."""
+    ext = path.rsplit(".", 1)[-1]
+    return {
+        "language": _LANG_BY_EXT.get(ext, "text"),
+        "path": path,
+        "content": _DEMO_SNIPPETS.get(path) or _snippet_for(path, "other"),
+    }
+
+
+# Per-feature curated content (issue: enrich the demo so sample-shop looks like a real connected repo).
+# Each core feature gets its own realistic quiz (with code snippets from its seeded files) and a learning
+# plan (a code walkthrough of a representative file + tech-appropriate external docs). Checkout keeps its
+# dedicated constants above; the long-tail _EXTRA_FEATURES fall back to the generic set below.
+_FEATURE_CONTENT: dict[str, dict] = {
+    "auth": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "session.py の validate_session で、期限切れのトークンはどう扱うべき？",
+                "code_snippet": _code_snippet("src/auth/session.py"),
+                "choices": [
+                    {"id": "a", "label": "None を返し、呼び出し側で再認証させる"},
+                    {"id": "b", "label": "期限を無視してそのまま通す"},
+                    {"id": "c", "label": "例外を握り潰して真を返す"},
+                    {"id": "d", "label": "クライアントの時刻を信用して延長する"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_choice",
+                "prompt": "パスワードを安全に保存する方法として最も適切なのはどれ？",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "ソルト付きの遅いハッシュ（bcrypt / argon2）"},
+                    {"id": "b", "label": "平文のまま保存"},
+                    {"id": "c", "label": "MD5 でハッシュ"},
+                    {"id": "d", "label": "可逆暗号だけで保存"},
+                ],
+                "difficulty": "L2",
+            },
+            {
+                "id": "q3",
+                "kind": "multiple_select",
+                "prompt": "JWT を安全に扱うために必要な対策をすべて選べ。",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "署名の検証"},
+                    {"id": "b", "label": "有効期限（exp）の検証"},
+                    {"id": "c", "label": "秘密鍵のローテーション"},
+                    {"id": "d", "label": "ペイロードに生パスワードを格納する"},
+                ],
+                "difficulty": "L4",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "期限切れは無効化し再認証へ導くのが正解。"},
+            "q2": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。"},
+            "q3": {"answer": ["a", "b", "c"], "rubric": "署名・期限検証と鍵管理が必須。生パスワード格納は不可。"},
+        },
+        "gap_concepts": ["セッション失効の設計", "OAuth コールバックの検証", "JWT の署名と失効"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "セッション検証: session.py を読む",
+                "summary": "トークンの検証・失効の扱いと、認可の組み立てを読み解く。",
+                "tech": "",
+                "url": None,
+                "minutes": 12,
+                "priority": "required",
+                "source_ref": "src/auth/session.py",
+            },
+            {
+                "key": "jwt",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "JWT 入門（jwt.io）",
+                "summary": "署名・クレーム・失効の基礎を理解する。",
+                "tech": "JWT",
+                "url": "https://jwt.io/introduction",
+                "minutes": 15,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+            {
+                "key": "oauth",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "OAuth 2.0 概要",
+                "summary": "認可コードフローとコールバック検証の要点。",
+                "tech": "OAuth",
+                "url": "https://oauth.net/2/",
+                "minutes": 20,
+                "priority": "supplementary",
+                "source_ref": None,
+            },
+        ],
+    },
+    "catalog": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "search.ts の buildFilters に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/catalog/search.ts"),
+                "choices": [
+                    {"id": "a", "label": "ほぼ同一のフィルタ組み立てが重複しており共通化すべき"},
+                    {"id": "b", "label": "特に問題はない"},
+                    {"id": "c", "label": "型が厳しすぎる"},
+                    {"id": "d", "label": "分岐が少なすぎる"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_select",
+                "prompt": "商品検索を高速かつ安全にするための対策をすべて選べ。",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "適切なインデックスの活用"},
+                    {"id": "b", "label": "入力のサニタイズ（SQL インジェクション対策）"},
+                    {"id": "c", "label": "ページング / 上限件数"},
+                    {"id": "d", "label": "全件をメモリに読み込んで絞り込む"},
+                ],
+                "difficulty": "L3",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "重複したフィルタ生成は共通化して修正漏れを防ぐ。"},
+            "q2": {"answer": ["a", "b", "c"], "rubric": "索引・サニタイズ・ページングが有効。全件ロードは不可。"},
+        },
+        "gap_concepts": ["検索クエリの組み立て", "N+1 とインデックス", "フィルタの共通化"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "検索フィルタ生成: search.ts を読む",
+                "summary": "フィルタ組み立ての重複と、検索クエリの責務を把握する。",
+                "tech": "",
+                "url": None,
+                "minutes": 12,
+                "priority": "required",
+                "source_ref": "src/catalog/search.ts",
+            },
+            {
+                "key": "pg-index",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "PostgreSQL: Indexes",
+                "summary": "検索を支える索引の種類と使い所を学ぶ。",
+                "tech": "PostgreSQL",
+                "url": "https://www.postgresql.org/docs/current/indexes.html",
+                "minutes": 20,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+        ],
+    },
+    "inventory": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "stock.py の reserve における在庫チェックと引当の問題はどれ？",
+                "code_snippet": _code_snippet("src/inventory/stock.py"),
+                "choices": [
+                    {"id": "a", "label": "チェックと更新が非アトミックで競合の余地がある"},
+                    {"id": "b", "label": "特に問題はない"},
+                    {"id": "c", "label": "在庫を誤って増やしている"},
+                    {"id": "d", "label": "SKU を無視している"},
+                ],
+                "difficulty": "L4",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_choice",
+                "prompt": "同時実行下で在庫引当を正しく行うにはどうすべき？",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "トランザクション＋行ロック（または原子的更新）で守る"},
+                    {"id": "b", "label": "処理前に固定時間 sleep する"},
+                    {"id": "c", "label": "特に対策しない"},
+                    {"id": "d", "label": "グローバル変数で在庫を管理する"},
+                ],
+                "difficulty": "L3",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "read→write が非アトミックだと超過引当が起きうる。"},
+            "q2": {"answer": "a", "rubric": "トランザクション境界と行ロック/原子的更新で競合を防ぐ。"},
+        },
+        "gap_concepts": ["在庫引当のトランザクション境界", "競合状態（レースコンディション）", "冪等な引当"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "在庫引当: stock.py を読む",
+                "summary": "在庫チェックと更新の原子性、決済との密結合点を把握する。",
+                "tech": "",
+                "url": None,
+                "minutes": 12,
+                "priority": "required",
+                "source_ref": "src/inventory/stock.py",
+            },
+            {
+                "key": "sa-tx",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "SQLAlchemy: トランザクション",
+                "summary": "セッションとトランザクション境界、ロックの扱い。",
+                "tech": "SQLAlchemy",
+                "url": "https://docs.sqlalchemy.org/en/20/orm/session_transaction.html",
+                "minutes": 20,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+        ],
+    },
+    "user": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "profile.py の update_profile に潜む危険はどれ？",
+                "code_snippet": _code_snippet("src/user/profile.py"),
+                "choices": [
+                    {"id": "a", "label": "入力検証なしで全フィールドを上書きする mass assignment"},
+                    {"id": "b", "label": "特に問題はない"},
+                    {"id": "c", "label": "処理が遅い"},
+                    {"id": "d", "label": "ログが多すぎる"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_select",
+                "prompt": "プロフィール更新を安全にする対策をすべて選べ。",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "更新可能フィールドのホワイトリスト化"},
+                    {"id": "b", "label": "入力バリデーション"},
+                    {"id": "c", "label": "本人/権限のチェック"},
+                    {"id": "d", "label": "任意のキーをそのまま setattr する"},
+                ],
+                "difficulty": "L2",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "検証なしの一括上書きは権限昇格・改ざんの温床。"},
+            "q2": {"answer": ["a", "b", "c"], "rubric": "ホワイトリスト・検証・認可が対策。無差別 setattr は不可。"},
+        },
+        "gap_concepts": ["mass assignment 対策", "入力バリデーション", "認可の境界"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "プロフィール更新: profile.py を読む",
+                "summary": "更新フィールドの扱いと入力検証・認可の観点を把握する。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "required",
+                "source_ref": "src/user/profile.py",
+            },
+            {
+                "key": "owasp-ma",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "OWASP: Mass Assignment 対策",
+                "summary": "一括代入の危険と防御パターンを学ぶ。",
+                "tech": "Security",
+                "url": "https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html",
+                "minutes": 15,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+        ],
+    },
+    "shipping": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "shipping.py の create_shipment に欠けている考慮はどれ？",
+                "code_snippet": _code_snippet("src/shipping/shipping.py"),
+                "choices": [
+                    {"id": "a", "label": "キャリア連携失敗時のリトライ / 補償（冪等）"},
+                    {"id": "b", "label": "何も欠けていない"},
+                    {"id": "c", "label": "ログ出力"},
+                    {"id": "d", "label": "型注釈"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_choice",
+                "prompt": "外部キャリア API 連携の信頼性を高める組み合わせはどれ？",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "タイムアウト・リトライ・冪等キー"},
+                    {"id": "b", "label": "無限リトライ"},
+                    {"id": "c", "label": "例外を握り潰す"},
+                    {"id": "d", "label": "同期で無制限に待つ"},
+                ],
+                "difficulty": "L3",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "外部連携は失敗前提。リトライ/補償と冪等性が要る。"},
+            "q2": {"answer": "a", "rubric": "タイムアウト・有限リトライ・冪等キーの組み合わせが定石。"},
+        },
+        "gap_concepts": ["外部 API 連携の信頼性", "リトライと冪等性", "配送状態の遷移"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "出荷作成: shipping.py を読む",
+                "summary": "キャリア連携の失敗時挙動と、状態遷移の設計を把握する。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "required",
+                "source_ref": "src/shipping/shipping.py",
+            },
+            {
+                "key": "httpx",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "httpx: タイムアウトと再試行の考え方",
+                "summary": "外部 HTTP 連携の信頼性設計の前提を学ぶ。",
+                "tech": "httpx",
+                "url": "https://www.python-httpx.org/advanced/",
+                "minutes": 15,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+        ],
+    },
+    "notifications": {
+        "quiz_questions": [
+            {
+                "id": "q1",
+                "kind": "multiple_choice",
+                "prompt": "email.py の send_order_email に潜む不具合はどれ？",
+                "code_snippet": _code_snippet("src/notifications/email.py"),
+                "choices": [
+                    {"id": "a", "label": "テンプレ変数の欠落で KeyError になり得る"},
+                    {"id": "b", "label": "特に問題はない"},
+                    {"id": "c", "label": "送信が速すぎる"},
+                    {"id": "d", "label": "型が厳しすぎる"},
+                ],
+                "difficulty": "L2",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_select",
+                "prompt": "通知を確実に届けるための設計をすべて選べ。",
+                "code_snippet": None,
+                "choices": [
+                    {"id": "a", "label": "送信の非同期化・キュー投入"},
+                    {"id": "b", "label": "失敗時のリトライ"},
+                    {"id": "c", "label": "テンプレ変数の検証"},
+                    {"id": "d", "label": "全ユーザーへ同期で一斉送信"},
+                ],
+                "difficulty": "L3",
+            },
+        ],
+        "quiz_answer_key": {
+            "q1": {"answer": "a", "rubric": "テンプレ変数の欠落は実行時 KeyError の原因。事前検証が必要。"},
+            "q2": {"answer": ["a", "b", "c"], "rubric": "非同期化・リトライ・変数検証が有効。同期一斉送信は不可。"},
+        },
+        "gap_concepts": ["テンプレートの安全な描画", "非同期送信とリトライ", "通知の重複防止"],
+        "resources": [
+            {
+                "key": "code",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "注文メール送信: email.py を読む",
+                "summary": "テンプレ描画の落とし穴と、送信の信頼性設計を把握する。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "required",
+                "source_ref": "src/notifications/email.py",
+            },
+            {
+                "key": "jinja",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "Jinja2: テンプレート",
+                "summary": "安全なテンプレート描画と変数の扱いを学ぶ。",
+                "tech": "Jinja2",
+                "url": "https://jinja.palletsprojects.com/en/stable/templates/",
+                "minutes": 15,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+        ],
+    },
+}
+
+
 def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict]:
     """Return ``(questions, answer_key)`` for a feature's confirmation quiz.
 
-    Checkout reuses the rich payment-specific quiz; every other feature gets a generic but
-    valid two-question set so its 理解度チェック is takeable end-to-end in the demo.
+    Checkout reuses the rich payment-specific quiz, the core EC features have their own curated
+    banks (``_FEATURE_CONTENT``), and the long-tail extra features fall back to a generic but valid
+    two-question set so every 理解度チェック is takeable end-to-end in the demo.
     """
     if feature_key == "checkout":
         return _QUIZ_QUESTIONS, _QUIZ_ANSWER_KEY
+    curated = _FEATURE_CONTENT.get(feature_key)
+    if curated:
+        return curated["quiz_questions"], curated["quiz_answer_key"]
     questions: list[dict] = [
         {
             "id": "q1",
@@ -1050,6 +1480,9 @@ def _feature_plan(feature_key: str, feature_name: str, member_files: list[str]) 
     """
     if feature_key == "checkout":
         return _PLAN_GAP_CONCEPTS, _PLAN_RESOURCES
+    curated = _FEATURE_CONTENT.get(feature_key)
+    if curated:
+        return curated["gap_concepts"], curated["resources"]
     rep = member_files[0]
     resources: list[dict] = [
         {
