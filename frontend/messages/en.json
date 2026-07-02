@@ -552,6 +552,7 @@
   "auth_error_dashboard": "Failed to open the dashboard.",
   "root_tagline": "Measure your team's understanding with quizzes and repay it through learning. Technical debt rides along as a hotspot signal for which knowledge debt is most urgent.",
   "root_cta_signin": "Sign in with GitHub",
+  "root_cta_learn_more": "Learn more",
   "error_page_back_projects": "Back to projects",
   "agents_retry_running": "Retrying…",
   "repo_error_network": "Network error. Please check your connection.",

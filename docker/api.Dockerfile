@@ -11,7 +11,14 @@ COPY frontend/ .
 # 変更履歴ビューア用: repo ルートの CHANGELOG.md を静的アセットとして同梱（/CHANGELOG.md で配信）。
 # ビルドコンテキストは repo ルートなので参照可能。build スクリプトの sync:changelog はここでは no-op。
 COPY CHANGELOG.md ./static/CHANGELOG.md
+# LP（ランディングページ）を同一ドメインの /lp で配信するため、アプリ内のリンク先 URL をビルド時に注入。
+# 未設定（dev）ならサイドバー/ルートの LP リンクは無効。
+ENV VITE_LP_URL=/lp
 RUN bun run build
+# 静的 LP（landing/）をビルド出力 build/lp/ に同梱 → runtime で static/lp/ になり api が /lp で配信する。
+# styles.css はコミット済み（別ビルド不要）。必要な静的ファイルのみ同梱（node_modules 等は除外）。
+COPY landing/index.html landing/styles.css landing/og-image.png /app/build/lp/
+COPY landing/assets /app/build/lp/assets
 
 # ── Stage: builder (resolve + install rosetta-api deps from the workspace) ────
 FROM python:3.13-slim AS builder

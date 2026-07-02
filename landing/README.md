@@ -1,9 +1,22 @@
 # Landing page (LP)
 
-アプリとは別に公開する静的ランディングページ。**アプリ（Cloud Run）とは独立にデプロイ**する。
+静的ランディングページ。Tailwind は本番非推奨の Play CDN（`cdn.tailwindcss.com`）を使わず、**ビルド時に
+コンパイルして同梱**する。配信物は `index.html` ＋ `styles.css` ＋ `og-image.png`（いずれもコミット済み）。
 
-Tailwind は本番非推奨の Play CDN（`cdn.tailwindcss.com`）を使わず、**ビルド時にコンパイルして同梱**する。
-配信物は `index.html` ＋ `styles.css` ＋ `og-image.png` の 3 ファイル（いずれもリポジトリにコミット済み）。
+## 配信（現行・既定）: アプリと同一ドメインの `/lp`
+
+ハッカソン用途のため、別ドメイン/別バケットは使わず **アプリと同じドメインの `/lp`** で配信する（issue: LP 公開）。
+
+- `docker/api.Dockerfile`（frontend ステージ）が `landing/index.html` / `styles.css` / `og-image.png` / `assets`
+  を SPA ビルド出力の `build/lp/` に同梱し、runtime で `app/static/lp/` になる。
+- `backend/api/app/main.py` が SPA キャッチオール（`/`）より先に `/lp` を静的マウント（`html=True`）→ `/lp`・`/lp/`
+  とも `index.html` を返す。**追加の GCS バケット・サブドメイン・証明書・DNS・CI ステップは不要**（api の既存
+  デプロイに同梱される）。
+- アプリからの入口: ルート `/`（未ログイン）の「サービスを詳しく見る」とサイドバーのヘルプ「LP を確認する」。
+  どちらもビルド時 env **`VITE_LP_URL`**（Docker では `/lp` を注入）で有効化。dev では未設定＝リンク非表示、
+  かつ vite は `/lp` を配信しないため LP は prod/stg（api 配信）で確認する。
+- `styles.css` はコミット済みのため Docker では再ビルド不要。クラス/OGP を変えたら下記「ビルド」を流して
+  `styles.css` を更新・コミットする。
 
 ## ビルド
 

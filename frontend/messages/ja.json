@@ -552,6 +552,7 @@
   "auth_error_dashboard": "ダッシュボードへの遷移に失敗しました。",
   "root_tagline": "チームの理解度をクイズで実測し、学習で返済するプラットフォーム。技術負債は「どの理解負債が緊急か」を示すホットスポットとして添えます。",
   "root_cta_signin": "GitHub でサインイン / はじめる",
+  "root_cta_learn_more": "サービスを詳しく見る",
   "error_page_back_projects": "プロジェクト一覧へ戻る",
   "agents_retry_running": "リトライ中…",
   "repo_error_network": "ネットワークエラーです。接続を確認してください。",
