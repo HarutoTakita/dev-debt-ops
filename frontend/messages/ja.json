@@ -156,7 +156,6 @@
   "demo_block_hint": "（GitHub サインインが必要です）",
   "demo_badge_label": "デモ環境",
   "demo_badge_tooltip": "これはサンプルデータのデモ環境です。GitHub 連携が必要な操作は利用できません。GitHub でサインインすると、自分のリポジトリを解析できます。",
-  "common_loading": "読み込み中…",
   "count_suffix": "件",
   "login_title": "サインイン",
   "login_subtitle": "コード品質とチーム理解度の可視化",
