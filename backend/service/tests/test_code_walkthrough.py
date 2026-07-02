@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from service.agents import serena_mcp
 from service.agents.budget import RunBudget
 from service.agents.serena_mcp import build_serena_toolset
 from service.services import code_walkthrough
@@ -52,10 +53,11 @@ def test_build_walkthrough_agent_save_tool_captures_steps() -> None:
     assert "saved 1" in msg
 
 
-def test_build_walkthrough_agent_appends_serena_toolset() -> None:
+def test_build_walkthrough_agent_appends_serena_toolset(monkeypatch: pytest.MonkeyPatch) -> None:
     """With a Serena toolset the agent gets save_walkthrough + the toolset; without it, just save."""
-    # build_serena_toolset only constructs the McpToolset (no process starts until connect), so it's
-    # a valid BaseToolset for the LlmAgent's tool validation without needing Serena installed.
+    # build_serena_toolset は serena バイナリ非存在時に None を返す（graceful, issue 059c）。バイナリ有りを
+    # 装って McpToolset を生成する（プロセスは connect まで起動しないので Serena 未インストールでも可）。
+    monkeypatch.setattr(serena_mcp.shutil, "which", lambda _cmd: "/usr/bin/serena")
     toolset = build_serena_toolset("/tmp/does-not-matter")
     with_serena = build_walkthrough_agent(path="x", budget=RunBudget(), captured=[], serena_toolset=toolset)
     without = build_walkthrough_agent(path="x", budget=RunBudget(), captured=[])

@@ -19,6 +19,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 
 from service import config
+from service.services.secret_redaction import deidentify
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +149,9 @@ async def _generate(
     exponential (2,4,8,16,32s) so a per-minute quota window has time to reset. Non-retryable errors
     (other 4xx) propagate unchanged.
     """
+    # LLM 送信前に秘密情報/PII をマスク（issue 296）。直呼び(ADK 非経由)経路の唯一のチョークポイントで、
+    # 全 public 関数がここを通る。DLP は有効時のみ呼ばれ、失敗時はローカルのルールベースへフォールバック。
+    contents, _ = await deidentify(contents)
     last: Exception | None = None
     for attempt in range(_GENERATE_MAX_ATTEMPTS):
         try:

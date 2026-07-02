@@ -52,6 +52,8 @@ locals {
     SERVICE_TASKS_URL = local.service_oidc_audience
     USE_MOCK_QUEUE    = "false"
     GITHUB_APP_ID     = var.github_app_id
+    # LLM 送信前の PII マスキングに Cloud DLP を使うか（issue 296、既定 false）。true のときのみ DLP API を呼ぶ。
+    DLP_ENABLED = tostring(var.dlp_enabled)
   }
 
   # service mints GitHub App installation tokens (method B) in the analysis pipelines,

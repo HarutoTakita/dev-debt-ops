@@ -18,6 +18,7 @@ resource "google_project_service" "services" {
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "aiplatform.googleapis.com",
+    "dlp.googleapis.com", # Sensitive Data Protection: LLM 送信前の PII マスキング (issue 296, DLP_ENABLED=true 時)
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "cloudtrace.googleapis.com",
