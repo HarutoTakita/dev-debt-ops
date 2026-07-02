@@ -93,4 +93,9 @@ if not _is_prod:
 
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
+    # 静的 LP（ランディングページ）を同一ドメインの /lp で配信する（landing/ を Docker で static/lp に同梱）。
+    # SPA キャッチオール（/）より先にマウントする必要がある。html=True で /lp・/lp/ とも index.html を返す。
+    lp_dir = static_dir / "lp"
+    if lp_dir.exists():
+        app.mount("/lp", StaticFiles(directory=str(lp_dir), html=True), name="landing")
     app.mount("/", SPAStaticFiles(directory=str(static_dir), html=True), name="frontend")
