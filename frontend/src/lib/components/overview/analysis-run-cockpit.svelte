@@ -83,6 +83,10 @@
   function stepMark(status: string): string {
     return status === "completed" ? "✓" : status === "failed" ? "×" : status === "running" ? "●" : "○";
   }
+  // 実行中（PROCESSING / running）の水色ステータスは点滅（animate-pulse）させ「進行中」を視覚的に強調する。
+  function tone(base: string, running: boolean): string {
+    return running ? `${base} animate-pulse` : base;
+  }
   // 表示用サブステップ。実行前から静的カタログ（AGENTIC_SUBSTEPS）で全件を pending 表示し、ライブ進捗が
   // 来たら key 一致で status/done/total を上書きする（issue 244）。これで「初めから詳細項目が並び、実行で
   // ステータスだけ変化する」挙動になる。
@@ -193,7 +197,8 @@
          親のステータスは解析ジョブ全体（agentic ステージ）に連動する。 -->
     <div class="rounded-md border border-debt-knowledge/40 bg-debt-knowledge/5 px-3 py-2">
       <div class="flex items-center gap-3 text-sm">
-        <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[agenticStatus]}`}
+        <span
+          class={`w-16 shrink-0 text-xs font-medium ${tone(statusTone[agenticStatus], agenticStatus === "PROCESSING")}`}
           >{statusLabel(agenticStatus)}</span
         >
         <span class="min-w-0 flex-1 truncate font-medium">{m.analysis_base_agentic()}</span>
@@ -205,7 +210,9 @@
           {@const bs = blockStatus(children, gv.status)}
           <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
             <div class="flex items-center gap-3">
-              <span class={`w-16 shrink-0 text-xs font-medium ${statusTone[bs]}`}>{statusLabel(bs)}</span>
+              <span class={`w-16 shrink-0 text-xs font-medium ${tone(statusTone[bs], bs === "PROCESSING")}`}
+                >{statusLabel(bs)}</span
+              >
               <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
               {#if gv.status === "COMPLETED" && group.deepLink}
                 <a
@@ -229,7 +236,9 @@
               <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
                 {#each children as s (s.key)}
                   <li class="flex items-center gap-2 text-xs">
-                    <span class={`w-3 shrink-0 text-center ${stepTone[s.status] ?? "text-muted-foreground"}`}>
+                    <span
+                      class={`w-3 shrink-0 text-center ${tone(stepTone[s.status] ?? "text-muted-foreground", s.status === "running")}`}
+                    >
                       {stepMark(s.status)}
                     </span>
                     <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
