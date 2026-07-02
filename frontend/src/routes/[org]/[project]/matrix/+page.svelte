@@ -127,9 +127,9 @@
     </div>
   {:else}
     <Tooltip.Provider delayDuration={150}>
-      <ul class="flex flex-col gap-2" data-tour="matrix-list">
-        {#each debts as debt (debt.id)}
-          <li><DebtListRow {orgSlug} {projectSlug} {debt} /></li>
+      <ul class="flex flex-col gap-2">
+        {#each debts as debt, i (debt.id)}
+          <li><DebtListRow {orgSlug} {projectSlug} {debt} dataTour={i === 0 ? "matrix-first-row" : undefined} /></li>
         {/each}
       </ul>
     </Tooltip.Provider>

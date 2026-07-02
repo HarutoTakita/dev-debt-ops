@@ -16,7 +16,9 @@ export type TourStep = {
   placement: TourPlacement;
   /** 指定時、表示前にこのプロジェクト相対パスへ遷移する。 */
   route?: (ctx: { orgSlug: string; projectSlug: string }) => Pathname;
-  /** 指定時、表示前にこの data-tour 要素をクリックして target を出す（タブ切替などの隠れ要素対策）。 */
+  /** route に付与するクエリ文字列（例: `?path=src/…` でファイルを事前選択）。route と併用。 */
+  search?: (ctx: { orgSlug: string; projectSlug: string }) => string;
+  /** 指定時、表示前にこの data-tour 要素をクリックして target を出す（タブ切替・詳細画面への遷移など）。 */
   reveal?: string;
 };
 
@@ -161,21 +163,70 @@ export const pageTours: Record<string, TourStep[]> = {
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
-      id: "knowledge-learn",
-      target: "unit-learn",
-      title: m.tour_kn_learn_title,
-      body: m.tour_kn_learn_body,
-      placement: "bottom",
-    },
-    {
       id: "knowledge-confirm",
       target: "unit-confirm",
       title: m.tour_kn_confirm_title,
       body: m.tour_kn_confirm_body,
       placement: "bottom",
     },
+    {
+      // 「理解度を確認する」の遷移先（クイズ受験画面）まで案内する。reveal でリンクをクリックして遷移。
+      id: "knowledge-quiz",
+      target: "quiz-answer",
+      reveal: "unit-confirm",
+      title: m.tour_kn_quiz_title,
+      body: m.tour_kn_quiz_body,
+      placement: "left",
+    },
+    {
+      // クイズ画面から単元一覧へ戻し、「学習を開く」を説明。
+      id: "knowledge-learn",
+      target: "unit-learn",
+      title: m.tour_kn_learn_title,
+      body: m.tour_kn_learn_body,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+    },
+    {
+      // 「学習を開く」の遷移先（学習プラン閲覧画面）まで案内する（最後のステップ）。
+      id: "knowledge-plan",
+      target: "plan-progress",
+      reveal: "unit-learn",
+      title: m.tour_kn_plan_title,
+      body: m.tour_kn_plan_body,
+      placement: "bottom",
+    },
   ],
+  // 「コード品質マップ」（nav id=matrix, ラベル=コード品質マップ, ルート=/repos）の詳細ガイド。
+  // ファイルツリー＋ファイル閲覧＋指摘箇所。指摘のあるファイルを事前選択して閲覧欄を空にしない。
   matrix: [
+    {
+      id: "repos-tree",
+      target: "repos-tree",
+      title: m.tour_rp_tree_title,
+      body: m.tour_rp_tree_body,
+      placement: "right",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+      search: () => "?path=src/checkout/payment.py",
+    },
+    {
+      id: "repos-viewer",
+      target: "repos-viewer",
+      title: m.tour_rp_viewer_title,
+      body: m.tour_rp_viewer_body,
+      placement: "left",
+    },
+    {
+      id: "repos-debts",
+      target: "repos-debts",
+      title: m.tour_rp_debts_title,
+      body: m.tour_rp_debts_body,
+      placement: "top",
+    },
+  ],
+  // 「コード改善」（nav id=repos, ラベル=コード改善, ルート=/matrix）の詳細ガイド。
+  // 改善対象リスト → 先頭項目をクリックして詳細（改善箇所ハイライト・AI に頼む/人に頼む）まで案内。
+  repos: [
     {
       id: "matrix-search",
       target: "matrix-search",
@@ -186,26 +237,31 @@ export const pageTours: Record<string, TourStep[]> = {
     },
     {
       id: "matrix-list",
-      target: "matrix-list",
+      target: "matrix-first-row",
       title: m.tour_mx_list_title,
       body: m.tour_mx_list_body,
-      placement: "top",
-    },
-  ],
-  repos: [
-    {
-      id: "repos-tree",
-      target: "repos-tree",
-      title: m.tour_rp_tree_title,
-      body: m.tour_rp_tree_body,
-      placement: "right",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+      placement: "bottom",
     },
     {
-      id: "repos-viewer",
-      target: "repos-viewer",
-      title: m.tour_rp_viewer_title,
-      body: m.tour_rp_viewer_body,
+      id: "matrix-improve",
+      target: "debt-improve",
+      reveal: "matrix-first-row",
+      title: m.tour_mx_improve_title,
+      body: m.tour_mx_improve_body,
+      placement: "left",
+    },
+    {
+      id: "matrix-ai",
+      target: "debt-ai",
+      title: m.tour_mx_ai_title,
+      body: m.tour_mx_ai_body,
+      placement: "left",
+    },
+    {
+      id: "matrix-human",
+      target: "debt-human",
+      title: m.tour_mx_human_title,
+      body: m.tour_mx_human_body,
       placement: "left",
     },
   ],

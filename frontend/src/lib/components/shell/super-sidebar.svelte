@@ -12,6 +12,7 @@
   import History from "@lucide/svelte/icons/history";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
+  import { goto } from "$app/navigation";
   import { cn } from "$lib/utils";
   import * as Tooltip from "$lib/components/ui/tooltip";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
@@ -38,7 +39,14 @@
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
   // ヘルプ（オンボーディングガイドの再生 / LP）。「...」と同様のドロップダウンから選ぶ。
-  function startGuide() {
+  // プロジェクト選択画面（未選択）でガイドを開始すると、ハイライト対象（サイドバーのプロジェクト配下メニュー）
+  // が存在せずガイドブロックが全て中央表示になり、詳細ガイドの route も projectSlug 空で 404 になる。
+  // そのため、未選択ならトップのプロジェクトを 1 つ選んでから開始する（issue 066 追補）。
+  async function startGuide() {
+    if (!project.current) {
+      const top = project.list[0];
+      if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
+    }
     onboarding.start(tourSteps);
   }
   // LP は別ホスト（別デプロイ）なのでビルド時の公開 env で URL を渡す。未設定なら項目は無効のまま。

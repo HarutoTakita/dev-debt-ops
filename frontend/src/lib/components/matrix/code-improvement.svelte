@@ -65,7 +65,7 @@
   });
 </script>
 
-<div class="grid gap-4 lg:grid-cols-[1.7fr_1fr] lg:items-start">
+<div class="grid gap-4 lg:grid-cols-[1.7fr_1fr] lg:items-start" data-tour="debt-improve">
   <!-- 左: ファイル全文（検知箇所を常時ハイライト）。取得中はローディング表示。 -->
   {#if loading}
     <div

@@ -64,7 +64,7 @@
         </div>
       {/if}
     </div>
-    <div class="flex min-h-0 flex-col gap-3 lg:overflow-auto">
+    <div class="flex min-h-0 flex-col gap-3 lg:overflow-auto" data-tour="quiz-answer">
       <span class="w-fit rounded bg-muted px-1.5 py-0.5 text-xs font-medium tabular-nums">{q.difficulty}</span>
       <p class="text-sm font-medium">{q.prompt}</p>
       <AnswerInput question={q} {value} {onanswer} />

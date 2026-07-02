@@ -68,7 +68,9 @@
         {/each}
       </div>
     </div>
-    <PlanProgress {plan} />
+    <div data-tour="plan-progress">
+      <PlanProgress {plan} />
+    </div>
     <ResourceList steps={plan.steps} ontoggle={toggle} />
   </div>
 {:else}

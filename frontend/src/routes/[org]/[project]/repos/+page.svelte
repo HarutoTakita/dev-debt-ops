@@ -223,7 +223,7 @@
         </div>
 
         {#if selectedPath}
-          <div class="max-h-40 shrink-0 overflow-y-auto border-t bg-surface-sunken/40">
+          <div class="max-h-40 shrink-0 overflow-y-auto border-t bg-surface-sunken/40" data-tour="repos-debts">
             <CodeDebtPanel
               {orgSlug}
               {projectSlug}

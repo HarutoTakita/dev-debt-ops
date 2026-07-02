@@ -47,13 +47,23 @@
     let cancelled = false;
     (async () => {
       if (s.route) {
-        const href = s.route({ orgSlug, projectSlug });
-        if (page.url.pathname !== href) await goto(resolve(href));
+        // route（パス）＋ 任意の search（クエリ, 例: ?path=… でファイルを事前選択）へ遷移。クエリ差分も
+        // 検知するため pathname だけでなく search も含めて現在地と比較する。
+        const target =
+          resolve(s.route({ orgSlug, projectSlug })) + (s.search ? s.search({ orgSlug, projectSlug }) : "");
+        if (page.url.pathname + page.url.search !== target) {
+          // target は resolve 済みパス＋クエリ文字列。resolve はクエリを扱えないため連結しており、
+          // svelte/no-navigation-without-resolve は無効化する（パス部分は resolve 済み）。
+          // eslint-disable-next-line svelte/no-navigation-without-resolve
+          await goto(target);
+        }
       }
-      // タブ等の隠れた対象は、表示前に reveal 要素をクリックして出す（例: マップ/リストの切替）。
+      // タブ等の隠れた対象は、表示前に reveal 要素をクリックして出す（例: マップ/リスト切替、詳細画面への遷移）。
       if (s.reveal) {
         const rev = document.querySelector<HTMLElement>(`[data-tour="${s.reveal}"]`);
         rev?.click();
+        // reveal がリンク（クライアント遷移）の場合、遷移完了までわずかに待ってから対象を探す。
+        await new Promise((r) => setTimeout(r, 120));
       }
       if (!s.target) {
         rect = null; // ターゲット無し（ページ別ガイドの詳細）は中央に説明だけ出す
