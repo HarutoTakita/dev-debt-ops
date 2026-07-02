@@ -74,10 +74,7 @@
     <Shield class="size-5 text-debt-knowledge" />
     <h1 class="font-display text-xl font-semibold">ユーザー管理</h1>
   </div>
-  <p class="text-sm text-muted-foreground">
-    解析クレジットの付与を行います。管理者ロールは <code class="font-mono">ADMIN_EMAILS</code>（環境変数）で決まり、
-    GitHub でログインしたユーザーは既定で一般ユーザーです。
-  </p>
+  <p class="text-sm text-muted-foreground">解析クレジットの付与を行います。</p>
 
   <Input bind:value={query} placeholder="メールアドレス / 表示名で絞り込み" class="max-w-sm" />
 
