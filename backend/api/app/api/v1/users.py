@@ -9,7 +9,7 @@ from app.api.deps import CurrentSuperuser, SessionDep
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.core.security import fastapi_users
 from app.models.user import User
-from app.schemas.user import UserRead, UserRoleUpdate, UserUpdate
+from app.schemas.user import UserCreditsGrant, UserRead, UserRoleUpdate, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -84,6 +84,41 @@ async def set_user_role(
     if user.id == admin.id and body.role != "admin":
         raise BadRequestError("cannot demote yourself")
     user.is_superuser = body.role == "admin"
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+@router.post(
+    "/{user_id}/credits",
+    response_model=UserRead,
+    summary="Grant analysis credits to a user",
+    response_description="Updated user record with the new balance.",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "User not found."},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Not authenticated."},
+        status.HTTP_403_FORBIDDEN: {"description": "Caller is not a superuser."},
+    },
+)
+async def grant_user_credits(
+    user_id: Annotated[uuid.UUID, Path(description="UUID of the user receiving credits.")],
+    body: UserCreditsGrant,
+    _admin: CurrentSuperuser,
+    session: SessionDep,
+) -> User:
+    """Add ``amount`` repository-analysis credits to a user's balance (superuser only, issue 298).
+
+    This is the manual top-up path (a future admin screen will call it). Credits start at 0, so a
+    user cannot run analysis until an admin grants some (when ``ANALYSIS_CREDITS_ENABLED``).
+
+    Raises:
+        NotFoundError: If no user with ``user_id`` exists.
+    """
+    user = await session.get(User, user_id)
+    if user is None:
+        raise NotFoundError("user not found")
+    user.analysis_credits += body.amount
     session.add(user)
     await session.commit()
     await session.refresh(user)

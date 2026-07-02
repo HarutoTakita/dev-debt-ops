@@ -13,7 +13,11 @@
   import type { Branch, DebtItem } from "$lib/api/schemas";
   import { members } from "$lib/stores/members-store.svelte";
   import { repo } from "$lib/stores/repo-store.svelte";
+  import { auth } from "$lib/stores/auth.svelte";
   import * as m from "$lib/paraglide/messages";
+
+  // 修正 PR 生成は Gemini を呼ぶため、解析クレジットが尽きているときは実行不可（issue 298・残高>0 を要求）。
+  const creditsBlockTitle = "解析クレジットが不足しています（管理者にクレジットの付与を依頼してください）";
 
   // コード負債への 2 つの対応経路（issue 210/215）。どちらも作成前に確認モーダルを出す:
   //   AI に頼む  = 修正 PR を自動生成（Gemini が修正案、issue 033）。PR 先ブランチを選べる。
@@ -225,9 +229,19 @@
         {m.debt_pr_generating()}
       </span>
     {:else}
-      <Button class="mt-auto w-fit" variant="outline" size="sm" disabled={busy} onclick={() => (prOpen = true)}>
+      <Button
+        class="mt-auto w-fit"
+        variant="outline"
+        size="sm"
+        disabled={busy || auth.analysisBlocked}
+        title={auth.analysisBlocked ? creditsBlockTitle : undefined}
+        onclick={() => (prOpen = true)}
+      >
         {m.debt_action_create_pr()}
       </Button>
+      {#if auth.analysisBlocked}
+        <p class="text-xs leading-snug text-muted-foreground">解析クレジットが不足しています。</p>
+      {/if}
     {/if}
   </section>
 

@@ -17,6 +17,12 @@
   const demoBlockMain = "デモでは解析を実行できません";
   const demoBlockHint = "（GitHub サインインが必要です）";
   const demoBlockTitle = `${demoBlockMain}${demoBlockHint}`;
+  // 解析クレジット（issue 298）: 有効時は残高 0 で実行不可。実行後は残高を再取得して表示を更新する。
+  const creditsBlockTitle = "解析クレジットが不足しています（管理者にクレジットの付与を依頼してください）";
+  async function runAnalysis() {
+    await analysisRun.runAll(ctx);
+    await auth.refreshUser(); // 1 クレジット消費後の残高を反映
+  }
 
   // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。最上部に親「エージェントによる
   // リポジトリ解析」を置き、その子として「検知 / 整理 / 生成」の 3 グループを入れ子表示（issue 256/258）。
@@ -169,9 +175,9 @@
           variant="outline"
           size="sm"
           class="h-7 px-2 text-xs"
-          disabled={analysisRun.running || auth.isDemo}
-          title={auth.isDemo ? demoBlockTitle : undefined}
-          onclick={() => analysisRun.runAll(ctx)}
+          disabled={analysisRun.running || auth.isDemo || auth.analysisBlocked}
+          title={auth.isDemo ? demoBlockTitle : auth.analysisBlocked ? creditsBlockTitle : undefined}
+          onclick={runAnalysis}
         >
           {analysisRun.running
             ? m.analysis_run_running()
@@ -257,6 +263,11 @@
     </div>
     {#if auth.isDemo}
       <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
+    {:else if auth.creditsEnabled}
+      <p class="mt-2 text-xs leading-snug text-muted-foreground">
+        残りの解析クレジット: <span class="font-medium tabular-nums text-foreground">{auth.analysisCredits}</span>
+        {#if auth.analysisBlocked}<br />クレジットが不足しています。管理者にクレジットの付与を依頼してください。{/if}
+      </p>
     {/if}
   </div>
 </section>

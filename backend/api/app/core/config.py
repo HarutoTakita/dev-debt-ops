@@ -40,6 +40,14 @@ class Settings(BaseSettings):
         default=False, description="Enable the GitHub-less guest demo login + sample data (issue 069)."
     )
 
+    # Analysis credits (issue 298). When true, each repository-analysis run consumes one credit from
+    # the triggering user and repayment-PR creation requires a positive balance — bounding Gemini cost
+    # for the public hackathon. Credits start at 0 and are topped up by an admin (superuser). When
+    # false the gate is fully bypassed (unlimited), so dev/stg behave as before. Superusers always bypass.
+    ANALYSIS_CREDITS_ENABLED: bool = Field(
+        default=False, description="Gate repository analysis / repayment-PR on per-user analysis credits (issue 298)."
+    )
+
     # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
     # (issue 016/017) — default aligned to issue-017's region to avoid splitting regions.
     GOOGLE_CLOUD_PROJECT: str = Field(default="", description="GCP project ID (Vertex AI / Cloud Tasks / GCS).")
