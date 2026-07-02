@@ -4,7 +4,7 @@
   import Loader from "@lucide/svelte/icons/loader-circle";
   import { resolve } from "$app/paths";
   import type { ResolvedPathname } from "$app/types";
-  import { generateCodeWalkthrough, getCodeWalkthrough, getFileContent, getJob } from "$lib/api/client";
+  import { getFileContent } from "$lib/api/client";
   import { repo } from "$lib/stores/repo-store.svelte";
   import CodeWalkthrough from "$lib/components/learning/code-walkthrough.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -30,25 +30,8 @@
         content = wt.content;
         return;
       }
-      // 1. 未生成ならオンデマンド生成 → ジョブ完了までポーリング → 再取得（開いたファイルのみ生成）。
-      if (wt.status === "empty") {
-        const { job_id } = await generateCodeWalkthrough(data.orgSlug, data.projectSlug, data.resourceId);
-        if (job_id) {
-          let done = false;
-          for (let i = 0; i < 60; i++) {
-            const job = await getJob(job_id);
-            if (job.status === "COMPLETED") {
-              done = true;
-              break;
-            }
-            if (job.status === "FAILED") throw new Error("walkthrough generation failed");
-            await new Promise((r) => setTimeout(r, 1000));
-          }
-          if (!done) throw new Error("walkthrough generation timed out");
-        }
-        wt = await getCodeWalkthrough(data.orgSlug, data.projectSlug, data.resourceId);
-      }
-      // 2. 現在のソースを取得（行番号は生成時の内容に対応。範囲はクランプ済み）。
+      // 1. ウォークスルーは「解析」時に事前生成済み（issue 298）。オンデマンド生成はせず表示のみ。
+      //    ソースを取得し、事前生成済みステップ（あれば）とともに表示する（Gemini は呼ばない）。
       const src = wt.source_ref;
       const connected = repo.connected;
       if (!src || !connected) throw new Error("source unavailable");

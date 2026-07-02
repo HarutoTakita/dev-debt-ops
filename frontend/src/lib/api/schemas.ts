@@ -10,6 +10,7 @@ export const userSchema = z.object({
   created_at: z.iso.datetime({ offset: true }).nullable().optional(),
   last_active_at: z.iso.datetime({ offset: true }).nullable().optional(),
   is_demo: z.boolean().default(false),
+  analysis_credits: z.number().int().default(0),
 });
 
 export const orgSchema = z.object({

@@ -22,6 +22,7 @@ from app.models.org import OrgMember
 from app.models.user import User
 from app.schemas.debt import DebtItemOut, DebtListOut, DebtUpdate, RepaymentPrCreate
 from app.schemas.job import JobEnqueuedOut
+from app.services.credits import assert_has_credit
 from app.services.debt_query import get_debt, list_debts
 from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
@@ -234,6 +235,9 @@ async def create_repayment_pr(
         raise HTTPException(status_code=404, detail="負債が見つかりません")
     if debt.status == "in_pr" and debt.related_pr:
         raise HTTPException(status_code=409, detail=f"既に返済 PR が作成済みです（{debt.related_pr}）")
+    # 修正 PR 生成も Gemini を呼ぶため、残高 > 0 を要求する（消費はしない — issue 298）。
+    # ANALYSIS_CREDITS_ENABLED 無効時・superuser はバイパス。
+    await assert_has_credit(current_user)
     # PR 先（base）ブランチ。指定が無ければプロジェクトの解析対象（既定）ブランチ。
     base_branch = (body.base_branch if body and body.base_branch else project.default_branch) or "main"
     payload = {

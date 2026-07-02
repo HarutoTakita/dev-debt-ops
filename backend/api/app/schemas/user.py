@@ -27,6 +27,10 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
         default=False,
         description="True for the shared guest-demo user (read-only, no GitHub); drives demo UI gating.",
     )
+    analysis_credits: int = Field(
+        default=0,
+        description="Remaining repository-analysis credits (issue 298); drives the analysis/PR button gating.",
+    )
 
 
 class UserCreate(schemas.BaseUserCreate):
@@ -45,3 +49,9 @@ class UserRoleUpdate(BaseModel):
     """Request body for promoting or demoting a user's role (admin-only endpoint)."""
 
     role: Literal["admin", "user"] = Field(description="Target role: 'admin' grants is_superuser; 'user' revokes it.")
+
+
+class UserCreditsGrant(BaseModel):
+    """Request body for granting repository-analysis credits to a user (admin-only, issue 298)."""
+
+    amount: int = Field(ge=1, le=1000, description="Number of analysis credits to add to the user's balance.")

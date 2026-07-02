@@ -1,15 +1,17 @@
 """quiz-grading pipeline (issue 034 + 053).
 
-Semantically grades a submitted quiz (answers + answer key) with Gemini, extracts understood /
-gap concepts, writes ``quiz_results``, completes the session, and reflects the score into
-``file_kc`` as ``certified_via="quiz"`` (issue 053, ADR 0005). Idempotent: a completed session is
-not re-graded.
+Deterministically grades a submitted quiz (choice-only — free-text was removed in 0.0.5) by matching
+answers against the answer key, extracts understood / gap concepts (the correct / incorrect question
+prompts), writes ``quiz_results``, completes the session, and reflects the score into ``file_kc`` as
+``certified_via="quiz"`` (issue 053, ADR 0005). Idempotent: a completed session is not re-graded.
+
+Grading is **rule-based (no LLM, no GitHub fetch)** so Gemini is only ever called by the repository
+analysis and the repayment-PR flows (issue 298 — bounds Gemini cost to credit-gated actions).
 
 KC reflection is **blame-independent and uncapped** (a passing quiz can reach ``star``), unlike
 authorship which is capped at 0.6 — this lets solo authors and non-coding PMs be measured.
 """
 
-import json
 import logging
 import posixpath
 import uuid
@@ -20,25 +22,13 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
-from service import config
 from service.pipelines.kc_analysis import mastery_from_kc
-from service.services import gemini_stack_service
-from service.services.github_app import GitHubAppService
-from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobStatus, JobType, ResultStatus
 from shared.models import AnalysisRun, FeatureFile, FileKc, QuizAnswer, QuizResult, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.quiz import QuizGradingRequest, QuizGradingResult
-from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
-
-
-async def _mint_installation_token(github: GitHubRef) -> str:
-    if github.access_token is not None:
-        return github.access_token.get_secret_value()
-    app_service = GitHubAppService(app_id=config.github_app_id(), private_key=config.github_app_private_key())
-    return await app_service.get_installation_token(github.installation_id)
 
 
 def _choice_matches(expected: object, given: object) -> bool:
@@ -55,10 +45,10 @@ def _choice_matches(expected: object, given: object) -> bool:
 
 
 def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> dict:
-    """Deterministically grade a choice-only quiz with no GitHub/LLM (guest demo — issue 069).
+    """Deterministically grade a choice-only quiz with no GitHub/LLM (the sole grader — issue 298).
 
-    Returns the same shape as ``gemini_stack_service.grade_quiz``: ``score`` (fraction correct) plus
-    ``understood`` / ``gap_concepts`` (the prompts of the correct / incorrect questions).
+    Returns ``score`` (fraction correct) plus ``understood`` / ``gap_concepts`` (the prompts of the
+    correct / incorrect questions) — the shape the result UI renders.
     """
     given = {a["question_id"]: a.get("value") for a in answers}
     total = 0
@@ -211,27 +201,9 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
     answers = (await session.execute(select(QuizAnswer).where(col(QuizAnswer.session_id) == sid))).scalars().all()
     answer_dicts = [{"question_id": a.question_id, "value": a.value} for a in answers]
 
-    # Guest demo (issue 069) carries no GitHub installation (installation_id=0, no access_token).
-    # Demo quizzes are choice-only, so grade deterministically offline — no GitHub fetch, no Gemini.
-    offline = request.github.access_token is None and not request.github.installation_id
-    if offline:
-        graded = _grade_offline(quiz.questions, quiz.answer_key, answer_dicts)
-    else:
-        payload = json.dumps(
-            {"questions": quiz.questions, "answer_key": quiz.answer_key, "answers": answer_dicts},
-            ensure_ascii=False,
-        )
-        # File context for grading (best-effort; method B token).
-        owner, _, repo = quiz.repo_full_name.partition("/")
-        token = await _mint_installation_token(request.github)
-        client = GitHubGitClient(access_token=token)
-        try:
-            if owner and repo:
-                fc = await client.get_file_content(owner, repo, quiz.file_path, "main")
-                payload = f"{payload}\n\n=== {quiz.file_path} ===\n{(fc.content or '')[:4000]}"
-        finally:
-            await client.aclose()
-        graded = await gemini_stack_service.grade_quiz(payload)
+    # Quizzes are choice-only (free-text removed in 0.0.5), so grade deterministically — no GitHub
+    # fetch, no Gemini (issue 298). ``request.github`` is retained on the schema but unused here.
+    graded = _grade_offline(quiz.questions, quiz.answer_key, answer_dicts)
     score = graded["score"]
 
     # Reflect the score into file_kc (certified_via="quiz", uncapped — issue 053 / ADR 0005).
