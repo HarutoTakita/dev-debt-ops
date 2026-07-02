@@ -17,7 +17,10 @@ from app.core.config import settings
 from app.core.csrf import OriginCheckMiddleware
 from app.core.db import engine
 from app.core.exceptions import AppError
+from shared.logging_config import RequestContextMiddleware, configure_logging
 
+# Structured JSON logging on stdout (Cloud Logging-native) + request/trace correlation (issue 302).
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -83,6 +86,8 @@ async def handle_app_error(_: Request, exc: AppError) -> JSONResponse:
 # CSRF defense-in-depth: reject unsafe-method requests with a cross-origin Origin header
 # (issue-041). Additive to the SameSite=Lax access cookie.
 app.add_middleware(OriginCheckMiddleware)
+# Outermost: bind request id + Cloud Trace context for every request so all logs correlate.
+app.add_middleware(RequestContextMiddleware)
 
 app.include_router(api_router)
 
