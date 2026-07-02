@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- LLM（Gemini）へ送るデータの **PII マスキングに Cloud DLP（Sensitive Data Protection）を導入**（issue 296）。環境変数 **`DLP_ENABLED`（既定 false）** で ON/OFF。**false 時は detect-secrets（秘密）＋新規のルールベース PII マスキング**（メール/電話/クレジットカード(Luhn)/IPv4）、**true 時のみ Cloud DLP API（`deidentifyContent`、保守的 infoType）** を呼ぶ。DLP 失敗時はローカルのルールベースへフォールバック。統合関数 `secret_redaction.deidentify()` を **ADK 経路（`SecretRedactionPlugin`）と直呼び経路（`gemini_stack_service._generate`）の両方**の入口にし、従来マスキングが無かった直呼び経路の穴も解消。インフラ（`infra/gcp`）に `dlp.googleapis.com` の有効化・service SA への `roles/dlp.user`・`DLP_ENABLED` env・`dlp_enabled` 変数を追加（`terraform apply` でデプロイ、既定 false）。依存に `google-cloud-dlp` を追加。
+
 ### Fixed
 
 - オンボーディングガイドを複数点修正（issue 066 追補）。

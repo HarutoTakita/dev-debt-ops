@@ -53,6 +53,12 @@ variable "db_backup_enabled" {
   default     = false
 }
 
+variable "dlp_enabled" {
+  description = "Use Cloud DLP for PII masking of LLM inputs (issue 296). Default false to avoid DLP cost; when false, detect-secrets + rule-based PII masking still run."
+  type        = bool
+  default     = false
+}
+
 # --- Secrets (never written to tfvars; injected via TF_VAR_* from CI) ---
 
 variable "secret_key" {

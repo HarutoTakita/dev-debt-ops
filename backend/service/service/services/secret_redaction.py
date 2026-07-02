@@ -22,6 +22,8 @@ import logging
 import re
 from collections.abc import Iterable
 
+from service import config
+
 logger = logging.getLogger(__name__)
 
 # What a masked secret is replaced with. The guillemets are excluded from the assignment value
@@ -161,3 +163,84 @@ def redact_secrets(text: str, *, allowlist: Iterable[str] = ()) -> tuple[str, in
     total += count
 
     return text, total
+
+
+# --- PII (rule-based, ローカル) — DLP 無効時・DLP 失敗時のフォールバック（issue 296）------------------
+# 高確度なパターンのみ（コード中の識別子/数値の誤マスクを避ける）。汎用の電話/12桁番号は誤検知が多いため
+# 日本の電話 + E.164 に限定し、マイナンバー等の文脈依存な型は DLP 有効時のみ（infoType）に任せる。
+_EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b")
+_IPV4_PATTERN = re.compile(r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b")
+_PHONE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b0[789]0-?\d{4}-?\d{4}\b"),  # 日本の携帯
+    re.compile(r"\b0\d{1,3}-\d{1,4}-\d{4}\b"),  # 日本の固定（ハイフン必須で誤検知を抑制）
+    re.compile(r"\+\d{10,15}\b"),  # E.164
+)
+_CARD_CANDIDATE = re.compile(r"\b(?:\d[ -]?){13,19}\b")  # クレカ候補（Luhn 検証を通ったものだけマスク）
+
+
+def _luhn_ok(digits: str) -> bool:
+    """Luhn チェックサム（クレジットカードの誤検知抑制用）を検証する."""
+    total, alt = 0, False
+    for ch in reversed(digits):
+        d = ord(ch) - 48
+        if alt:
+            d = d * 2 - 9 if d * 2 > 9 else d * 2
+        total += d
+        alt = not alt
+    return total % 10 == 0
+
+
+def redact_pii_rulebased(text: str) -> tuple[str, int]:
+    """メール / 電話(日本・E.164) / クレジットカード(Luhn) / IPv4 を正規表現でマスクし ``(text, 件数)`` を返す.
+
+    ローカルで完結（外部 API 不使用）。DLP 無効時と DLP 失敗時のフォールバックとして使う。
+    """
+    if not text:
+        return text, 0
+    total = 0
+    text, c = _EMAIL_PATTERN.subn("[EMAIL]", text)
+    total += c
+    for pat in _PHONE_PATTERNS:
+        text, c = pat.subn("[PHONE]", text)
+        total += c
+    text, c = _IPV4_PATTERN.subn("[IP]", text)
+    total += c
+
+    n_card = 0
+
+    def _card(m: re.Match[str]) -> str:
+        nonlocal n_card
+        digits = re.sub(r"\D", "", m.group(0))
+        if 13 <= len(digits) <= 19 and _luhn_ok(digits):
+            n_card += 1
+            return "[CARD]"
+        return m.group(0)
+
+    text = _CARD_CANDIDATE.sub(_card, text)
+    return text, total + n_card
+
+
+async def deidentify(text: str, *, allowlist: Iterable[str] = ()) -> tuple[str, int]:
+    """LLM 送信前の統合マスキング（issue 296）。``(masked_text, 件数)`` を返す.
+
+    - **シークレット**は常にローカル（``redact_secrets`` = 正規表現＋detect-secrets）。
+    - **PII** は ``DLP_ENABLED=true`` のときだけ Cloud DLP（``services.dlp.deidentify_pii``）、無効時と
+      **DLP 失敗時はローカルのルールベース**（``redact_pii_rulebased``）にフォールバックする。
+
+    ADK（``SecretRedactionPlugin``）と直呼び（``gemini_stack_service._generate``）の両経路の唯一の入口。
+    """
+    if not text:
+        return text, 0
+    allow = frozenset(token for token in allowlist if token)
+    text, n_secrets = redact_secrets(text, allowlist=allow)
+    if config.dlp_enabled():
+        try:
+            from service.services import dlp
+
+            text, n_pii = await dlp.deidentify_pii(text, allowlist=allow)
+        except Exception:
+            logger.warning("Cloud DLP de-identify failed; falling back to rule-based PII masking", exc_info=True)
+            text, n_pii = redact_pii_rulebased(text)
+    else:
+        text, n_pii = redact_pii_rulebased(text)
+    return text, n_secrets + n_pii
