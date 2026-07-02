@@ -108,6 +108,29 @@ resource "google_cloud_run_v2_service" "api" {
         container_port = 8000
       }
 
+      # Startup: don't route traffic until the DB is reachable (readiness probe, issue 301).
+      startup_probe {
+        http_get {
+          path = "/api/v1/health/ready"
+          port = 8000
+        }
+        initial_delay_seconds = 5
+        period_seconds        = 5
+        timeout_seconds       = 3
+        failure_threshold     = 12
+      }
+
+      # Liveness: dependency-free so a transient DB blip never restarts a healthy process.
+      liveness_probe {
+        http_get {
+          path = "/api/v1/health"
+          port = 8000
+        }
+        period_seconds    = 30
+        timeout_seconds   = 3
+        failure_threshold = 3
+      }
+
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
