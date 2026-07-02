@@ -10,6 +10,10 @@
 
 - 理解度マップのグラフ構築を **CodeGraphContext(CGC) 主ソース**に変更（imports＋calls）。従来 `code_graph.extract_snapshot` の `file_edges` はクロスファイル **CALLS のみ**だったが、CGC の **`(File)-[:IMPORTS]->(Module)`** も抽出して結合するようにした。CGC は import 指定子の全文（TS の `./galaxy-graph`・`$lib/api/schemas`、Python の `app.services.galaxy_query` 等）を Module 名に持つため、**リーフ名を抽出 → リポジトリ内ファイルへ一意 basename 一致で解決**（外部パッケージ・曖昧・自己参照は除外）してファイル間エッジ化する。CGC は Python だけでなく **TS/JS 等も解析**する（実測で `.ts` を索引・imports 抽出を確認）ため、`file_edges` が calls＋imports の CGC 主ソースになる。フロントは従来どおり `file_edges` と import 由来 `wormholes` を和で使うため CGC が主・regex import が補助になり、**機能フィルタ（`feature_keys` ベース）は不変で動作**。※反映には再解析が必要。`.svelte` は CGC 非対応のため引き続き blame ノード＋補助で扱う。
 
+### Changed
+
+- リポジトリ解析の進捗ステータスで、**実行中（処理中）の水色表示を点滅（`animate-pulse`）**させ「進行中」を視覚的に強調するようにした。対象は親「エージェントによる解析」・各ブロックの `PROCESSING` ステータスと、実行中サブステップの `●`（`text-debt-knowledge`）。完了/失敗/待機は従来どおり点滅しない。
+
 ### Fixed
 
 - ログイン中の画面（トップバー等）のブランドアイコンを**現在のアプリアイコン（`static/favicon.svg`）と完全一致**に更新。従来 `logo.svelte` はデュアルループのみでアプリアイコンの**角丸ダーク地バッジ**が無く、アプリアイコンと違って見えていた。バッジ（`rect rx=8 fill=#0c1116`）を含めて favicon と同一の見た目にした（`Logo` を使うトップバー／エラー画面／プレースホルダに反映）。
