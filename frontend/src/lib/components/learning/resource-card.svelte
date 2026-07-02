@@ -123,7 +123,9 @@
     </div>
     {#if resource.source_ref}<p class="truncate text-xs text-muted-foreground">{resource.source_ref}</p>{/if}
     {#if resource.summary}
-      <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{resource.summary}</p>
+      <!-- 要約にはバッククォート付きの長いファイルパス/識別子（例: `lambda_package/charset_normalizer/api.py`）が
+           含まれ、日本語と違い折り返し点が無いためスマホ幅を溢れさせる。break-words で長い語も折り返す。 -->
+      <p class="mt-1 text-xs leading-relaxed break-words text-muted-foreground">{resource.summary}</p>
     {/if}
     {#if dormantMonths != null}
       <p class="mt-1 text-xs text-debt-code">🕸 {m.learning_dormant({ months: dormantMonths })}</p>
