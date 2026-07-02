@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- ランディングページ(LP)の内容を**最新のアプリ機能に合わせて更新**。理解度マップを「機能ノード＋2 段ドリルダウン」から**ファイル単位グラフ＋機能フィルタ（マップ/リスト両ビュー）**の説明に刷新し、理解度 4 状態（理解済み/部分理解/未理解/未着手）の凡例とノード色を実アプリ（`#14b8a6`/`#5eead4`/`#ef4444`/`#94a3b8`）に一致。クイズと学習に**「このコードを理解する」/「技術スタックを学ぶ」**と L1〜L5 クイズを明記。コード品質マップを「負債の分布を俯瞰」、コード改善を**「AI に頼む(PR)/人に頼む(Issue)」**に更新。セキュリティに**「LLM 入力の秘匿化」（detect-secrets＋ルールベース PII、`DLP_ENABLED` で Cloud DLP 切替）**カードを追加。技術スタックに Google ADK / CodeGraphContext を追加、Terraform 記述を `/lp` 同梱配信に修正。`styles.css` も再ビルド。
+
 ### Added
 
 - ランディングページ(LP)を**アプリと同一ドメインの `/lp` で静的配信**（ハッカソン用途のため別ドメイン/バケットは使わない）。`docker/api.Dockerfile`（frontend ステージ）が `landing/`（`index.html`/`styles.css`/`og-image.png`/`assets`）を SPA ビルド出力の `build/lp/` に同梱し、runtime で `app/static/lp/` になる。`backend/api/app/main.py` が SPA キャッチオール（`/`）より先に `/lp` を静的マウント（`html=True`）。アプリからの入口は**ルート `/`（未ログイン）の「サービスを詳しく見る」**（ビルド時 env `VITE_LP_URL`＝Docker で `/lp` を注入。dev では未設定＝非表示）。追加の GCS バケット・サブドメイン・証明書・DNS・CI ステップは不要（api の既存デプロイに同梱）。
