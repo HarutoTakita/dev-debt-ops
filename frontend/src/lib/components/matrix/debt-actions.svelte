@@ -201,7 +201,7 @@
 
 <div class="grid gap-3 sm:grid-cols-2">
   <!-- AI に頼む: 修正 PR を自動生成 -->
-  <section class="flex flex-col gap-2 rounded-lg border bg-card p-3">
+  <section class="flex flex-col gap-2 rounded-lg border bg-card p-3" data-tour="debt-ai">
     <div class="flex items-center gap-1.5 text-sm font-medium">
       <Bot class="size-4 text-debt-knowledge" />
       {m.debt_path_ai_title()}
@@ -232,7 +232,7 @@
   </section>
 
   <!-- 人に頼む: GitHub Issue を作成 -->
-  <section class="flex flex-col gap-2 rounded-lg border bg-card p-3">
+  <section class="flex flex-col gap-2 rounded-lg border bg-card p-3" data-tour="debt-human">
     <div class="flex items-center gap-1.5 text-sm font-medium">
       <UserPlus class="size-4 text-debt-code" />
       {m.debt_path_human_title()}

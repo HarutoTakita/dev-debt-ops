@@ -9,12 +9,14 @@
   import DeveloperKey from "./developer-key.svelte";
   import { categoryLabel, severityLabel } from "./labels";
 
-  type Props = { orgSlug: string; projectSlug: string; debt: DebtItem };
-  const { orgSlug, projectSlug, debt }: Props = $props();
+  // dataTour: 先頭行だけ付与し、オンボーディングガイドのハイライト＆詳細への reveal 遷移対象にする。
+  type Props = { orgSlug: string; projectSlug: string; debt: DebtItem; dataTour?: string };
+  const { orgSlug, projectSlug, debt, dataTour }: Props = $props();
 </script>
 
 <a
   href={resolve(`/${orgSlug}/${projectSlug}/matrix/${debt.id}`)}
+  data-tour={dataTour}
   class="block rounded-lg border bg-card p-3 transition-colors hover:bg-accent/40"
 >
   <div class="flex items-center gap-3">
