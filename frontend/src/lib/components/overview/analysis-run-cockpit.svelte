@@ -14,11 +14,11 @@
   import * as m from "$lib/paraglide/messages";
 
   // 解析は GitHub リポジトリの読み取りを伴うため、ゲストデモでは実行不可（issue 069）。
-  const demoBlockMain = "デモでは解析を実行できません";
-  const demoBlockHint = "（GitHub サインインが必要です）";
+  const demoBlockMain = m.demo_block_main();
+  const demoBlockHint = m.demo_block_hint();
   const demoBlockTitle = `${demoBlockMain}${demoBlockHint}`;
   // 解析クレジット（issue 298）: 有効時は残高 0 で実行不可。実行後は残高を再取得して表示を更新する。
-  const creditsBlockTitle = "解析クレジットが不足しています（管理者にクレジットの付与を依頼してください）";
+  const creditsBlockTitle = m.credits_block_title();
   async function runAnalysis() {
     await analysisRun.runAll(ctx);
     await auth.refreshUser(); // 1 クレジット消費後の残高を反映
@@ -265,8 +265,9 @@
       <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
     {:else if auth.creditsEnabled}
       <p class="mt-2 text-xs leading-snug text-muted-foreground">
-        残りの解析クレジット: <span class="font-medium tabular-nums text-foreground">{auth.analysisCredits}</span>
-        {#if auth.analysisBlocked}<br />クレジットが不足しています。管理者にクレジットの付与を依頼してください。{/if}
+        {m.account_field_credits()}:
+        <span class="font-medium tabular-nums text-foreground">{auth.analysisCredits}</span>
+        {#if auth.analysisBlocked}<br />{m.credits_exhausted_hint()}{/if}
       </p>
     {/if}
   </div>
