@@ -188,13 +188,29 @@ export const pageTours: Record<string, TourStep[]> = {
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
-      // 「学習を開く」の遷移先（学習プラン閲覧画面）まで案内する（最後のステップ）。
+      // 「学習を開く」の遷移先（学習プラン閲覧画面）。まず進捗を案内。
       id: "knowledge-plan",
       target: "plan-progress",
       reveal: "unit-learn",
       title: m.tour_kn_plan_title,
       body: m.tour_kn_plan_body,
       placement: "bottom",
+    },
+    {
+      // 「このコードを理解する」= リポジトリ特有の機能に関する学習プラン。
+      id: "knowledge-plan-code",
+      target: "plan-code",
+      title: m.tour_kn_plan_code_title,
+      body: m.tour_kn_plan_code_body,
+      placement: "right",
+    },
+    {
+      // 「技術スタックを学ぶ」= 関連技術の公式ドキュメント/チュートリアル（最後のステップ）。
+      id: "knowledge-plan-stack",
+      target: "plan-stack",
+      title: m.tour_kn_plan_stack_title,
+      body: m.tour_kn_plan_stack_body,
+      placement: "left",
     },
   ],
   // 「コード品質マップ」（nav id=matrix, ラベル=コード品質マップ, ルート=/repos）の詳細ガイド。
