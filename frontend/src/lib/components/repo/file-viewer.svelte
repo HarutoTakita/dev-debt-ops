@@ -1,6 +1,7 @@
 <script lang="ts">
   import hljs from "highlight.js";
   import type { Snippet } from "svelte";
+  import * as m from "$lib/paraglide/messages";
 
   type Props = {
     path: string | null;
@@ -85,25 +86,25 @@
 <!-- min-w-0: flex/grid 親の中でコード(<pre>)の長い行が横にレイアウトを押し広げず、内部で横スクロールするように -->
 <div class="flex h-full min-w-0 flex-col">
   {#if !path}
-    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">ファイルを選択してください</div>
+    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">{m.file_select_prompt()}</div>
   {:else if loading}
-    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">読み込み中...</div>
+    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">{m.common_loading()}</div>
   {:else if kind === "empty"}
-    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">空のファイルです</div>
+    <div class="flex h-full items-center justify-center text-sm text-muted-foreground">{m.file_empty()}</div>
   {:else if kind === "too_large"}
     <div class="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
-      <span>ファイルが大きすぎます</span>
-      <span class="text-xs">{formatBytes(size)} — プレビュー不可</span>
+      <span>{m.file_too_large()}</span>
+      <span class="text-xs">{formatBytes(size)} — {m.file_preview_unavailable()}</span>
     </div>
   {:else if kind === "image"}
     <div class="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
-      <span>画像ファイル</span>
-      <span class="text-xs">{formatBytes(size)} — プレビューは未対応</span>
+      <span>{m.file_image()}</span>
+      <span class="text-xs">{formatBytes(size)} — {m.file_preview_unsupported()}</span>
     </div>
   {:else if kind === "binary"}
     <div class="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
-      <span>バイナリファイル</span>
-      <span class="text-xs">{formatBytes(size)} — プレビュー不可</span>
+      <span>{m.file_binary()}</span>
+      <span class="text-xs">{formatBytes(size)} — {m.file_preview_unavailable()}</span>
     </div>
   {:else}
     <!-- text: 二層構造（下層 = ハイライト済みソース / 上層 = 知識オーバーレイ枠） -->

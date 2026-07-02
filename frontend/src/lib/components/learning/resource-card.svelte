@@ -136,7 +136,9 @@
       {priorityLabel[resource.priority]}
     </span>
     {#if resource.estimated_minutes != null}
-      <span class="text-xs text-muted-foreground tabular-nums">{resource.estimated_minutes}分</span>
+      <span class="text-xs text-muted-foreground tabular-nums"
+        >{m.duration_minutes({ min: resource.estimated_minutes })}</span
+      >
     {/if}
   </div>
 </div>

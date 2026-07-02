@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils";
+  import * as m from "$lib/paraglide/messages";
   import { repo } from "$lib/stores/repo-store.svelte";
   import { getLocale } from "$lib/paraglide/runtime";
 
@@ -63,7 +64,7 @@
 
     <div class="flex items-center gap-1.5 text-xs text-muted-foreground">
       <span class="size-1.5 rounded-full bg-success" aria-hidden="true"></span>
-      <span>{relativeTime(repo.connected.updated_at)}に更新</span>
+      <span>{m.repo_updated_at({ time: relativeTime(repo.connected.updated_at) })}</span>
     </div>
   </header>
 {/if}
