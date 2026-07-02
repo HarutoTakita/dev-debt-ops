@@ -8,8 +8,10 @@ tolerant ``BaseAnalysis`` (bad items dropped, hard numbers absent).
 from typing import Any
 from unittest.mock import AsyncMock
 
+import pytest
 from google.adk.agents import SequentialAgent
 
+from service.agents import code_graph_mcp, github_mcp, serena_mcp
 from service.agents.base_analysis_tools import build_analysis_agent, build_base_analysis
 from service.agents.budget import RunBudget
 
@@ -28,12 +30,16 @@ class TestBuildAnalysisAgent:
         assert isinstance(agent, SequentialAgent)
         assert [a.name for a in agent.sub_agents] == ["analysis_explorer", "base_author"]
 
-    def test_explorer_gets_exploration_mcp_only(self) -> None:
+    def test_explorer_gets_exploration_mcp_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Explorer gets Serena + GitHub + CodeGraph toolsets; the author only gets the save tool."""
         from service.agents.code_graph_mcp import build_code_graph_toolset
         from service.agents.github_mcp import build_github_toolset
         from service.agents.serena_mcp import build_serena_toolset
 
+        # build_*_toolset はバイナリ非存在時に None を返す（graceful, issue 059c）。ここでは全て有りを装う。
+        monkeypatch.setattr(serena_mcp.shutil, "which", lambda _cmd: "/usr/bin/serena")
+        monkeypatch.setattr(github_mcp.shutil, "which", lambda _cmd: "/usr/bin/github-mcp-server")
+        monkeypatch.setattr(code_graph_mcp.shutil, "which", lambda _cmd: "/usr/bin/codegraphcontext")
         serena = build_serena_toolset("/tmp/repo")  # construction is lazy; no subprocess spawned
         github = build_github_toolset("tok")
         cgc = build_code_graph_toolset()

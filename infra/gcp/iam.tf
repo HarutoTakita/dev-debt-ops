@@ -46,6 +46,14 @@ resource "google_project_iam_member" "runtime_aiplatform" {
   member   = "serviceAccount:${each.value}"
 }
 
+# service だけが LLM を呼ぶ（マスキングも service 内）。DLP_ENABLED=true 時に deidentifyContent を
+# 呼ぶため service SA に roles/dlp.user を付与（issue 296）。無効時は未使用。
+resource "google_project_iam_member" "service_dlp" {
+  project = var.gcp_project_id
+  role    = "roles/dlp.user"
+  member  = "serviceAccount:${google_service_account.service.email}"
+}
+
 # api enqueues Cloud Tasks; service does not.
 resource "google_project_iam_member" "api_tasks_enqueuer" {
   project = var.gcp_project_id

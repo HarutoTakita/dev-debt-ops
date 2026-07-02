@@ -7,8 +7,9 @@ place via fakes — no DB / network / live model needed.
 
 import pytest
 
+import service.services.dlp as dlp_mod
 from service.agents.plugin import SecretRedactionPlugin
-from service.services.secret_redaction import REDACTED, redact_secrets
+from service.services.secret_redaction import REDACTED, deidentify, redact_pii_rulebased, redact_secrets
 
 # --- redact_secrets: standalone token shapes -------------------------------
 
@@ -183,3 +184,68 @@ async def test_plugin_handles_empty_contents() -> None:
     result = await plugin.before_model_callback(callback_context=object(), llm_request=_FakeLlmRequest([]))
     assert result is None
     assert plugin.redacted == 0
+
+
+# --- PII (rule-based) + deidentify toggle/fallback (issue 296) --------------
+
+
+def test_redact_pii_rulebased_masks_email_ip_phone_card() -> None:
+    text = "mail a.b+x@example.co.jp ip 203.0.113.5 tel 090-1234-5678 card 4111 1111 1111 1111"
+    out, n = redact_pii_rulebased(text)
+    assert "example.co.jp" not in out
+    assert "[EMAIL]" in out
+    assert "203.0.113.5" not in out
+    assert "[IP]" in out
+    assert "090-1234-5678" not in out
+    assert "[PHONE]" in out
+    assert "4111 1111 1111 1111" not in out
+    assert "[CARD]" in out
+    assert n >= 4
+
+
+def test_redact_pii_rulebased_ignores_non_pii() -> None:
+    text = "const timeout = 3000; const port = 8080; version 1.2.3"
+    out, n = redact_pii_rulebased(text)
+    assert out == text
+    assert n == 0
+
+
+async def test_deidentify_disabled_uses_rulebased_not_dlp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DLP_ENABLED", "false")
+    called = {"n": 0}
+
+    async def _spy(text: str, *, allowlist: object = ()) -> tuple[str, int]:
+        called["n"] += 1
+        return text, 0
+
+    monkeypatch.setattr(dlp_mod, "deidentify_pii", _spy)
+    out, n = await deidentify("mail x@y.com and token ghp_" + "a" * 36)
+    assert called["n"] == 0  # DLP は無効時に呼ばれない
+    assert "x@y.com" not in out  # PII はルールベースでマスク
+    assert "ghp_" not in out  # シークレットは常にマスク
+    assert n >= 2
+
+
+async def test_deidentify_enabled_calls_dlp(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DLP_ENABLED", "true")
+
+    async def _fake(text: str, *, allowlist: object = ()) -> tuple[str, int]:
+        return text.replace("x@y.com", "EMAIL_ADDRESS"), 1
+
+    monkeypatch.setattr(dlp_mod, "deidentify_pii", _fake)
+    out, n = await deidentify("mail x@y.com")
+    assert "x@y.com" not in out
+    assert n >= 1
+
+
+async def test_deidentify_falls_back_to_rulebased_when_dlp_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DLP_ENABLED", "true")
+
+    async def _boom(text: str, *, allowlist: object = ()) -> tuple[str, int]:
+        raise RuntimeError("dlp unavailable")
+
+    monkeypatch.setattr(dlp_mod, "deidentify_pii", _boom)
+    out, n = await deidentify("mail x@y.com")
+    assert "x@y.com" not in out  # DLP 失敗 → ルールベースにフォールバック
+    assert "[EMAIL]" in out
+    assert n >= 1

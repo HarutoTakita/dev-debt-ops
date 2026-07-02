@@ -16,7 +16,7 @@ from google.adk.models.llm_response import LlmResponse
 from google.adk.plugins.base_plugin import BasePlugin
 
 from service.agents.trace import event_to_trace
-from service.services.secret_redaction import redact_secrets
+from service.services.secret_redaction import deidentify
 
 
 class TraceRecorderPlugin(BasePlugin):
@@ -34,7 +34,7 @@ class TraceRecorderPlugin(BasePlugin):
 
 
 class SecretRedactionPlugin(BasePlugin):
-    """Mask secrets in every LLM request before it leaves the process (issue 217).
+    """Mask secrets + PII in every LLM request before it leaves the process (issue 217 / 296).
 
     Registered on the ``Runner``, so it scrubs the model request for **all** agents (Twin Agent and
     the agentified walkthrough / refactor / quiz pipelines). ``before_model_callback`` sees the full
@@ -57,13 +57,17 @@ class SecretRedactionPlugin(BasePlugin):
     async def before_model_callback(
         self, *, callback_context: CallbackContext, llm_request: LlmRequest
     ) -> LlmResponse | None:
-        """Mask secrets in every text part of the outgoing model request, in place."""
+        """Mask secrets + PII in every text part of the outgoing model request, in place.
+
+        part 単位でマスクする（各パートは after_tool_callback の上限で ~12k に収まり、DLP の ~0.5MB 上限に安全）。
+        DLP は ``deidentify`` 内で有効時のみ呼ばれ、失敗時はローカルのルールベース PII にフォールバックする。
+        """
         for content in llm_request.contents or []:
             for part in getattr(content, "parts", None) or []:
                 text = getattr(part, "text", None)
                 if isinstance(text, str) and text:
-                    redacted, count = redact_secrets(text, allowlist=self._allowlist)
+                    masked, count = await deidentify(text, allowlist=self._allowlist)
                     if count:
-                        part.text = redacted
+                        part.text = masked
                         self.redacted += count
         return None

@@ -7,6 +7,7 @@ mirroring the stack-analysis / walkthrough test approach.
 
 import pytest
 
+from service.agents import serena_mcp
 from service.agents.budget import RunBudget
 from service.agents.quiz_agent import build_quiz_agent
 from service.agents.refactor_agent import build_refactor_agent
@@ -36,8 +37,11 @@ def test_quiz_agent_save_tool_captures_and_filters() -> None:
     assert "saved 1" in msg
 
 
-def test_agents_append_serena_toolset() -> None:
+def test_agents_append_serena_toolset(monkeypatch: pytest.MonkeyPatch) -> None:
     """Each agent gets its save tool plus the Serena toolset when one is provided."""
+    # build_serena_toolset は serena バイナリ非存在時に None を返す（graceful, issue 059c）。テストでは
+    # バイナリ有りを装ってツールセットが生成・付与されることを検証する。
+    monkeypatch.setattr(serena_mcp.shutil, "which", lambda _cmd: "/usr/bin/serena")
     toolset = build_serena_toolset("/tmp/x")
     refactor = build_refactor_agent(path="a.py", notes="", budget=RunBudget(), captured={}, serena_toolset=toolset)
     quiz = build_quiz_agent(label="f", budget=RunBudget(), captured={}, serena_toolset=toolset)

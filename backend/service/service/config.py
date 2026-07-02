@@ -56,6 +56,15 @@ def google_cloud_location() -> str:
     return os.environ.get("GOOGLE_CLOUD_LOCATION", "asia-northeast1")
 
 
+def dlp_enabled() -> bool:
+    """Cloud DLP で LLM 送信前の PII マスキングを行うか（issue 296、既定 false でコスト増を回避）.
+
+    false のときは detect-secrets（秘密）＋ローカルのルールベース PII マスキングのみ。true のときだけ
+    DLP API（deidentifyContent）を呼ぶ。DLP 失敗時はローカルのルールベースへフォールバックする。
+    """
+    return os.environ.get("DLP_ENABLED", "false").lower() == "true"
+
+
 def gemini_model() -> str:
     """Gemini model id used by the stack-analysis agent."""
     return os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
