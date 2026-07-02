@@ -1,5 +1,6 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
+  import { localizeDemoContent } from "$lib/i18n/demo-content";
   import type { ResolvedPathname } from "$app/types";
   import { getKnowledgeUnits } from "$lib/api/client";
   import type { KnowledgeUnit } from "$lib/api/schemas";
@@ -59,7 +60,7 @@
       {#each units as u (u.feature_key)}
         <li class="rounded-lg border bg-card p-3">
           <div class="flex items-center gap-3">
-            <span class="min-w-0 flex-1 truncate font-medium">{u.name}</span>
+            <span class="min-w-0 flex-1 truncate font-medium">{localizeDemoContent(u.name)}</span>
             <span class={cn("shrink-0 text-xs font-medium", statusOf(u.status).tone)}
               >{statusOf(u.status).label()}</span
             >
