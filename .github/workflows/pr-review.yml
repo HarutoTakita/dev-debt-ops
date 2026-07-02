@@ -14,11 +14,15 @@ name: Gemini PR Review
 # GitHub Environment (here: staging) for auth to succeed. The model is served via
 # Vertex AI (use_vertex_ai).
 
+# 自動トリガーは無効化（Vertex AI コスト削減のため）。agentic な多ターンレビューが PR ごとに
+# 大量の入力トークンを消費するため、当面は自動レビューを止める。手動起動のみ残す。
+# 復旧するときは workflow_dispatch を消し、以下の pull_request / issue_comment を戻す:
+#   pull_request:
+#     types: [opened, reopened]
+#   issue_comment:
+#     types: [created]
 on:
-  pull_request:
-    types: [opened, reopened]
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
 
 # One review at a time per PR; a newer trigger cancels an in-flight run.
 concurrency:
