@@ -156,7 +156,6 @@
   "demo_block_hint": "(GitHub sign-in required)",
   "demo_badge_label": "Demo",
   "demo_badge_tooltip": "This is a demo with sample data. Actions that require GitHub are disabled. Sign in with GitHub to analyze your own repositories.",
-  "common_loading": "Loading…",
   "count_suffix": "",
   "login_title": "Sign in",
   "login_subtitle": "Visualize code quality and team understanding",
