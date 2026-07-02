@@ -44,7 +44,9 @@
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <div class="relative min-h-0 flex-1 w-full overflow-hidden rounded-md border">
+      <!-- モバイル(単一カラムで grid セル高が auto)では flex-1 がつぶれるため min-h の下限を与える。
+           lg 以上は行の高さ(h-full)に追従させるため min-h-0 に戻す。 -->
+      <div class="relative min-h-[260px] w-full flex-1 overflow-hidden rounded-md border lg:min-h-0">
         <!-- 4 象限の背景 -->
         <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
           <div class="border-r border-b border-border/40 bg-debt-knowledge/5"></div>
