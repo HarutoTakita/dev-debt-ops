@@ -18,7 +18,10 @@ export default defineConfig({
     paraglideVitePlugin({
       project: "./project.inlang",
       outdir: "./src/lib/paraglide",
-      strategy: ["url", "cookie", "baseLocale"],
+      // cookie を最優先にして、言語切替後もページ遷移でロケールが戻らないようにする（issue 300）。
+      // リンクは resolve() で非ロケール URL を生成するため、url を先頭にすると未接頭辞 URL が base(ja) と
+      // 解決され英語設定が失われる。url は共有リンク用のフォールバックとして残す。
+      strategy: ["cookie", "url", "baseLocale"],
     }),
     sveltekit(),
   ],
