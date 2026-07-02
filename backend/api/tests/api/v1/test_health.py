@@ -5,6 +5,8 @@ async def test_health_returns_ok(client: AsyncClient) -> None:
     response = await client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    # RequestContextMiddleware echoes a correlation id on every response (issue 302).
+    assert response.headers.get("x-request-id")
 
 
 async def test_readiness_reports_db_and_memory(client: AsyncClient) -> None:

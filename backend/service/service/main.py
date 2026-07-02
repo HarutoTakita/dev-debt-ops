@@ -9,7 +9,6 @@ semantics, translated from queue-polling to HTTP push.
 """
 
 import logging
-import os
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
@@ -20,23 +19,21 @@ from service import config
 from service.db import get_session
 from service.dependencies import get_blob_client, verify_oidc
 from service.registry import PIPELINES
+from shared.logging_config import RequestContextMiddleware, configure_logging
 from shared.queue import BlobClient
 from shared.worker import TransientTaskError, run_task
 
-# Configure application logging — uvicorn only configures its own loggers and leaves the
-# root logger at WARNING, so every INFO log from the pipelines and the Twin Agent (incl.
-# MCP toolset activity) is otherwise dropped and invisible in `docker logs`. Force the root
-# level even if a handler already exists (basicConfig is a no-op once handlers are set).
-_LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=_LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-logging.getLogger().setLevel(_LOG_LEVEL)
-
+# Structured JSON logging on stdout (Cloud Logging-native, issue 302). Also routes the root logger
+# so pipeline / Twin Agent / MCP INFO logs are captured (previously dropped by uvicorn's config).
+configure_logging()
 logger = logging.getLogger(__name__)
 
 # Fail-closed: refuse to start in stg/prod with the OIDC bypass enabled (issue-038).
 config.validate_runtime_config()
 
 app = FastAPI(title="DevDebtOps Service", summary="Heavy-processing worker (async pipelines)")
+# Bind request id + Cloud Trace context so job logs correlate with the triggering request.
+app.add_middleware(RequestContextMiddleware)
 
 
 @app.get("/health")
