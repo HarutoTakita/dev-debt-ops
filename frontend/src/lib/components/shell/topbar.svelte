@@ -8,6 +8,7 @@
   import * as m from "$lib/paraglide/messages";
   import SuperSidebarToggle from "./super-sidebar-toggle.svelte";
   import Breadcrumbs from "./breadcrumbs.svelte";
+  import DemoBadge from "./demo-badge.svelte";
   import CommandPaletteTrigger from "./command-palette-trigger.svelte";
   import AnalysisRunControl from "./analysis-run-control.svelte";
   import UserMenu from "./user-menu.svelte";
@@ -43,6 +44,8 @@
   </div>
 
   <div class="ml-auto flex items-center gap-2">
+    <!-- デモ環境バッジ（オレンジ・ホバーで説明）。検索コマンドの左側に置く。 -->
+    <DemoBadge />
     <div class="hidden sm:block">
       <CommandPaletteTrigger />
     </div>
