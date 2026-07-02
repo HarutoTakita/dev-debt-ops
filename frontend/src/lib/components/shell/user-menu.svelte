@@ -2,6 +2,7 @@
   import LogOut from "@lucide/svelte/icons/log-out";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
   import Shield from "@lucide/svelte/icons/shield";
+  import CircleUser from "@lucide/svelte/icons/circle-user";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { toggleMode } from "mode-watcher";
@@ -32,6 +33,11 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Content align="end" class="w-56">
     <DropdownMenu.Label class="truncate text-xs font-normal text-muted-foreground">{email}</DropdownMenu.Label>
+    <DropdownMenu.Separator />
+    <DropdownMenu.Item onSelect={() => goto(resolve("/account"))}>
+      <CircleUser class="size-4" />
+      <span>アカウント</span>
+    </DropdownMenu.Item>
     <DropdownMenu.Separator />
     {#if auth.isAdmin}
       <DropdownMenu.Item onSelect={() => goto(resolve("/admin"))}>
