@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PersonalGalaxy } from "$lib/api/schemas";
+  import { localizeDemoContent } from "$lib/i18n/demo-content";
   import { cn } from "$lib/utils";
   import * as m from "$lib/paraglide/messages";
 
@@ -35,7 +36,7 @@
         class={chipClass(active === f.key)}
         onclick={() => (active = active === f.key ? null : f.key)}
       >
-        {f.name}
+        {localizeDemoContent(f.name)}
       </button>
     {/each}
   </div>

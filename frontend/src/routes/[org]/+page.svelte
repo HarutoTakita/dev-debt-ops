@@ -1,5 +1,6 @@
 <script lang="ts">
   import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
+  import { localizeDemoContent } from "$lib/i18n/demo-content";
   import Lock from "@lucide/svelte/icons/lock";
   import Plus from "@lucide/svelte/icons/plus";
   import Star from "@lucide/svelte/icons/star";
@@ -36,7 +37,7 @@
       <span class="flex size-8 shrink-0 items-center justify-center rounded bg-debt-knowledge/15 text-debt-knowledge">
         <FolderGit2 class="size-4" />
       </span>
-      <span class="min-w-0 flex-1 truncate font-medium">{p.name}</span>
+      <span class="min-w-0 flex-1 truncate font-medium">{localizeDemoContent(p.name)}</span>
       {#if p.repo_private}
         <Lock class="size-3.5 shrink-0 text-muted-foreground" />
       {/if}

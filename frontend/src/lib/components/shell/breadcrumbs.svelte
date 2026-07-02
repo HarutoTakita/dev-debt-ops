@@ -1,5 +1,6 @@
 <script lang="ts">
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import { localizeDemoContent } from "$lib/i18n/demo-content";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { project } from "$lib/stores/project-store.svelte";
@@ -10,7 +11,7 @@
   const projectSlug = $derived(page.params.project ?? "");
   const projectSelected = $derived(!!page.params.project);
   const ctx: NavContext = $derived({ orgSlug, projectSlug, projectSelected });
-  const projectName = $derived(project.current?.name ?? projectSlug);
+  const projectName = $derived(localizeDemoContent(project.current?.name ?? projectSlug));
   // 「理解の階層」: Project（観測対象）> 現在の区分。Org（= アカウント情報）はブランドロゴ + 右上メニューで
   // たどれるためパンくずには出さない。Overview（プロジェクトルート）も省く。
   const current = $derived(

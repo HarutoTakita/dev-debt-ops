@@ -1,5 +1,6 @@
 <script lang="ts">
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import { localizeDemoContent } from "$lib/i18n/demo-content";
   import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
   import Star from "@lucide/svelte/icons/star";
   import MoreHorizontal from "@lucide/svelte/icons/more-horizontal";
@@ -85,7 +86,7 @@
         <FolderGit2 class="size-4" />
       </span>
       <span class={cn("min-w-0 flex-1 truncate", active ? "font-medium text-foreground" : "text-muted-foreground")}>
-        {project.name}
+        {localizeDemoContent(project.name)}
       </span>
       <ChevronDown class={cn("size-4 shrink-0 text-muted-foreground transition-transform", !open && "-rotate-90")} />
     </button>
