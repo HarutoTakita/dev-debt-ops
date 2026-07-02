@@ -6,166 +6,36 @@
 
 ## [Unreleased]
 
-### Changed
-
-- ランディングページ(LP)の用語を**アプリ内の表現に統一**（アプリ未使用の「KC」「負債」「返済」「リファクタ PR」を排除）。「KC」→「理解度」、「理解負債」→「理解ギャップ」、「技術負債／負債」→「コード品質／品質の低いコード」、「返済」→「改善／解消／埋める」、「返済 PR・リファクタ PR」→「修正 PR」に置換。ヒーロー見出し・課題・2 軸セクション・閉ループ・機能紹介・CTA・`<meta>`（OGP/Twitter）・OG 画像（`assets/og-image.svg` → `og-image.png` 再生成）まで一貫して反映。
-
-- ランディングページ(LP)の内容を**最新のアプリ機能に合わせて更新**。理解度マップを「機能ノード＋2 段ドリルダウン」から**ファイル単位グラフ＋機能フィルタ（マップ/リスト両ビュー）**の説明に刷新し、理解度 4 状態（理解済み/部分理解/未理解/未着手）の凡例とノード色を実アプリ（`#14b8a6`/`#5eead4`/`#ef4444`/`#94a3b8`）に一致。クイズと学習に**「このコードを理解する」/「技術スタックを学ぶ」**と L1〜L5 クイズを明記。コード品質マップを「負債の分布を俯瞰」、コード改善を**「AI に頼む(PR)/人に頼む(Issue)」**に更新。セキュリティに**「エージェント入力のマスキング」（Cloud DLP＋detect-secrets で PII・シークレットをマスク）**・**「脆弱性スキャン（OWASP 準拠）実施済み」**カードを追加（Cloud Armor によるエッジのレート制限は既存カードで明記）。技術スタックに Google ADK / CodeGraphContext を追加、Terraform 記述を `/lp` 同梱配信に修正。「アプリにできること」の CSS モックを、取扱説明書の**実スクリーンショット 5 枚（`landing/assets/screens/`、1600px に最適化）**に差し替え。`styles.css` も再ビルド。
-
 ### Added
 
-- ランディングページ(LP)を**アプリと同一ドメインの `/lp` で静的配信**（ハッカソン用途のため別ドメイン/バケットは使わない）。`docker/api.Dockerfile`（frontend ステージ）が `landing/`（`index.html`/`styles.css`/`og-image.png`/`assets`）を SPA ビルド出力の `build/lp/` に同梱し、runtime で `app/static/lp/` になる。`backend/api/app/main.py` が SPA キャッチオール（`/`）より先に `/lp` を静的マウント（`html=True`）。アプリからの入口は**ルート `/`（未ログイン）の「サービスを詳しく見る」**（ビルド時 env `VITE_LP_URL`＝Docker で `/lp` を注入。dev では未設定＝非表示）。追加の GCS バケット・サブドメイン・証明書・DNS・CI ステップは不要（api の既存デプロイに同梱）。
+- ランディングページ(LP)を公開し、アプリと同一ドメインの `/lp` で配信。未ログインのトップから「サービスを詳しく見る」で到達でき、機能紹介は実画面のスクリーンショットで構成（内容・用語はアプリの表現に統一）。
+- 解析に静的解析(Semgrep)と脆弱性スキャン(Trivy: 脆弱な依存・secret・設定ミス)を追加し、検知結果を技術負債として表示。
 
-- 取扱説明書のスクリーンショット取得に**モバイル(レスポンシブUI)版**を追加。`bun run screenshots` を Playwright の 2 プロジェクト（`desktop` 1440x900 / `mobile` 390x844・isMobile）で実行し、モバイル版画像を `docs/取扱説明書/images/screens-mobile/`＋`screens-mobile.manifest.json` に出力する（振り分けは `helpers.shot()` がビューポート幅で判定）。モバイルは主要ページ（`pages`/`quiz` spec）のみ撮影し、デスクトップ専用クローム（サイドバー/コマンドパレット等）の `ui`/`sidebar` spec は mobile ではスキップ。ブラウザは chromium のみ（isMobile は chromium 専用）。
+### Changed
 
-- LLM（Gemini）へ送るデータの **PII マスキングに Cloud DLP（Sensitive Data Protection）を導入**（issue 296）。環境変数 **`DLP_ENABLED`（既定 false）** で ON/OFF。**false 時は detect-secrets（秘密）＋新規のルールベース PII マスキング**（メール/電話/クレジットカード(Luhn)/IPv4）、**true 時のみ Cloud DLP API（`deidentifyContent`、保守的 infoType）** を呼ぶ。DLP 失敗時はローカルのルールベースへフォールバック。統合関数 `secret_redaction.deidentify()` を **ADK 経路（`SecretRedactionPlugin`）と直呼び経路（`gemini_stack_service._generate`）の両方**の入口にし、従来マスキングが無かった直呼び経路の穴も解消。インフラ（`infra/gcp`）に `dlp.googleapis.com` の有効化・service SA への `roles/dlp.user`・`DLP_ENABLED` env・`dlp_enabled` 変数を追加（`terraform apply` でデプロイ、既定 false）。依存に `google-cloud-dlp` を追加。
+- 理解度マップを「ファイル単位のグラフ＋機能フィルタ」に刷新。ノード＝ファイル・色＝理解度(理解済み/部分理解/未理解/未着手)・線＝ファイル間の依存や呼び出しで表示し、機能フィルタはマップ・リストの両ビューに効く。ノードが重なって見えない問題も解消。
+- 理解度の算出を見直し、コードを書いた履歴だけで「理解済み」と見なさないように変更(理解はクイズで実測)。マップが実態に近い色分けになる。
+- 解析をエージェント中心の構成に再設計し、機能の抽出やコード品質・理解負債の説明をエージェントの所見で補強(数値の裏付けは従来どおり)。
+- 解析中の進捗表示を「リポジトリ探索 → 技術負債 → 理解負債 → クイズと学習」の順に整理し、実行中の工程を点滅で強調。
+- コード改善・コード品質マップの詳細で、該当コードを全文表示＋検知箇所をハイライトし、対応状況(未対応/PR作成済み/解決済み)を表示。
+- ゲストデモのデータを拡張し、理解度マップを約 200 ノードへ増強。常設バナーを廃してトップバーの「デモ環境」バッジ(ホバーで説明)に変更。
+- ログイン画面の背景を、動くノード‐リンクグラフに刷新。
+- スマートフォン表示(レスポンシブ)を全体的に改善。
+- オンボーディングガイドを最新 UI に合わせて更新。
 
 ### Fixed
 
-- オンボーディングガイドを複数点修正（issue 066 追補）。
-  - **プロジェクト選択画面での開始**: 未選択のままガイドを開始するとハイライト対象が無く全ブロックが中央表示になり、詳細ガイドの遷移も `projectSlug` 空で **404** になっていた。開始時に未選択なら**トップのプロジェクトを選択してから**開始するようにした。
-  - **詳細ガイドの取り違え**: 「コード品質マップ」の詳細を開くと「コード改善」のガイドが開く（逆も）不具合を修正（ラベル/ルート入替に合わせて `pageTours` を対応付け直し）。
-  - **コード改善**: 詳細の「負債リスト」→「**改善対象リスト**」に改称。リスト全体ではなく**先頭 1 件のみハイライト**。さらに項目クリック後の**改善箇所ハイライト／AI に頼む(PR)／人に頼む(Issue)** のステップを追加。
-  - **コード品質マップ**: 詳細の「ファイル閲覧と返済」→「**ファイル閲覧**」に改称。閲覧欄が「ファイルを選択してください」で空にならないよう**指摘のあるファイルを事前選択**（`?path=`）して表示し、「指摘箇所」ステップを追加。
-  - **クイズと学習**: 「理解度を確認する」「学習を開く」の**遷移先（クイズ受験画面・学習プラン閲覧画面）**のステップを詳細ガイドに追加。さらに学習プラン閲覧では、**「このコードを理解する」（リポジトリ特有の機能の学習プラン）**と**「技術スタックを学ぶ」（関連技術の公式ドキュメント/チュートリアル）**の各ブロックのステップも追加。
-  - ツアー基盤: ステップに `search`（クエリ）指定を追加しクエリ差分でも遷移、reveal リンククリック後に遷移完了を待つように補強。
-
-### Changed
-
-- デモ（EC ストア `sample-shop`）のデータを拡張し、理解度マップを**約 30 → 約 200 ノード**に増強。`seed_demo` のキュレーション済みコア機能はそのまま維持しつつ、決済ゲートウェイ/注文/レビュー/レコメンド/管理/分析/検索/CMS/共通基盤/UI 部品/運用 等の EC ドメインを**決定的に生成**（パス由来ハッシュで KC・行数・依存を導出＝再シードで安定）。KC は理解済み/部分/未理解/未着手が混ざる分布（実測 star53 / dim_star62 / black_hole59 / unexplored18）にし、機能間の依存も張って**連結で色の付いた見栄えのするマップ**にした。
-- ログイン画面の背景を**真っ黒から「動くノード‐リンクグラフ」**に刷新。新規 `login-graph-canvas.svelte`（canvas）で、暗いネイビーのグラデ地に teal(#4ecdc4) 主体＋シアン/少量アクセントのグローするノードが漂い近接同士を線で結ぶ背景を描く（参考LP `参考LP/RepoGraph` の背景を参考にブラッシュアップ、`prefers-reduced-motion` は静止）。ログイン画面のコピー/ボタンはダーク前提の配色に調整。OAuth コールバックのローディング・スプラッシュ（`login-graph-backdrop`）も従来の静的 SVG から同じ動く canvas 背景に統一。
-- ゲストデモの常設バナーを廃止し、トップバーの**「デモ環境」バッジ（オレンジの四角枠・検索コマンドの左）**に置き換えた（issue 069）。常時最上部に出ていた説明文（「これはサンプルデータのデモ環境です…」）が冗長だったため、小さなバッジにまとめ、**ホバー時にツールチップ**で同じ説明を表示する。色はオレンジ基調を踏襲。`demo-banner.svelte` は削除し `demo-badge.svelte` を追加。
-- 理解度（KC）算出を見直し、**著作（git blame）由来の KC を「未理解（black_hole）」に引き下げ**た。従来は著作 KC の上限が 0.6（`dim_star`）で、支配的な著者がいるほぼ全ファイルが teal（理解済み風）になり「マップがほぼ全部理解済み」に見えていた。上限を `dim_star` 閾値（0.4）未満（0.35）に下げ、**著作＝接触であって理解ではない**（理解はクイズで実測）という前提に合わせた。クイズ認定 KC は従来どおり上限なしで `dim_star`/`star` に到達する。※反映には再解析が必要。
-- 理解度マップの**機能フィルタをリスト表示にも適用**。従来マップ専用だったフィルタを親（`galaxy/+page`）に持ち上げてタブ上部に常設し、マップ・リストの両ビューで同じ機能フィルタが効くようにした（共通コンポーネント `galaxy-feature-filter.svelte`）。リストは選択機能の所属ファイル（`feature_keys` 一致）に絞り込む。
-
-- 理解度マップのグラフ構築を **CodeGraphContext(CGC) 主ソース**に変更（imports＋calls）。従来 `code_graph.extract_snapshot` の `file_edges` はクロスファイル **CALLS のみ**だったが、CGC の **`(File)-[:IMPORTS]->(Module)`** も抽出して結合するようにした。CGC は import 指定子の全文（TS の `./galaxy-graph`・`$lib/api/schemas`、Python の `app.services.galaxy_query` 等）を Module 名に持つため、**リーフ名を抽出 → リポジトリ内ファイルへ一意 basename 一致で解決**（外部パッケージ・曖昧・自己参照は除外）してファイル間エッジ化する。CGC は Python だけでなく **TS/JS 等も解析**する（実測で `.ts` を索引・imports 抽出を確認）ため、`file_edges` が calls＋imports の CGC 主ソースになる。フロントは従来どおり `file_edges` と import 由来 `wormholes` を和で使うため CGC が主・regex import が補助になり、**機能フィルタ（`feature_keys` ベース）は不変で動作**。※反映には再解析が必要。`.svelte` は CGC 非対応のため引き続き blame ノード＋補助で扱う。
-
-### Changed
-
-- リポジトリ解析の進捗ステータスで、**実行中（処理中）の水色表示を点滅（`animate-pulse`）**させ「進行中」を視覚的に強調するようにした。対象は親「エージェントによる解析」・各ブロックの `PROCESSING` ステータスと、実行中サブステップの `●`（`text-debt-knowledge`）。完了/失敗/待機は従来どおり点滅しない。
-
-### Fixed
-
-- ログイン中（OAuth コールバック）のスプラッシュに出ていた**旧アイコン（水色＋黄色の四角 2 つ）**を、アプリアイコン（`static/favicon.svg` = `Logo`）に差し替え。左上のアプリアイコンと一致させ、未使用になった旧スタイルも削除。
-- ログイン画面で「お試しはこちら」のツールチップ（「GitHub アカウントなしで…」）が「GitHub でサインイン」ボタンに**重なる**問題を修正。ツールチップを**ボタンの下側**（`side="bottom"`）に表示するようにした。
-- ログイン中の画面（トップバー等）のブランドアイコンを**現在のアプリアイコン（`static/favicon.svg`）と完全一致**に更新。従来 `logo.svelte` はデュアルループのみでアプリアイコンの**角丸ダーク地バッジ**が無く、アプリアイコンと違って見えていた。バッジ（`rect rx=8 fill=#0c1116`）を含めて favicon と同一の見た目にした（`Logo` を使うトップバー／エラー画面／プレースホルダに反映）。
-- クイズと学習（学習プラン）の「このコードを理解する」「技術スタックを学ぶ」ブロックが**スマホ幅を溢れる**問題を修正。要約文にバッククォート付きの長いファイルパス/識別子（例: `lambda_package/charset_normalizer/api.py`）が含まれ、日本語と違い折り返し点が無いためカードが横に伸びていた。要約に `break-words`（長い語も折り返し）を付与し、`resource-list` の各セクションに `min-w-0` を追加してモバイル幅に収めた。
-- 理解度マップのグラフを 3 点修正（issue: 色/連結/言語）。
-  - **ノード色が理解度を反映しない**（解析後も全部グレー）問題を修正。`build_galaxy` は各ファイルの色を「閲覧者本人の KC」だけから決めており、本人が著作していないファイルは一律 `unexplored`（グレー）になっていた。本人の KC が無い場合は**集計（チーム）KC/mastery にフォールバック**するようにし、凡例どおり 理解済み/部分理解/未理解/未着手 で色分けされるようにした（読み取り経路の修正のため**再解析不要**で反映）。
-  - **各クラスタがバラバラ（孤立クラスタ）**になる問題を軽減。(1) フロント（`graph-data.ts`）で連結成分を求め、最大成分以外を最寄り（同ディレクトリ優先）ノードへ `sibling` エッジで橋渡しし、孤立ノード・孤立クラスタを無くして 1 つのグラフに繋ぐ（デッドコードで実エッジが無くても浮かせない。**再解析不要**）。(2) バックエンドの import 解決（`dependency_extraction`）に**ネストしたパッケージ配置の suffix 一致フォールバック**を追加（`from app.foo import bar` が `backend/api/app/foo.py` に解決）＋ `kc_analysis` の対象ファイル上限を 50→200 に引き上げ、実エッジ自体を増やした（**反映には再解析が必要**）。
-  - **Python ファイルしか出ない**問題を修正。`kc_analysis` の対象拡張子に **`.svelte` / `.vue`** を追加し、上限による切り詰めで言語が偏らないよう**言語バケットのラウンドロビン選択**にした（`.py` が先頭に並んでも `.ts`/`.svelte` が枠を確保できる。**反映には再解析が必要**）。
-- 「コードベース探索」（Base 解析エージェント）が**失敗になる**問題を修正。探索用の MCP サーバー（Serena / CodeGraphContext / GitHub）は「起動できなければ無し（graceful）」の想定だったが、stdio MCP は**遅延接続**のためバイナリが PATH に無いとエージェントが最初にそのツールを呼んだ時点で接続エラーが `run_async` を貫通し、`base_analysis` 段全体が失敗していた（決定的バックボーンは成功するため「コードベース探索だけ失敗」になる。例: `serena` / `github-mcp-server` 未インストールのローカル/サービス実行）。各ビルダ（`serena_mcp` / `code_graph_mcp` / `github_mcp`）で `shutil.which` によりバイナリ非存在時は**ツールセットを付けない（None）**ようにし、欠けている MCP が解析を落とさないよう真に graceful にした（REST リポジトリツールと利用可能な MCP だけで探索が走る）。
-- 機能クラスタリングの**機能名・説明が英語**（例: "API Core & Infrastructure" / "User Management API" / "Frontend Application"）になってしまう問題を修正。機能名を生成する 3 つのプロンプト（Base 解析エージェント `base_analysis_tools`、単体クラスタリング `feature_agent`、Gemini 直呼びフォールバック `gemini_stack_service._FEATURE_CLUSTERING_PROMPT`）に、`name`・`description` は**必ず自然な日本語**にする指示を追加（`key` は英語 slug のまま）。※機能名は解析時に永続化されるため、**反映には再解析が必要**。
-
-### Changed
-
-- **スマホ表示（レスポンシブ）を改善**（機能・コンポーネントの役割は変えず、サイズ/配置のみ調整）。(1) コード改善（repos）の左右 2 ペイン（固定 `w-64` ツリー＋ビューア）を、モバイルでは**縦積み**（ツリーを上部に高さ上限つき・ビューアを下）に、`lg` 以上で従来の左右 2 ペインに。(2) モバイルのサイドバー（Sheet ドロワー）が**遷移後も開いたまま遷移先を覆う**不具合を、`afterNavigate` で閉じるよう修正。(3) クイズのフォーカスモードで、縦積み時に左右ペインが潰れないようモバイルは**ページスクロール＋コードペインの高さ確保**、`lg` 以上で各ペイン内スクロール。(4) 理解度マップのリスト表（スマホ既定ビュー）で、狭幅では**モジュール列・状態ラベルを省略**しファイルパスを折り返し。(5) 学習ユニット行のメタ情報を狭幅で簡約（ファイル数を省略）。既存の `sm:`/`lg:` グリッドで既にスタックする画面（概要・マトリクス・学習・設定・組織・ログイン）はそのまま。
-- オンボーディングツアーを**最新 UI に更新**し、**吹き出しの被り**を解消（issue 066 追補）。(1) 吹き出し位置計算を、ブロック高 160px 固定の仮定＋端でのクランプ（ハイライト上へ押し戻していた）から、**実測サイズ**（`bind:clientWidth/Height`）を使い「優先 placement → 反対側 → 最も余白のある側」の順にハイライトへ**重ならない**側を選ぶ方式に刷新。(2) 理解度マップの説明を旧「機能→ファイル→関数の 3 段ズーム」から**ファイル単位グラフ＋機能フィルタ**の現行 UI に更新し、**機能フィルタ**の詳細ステップ（新 `data-tour="galaxy-filter"`）を追加。(3) 「解析」ステップを**4 ブロック構成**（リポジトリ探索→技術負債→理解負債→クイズと学習）の説明に更新。(4) **設定**を全体ガイドのステップに追加（未使用だった `tour_settings_*` を活用）。i18n（ja/en）に `tour_gx_filter_*` を追加。
-- 機能クラスタリングを**グラフ・コミュニティに整合**させる後処理を追加（issue 293, 方針A）。従来は機能→ファイルの割り当てが Base 解析エージェント（または fallback クラスタリングモデル）の自由判断のみで、機能あたり 1〜2 ファイルしか付かず「機能フィルタで数個しか残らない」原因になっていた。新規 `services/feature_communities.py`（純粋・決定的な**シード付きラベル伝播**）を追加し、LLM の各機能ファイルを*シード*としてリポジトリのコールグラフ（CGC `file_edges`）上を伝播させ、**ハブ中心の連結領域**が同一機能に収束するようにした。LLM の機能名・説明・元の（多重）所属は維持し、伝播で加わったファイルは低い confidence（0.5）で追加。グラフは解析時に既に計算・永続化済み（`code_graphs.file_edges`）のものを `agentic_analysis` から `feature_clustering.process(graph_edges=)` に渡すだけで、**追加のリポジトリ取得・モデル呼び出しは無し**。単体クラスタリング経路では従来どおり自前の import グラフを使用。※機能→ファイルの永続データが変わるため**反映には再解析が必要**。
-- 理解度マップ: グラフの**エッジを太く/濃く**した（issue 293: 細くて見えづらい指摘）。force-graph の線幅を実依存 2.5・補助線(sibling) 1.5・ホバー接続時 4 に、既定の線色不透明度も引き上げ（calls 0.75）。矢印もやや大きく。
-- 理解度マップ: **孤立ノードの解消**と**機能フィルタのグラフ近傍展開**（issue 293）。(1) リンクが 1 本も無いノードを、最も近い（同ディレクトリ優先の）ノードへ `sibling` エッジでつなぎ、「どのノードともつながらない単独ノード」を無くした。(2) 機能フィルタを「その機能のファイルのみ」から「**その機能のファイル＋グラフ上の隣接ファイル（1 ホップ）**」に広げ、リポジトリのグラフ構造を使って**その機能に関連するコードを含む連結クラスタ**を表示するようにした（フィルタで 1〜2 個しか残らない問題を解消）。いずれも `toFileGraphData`（フロント・純粋関数）で完結し再解析不要。併せてリポジトリ解析ステータスの `base_analysis` サブステップ表記から「元データ生成」を削除（「コードベース探索」に統一）。backend/API 変更なし。
-
-- 理解度マップを**「ファイル単位グラフ＋機能フィルタ」構成に再編**（issue 288）。機能クラスタは高々 5 個程度でグラフ表示の意味が薄いため、**機能グラフ（Level 1）と機能→関数グラフ（Level 2）を廃止**。既定で**プロジェクト全体のファイル単位グラフ**（ノード=ファイル・KC 着色、エッジ=`code-graph` の file_edges／無ければ import 由来 wormhole）を force-graph で表示し、**機能フィルタ**（`galaxy.features` のチップ・フロント完結）でその機能に属するファイルのみへ絞り込めるようにした。`graph-data.ts` に `toFileGraphData` を追加し機能変換を削除、`galaxy-graph.ts` の未使用ビルダを一掃、`galaxy-store` に file_edges 取得を復活。backend/API 変更なし。（issue 290 で以下を追加修正: **関数粒度グラフ（Level 3）を削除**（ファイルクリックのドリル廃止）／**下部凡例がグラフ領域に被る不具合**を StarMap を単一 flex-col ルート＋グラフ `flex-1 min-h-0` にして解消／**機能フィルタが効かない不具合**を修正（issue 292: 真因は GraphCanvas の更新 `$effect` が `graph` の null チェックで早期 return し、その後で `nodes`/`links` を読んでいたため、force-graph の非同期 import で初回 graph=null の際に依存が登録されず以降 effect が再実行されなかった。依存を null チェック前に必ず読むよう修正。併せて graphData 再投入時に `d3ReheatSimulation()`＋`resumeAnimation()`）／**孤立ノード削減**のためエッジを file_edges と import(wormhole) の**和**に変更／**KC 色分け**を凡例に合わせた 4 状態の canvas 安全な固定色（完全理解=ティール / 部分理解=淡ティール / 未理解=赤 / 未着手=グレー）で実装（従来は全て灰色）。issue 293 でノードのファイル名ラベルを**縮小時も含め常にノード右側に小さく表示**（従来はズームイン時のみノード下）。）
-
-- 理解度マップのグラフ表示を **`force-graph`(canvas) に刷新**（issue 284）。自作の静的 force レイアウトは衝突回避が無くノードが重なって見えなかったため、CodeGraphContext 同様の force-directed インタラクティブグラフへ置換。`force-graph` ＋ `d3-force-3d` の `forceCollide` で**ノード重なりを構造的に解消**し、ドラッグ/ズーム/パン/ホバー強調・矢印付き有向エッジ（`calls`）を追加。file-hub は KC で着色（理解度レンズ維持）、関数はファイル別色。3 段ドリル（機能→関数グラフ→単一ファイル）・遅延取得・loading/empty/truncated・戻るナビは維持。新規 `graph-canvas.svelte`（SSR/prerender 安全な動的 import・`_destructor` teardown・テーマ変更で再配色）＋ `graph-data.ts`（純粋変換）。自作 `force-layout.ts` は撤去。backend/API 変更なし。※レイアウトは force-directed のため毎回同一配置ではない（`onEngineStop`→`zoomToFit` で常に全体をフレーム）。（issue 286: custom `nodeCanvasObject` がポインタ判定領域を上書きし既定ズームでノードをクリックできず機能クリックでドリルしない不具合を、`nodePointerAreaPaint` でノード円を判定域として塗ることで修正。）
-
-- 理解度マップ: 機能ノードのクリック後を**関数レベルグラフに刷新**（issue 282）。従来はファイル粒度で数個のノードが接続されず散らばっていた。CodeGraphContext の関数レベル構造を活用し、**ファイル=ハブノード＋関数=子ノード**を `CONTAINS`（ハブ→関数）＋`CALLS`（関数→関数・ファイル跨ぎ含む）で接続。全関数が必ずファイルハブにつながるため孤立ノードが消え、CGC 公式ビューのような密なクラスタ構造になる。クリックした機能の構成ファイルにスコープ（遅延取得・ノード上限＋`truncated` 表示）。ファイルハブは KC で着色（理解度レンズ維持）・クリックで Level-3（単一ファイル）へドリル。
-  - backend: `code_graph.extract_snapshot` の `function_calls` を**ファイル跨ぎ**も含む `{source_file,source,target_file,target}` 形に拡張（従来は cross-file を `file_edges` に集約して破棄・intra-file のみ保持）。新 API `GET .../code-graph/feature?key=`（機能→ファイル集合を解決し file-hub/function ノード＋CONTAINS/CALLS を返す）。Level-3 エンドポイントは新形に追従＋旧形 stale 行を防御。`function_graph`（決定的フォールバック）も新形に整合。DB マイグレーション不要。
-  - frontend: 新 `getFeatureFunctionGraph`／`featureFunctionGraphSchema`／`buildFeatureFunctionGraph`。`star-map` の Level-2 を遅延取得の関数グラフに差し替え（旧 `buildFileSubgraph`／`codeGraphEdges` 配線は撤去）。
-
-### Fixed
-
-- 学習プラン「このコードを理解する」の各ステップのタイトルが**プログラムのファイル名**になってしまう不具合を修正（issue 280）。原因はコード学習ステップ生成のプロンプト／エージェント指示が `title` に「ファイル名や扱う話題」とファイル名使用を許容していたこと。プロンプトを「その回で理解する内容を表す学習見出し（ファイル名・パスにしない）」に変更し、`learning_plan_generation` 側でもモデルがファイル名/パスをそのまま返した場合や生成が空のフォールバック時に学習タイトル（例: `login の実装を理解する`）へ置換するガードを追加。
-
-### Changed
-
-- 解析コックピットを **4 ブロック構成**に変更（agent-first 追従）: ベースのリポジトリ解析（`base_analysis`）に専用のステータス表示場所がなかったため、**「リポジトリ探索」ブロックを先頭に追加**し、`リポジトリ探索 → 技術負債の検知 → 理解負債の整理 → クイズと学習の生成` の順で進捗を表示するようにした。`base_analysis` サブステップを新グループ `g_explore` 配下に出し、進捗バー・ステータスバッジがベース解析の running/completed/failed を反映。i18n（ja/en）に `analysis_group_explore`・`analysis_substep_base_analysis` を追加。backend `progress.py` の `base_analysis` を `g_explore` グループに整合。
-
-### Removed
-
-- デッドコード削除（issue 278）: 旧 Twin Agent 専用だった **Trivy/Semgrep の MCP レイヤ**（`agents/trivy_mcp.py`・`agents/semgrep_mcp.py`・`agents/semgrep_mcp_server.py`＋`tests/test_trivy_mcp.py`）を削除（#276 で唯一の呼び出し元が消え、呼び出し元ゼロになっていた）。Dockerfile の `trivy plugin install mcp` も削除（Trivy バイナリ本体は CLI ブロックで使うため残置）。Semgrep はエンジン自体は `code_debt_detection` の決定的ブロック（`services/semgrep_scan.py`）で従来どおり稼働。
-
-- 解析アーキ再設計 PR5（issue 275・agent-first 完了）: **「判断（judgement）」レイヤを撤去**。旧 Twin Agent チェーン（`agents/twin.py` の knowledge→code→remediation `SequentialAgent`）と `agents/remediation.py`、`runner.run_twin_agent` を削除し、`AgenticAnalysisResult.recommendations`（どの画面にも未配信だった）フィールドを廃止。解析は「Base 解析エージェント（元データ生成）→ 決定的バックボーン（整形・強化）」の agent-first パイプラインに一本化された。進捗表示はエージェント段を先頭に移動し `twin_agent`→`base_analysis`（ラベル「エージェントによるリポジトリ解析」）へ改名。※ Trivy（SCA/secret/misconfig）MCP は旧判断エージェント専用だったため現状どの段でも未実行（決定的 Trivy ブロック化は今後の課題）。Semgrep は従来どおり `code_debt_detection` の決定的ブロックで実行。
-
-### Added
-
-- **Trivy セキュリティスキャンを決定的ブロックとして復活**（issue 278）: agent-first 再設計で旧 Twin Agent を削除した際に解析から消えていた Trivy（SCA/secret/misconfig）を、エージェントのツールではなく**決定的プログラムブロック**として再導入。新規 `services/trivy_scan.py`（`semgrep_scan` と同型の CLI ラッパ・graceful）が `agentic_analysis` の**既存 shallow clone を再利用**して `trivy fs` を実行し、ファイル単位に集約。`code_debt_detection.process(..., trivy_findings=)` が結果を `code_debts`（type=`security`・frontend enum 準拠）として永続化。複数検知が同一 `(file, type)` に当たる場合は max score＋notes 連結でマージ（Semgrep security と衝突しても失わない）。単体実行時は Trivy 未指定＝従来動作。
-
-- 解析アーキ再設計 PR4（issue 273・agent-first）: **理解負債の説明を Base 解析エージェント所見で強化**。`knowledge_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（ai_generated/author_left/no_review）の各 `detection_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**KC/coverage/score は決定的のまま**（判断#3）。`agentic_analysis` の knowledge_debt ブロックが `base_analysis.knowledge_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
-
-- 解析アーキ再設計 PR3（issue 271・agent-first）: **コード負債の説明を Base 解析エージェント所見で強化**。`code_debt_detection.process` に任意 `base_findings` 引数を追加し、決定的検知（複雑度/重複/デッド/semgrep）で確定した各 finding の `archaeology_notes` に、同一ファイルのエージェント所見（rationale）を「【エージェント所見】」として付記。**score/severity/metrics は決定的のまま**（数値の裏付けを維持）。`agentic_analysis` の code_debt ブロックが `base_analysis.code_findings` を渡す（空→従来どおり）。画面テーブル・API 読み取り経路は不変。
-
-- 解析アーキ再設計 PR2（issue 268・agent-first）: **理解度マップの「機能」をエージェント出力から生成**。`feature_clustering.process` に任意の `clusters` 引数を追加し、Base 解析エージェントの `BaseAnalysis.features` があればそれを整形・永続化して**クラスタリングのモデル呼び出しを省略**（リポジトリツリーは取得しパスの実在は検証）。base が空/単体実行では従来のエージェント的クラスタリング（`cluster_features_agentic`→直 Gemini）にフォールバック。`features`/`feature_files`（Galaxy）が「メイン解析エージェント出力の整形」になり、画面テーブル・読み取り経路は不変。
-
-- 解析アーキ再設計 PR1（issue 266・agent-first の第一歩）: **Base 解析エージェントを解析パイプラインの先頭ブロック**として実行し、後続処理の土台となる定性的な「元データ」`BaseAnalysis`（features／学習概念／コード・理解リスクの叙述）を生成・永続化するようにした。Twin Agent を転用した 2 段 `SequentialAgent`（`analysis_explorer`→`base_author`）で、探索は MCP（Serena／GitHub／CodeGraphContext）に限定し（決定的計測 Trivy/Semgrep は後段のプログラムブロックが担うため付与しない）、`save_base_analysis` 確定ツールで出力を確定（ADK は `output_schema`×`tools` 併用不可のため）。新規 `shared/schemas/base_analysis.py`・`shared/models/base_analysis_snapshot.py`（project 単位 upsert・Alembic `0027`）・`service/agents/base_analysis_tools.py`・`runner.run_analysis_agent`。**本 PR は追加のみ**で、決定的バックボーン（機能/コード負債/理解度/学習・クイズ）は従来どおり画面テーブルを生成＝source-of-truth 不変。エージェントが失敗/空でもバックボーンが解析を完了する（graceful）。KC は git blame の決定的計測のまま。判断（recommendations）は空にし、後続 PR で削除予定。
-
-- 解析最適化 Phase 1（issue 263・エージェント中心化）: **機能クラスタリングをエージェント化**。素の Gemini 呼び出し `cluster_features` を、ファイル一覧＋import エッジを読み `save_features` で確定する単発 ADK エージェント（`agents/feature_agent.py`＋`services/feature_authoring.py`、`run_single_agent` 経由でトレース/秘匿を取得）に置換。1 モデル呼び出しのまま、失敗/空時は従来の直呼びへ graceful フォールバック（品質非劣化）。理解度マップ/機能の土台がエージェント生成になり、`agent_trace` に載る。続いて **tech-stack（`analyze_tech_stack`）と learning-plan（学習ステップ `generate_code_learning_steps` / 外部リソース `generate_external_resources`）も同様に単発エージェント化**（`agents/stack_agent.py`・`learning_agent.py`＋`services/stack_authoring.py`・`learning_authoring.py`、保存ツール＋直呼びフォールバック）。これで解析の主要生成（機能/技術スタック/学習プラン、および既存の quiz/walkthrough/refactor）がすべてエージェント経由になり「エージェントが処理の中心」を満たす。各 1 モデル呼び出し・品質非劣化。
-
-- 理解度マップの 3 段階グラフを **CodeGraphContext 非依存の決定的フォールバックでも生成**し「どんなリポジトリでも」表示されるようにした（issue 250）: L1（機能）・L2（機能内ファイル＝ノードは常時表示・エッジは wormhole フォールバック済み）は元々保証されていたが、**L3（ファイル内の関数コールグラフ）は CGC 専用**で、CGC が索引失敗・未対応・関数 0 件のとき空のままだった。新規 `services/function_graph.py` が clone 済みソースから決定的に L3 を生成する — Python は標準ライブラリ `ast`（関数ノード＋同一ファイル内コールエッジ）、TS/JS は正規表現（関数ノード）、`file_edges` は既存 `dependency_extraction.extract_dependencies` を再利用。`code_graph.merge_snapshots(cgc, det)` が **CGC を優先しつつ欠けた層を決定的スナップショットで埋める**（`functions`/`function_calls` は名前整合のため対で選択）。`agentic_analysis` が CGC スナップショットと決定的スナップショットをマージして永続化。対象言語は `is_source_file`（Python/TS/JS＝プロダクトの解析対象と一致）。frontend は無改修（既存の L3 描画・L2 フォールバックで動作）。
-
-- 理解度マップに **Level-3（ファイル内の関数コールグラフ）** を追加（issue 240）: Level-2（機能内ファイルグラフ）でファイルノードをクリックすると、そのファイル内部の**関数コールグラフ**にドリルダウンする（関数粒度の住処）。グラフは CodeGraphContext の `CONTAINS`/`CALLS`（同一ファイル内に絞った関数間コール）由来で、`extract_snapshot` が `functions`/`function_calls` をスナップショットに追加（`code_graphs`）。新規 `GET .../code-graph/file?path=`（`FileFunctionGraphOut`：observed/nodes/edges）で**ファイル単位に遅延取得**しペイロード肥大を回避。frontend は `buildFunctionGraph` + force-layout で描画し、関数ノードは KC を持たないため**中立スタイル**（理解度レンズは Level-1/2 のファイル・機能ノードに限定）。「← <ファイルパス>」で Level-2 に戻る。未接続（デモ）や取得失敗・関数 0 件は graceful（クリック無効化／空表示）。
-
-- 理解度マップ Level-2（機能内ファイルグラフ）のエッジを **CodeGraphContext で精緻化**（issue 238）: 機能ノードをクリックして開く構成ファイルの依存グラフのエッジを、従来の `dependencies`（import 抽出ベース）から CGC の**実コール集約**（関数 CALLS をファイルに集約、repo 相対パスで `file_kc` と一致）に切替。ファイルノードの KC 色は不変（理解度レンズは維持）、関数粒度はドリルダウン内に限定。`services/code_graph.py:extract_snapshot` を file↔file 集約エッジ（`{file_edges}`）へ、`code_graphs`/`GET .../code-graph`（`CodeGraphOut.file_edges`）と frontend スキーマを更新。`buildFileSubgraph` は CGC エッジを優先し、未構築時は従来 wormhole にフォールバック（graceful）。
-
-- コードグラフのスナップショットを**永続化**し読み取り API を追加（issue 235 PR2・将来 UI 用）: agentic 解析が CGC でグラフ構築後、関数コールグラフのノードリンク・スナップショット（`services/code_graph.py` の `extract_snapshot`＝`cgc query` の JSON）を抽出し、新規 `code_graphs` テーブル（`shared` の `CodeGraph`・project キーで upsert・Alembic `0026`）へ保存。`GET /orgs/{slug}/projects/{slug}/code-graph` （`CodeGraphOut`：observed/computed_at/nodes/edges）で配信し、frontend に Zod スキーマ＋`getCodeGraph` を追加（描画コンポーネントは将来）。抽出が空（一時失敗）のときは前回スナップショットを温存。これで issue 235（CGC 導入）が完了。
-
-- リポジトリ解析に **CodeGraphContext (CGC) コードグラフ MCP** を導入（issue 235 PR1）: Serena(LSP=ミクロ) に加え、全体アーキ・依存連鎖・**影響範囲(blast radius)**・dead code をマクロに俯瞰するコードグラフを Twin Agent の**両専門家**に付与。`agentic_analysis` が clone を `cgc index` で**事前構築**（`services/code_graph.py`・同期・graceful）し、エージェントは `agents/code_graph_mcp.py` の MCP（`codegraphcontext mcp start`・stdio・照会系 tool_filter）で `analyze_code_relationships` 等を照会。CGC は Python 3.13 非対応＋protobuf 衝突のため **`uv tool install -p 3.12 codegraphcontext --with kuzu`** で隔離導入し、**組み込み KuzuDB**（`CGC_RUNTIME_DB_TYPE=kuzudb`）で完結＝Neo4j 不要。CGC 不可/索引失敗時は従来解析を維持（graceful）。構築グラフの永続化＋将来 UI 表示は PR2 で対応。
-
-### Changed
-
-- 解析パイプラインの最適化 Phase 0（issue 261）: (1) **baseline fan-out（学習/クイズ生成）に共有クライアントを配線** — `learning_plan_generation`（walkthrough 事前生成・内部アセット取得）と `quiz_generation`（機能コンテンツ取得）が `ctx.github_client`（`CachingGitHubGitClient`）を再利用し、機能ごとに繰り返していたリポジトリ取得をキャッシュへ集約（クイズの clone 用トークンは従来どおり）。(2) **`estimate_ai_generation` をファイル内容ハッシュでメモ化** — code_debt と knowledge_debt が同一ファイルへ二重に Gemini 判定するのを排除し、全キャッシュ時は Gemini 呼び出し自体を省略（FIFO 上限つき）。出力（`ai_generation_prob` / knowledge の `reason`）は不変。各パイプライン単体呼び出しは `ctx.github_client=None` で従来動作。
-
-- リポジトリ解析バックボーンの GitHub 取得を共通化（並列化の前段・低リスク最適化）: 各サブパイプライン（feature_clustering / code_debt_detection / kc_analysis / knowledge_debt_detection / stack_analysis）が個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を、**ジョブ内で 1 つの読み取りキャッシュ付きクライアント `CachingGitHubGitClient`（`get_repository_tree`/`get_file_content` を引数キーでメモ化）を共有**して集約。`agentic_analysis` が起動時に生成し `PipelineContext.github_client` 経由で各ステップへ渡す（`try/finally` で確実にクローズ）。各パイプライン単体呼び出しでは `ctx.github_client` は `None` のままで従来どおり自前取得（動作不変）。GitHub の呼び出し回数・レート消費・wall-clock を削減。※ baseline の学習/クイズ fan-out の取得共通化と、依存のないステップの並列実行は後続で検討。
-
-- Twin Agent のコンテキスト/ペイロード肥大を抑制（issue 260 フォローアップ）: 多ターンのツール利用でツール結果が会話履歴に蓄積し毎回のリクエストが膨らむ（コスト増・502/タイムアウト誘発）のを防ぐため、(1) 大きなツール結果（Trivy 全体スキャン JSON・GitHub PR/コミット・CodeGraphContext 照会・Serena/Semgrep 結果）を **`after_tool_callback` で ~12k 文字に切り詰め**（`agents/hooks.py:make_after_tool_callback`、両専門家に配線）、(2) Serena の tool_filter から **`read_file`/`list_dir`/`find_file` を除外**（長さ制限付きの repo ツールと重複し、Serena の `read_file` は全文無制限で肥大要因のため）シンボル・ナビゲーションに限定。
-
-- 解析モーダルで**「エージェントによるリポジトリ解析」を最上部の親タスク**として表示するよう変更（issue 258・256 の改訂）: 基盤ブロックを下部からモーダル**最上部**へ移し、3 つの成果グループ（技術負債の検知 / 理解負債の整理 / クイズと学習の生成）を**その子タスクとして入れ子**表示（親のステータスは解析ジョブ全体に連動）。冗長だったキャプション「上の検知・整理・生成は〜」を削除し、`twin_agent` の子ラベル「エージェントによる判断」を廃して呼称を**「エージェントによるリポジトリ解析」に統一**（`twin_agent` は substep カタログから除外し、親そのものが解析全体を表す）。frontend のみ。
-
-- 解析モーダルで「エージェントによる判断」を全タスクの**土台（ベース）**として表示するよう変更（issue 256）: 単一の agentic（ADK）解析が技術負債・理解負債・理解度・機能・学習/クイズの**すべて**を生成するのに、`twin_agent` が「クイズと学習の生成」の子サブステップに置かれていて位置づけが不適切だった。`twin_agent` を専用グループ `g_base` に移し、3 つの成果グループ（技術負債の検知 / 理解負債の整理 / クイズと学習の生成）の下に全幅の基盤ブロック「**エージェントによるリポジトリ解析**」として独立描画（「上の検知・整理・生成はすべてこの解析から生み出される」キャプション付き）。frontend のみの変更（ライブ進捗は key 一致でマージするため backend 改修不要）。
-
-- ダッシュボードの文言と導線を改善（issue 248）: (1) ダッシュボード上の**「チーム理解度」表記を「理解度」に統一**（stat カード・マトリクス横軸・導線リンク）。(2) stat ブロックの導線を追加 — 「低品質ファイル」に**「コード品質を確認する」**（→コード品質マップ）、「今週の返済」に**「コードを改善する」**（→コード改善）。従来の「理解度」ブロックの「理解度を上げる」（→理解度マップ）と揃え、各 stat から関連ページへ 1 クリックで遷移できるようにした。
-
-- リポジトリ解析モーダル・表記・オンボーディングを最新 UI に合わせて調整（issue 244）: (1) 解析ステータスモーダルの**「詳細進捗」テキストを削除**。(2) 実行前は親 3 ブロックのみだった内訳を、**子サブステップ（機能クラスタリング/コード負債の検知/理解度の計測/理解負債の検知/技術スタックの検出/学習プラン・クイズの生成/エージェントによる判断）を初めから表示**し、実行ではライブ進捗で各行のステータスだけが変化するようにした（静的カタログ `AGENTIC_SUBSTEPS` と backend `ProgressReporter` の key/group を一致させ、ライブ進捗を key でマージ）。(3) アプリ全体の**「死コード」表記を「デッドコード」に統一**（`debt_type_dead` ほか）。(4) オンボーディングツアーを更新（理解度マップに **Level-3「ファイル内の関数コールグラフ」** が増えた点、解析が各工程の内訳まで進捗表示する点を反映）。
-
-- メンバー一覧の「組織全体の理解度への寄与（Coming Soon）」プレースホルダ列を削除（issue 233・実装予定なし）。未使用の `kc-contribution-cell` コンポーネントと `members_kc_tooltip` メッセージも除去。
-- コードブロック表示を改善（issue 231）: (1) ハイライト行の背景を**横方向に全幅化**（内側ラッパを `w-max min-w-full`、各行は自動幅でラッパ幅まで伸ばす）。短い行でも最長行までハイライトされ、横スクロールしても途切れない。(2) コード改善の詳細ページで**抜粋を一瞬表示してから全文へ差し替わるチラつきを解消**し、全文取得中は「読み込み中」表示にして**初めから全文を描画**（未接続/取得失敗/抜粋を特定できない場合は抜粋表示にフォールバック）。
-- コード品質まわりの表示を微調整（issue 229）: (1)「人に頼む」で作成する GitHub issue 本文から**「理解度(KC)」行を除外**（backend `_issue_body` と frontend プレビュー両方）。(2) コード品質マップ（/repos）ヘッダの**「未返済の技術負債 ○件」表示を削除**。(3) リポジトリ解析コックピットの全体進捗表示を `3/7` 等の件数から**% 表記**に変更（プログレスバー自体は不変）。
-
-- コード改善（コード品質マップ詳細）の UI を改善（issue 227）: (1) 該当コードを**抜粋のみ→ファイル全文表示**にし、検知箇所のハイライトを常時表示（`getFileContent` で全文取得し、検知時の抜粋位置を特定して該当行をハイライト。取得不可・未接続のゲストデモ・抜粋を特定できない場合は従来の抜粋表示にフォールバック＝GitHub 不要）。(2) **横スクロール時にハイライト背景が最初の表示幅で切れる**不具合を修正（`code-lines` の行を `w-max min-w-full` 化し行全幅に伸ばす）。(3) **コード負債一覧にステータスバッジ**（未対応 / PR作成済み / 解決済み 等）を追加。(4)「作成済みの PR / Issue を開く」リンクを**青字＋下線**に。
-
-### Fixed
-
-- 「エージェントによるリポジトリ解析」だけが失敗し解析全体が飛ぶ／コックピットが「処理中」のまま固まる不具合を修正（issue 260）: Twin Agent（判断レイヤ）の呼び出し `run_twin_agent` が `try/finally`（後片付けのみ）で括られ **except を持たなかった**ため、Gemini の一時障害（`502 Bad Gateway` 等）で例外化すると `run_task` が **全 flush をロールバックしてジョブを FAILED** にし、決定的バックボーン（コード負債/理解度/機能/学習・クイズ）の成果まで失われていた。Twin Agent はベストエフォートの判断レイヤなので、失敗してもログを残して**推奨なしで解析を COMPLETED として確定**する（graceful degradation・バックボーン成果は保持・ジョブは終了状態に到達）よう `except` を追加。あわせて `gemini_stack_service._generate` の再試行対象に **502/504** を追加（`{429,500,502,503,504}`。Google の 502 応答も "try again" を明示）。回帰テストを追加。
-
-- コード負債の検知が semgrep の一時ディレクトリ作成失敗（ディスク満杯 `[Errno 28] No space left on device`）で落ちる不具合を修正（issue 254）: `semgrep_scan.scan_files` は docstring で「`[]` on failure」を謳うのに、`tempfile.TemporaryDirectory(...)` 生成が try/except の外にあり ENOSPC が素通りして `code_debt_detection` step 全体を落としていた。一時ディレクトリ生成〜スキャンを `except OSError` で囲み、ディスク満杯等の環境要因では警告ログを残して `[]` を返す（ヒューリスティック検知は継続＝graceful）。回帰テストを追加。なお根本原因はディスク空き容量不足のため、運用側で空き確保（`docker system prune` 等）も必要。
-
-- リポジトリ解析モーダルで、解析が一度完了すると子サブステップのステータスが空（未実行）に戻ってしまう不具合を修正（issue 252）: コックピット再マウント時の `analysisRun.hydrate` が `analysis-status`（progress 非対応）からステージ状態だけ復元し子の `progress` を復元していなかったため、`childrenFor` が全子 pending（○）になっていた。`hydrate` を完了/失敗ステージで `getJob(job_id)` から `progress` も取得して復元、`#poll` は直近の非 null `progress` を保持、コックピット `childrenFor` はステージ完了時に live ステータス無しの子を「完了」既定にする安全網を追加。完了後も各子の ✓/× が維持される。
-
-- 理解度マップに CodeGraphContext のファイル/関数グラフが表示されない不具合を修正（issue 248）: `services/code_graph.py:extract_snapshot` が **cross-file エッジ（Level-2 の `file_edges`）が空だと早期に `{}` を返し**、per-file の `functions`/`function_calls`（Level-3）まで一切抽出・永続化していなかった。cross-file の関数呼び出しが解決されない小さめのリポジトリでは `code_graphs` 行が作られず、Level-2 は従来の wormhole にフォールバック・Level-3（ファイル内の関数コールグラフ）は常に空になっていた。`file_edges` / `functions` / `function_calls` を**独立に抽出**し、3 つすべて空のときのみ `{}` を返すよう修正（ファイル単位・関数単位のグラフがちゃんと表示される）。回帰テストを追加。
-
-- コード負債の検知が Gemini の 429（RESOURCE_EXHAUSTED）で失敗する不具合を修正（issue 246）: `code_debt_detection` は検知済みファイルに補助的な AI 生成確率推定（`gemini_stack_service.estimate_ai_generation`）を行うが、`_generate` は 429/5xx を指数バックオフで再試行したうえで**クォータ枠が空かないと `google.genai.errors.APIError` を re-raise** する。呼び出し側が `except ValueError`（設定/認証エラー用）のみでガードしていたため 429 を取りこぼし、`_run_backbone_step` の汎用 except が拾って **step 全体を失敗**させ、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果まで捨てていた。AI 生成確率は補助的エンリッチであり一時障害で検知を壊してはならないため、両 step（`code_debt_detection` / `knowledge_debt_detection`）のガードを `except Exception`（exc_info ログ付き・`semgrep_scan` と同じ graceful 方針）へ広げ、失敗時は `ai_generation_prob=0.0` 既定で検知を継続する。回帰テストを追加。
-
-- Twin Agent（agentic 解析）で CodeGraphContext (CGC) MCP が `Failed to create MCP session: [Errno 13] Permission denied` で起動できない不具合を修正（issue 242）: 非 root の `appuser` は HOME 未設定で、CGC は埋め込み KuzuDB を `<home>/.codegraphcontext/global/kuzudb` に作成（起動時 `makedirs`）する。パイプラインの `cgc` CLI は `os.environ` をそのまま渡すため `Path.home()` が passwd フォールバックで `/home/appuser` を解決し動作していたが、**MCP ツールセットだけが `HOME=""`（空文字）を子プロセスに明示的に渡していた**ため `Path.home()` が CWD `/app`（root 所有・書込不可）配下を指し PermissionError になっていた（他の MCP は Serena が pwd フォールバック・Trivy が `/home/appuser` 既定で回避済み）。`services/code_graph.py` で書込可能な `HOME` を解決し `KUZUDB_PATH` を明示固定（CLI ビルドと MCP サーバで同一 env を共有）、`agents/code_graph_mcp.py` の HOME 既定を空文字→解決済み `CGC_HOME` に、`docker/service.Dockerfile` に `ENV HOME=/home/appuser` を追加（根本対処）。CGC 不可時の graceful 動作は不変。
-
-- 返済 PR の「作成済みの PR を開く」がアプリの同一画面を開いてしまう不具合を修正（issue 227）: `code_debts.related_pr` に PR 番号 `#N` を保存していたため、リンク href が同一ページ内アンカーになっていた。`related_issue`（URL 保存）と対称に **PR の URL を保存**するよう `repayment_pr_generation` を修正（実 GitHub の PR 画面を開く）。あわせて返済 PR のタイトル先頭に **`[DevDebtOps]`** タグを付与。
-
-- Twin Agent（agentic 解析の判断層）だけが解析に失敗する不具合を修正（issue 225・#224 回帰）: detect-secrets 第2層の高エントロピー検知が、エージェントへの指示プロンプト内の **`owner/repo` スラッグ（例 `HarutoTakita/cyber-tech`）を秘密と誤検知**してマスクし、専門家エージェントが GitHub ツールを `repos/REDACTED/REDACTED` で呼んで 404 → ファイル探索不能で失敗していた。`redact_secrets` / `SecretRedactionPlugin` / `run_single_agent` に **allowlist**（owner / repo / `owner/repo` / branch・ref）を追加し、エージェントに与える既知の安全な識別子は秘匿対象から除外（detect-secrets パスでスキップ）。実際の秘密のマスクは不変（同一テキスト内に秘密があれば従来どおり伏字化）。`run_twin_agent` と walkthrough/refactor/quiz の各 `run_single_agent` 呼び出しに座標を配線。
+- 「コードベース探索」が失敗することがある不具合を修正。
+- 機能クラスタリングの機能名・説明が英語になる不具合を修正(日本語に統一)。
+- 理解度マップの色が理解度を反映しない・ノードが孤立する・一部の言語しか表示されない不具合を修正。
+- 学習プラン「このコードを理解する」の各ステップ名がファイル名になる不具合を修正。
+- 解析が途中で固まる・一部の工程の失敗で解析全体が失われる不具合を複数修正(安定性向上)。
+- オンボーディングガイドの複数の不具合(開始位置・遷移先・ハイライト対象など)を修正。
+- ログイン画面のアイコンが古いままだった点と、「お試しはこちら」の説明がボタンに重なる点を修正。
 
 ### Security
 
-- LLM 送信前のシークレット秘匿に **detect-secrets（Yelp）を第2検知層**として追加（issue 223）: `services/secret_redaction.py` の `redact_secrets()` を、従来のルールベース（正規表現：PEM/GitHub/Google/AWS/Slack/JWT/Bearer/`key=value`）に加えて detect-secrets の**エントロピー＋多数の専用/キーワードプラグイン**で走査する2層構成に強化。ルールが取りこぼす高エントロピー・新規形状の秘密（既存キーが秘密語でない代入値など）を検知し伏字化する。高エントロピー系は短い誤検知（2文字 hex 等）を避けるため実秘密長（20字以上）でゲートし、キーワード/専用系は低い閾値で伏字化。detect-secrets の失敗は握りつぶしてルールベースのみにフォールバック（モデル呼び出しを止めない）。`SecretRedactionPlugin`（Runner 登録の before_model_callback）経由で Twin Agent / walkthrough / refactor / quiz の全エージェント探索が自動的に多層秘匿の恩恵を受ける。依存に `detect-secrets>=1.5.0` を追加。
-
-### Added
-
-- 技術負債検知に **Semgrep（実静的解析）と自作 Semgrep MCP** を追加（issue 204 を現行アーキへ再実装）: 既存の Serena(LSP=構造)・Trivy(SCA/secret/misconfig)・GitHub(履歴) に**実静的解析（security/correctness/smell）**の軸を追加。(1) 決定的パイプライン `code_debt_detection` に `services/semgrep_scan.py`（一時展開→`semgrep scan --json`→(file,type)集約、graceful フォールバック）を統合し security/smell を `code_debts` へ永続化（フロント `debtItemSchema.type` に security/smell を追加し Matrix 表示・i18n）。(2) Twin Agent の**コード専門家**に自作 Semgrep MCP サーバ（FastMCP/stdio・`agents/semgrep_mcp_server.py`、`agents/semgrep_mcp.py` の `build_semgrep_toolset`）を `McpToolset` で接続し `scan_code` で判断を根拠付け（`runner`/`twin` に Trivy と同パターンで配線）。公式 `semgrep-mcp` は `mcp<1.24` で `google-adk[mcp]` と競合するため、adk 互換 `mcp` 上に同一エンジンを薄く公開（追加依存・ネットワーク不要・in-container）。`semgrep>=1.0.0` を依存に追加。元 PR #204 は刷新前アーキ（LoopAgent/coordinator）前提でマージ不能だったため、現行 `SequentialAgent` 構成へ再実装。
-
-- 直接 Gemini 経路の段階的エージェント化に向けた基盤を追加（issue 217 PR1）: 単一 ADK エージェントを `Runner`（trace + secret-redaction プラグイン）で駆動しトレースを返す**汎用ランナー** `agents/single_agent.py` の `run_single_agent()` を新設（`run_twin_agent` / `run_stack_analysis` の定型を一般化）。walkthrough / refactor / quiz のエージェント化（PR2/PR3）はこの土台に載せ、トレースとシークレット秘匿を自動的に得る。
-- コード解説（walkthrough）の**オンデマンド生成をエージェント化**（issue 217 PR2）: 「このコードを理解する」学習リソースの行解説を、単発 Gemini 呼び出しから ADK エージェント（`agents/walkthrough_agent.py`）に置換。エージェントは行番号つきファイルを読み、解説を深める箇所だけ **Serena(LSP) MCP** で参照シンボルの定義・参照を辿り、最後に確定ツール `save_walkthrough` で行アンカー付きステップを保存する（ADK の output_schema×tools 制約を回避する「探索＋確定」方式）。Serena 用にリポジトリを shallow clone し実行後破棄。`run_single_agent` 経由でトレース＋シークレット秘匿も自動適用。**フォールバック**として clone/エージェント失敗・空結果時は従来の直接 Gemini 経路に退避するため品質は非劣化。適用は**オンデマンドの単一ファイル経路（`code_walkthrough_generation`）のみ**で、学習プラン事前生成（多数ファイルをループ）は解析を重くしないため従来の直接生成を維持。`build_walkthrough_agentic` を新設し、既存の `clean_steps`（行再アンカー）を共有。
-- **返済リファクタ案**と**確認クイズ**の生成をエージェント化（issue 217 PR3）: 直接 Gemini 呼び出しだった2経路を ADK エージェント化。**返済リファクタ**（`agents/refactor_agent.py` / `services/repayment_refactor.py`）はエージェントが対象ファイルを読み、Serena(LSP) で呼び出し元・参照を辿って影響範囲を把握した上で `save_refactor` に新内容/PRタイトル/本文を保存。採用前に既存と同じ妥当性ガード（`_is_plausible_refactor`：空・巨大な全面書き換えを拒否）を適用し、PR 書込み（branch/commit/PR）は従来どおりパイプラインが担当。**確認クイズ**（`agents/quiz_agent.py` / `services/quiz_authoring.py`）はエージェントがコードを読み、Serena で依存を辿って単一ファイルに閉じない設問も作り `save_quiz` に保存（L1〜L5・日本語・選択式のスキーマは不変）。いずれも Serena 用にリポジトリを shallow clone（実行後破棄）、`run_single_agent` 経由でトレース＋シークレット秘匿を自動適用し、clone/エージェント失敗・空結果（リファクタは妥当性ガード不通過も）時は従来の直接 Gemini 経路へフォールバックするため品質は非劣化。`repayment_pr_generation` / `quiz_generation` パイプラインを `generate_refactor_agentic` / `generate_quiz_agentic` 呼び出しへ切替。これで issue 217 の探索系3経路（walkthrough/refactor/quiz）のエージェント化が完了。
-
-### Security
-
-- リポジトリ内容のシークレットが LLM に渡らないよう **SecretRedactionPlugin** を追加（issue 217 PR1）: `Runner` に登録する ADK `BasePlugin`（`before_model_callback`）で、モデル送信直前の `llm_request.contents` 全テキストパートをスキャンし秘密を伏字化。Twin Agent を含む**全エージェント探索**をカバー。検知形状は PEM 秘密鍵ブロック・GitHub トークン（`ghp_`/`gho_`/`github_pat_` 等）・Google API キー・AWS アクセスキー・Slack トークン・JWT・`Bearer` ヘッダ（スキームは保持）・`key=value` 形式の秘密値（キーと区切りは保持し値のみ伏字）。多層防御の一層（新規・低エントロピーは取りこぼし得る前提）。ユーティリティ `services/secret_redaction.py` の `redact_secrets()` として切り出し、直接 Gemini 呼び出し側からも再利用可能。`runner.run_twin_agent` の `Runner` に登録済み。ユニットテスト（各形状・冪等性・非秘密の素通り・プラグインのインプレース伏字）を追加。
+- エージェント(LLM)へ渡す情報のマスキングを強化。detect-secrets でシークレットを、ルールベースで PII(メール/電話/カード/IP)を除去し、環境変数 `DLP_ENABLED` で Cloud DLP による PII 匿名化に切替可能(既定は無効・失敗時はローカルにフォールバック)。
 
 ## [0.0.6] - 2026-06-25
 
