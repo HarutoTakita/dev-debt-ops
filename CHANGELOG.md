@@ -6,6 +6,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 理解度マップのグラフ構築を **CodeGraphContext(CGC) 主ソース**に変更（imports＋calls）。従来 `code_graph.extract_snapshot` の `file_edges` はクロスファイル **CALLS のみ**だったが、CGC の **`(File)-[:IMPORTS]->(Module)`** も抽出して結合するようにした。CGC は import 指定子の全文（TS の `./galaxy-graph`・`$lib/api/schemas`、Python の `app.services.galaxy_query` 等）を Module 名に持つため、**リーフ名を抽出 → リポジトリ内ファイルへ一意 basename 一致で解決**（外部パッケージ・曖昧・自己参照は除外）してファイル間エッジ化する。CGC は Python だけでなく **TS/JS 等も解析**する（実測で `.ts` を索引・imports 抽出を確認）ため、`file_edges` が calls＋imports の CGC 主ソースになる。フロントは従来どおり `file_edges` と import 由来 `wormholes` を和で使うため CGC が主・regex import が補助になり、**機能フィルタ（`feature_keys` ベース）は不変で動作**。※反映には再解析が必要。`.svelte` は CGC 非対応のため引き続き blame ノード＋補助で扱う。
+
 ### Fixed
 
 - クイズと学習（学習プラン）の「このコードを理解する」「技術スタックを学ぶ」ブロックが**スマホ幅を溢れる**問題を修正。要約文にバッククォート付きの長いファイルパス/識別子（例: `lambda_package/charset_normalizer/api.py`）が含まれ、日本語と違い折り返し点が無いためカードが横に伸びていた。要約に `break-words`（長い語も折り返し）を付与し、`resource-list` の各セクションに `min-w-0` を追加してモバイル幅に収めた。
