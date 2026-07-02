@@ -139,23 +139,23 @@ async def test_process_computes_kc_and_wormholes(
         rows = (await session.execute(select(FileKc).where(FileKc.run_id == run.id))).scalars().all()
         by = {(r.file_path, r.dev_id, r.github_handle): r for r in rows}
 
-        # alice's 0.7 blame share is capped to the authorship ceiling (0.6) → dim_star, not star
-        # (issue-048: authoring ≠ verified mastery; star requires quiz/review certification).
+        # alice's 0.7 blame share is capped to the authorship ceiling (0.35) → black_hole (未理解), not teal
+        # (issue-048 revisited: authoring ≠ verified mastery; teal requires quiz/review certification).
         alice_a = by[("pkg/a.py", _ALICE, "alice")]
-        assert round(alice_a.kc, 3) == 0.6
-        assert alice_a.mastery == "dim_star"
+        assert round(alice_a.kc, 3) == 0.35
+        assert alice_a.mastery == "black_hole"
         assert alice_a.certified_via == "authorship"
 
         # bob is unmatched → dev_id None but github_handle preserved (no fabricated user link).
-        # 0.3 is below the ceiling so it is unchanged.
+        # 0.3 is below the ceiling so it is unchanged (still black_hole).
         bob_a = by[("pkg/a.py", None, "bob")]
         assert round(bob_a.kc, 3) == 0.3
         assert bob_a.mastery == "black_hole"
 
-        # aggregate row: dev_id None, handle None, kc = max(capped dev kcs) = 0.6 → dim_star.
+        # aggregate row: dev_id None, handle None, kc = max(capped dev kcs) = 0.35 → black_hole.
         agg_a = by[("pkg/a.py", None, None)]
-        assert round(agg_a.kc, 3) == 0.6
-        assert agg_a.mastery == "dim_star"
+        assert round(agg_a.kc, 3) == 0.35
+        assert agg_a.mastery == "black_hole"
 
         # lonely.py has no blame → unexplored aggregate, no dev rows.
         agg_lonely = by[("pkg/lonely.py", None, None)]

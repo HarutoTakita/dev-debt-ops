@@ -7,6 +7,7 @@
   import StarMap from "$lib/components/galaxy/star-map.svelte";
   import GalaxyLegend from "$lib/components/galaxy/galaxy-legend.svelte";
   import MasteryList from "$lib/components/galaxy/mastery-list.svelte";
+  import GalaxyFeatureFilter from "$lib/components/galaxy/galaxy-feature-filter.svelte";
   import PageHeading from "$lib/components/shell/page-heading.svelte";
   import { galaxy } from "$lib/stores/galaxy-store.svelte";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
@@ -17,6 +18,8 @@
 
   // 狭幅（<768px）では密なマップではなく list タブを既定にする（rank30）。
   let tab = $state("map");
+  // 機能フィルタ（マップ／リスト共用, issue 293）。null = 全ファイル。
+  let activeFeature = $state<string | null>(null);
   onMount(() => {
     if (window.matchMedia("(max-width: 767px)").matches) tab = "list";
     // 実 API から個人 KC マップを取得（未観測なら observed=false で ComingSoonPlaceholder が出る）。
@@ -52,17 +55,22 @@
         {/if}
       </div>
 
+      <!-- 機能フィルタはマップ／リスト両ビュー共通（タブ上部に常設）。 -->
+      <div class="mt-3">
+        <GalaxyFeatureFilter features={galaxy.galaxy.features} bind:active={activeFeature} />
+      </div>
+
       <Tabs.Content value="map" class="mt-3 flex min-h-0 flex-1 flex-col gap-3">
         <Tooltip.Provider delayDuration={150}>
           <div class="min-h-0 flex-1" data-tour="galaxy-map">
-            <StarMap galaxy={galaxy.galaxy} fileEdges={galaxy.codeGraphEdges} />
+            <StarMap galaxy={galaxy.galaxy} fileEdges={galaxy.codeGraphEdges} {activeFeature} />
           </div>
         </Tooltip.Provider>
         <GalaxyLegend />
       </Tabs.Content>
 
       <Tabs.Content value="list" class="mt-3 flex-1 overflow-auto" data-tour="galaxy-list">
-        <MasteryList galaxy={galaxy.galaxy} />
+        <MasteryList galaxy={galaxy.galaxy} {activeFeature} />
       </Tabs.Content>
     </Tabs.Root>
   </div>
