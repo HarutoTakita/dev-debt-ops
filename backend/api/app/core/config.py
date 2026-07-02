@@ -48,6 +48,13 @@ class Settings(BaseSettings):
         default=False, description="Gate repository analysis / repayment-PR on per-user analysis credits (issue 298)."
     )
 
+    # Admin accounts (issue 300). Comma-separated emails that are the *only* superusers: on every login
+    # a user's ``is_superuser`` is reconciled to whether their email is listed here, so GitHub-SSO users
+    # are general users unless explicitly named. Empty (default) = no admins. Case-insensitive.
+    ADMIN_EMAILS: str = Field(
+        default="", description="Comma-separated admin emails; the only accounts granted superuser (issue 300)."
+    )
+
     # AI (Google Gemini via Vertex AI). GOOGLE_CLOUD_LOCATION is shared with Cloud Tasks / GCS
     # (issue 016/017) — default aligned to issue-017's region to avoid splitting regions.
     GOOGLE_CLOUD_PROJECT: str = Field(default="", description="GCP project ID (Vertex AI / Cloud Tasks / GCS).")
@@ -127,6 +134,10 @@ class Settings(BaseSettings):
     def use_mock_blob(self) -> bool:
         """Whether to spill payloads to the in-memory mock blob instead of GCS."""
         return self.USE_MOCK_BLOB
+
+    def admin_email_set(self) -> frozenset[str]:
+        """Lowercased, stripped set of admin emails from `ADMIN_EMAILS` (empty when unset)."""
+        return frozenset(e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip())
 
     @model_validator(mode="after")
     def _validate_production_settings(self) -> Self:

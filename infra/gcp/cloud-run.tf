@@ -29,6 +29,7 @@ locals {
     FRONTEND_ORIGIN          = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
     SERVICE_OIDC_AUDIENCE    = local.service_oidc_audience
     ANALYSIS_CREDITS_ENABLED = tostring(var.analysis_credits_enabled)
+    ADMIN_EMAILS             = var.admin_emails
   }
 
   api_secret_env = {
