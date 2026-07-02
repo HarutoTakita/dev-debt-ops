@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import posixpath
 
 logger = logging.getLogger(__name__)
 
@@ -113,12 +114,99 @@ async def _cgc_query(cypher: str) -> list[dict]:
     return [r for r in rows if isinstance(r, dict)]
 
 
+# Source-code extensions CGC parses; used to strip an explicit extension off an import specifier.
+_CODE_EXTS = (
+    ".py",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".java",
+    ".kt",
+    ".kts",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cs",
+    ".swift",
+    ".scala",
+    ".dart",
+    ".lua",
+    ".pl",
+    ".pm",
+    ".ex",
+    ".exs",
+    ".hs",
+)
+
+
+def _module_leaf(module: str) -> str:
+    """Reduce an import specifier to its leaf name for file-stem matching.
+
+    CGC stores the full specifier as the ``Module`` name: TS/JS uses path form (``./galaxy-graph``,
+    ``$lib/api/schemas``, ``force-graph``), Python uses dotted form (``app.services.galaxy_query``).
+    Take the last path segment, strip an explicit code extension, then take the last dotted part —
+    e.g. ``./galaxy-graph`` → ``galaxy-graph``, ``app.services.galaxy_query`` → ``galaxy_query``.
+    """
+    seg = module.replace("\\", "/").rstrip("/").split("/")[-1]
+    lower = seg.lower()
+    for ext in _CODE_EXTS:
+        if lower.endswith(ext):
+            return seg[: -len(ext)]
+    if "." in seg:
+        return seg.split(".")[-1]  # dotted module path (Python) → leaf symbol/module
+    return seg
+
+
+def _resolve_import_edges(import_rows: list[dict], file_paths: list[str], seen: set[tuple[str, str]]) -> list[dict]:
+    """Resolve CGC ``(File)-[:IMPORTS]->(Module)`` rows to file→file edges.
+
+    CGC models imports as ``(File)-[:IMPORTS]->(Module)`` where the ``Module`` node's name is the full
+    import specifier (``./galaxy-graph`` / ``app.services.galaxy_query`` / ``force-graph``). We reduce
+    it to a leaf name (:func:`_module_leaf`) and map that to a repo file by **unique basename-stem
+    match** (external / unknown / ambiguous names are dropped so we never invent a wrong edge). This
+    adds import structure on top of CGC's already-resolved cross-file CALLS, across every language CGC
+    parses (Python / TS / JS / …).
+    """
+    stem_index: dict[str, list[str]] = {}
+    for p in file_paths:
+        stem = posixpath.splitext(posixpath.basename(p))[0]
+        if stem:
+            stem_index.setdefault(stem, []).append(p)
+    out: list[dict] = []
+    for row in import_rows:
+        source = row.get("source")
+        module = row.get("module")
+        if not source or not module:
+            continue
+        matches = stem_index.get(_module_leaf(str(module)), [])
+        if len(matches) != 1:
+            continue  # external package, unknown, or ambiguous name → skip (no wrong edge)
+        target = matches[0]
+        key = (source, target)
+        if source == target or key in seen:
+            continue
+        seen.add(key)
+        out.append({"source": source, "target": target})
+    return out
+
+
 async def extract_snapshot(repo_dir: str) -> dict:
     """Extract a node-link snapshot from the built CGC graph (issue 238 / 240).
 
     Returns ``{"file_edges": [...], "functions": [...], "function_calls": [...]}`` for persistence:
-    - ``file_edges`` (Level-2): cross-file function calls aggregated to files
-      (``File-[:CONTAINS]->Function-[:CALLS]->Function<-[:CONTAINS]-File``) — the feature's file subgraph.
+    - ``file_edges`` (Level-2): the file↔file graph = cross-file function CALLS aggregated to files
+      (``File-[:CONTAINS]->Function-[:CALLS]->Function<-[:CONTAINS]-File``) **∪ resolved IMPORTS**
+      (``File-[:IMPORTS]->Module`` mapped to a repo file by unique stem) — CGC as the primary edge
+      source (calls + imports) across every language CGC parses.
     - ``functions``: per-file function nodes (``{file, name}``).
     - ``function_calls``: function-level CALLS with both endpoints' files
       (``{source_file, source, target_file, target}``) — intra- AND cross-file (issue 282), so the
@@ -141,6 +229,20 @@ async def extract_snapshot(repo_dir: str) -> dict:
         f"RETURN DISTINCT af.relative_path AS source, bf.relative_path AS target LIMIT {_SNAPSHOT_EDGE_LIMIT}"
     )
     edges = [{"source": r["source"], "target": r["target"]} for r in edge_rows if r.get("source") and r.get("target")]
+
+    # File→file IMPORTS (issue: 理解度マップのエッジを CGC 主ソースに). CGC の imports は
+    # (File)-[:IMPORTS]->(Module) 形（Module=import の最終セグメント名）なので、リポジトリ内ファイルへ
+    # basename-stem の一意一致で解決し、上の解決済みクロスファイル CALLS と和集合にする。CGC が解析する
+    # 全言語（Python / TS / JS / …）が対象。これで file_edges が calls＋imports の CGC 主ソースになる。
+    import_rows = await _cgc_query(
+        "MATCH (f:File)-[:IMPORTS]->(m:Module) "
+        f"RETURN DISTINCT f.relative_path AS source, m.name AS module LIMIT {_SNAPSHOT_EDGE_LIMIT}"
+    )
+    file_rows = await _cgc_query(f"MATCH (f:File) RETURN DISTINCT f.relative_path AS path LIMIT {_SNAPSHOT_FN_LIMIT}")
+    file_paths = [r["path"] for r in file_rows if r.get("path")]
+    seen_edges = {(e["source"], e["target"]) for e in edges}
+    edges += _resolve_import_edges(import_rows, file_paths, seen_edges)
+    edges = edges[:_SNAPSHOT_EDGE_LIMIT]  # keep the persisted snapshot bounded after the union
 
     # Level-3 (issue 240): per-file functions + intra-file call edges, for the on-demand file drilldown.
     # `<module>` is CGC's file-level pseudo-function — excluded so the graph shows real functions only.

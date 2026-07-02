@@ -57,11 +57,17 @@ async def test_extract_snapshot_builds_file_and_function_graph(monkeypatch: pyte
             return [{"source_file": "mod.py", "source": "a", "target_file": "util.py", "target": "b"}]  # cross-file
         if "CONTAINS]->(fn:Function)" in cypher:  # per-file functions (Level-3 nodes)
             return [{"file": "mod.py", "name": "a"}, {"file": "util.py", "name": "b"}]
-        return [{"source": "app.py", "target": "mod.py"}]  # file↔file (Level-2 edges)
+        if "IMPORTS]->(m:Module)" in cypher:  # file→module imports (full specifier, resolved below)
+            return [{"source": "app.py", "module": "./util"}]  # app.py imports ./util → util.py
+        if "RETURN DISTINCT f.relative_path AS path" in cypher:  # repo file list (for stem resolution)
+            return [{"path": "app.py"}, {"path": "mod.py"}, {"path": "util.py"}]
+        return [{"source": "app.py", "target": "mod.py"}]  # cross-file CALLS (Level-2 edges)
 
     monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)
     snap = await code_graph.extract_snapshot("/tmp/repo")
-    assert snap["file_edges"] == [{"source": "app.py", "target": "mod.py"}]
+    # file_edges = CALLS (app.py→mod.py) ∪ resolved IMPORTS (app.py→util.py via unique stem "util").
+    assert {"source": "app.py", "target": "mod.py"} in snap["file_edges"]
+    assert {"source": "app.py", "target": "util.py"} in snap["file_edges"]
     assert {"file": "mod.py", "name": "a"} in snap["functions"]
     # cross-file call kept with both endpoints' files (previously collapsed away into file_edges).
     assert {"source_file": "mod.py", "source": "a", "target_file": "util.py", "target": "b"} in snap["function_calls"]
@@ -95,6 +101,39 @@ async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPa
 
 async def test_extract_snapshot_empty_repo_dir() -> None:
     assert await code_graph.extract_snapshot("") == {}
+
+
+def test_module_leaf_handles_path_and_dotted_specifiers() -> None:
+    assert code_graph._module_leaf("./galaxy-graph") == "galaxy-graph"  # TS relative
+    assert code_graph._module_leaf("$lib/api/schemas") == "schemas"  # TS alias path
+    assert code_graph._module_leaf("app.services.galaxy_query") == "galaxy_query"  # Python dotted
+    assert code_graph._module_leaf("./bar.ts") == "bar"  # explicit extension stripped
+    assert code_graph._module_leaf("force-graph") == "force-graph"  # bare npm pkg (leaf as-is)
+
+
+def test_resolve_import_edges_unique_stem_match() -> None:
+    files = ["api/app/services/galaxy_query.py", "api/app/main.py"]
+    rows = [{"source": "api/app/main.py", "module": "app.services.galaxy_query"}]  # Python dotted
+    assert code_graph._resolve_import_edges(rows, files, set()) == [
+        {"source": "api/app/main.py", "target": "api/app/services/galaxy_query.py"}
+    ]
+
+
+def test_resolve_import_edges_drops_ambiguous_external_and_self() -> None:
+    files = ["a/util.py", "b/util.py", "app/main.py"]
+    rows = [
+        {"source": "app/main.py", "module": "./util"},  # ambiguous (two util.py) → dropped
+        {"source": "app/main.py", "module": "os"},  # external (no repo file) → dropped
+        {"source": "app/main.py", "module": "./main"},  # resolves to itself → dropped
+    ]
+    assert code_graph._resolve_import_edges(rows, files, set()) == []
+
+
+def test_resolve_import_edges_dedups_against_seen() -> None:
+    files = ["x.ts", "bar.ts"]
+    seen = {("x.ts", "bar.ts")}  # already added by CALLS
+    rows = [{"source": "x.ts", "module": "./bar"}]
+    assert code_graph._resolve_import_edges(rows, files, seen) == []
 
 
 # --- merge_snapshots (issue 250): CGC preferred, deterministic fallback fills gaps ---------------
