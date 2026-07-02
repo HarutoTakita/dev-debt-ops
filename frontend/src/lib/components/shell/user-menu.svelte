@@ -19,7 +19,14 @@
   const initial = $derived(email ? email[0].toUpperCase() : "?");
 
   // 言語切替。ロケール名は自称語（翻訳しない）。setLocale は Paraglide が再読込して全体を再描画する。
-  const localeNames: Record<Locale, string> = { ja: "日本語", en: "English", zh: "中文", ko: "한국어" };
+  const localeNames: Record<Locale, string> = {
+    ja: "日本語",
+    en: "English",
+    zh: "中文",
+    ko: "한국어",
+    es: "Español",
+    de: "Deutsch",
+  };
   const currentLocale = getLocale();
 
   async function logout() {
