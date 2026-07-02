@@ -377,43 +377,15 @@
               <li>・優先対応リスト</li>
             </ul>
           </div>
-          <div class="rounded-xl border border-white/10 bg-[#0f161d] shadow-2xl">
-            <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-              <span class="size-2.5 rounded-full bg-red-400/60"></span>
-              <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
-              <span class="size-2.5 rounded-full bg-green-400/60"></span>
-              <span class="ml-3 text-xs text-slate-500">ダッシュボード</span>
-            </div>
-            <div class="flex items-center gap-5 p-5">
-              <div
-                class="relative size-28 shrink-0 rounded-full"
-                style="background: conic-gradient(#22b8c4 0 72%, rgba(255, 255, 255, 0.08) 0)"
-              >
-                <div class="absolute inset-[10px] grid place-items-center rounded-full bg-[#0f161d] text-center">
-                  <div>
-                    <div class="text-2xl font-bold">72%</div>
-                    <div class="text-[10px] text-slate-400">チーム理解度</div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex-1 space-y-2">
-                <div class="flex gap-2">
-                  <div class="flex-1 rounded-md border border-white/10 p-2 text-center">
-                    <div class="text-lg font-bold text-code">5</div>
-                    <div class="text-[10px] text-slate-400">最危険ファイル</div>
-                  </div>
-                  <div class="flex-1 rounded-md border border-white/10 p-2 text-center">
-                    <div class="text-lg font-bold text-know">+8</div>
-                    <div class="text-[10px] text-slate-400">今週の改善</div>
-                  </div>
-                </div>
-                <div class="space-y-1 pt-1">
-                  <div class="h-1.5 rounded bg-know/70" style="width: 86%"></div>
-                  <div class="h-1.5 rounded bg-know/50" style="width: 64%"></div>
-                  <div class="h-1.5 rounded bg-code/60" style="width: 40%"></div>
-                </div>
-              </div>
-            </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
+            <img
+              src="assets/screens/03-overview.png"
+              alt="ダッシュボード画面 — 理解度 × コード品質の俯瞰、推移グラフ、優先対応リスト"
+              class="w-full"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
           </div>
         </div>
 
@@ -432,30 +404,15 @@
               <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #94a3b8"></span>未着手</li>
             </ul>
           </div>
-          <div class="rounded-xl border border-white/10 bg-[#0f161d] shadow-2xl md:order-1">
-            <div class="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-              <span class="size-2.5 rounded-full bg-red-400/60"></span>
-              <span class="size-2.5 rounded-full bg-yellow-400/60"></span>
-              <span class="size-2.5 rounded-full bg-green-400/60"></span>
-              <span class="ml-3 text-xs text-slate-500">理解度マップ — ファイル単位グラフ</span>
-            </div>
-            <div class="p-3">
-              <svg viewBox="0 0 360 200" class="w-full">
-                <line x1="90" y1="100" x2="180" y2="60" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
-                <line x1="90" y1="100" x2="170" y2="150" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
-                <line x1="180" y1="60" x2="270" y2="90" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
-                <line x1="170" y1="150" x2="270" y2="90" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
-                <line x1="270" y1="90" x2="320" y2="150" stroke="#3a8088" stroke-width="1.5" opacity="0.5" />
-                <line x1="90" y1="100" x2="40" y2="60" stroke="#3a8088" stroke-width="1.5" opacity="0.4" />
-                <!-- ノード色＝理解度: 理解済み(#14b8a6)/部分理解(#5eead4)/未理解(#ef4444)/未着手(#94a3b8) -->
-                <circle cx="90" cy="100" r="16" fill="#14b8a6" opacity="0.9" />
-                <circle cx="180" cy="60" r="11" fill="#5eead4" opacity="0.85" />
-                <circle cx="170" cy="150" r="9" fill="#ef4444" opacity="0.85" />
-                <circle cx="270" cy="90" r="13" fill="#14b8a6" opacity="0.85" />
-                <circle cx="320" cy="150" r="7" fill="#94a3b8" opacity="0.8" />
-                <circle cx="40" cy="60" r="6" fill="#ef4444" opacity="0.8" />
-              </svg>
-            </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
+            <img
+              src="assets/screens/06-galaxy.png"
+              alt="理解度マップ — ファイル単位のノード‐リンクグラフと機能フィルタ、理解度の色分け凡例"
+              class="w-full"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
           </div>
         </div>
 
@@ -468,24 +425,15 @@
               ソースコードをファイル単位で閲覧し、どのファイルに技術負債が多いかを俯瞰。重複・複雑度・dead code・AI 生成痕跡の検知結果を理解度と重ね、着手すべきホットスポットを見つけます。
             </p>
           </div>
-          <div class="rounded-xl border border-white/10 bg-[#0f161d] p-3 shadow-2xl">
-            <div class="space-y-2">
-              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
-                <span class="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] text-red-300">critical</span>
-                <span class="flex-1 truncate font-mono text-slate-300">src/api/handlers/payment.ts</span>
-                <span class="text-slate-500">最優先</span>
-              </div>
-              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
-                <span class="rounded bg-code/20 px-1.5 py-0.5 text-[10px] text-code">high</span>
-                <span class="flex-1 truncate font-mono text-slate-300">src/lib/legacy/parser.js</span>
-                <span class="text-slate-500">高</span>
-              </div>
-              <div class="flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs">
-                <span class="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] text-yellow-300">medium</span>
-                <span class="flex-1 truncate font-mono text-slate-300">src/utils/format.ts</span>
-                <span class="text-slate-500">中</span>
-              </div>
-            </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
+            <img
+              src="assets/screens/11-repos.png"
+              alt="コード品質マップ — ファイルツリーとコード閲覧、ファイル単位の技術負債表示"
+              class="w-full"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
           </div>
         </div>
 
@@ -503,21 +451,15 @@
               <li>・未学習 / 学習中 / 理解済み / 要復習 のステータス</li>
             </ul>
           </div>
-          <div class="space-y-3 rounded-xl border border-white/10 bg-[#0f161d] p-4 shadow-2xl md:order-1">
-            <div class="rounded-lg border border-white/10 p-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium">認証フロー</span>
-                <span class="rounded-full bg-know/15 px-2 py-0.5 text-[10px] text-know">理解済み</span>
-              </div>
-              <div class="mt-2 h-1.5 rounded bg-white/10"><div class="h-1.5 rounded bg-know" style="width: 88%"></div></div>
-            </div>
-            <div class="rounded-lg border border-white/10 p-3">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium">決済バッチ</span>
-                <span class="rounded-full bg-code/15 px-2 py-0.5 text-[10px] text-code">要復習</span>
-              </div>
-              <div class="mt-2 h-1.5 rounded bg-white/10"><div class="h-1.5 rounded bg-code" style="width: 34%"></div></div>
-            </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
+            <img
+              src="assets/screens/07-learning.png"
+              alt="クイズと学習 — 機能ごとの学習プランと理解度、学習を開く／理解度を確認する"
+              class="w-full"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
           </div>
         </div>
 
@@ -530,33 +472,15 @@
               改善対象リストから対象を選ぶと、該当コードを行ハイライトで解説。「AI に頼む」で修正 PR を自動生成、「人に頼む」で担当者を割り当てた GitHub Issue を作成します。
             </p>
           </div>
-          <div class="rounded-xl border border-white/10 bg-[#0f161d] p-3 shadow-2xl">
-            <div class="flex gap-3 text-xs">
-              <div class="w-28 shrink-0 space-y-1 border-r border-white/10 pr-2 font-mono text-slate-400">
-                <div>📁 src</div>
-                <div class="pl-3 text-slate-300">handlers</div>
-                <div class="flex items-center justify-between pl-5">
-                  <span>payment.ts</span><span class="rounded-full bg-code/20 px-1 text-[10px] text-code">3</span>
-                </div>
-                <div class="pl-3">utils</div>
-              </div>
-              <div class="flex-1">
-                <div class="rounded-md border border-white/10 p-2">
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-300">複雑度 / 重複</span>
-                    <span class="rounded bg-red-500/20 px-1.5 text-[10px] text-red-300">critical</span>
-                  </div>
-                  <div class="mt-2 flex gap-1.5">
-                    <span class="flex-1 rounded-md bg-code/20 py-1.5 text-center text-[11px] font-medium text-code">
-                      AI に頼む (PR)
-                    </span>
-                    <span class="flex-1 rounded-md border border-white/15 py-1.5 text-center text-[11px] font-medium text-slate-300">
-                      人に頼む (Issue)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
+            <img
+              src="assets/screens/05-matrix-detail.png"
+              alt="コード改善 — 該当コードの行ハイライト解説と「AI に頼む（修正 PR）／人に頼む（Issue）」"
+              class="w-full"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
           </div>
         </div>
       </div>
@@ -657,11 +581,16 @@
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">LLM 入力の秘匿化</h3>
+          <h3 class="font-semibold text-white">エージェント入力のマスキング</h3>
           <p class="mt-2 text-sm text-slate-400">
-            エージェントへ渡す前に detect-secrets でシークレットをマスクし、ルールベースで PII（メール／電話／カード／IP）を除去。環境変数
-            <span class="font-mono text-slate-300">DLP_ENABLED</span> で Cloud DLP（Sensitive Data
-            Protection）による PII 匿名化に切替（既定は無効・失敗時はローカルへフォールバック）。
+            エージェント（LLM）に情報を与える際は、<strong class="text-slate-200">Cloud DLP</strong>（Sensitive
+            Data Protection）と detect-secrets で <strong class="text-slate-200">PII・シークレットをマスキング</strong>してから送信します。
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+          <h3 class="font-semibold text-white">脆弱性スキャン（OWASP 準拠）</h3>
+          <p class="mt-2 text-sm text-slate-400">
+            <strong class="text-slate-200">OWASP に準拠した脆弱性スキャンを実施済み</strong>。認証・入力・依存関係など主要なリスク観点を点検しています。
           </p>
         </div>
       </div>
