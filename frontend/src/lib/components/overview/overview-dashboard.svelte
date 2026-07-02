@@ -88,7 +88,7 @@
     <div class="relative">
       <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`}>
         {#snippet trend()}
-          <TrendIndicator change={-4} trendStyle="desc" suffix="件" />
+          <TrendIndicator change={-4} trendStyle="desc" suffix={m.count_suffix()} />
         {/snippet}
       </StatCard>
       <a href={matrixHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
@@ -98,7 +98,7 @@
     <div class="relative">
       <StatCard label={m.overview_stat_repaid()} value={`${overview.activity.code_agent_merged}`}>
         {#snippet trend()}
-          <TrendIndicator change={3} trendStyle="asc" suffix="件" />
+          <TrendIndicator change={3} trendStyle="asc" suffix={m.count_suffix()} />
         {/snippet}
       </StatCard>
       <a href={reposHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"

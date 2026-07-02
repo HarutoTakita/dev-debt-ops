@@ -1,5 +1,6 @@
 <script lang="ts">
   import Folder from "@lucide/svelte/icons/folder";
+  import * as m from "$lib/paraglide/messages";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import FileText from "@lucide/svelte/icons/file-text";
   import type { TreeItem } from "$lib/api/schemas";
@@ -128,7 +129,7 @@
 
 <div class="h-full overflow-y-auto p-2">
   {#if tree.length === 0}
-    <p class="px-2 py-4 text-sm text-muted-foreground">ファイルがありません</p>
+    <p class="px-2 py-4 text-sm text-muted-foreground">{m.file_tree_empty()}</p>
   {:else}
     {@render nodeList(rootNodes)}
   {/if}

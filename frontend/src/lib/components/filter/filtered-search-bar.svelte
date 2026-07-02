@@ -138,7 +138,7 @@
           <button
             type="button"
             onclick={() => toggle(p.facet.key, p.value)}
-            aria-label={`${p.text} を外す`}
+            aria-label={m.filter_remove({ text: p.text })}
             class="rounded-full hover:text-foreground"
           >
             <X class="size-3" />

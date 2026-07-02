@@ -76,8 +76,8 @@
 
 <div class="flex flex-col items-center gap-6 p-8">
   <div class="text-center">
-    <h2 class="text-xl font-semibold">リポジトリを選択</h2>
-    <p class="mt-1 text-sm text-muted-foreground">接続するリポジトリを選んでください</p>
+    <h2 class="text-xl font-semibold">{m.repo_picker_title()}</h2>
+    <p class="mt-1 text-sm text-muted-foreground">{m.repo_picker_desc()}</p>
   </div>
 
   {#if pickerState === "loading"}
@@ -132,13 +132,13 @@
       <input
         type="search"
         bind:value={filter}
-        placeholder="リポジトリを検索..."
+        placeholder={m.repo_picker_search()}
         class="mb-3 w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:outline-none"
       />
 
       {#if filtered.length === 0}
         <p class="py-4 text-center text-sm text-muted-foreground">
-          {repos.length === 0 ? "アクセス可能なリポジトリがありません" : "一致するリポジトリがありません"}
+          {repos.length === 0 ? m.repo_picker_none() : m.repo_picker_no_match()}
         </p>
       {:else}
         <div class="max-h-80 overflow-y-auto rounded-md border">
@@ -167,7 +167,7 @@
 
       {#if hasMore}
         <button onclick={() => load(page + 1)} class="mt-3 w-full rounded-md border py-2 text-sm hover:bg-accent">
-          もっと見る
+          {m.repo_picker_more()}
         </button>
       {/if}
 

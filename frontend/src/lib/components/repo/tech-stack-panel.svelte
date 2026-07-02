@@ -23,7 +23,7 @@
     container: "Container",
     infra: "Infra",
     cicd: "CI/CD",
-    monitoring: "監視",
+    monitoring: m.stack_category_monitoring(),
     testing: "Test",
     other: "Other",
   };
