@@ -487,6 +487,20 @@ export async function getKnowledgeUnits(orgSlug: string, projectSlug: string): P
   return knowledgeUnitsSchema.parse(await response.json()).units;
 }
 
+// 機能単元のフラグを設定/解除（issue 063）: PUT .../knowledge-units/{feature_key}/flag。フラグ付きは一覧上部へ。
+export async function setUnitFlag(
+  orgSlug: string,
+  projectSlug: string,
+  featureKey: string,
+  flagged: boolean,
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/knowledge-units/${encodeURIComponent(featureKey)}/flag`,
+    { method: "PUT", body: JSON.stringify({ flagged }) },
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "フラグの更新に失敗しました"));
+}
+
 // 全機能のベースライン確認クイズを生成（issue 054/063）: POST .../baseline-quizzes → 202 {created, job_ids}。
 export async function generateBaselineQuizzes(orgSlug: string, projectSlug: string): Promise<{ created: number }> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/baseline-quizzes`, {

@@ -103,6 +103,40 @@ async def test_knowledge_units_joins_kc_plan_and_quiz(authenticated_client: Asyn
     assert u["status"] == "verified"  # kc >= 0.7
 
 
+async def test_feature_flag_sorts_flagged_units_to_top(authenticated_client: AsyncClient) -> None:
+    org_slug, project_slug, project_id, _ = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        feat_run = AnalysisRun(
+            project_id=project_id, commit_sha="f", kind=JobType.FEATURE_CLUSTERING.value, status=JobStatus.COMPLETED
+        )
+        session.add(feat_run)
+        await session.flush()
+        session.add(Feature(project_id=project_id, run_id=feat_run.id, key="alpha", name="A"))
+        session.add(Feature(project_id=project_id, run_id=feat_run.id, key="beta", name="B"))
+        await session.commit()
+
+    base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}/knowledge-units"
+    # 初期状態はフラグなし。
+    units = (await authenticated_client.get(base)).json()["units"]
+    assert all(u["flagged"] is False for u in units)
+
+    # beta にフラグ → 上部へ並べ替わる。
+    resp = await authenticated_client.put(f"{base}/beta/flag", json={"flagged": True})
+    assert resp.status_code == 204
+    units = (await authenticated_client.get(base)).json()["units"]
+    assert units[0]["feature_key"] == "beta"
+    assert units[0]["flagged"] is True
+
+    # 冪等: もう一度フラグしても 204（重複挿入なし）。
+    assert (await authenticated_client.put(f"{base}/beta/flag", json={"flagged": True})).status_code == 204
+
+    # フラグ解除 → フラグが消える。
+    resp = await authenticated_client.put(f"{base}/beta/flag", json={"flagged": False})
+    assert resp.status_code == 204
+    units = (await authenticated_client.get(base)).json()["units"]
+    assert all(u["flagged"] is False for u in units)
+
+
 @pytest.mark.usefixtures("_stub_installation")
 async def test_learning_plan_persists_feature_id(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, _project_id, _ = await _seed_project(authenticated_client)

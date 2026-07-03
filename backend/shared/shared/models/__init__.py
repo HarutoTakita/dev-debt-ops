@@ -9,6 +9,7 @@ from shared.models.debt_trend_point import DebtTrendPoint
 from shared.models.dependency import Dependency
 from shared.models.feature import Feature
 from shared.models.feature_file import FeatureFile
+from shared.models.feature_flag import FeatureFlag
 from shared.models.file_kc import FileKc
 from shared.models.job import Job
 from shared.models.knowledge_debt import KnowledgeDebt
@@ -29,6 +30,7 @@ __all__ = [
     "Dependency",
     "Feature",
     "FeatureFile",
+    "FeatureFlag",
     "FileKc",
     "Job",
     "KnowledgeDebt",

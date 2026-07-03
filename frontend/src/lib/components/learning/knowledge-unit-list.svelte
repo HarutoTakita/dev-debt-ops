@@ -2,9 +2,10 @@
   import { resolve } from "$app/paths";
   import { localizeDemoContent } from "$lib/i18n/demo-content";
   import type { ResolvedPathname } from "$app/types";
-  import { getKnowledgeUnits } from "$lib/api/client";
+  import { getKnowledgeUnits, setUnitFlag } from "$lib/api/client";
   import type { KnowledgeUnit } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
+  import Flag from "@lucide/svelte/icons/flag";
   import { refreshOnStageComplete } from "$lib/stores/analysis-run-refresh.svelte";
   import PageHeading from "$lib/components/shell/page-heading.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -37,6 +38,27 @@
   function kcPct(kc: number): number {
     return Math.round(Math.max(0, Math.min(1, kc)) * 100);
   }
+
+  // フラグ付きを上部へ（同グループ内は元順序を保持＝安定ソート）。バックエンドの並びと一致させる。
+  function sortByFlag(list: KnowledgeUnit[]): KnowledgeUnit[] {
+    return list
+      .map((u, i) => ({ u, i }))
+      .sort((a, b) => Number(b.u.flagged) - Number(a.u.flagged) || a.i - b.i)
+      .map((x) => x.u);
+  }
+
+  // フラグのトグル（楽観更新 → 失敗時ロールバック）。成功時は上部へ並べ替える。
+  async function toggleFlag(u: KnowledgeUnit) {
+    const next = !u.flagged;
+    u.flagged = next;
+    units = sortByFlag(units);
+    try {
+      await setUnitFlag(orgSlug, projectSlug, u.feature_key, next);
+    } catch {
+      u.flagged = !next;
+      units = sortByFlag(units);
+    }
+  }
   const STATUS: Record<string, { label: () => string; tone: string }> = {
     unstarted: { label: m.unit_status_unstarted, tone: "text-muted-foreground" },
     in_progress: { label: m.unit_status_in_progress, tone: "text-debt-knowledge" },
@@ -60,6 +82,18 @@
       {#each units as u (u.feature_key)}
         <li class="rounded-lg border bg-card p-3">
           <div class="flex items-center gap-3">
+            <button
+              type="button"
+              onclick={() => toggleFlag(u)}
+              aria-pressed={u.flagged}
+              title={u.flagged ? m.unit_flag_remove() : m.unit_flag_add()}
+              class={cn(
+                "shrink-0 rounded p-1 hover:bg-accent/40",
+                u.flagged ? "text-debt-knowledge" : "text-muted-foreground",
+              )}
+            >
+              <Flag class="size-4" fill={u.flagged ? "currentColor" : "none"} />
+            </button>
             <span class="min-w-0 flex-1 truncate font-medium">{localizeDemoContent(u.name)}</span>
             <span class={cn("shrink-0 text-xs font-medium", statusOf(u.status).tone)}
               >{statusOf(u.status).label()}</span

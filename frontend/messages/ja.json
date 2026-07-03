@@ -109,6 +109,8 @@
   "unit_learn_open": "学習を開く",
   "unit_confirm": "理解度を確認する",
   "unit_pending": "解析で生成されます",
+  "unit_flag_add": "フラグを付ける（一覧上部に固定）",
+  "unit_flag_remove": "フラグを外す",
   "unit_prepare_quizzes": "確認クイズを用意する",
   "unit_back": "← 一覧へ戻る",
   "nav_repos": "コード改善",
