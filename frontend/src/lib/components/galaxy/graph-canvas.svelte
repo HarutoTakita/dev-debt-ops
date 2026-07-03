@@ -32,22 +32,20 @@
   let hoveredId: string | null = null;
   let neighborIds: Set<string> = neighborsOf(null, [], linkEnd);
 
-  // KC 状態 → 色（凡例 galaxy-legend の masteryDot に対応）。canvas 安全な固定色で確実に色分けする（issue 290）。
-  const MASTERY_COLOR: Record<string, string> = {
-    star: "#14b8a6", // 完全理解（ティール）
-    dim_star: "#5eead4", // 部分理解（淡いティール）
-    black_hole: "#ef4444", // 未理解（赤）
-    unexplored: "#94a3b8", // 未着手（グレー）
-  };
-  const DIM_COLOR = "rgba(148,163,184,0.25)"; // ホバー時の非近傍ノード（減光）
-  let labelColor = "#334155"; // ラベル文字色（テーマの --foreground を解決）
-  function resolveLabelColor() {
-    const v = getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim();
-    if (v) labelColor = v;
-  }
-  function nodeColor(node: GraphNode): string {
-    if (hoveredId && node.id !== hoveredId && !neighborIds.has(node.id)) return DIM_COLOR; // 減光
-    return MASTERY_COLOR[node.mastery ?? "unexplored"] ?? MASTERY_COLOR.unexplored;
+  // ノード/ラベル色は凡例(galaxy-legend の masteryDot)と同じテーマ CSS 変数を解決して使い、見た目を一致させる。
+  // ノード円は mastery ごとに凡例と同じスタイルで描く（star=塗り / dim_star=半透明の青+リング /
+  // black_hole=中空の赤丸 / unexplored=破線グレーの中空）。canvas は oklch も解釈できる。
+  let labelColor = "#334155"; // --foreground
+  let knowledgeColor = "#14b8a6"; // --color-debt-knowledge（理解済み/部分理解）
+  let destructiveColor = "#ef4444"; // --destructive（未理解）
+  let mutedColor = "#94a3b8"; // --muted-foreground（未着手）
+  function resolveThemeColors() {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (v: string, fb: string) => cs.getPropertyValue(v).trim() || fb;
+    labelColor = get("--foreground", labelColor);
+    knowledgeColor = get("--color-debt-knowledge", knowledgeColor);
+    destructiveColor = get("--destructive", destructiveColor);
+    mutedColor = get("--muted-foreground", mutedColor);
   }
   function nodeRadius(node: GraphNode): number {
     return Math.sqrt(node.val) * (graph?.nodeRelSize() ?? 4);
@@ -84,13 +82,12 @@
         import("d3-force-3d"),
       ]);
       if (disposed) return;
-      resolveLabelColor();
+      resolveThemeColors();
       const g = new ForceGraph<GraphNode, GraphLink>(container)
         .nodeId("id")
         .nodeRelSize(4)
         .nodeVal((n) => n.val)
         .nodeLabel((n) => n.label)
-        .nodeColor(nodeColor)
         .linkColor(linkColor)
         .linkWidth(linkWidth)
         .linkDirectionalArrowLength((l) => (l.kind === "calls" ? 4 : 0))
@@ -102,16 +99,53 @@
           onNodeHover?.(n);
         })
         .onEngineStop(() => g.zoomToFit(400, 40));
-      // ラベル（ファイル名）は縮小時も含め常にノードの「右側」に小さい文字で表示する（issue 293, CGC 参考）。
-      // ノード円は既定描画に任せ 'after' で重ねる。フォントは globalScale で割り画面上ほぼ一定の小さめサイズに。
-      g.nodeCanvasObjectMode(() => "after").nodeCanvasObject((node, ctx, scale) => {
+      // ノード円を mastery ごとに凡例と同じスタイルで自前描画し（'replace'）、右側にラベルを重ねる。
+      // star=塗り / dim_star=半透明の青+リング / black_hole=中空の赤丸 / unexplored=破線グレーの中空。
+      g.nodeCanvasObjectMode(() => "replace").nodeCanvasObject((node, ctx, scale) => {
+        const r = nodeRadius(node);
+        const x = node.x ?? 0;
+        const y = node.y ?? 0;
+        const dim = hoveredId != null && node.id !== hoveredId && !neighborIds.has(node.id);
+        ctx.save();
+        if (dim) ctx.globalAlpha = 0.2; // ホバー時の非近傍ノードを減光
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        const mastery = node.mastery ?? "unexplored";
+        if (mastery === "star") {
+          ctx.fillStyle = knowledgeColor;
+          ctx.fill();
+        } else if (mastery === "dim_star") {
+          const a = ctx.globalAlpha;
+          ctx.globalAlpha = a * 0.5; // 半透明の青
+          ctx.fillStyle = knowledgeColor;
+          ctx.fill();
+          ctx.globalAlpha = a;
+          ctx.lineWidth = 1.5 / scale;
+          ctx.strokeStyle = knowledgeColor;
+          ctx.stroke();
+        } else if (mastery === "black_hole") {
+          ctx.lineWidth = 2 / scale; // 中空の赤丸
+          ctx.strokeStyle = destructiveColor;
+          ctx.stroke();
+        } else {
+          ctx.setLineDash([3 / scale, 2 / scale]); // 未着手: 破線グレーの中空
+          ctx.lineWidth = 1 / scale;
+          ctx.strokeStyle = mutedColor;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ctx.restore();
+
+        // ラベル（ファイル名）は縮小時も含め常にノードの右側に小さい文字で表示する（issue 293）。
         const label = node.label.length > 28 ? node.label.slice(0, 27) + "…" : node.label;
-        const fontSize = 9 / scale;
-        ctx.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+        ctx.save();
+        if (dim) ctx.globalAlpha = 0.2;
+        ctx.font = `${9 / scale}px ui-sans-serif, system-ui, sans-serif`;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
         ctx.fillStyle = labelColor;
-        ctx.fillText(label, (node.x ?? 0) + nodeRadius(node) + 3 / scale, node.y ?? 0);
+        ctx.fillText(label, x + r + 3 / scale, y);
+        ctx.restore();
       });
       // ノード円を明示的にポインタ判定領域として塗る（issue 286）。custom nodeCanvasObject を設定すると
       // クリック判定がそれに由来し、ラベルはズーム時のみ描画のため既定ズームでは判定領域が空になり
@@ -135,7 +169,7 @@
 
     // テーマ切替（document.documentElement の class 変化）で配色を再解決し再描画。
     const themeObserver = new MutationObserver(() => {
-      resolveLabelColor();
+      resolveThemeColors();
       graph?.graphData(graph.graphData()); // 再描画をトリガ
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
