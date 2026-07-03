@@ -626,5 +626,9 @@
   "project_switcher_error": "Projekte konnten nicht geladen werden",
   "matrix_priority_aria": "Priorität {priority}, technische Schuld {code}, Wissensschuld {know}",
   "overview_scatter_count": "{count} Dateien",
-  "shell_toggle_theme": "Design umschalten"
+  "shell_toggle_theme": "Design umschalten",
+  "shortcuts_title": "Tastenkürzel",
+  "shortcuts_section_general": "Allgemein",
+  "shortcuts_section_nav": "Navigation",
+  "shortcuts_show_help": "Tastenkürzel anzeigen"
 }

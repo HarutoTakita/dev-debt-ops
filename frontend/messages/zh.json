@@ -626,5 +626,9 @@
   "project_switcher_error": "加载项目失败",
   "matrix_priority_aria": "优先级 {priority}，技术债务 {code}，认知负债 {know}",
   "overview_scatter_count": "{count} 个文件",
-  "shell_toggle_theme": "切换主题"
+  "shell_toggle_theme": "切换主题",
+  "shortcuts_title": "键盘快捷键",
+  "shortcuts_section_general": "通用",
+  "shortcuts_section_nav": "导航",
+  "shortcuts_show_help": "显示快捷键"
 }

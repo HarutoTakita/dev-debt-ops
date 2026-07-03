@@ -626,5 +626,9 @@
   "project_switcher_error": "プロジェクトの読み込みに失敗しました",
   "matrix_priority_aria": "優先度 {priority}・技術負債 {code}・理解負債 {know}",
   "overview_scatter_count": "{count} 件",
-  "shell_toggle_theme": "テーマを切り替え"
+  "shell_toggle_theme": "テーマを切り替え",
+  "shortcuts_title": "キーボードショートカット",
+  "shortcuts_section_general": "全般",
+  "shortcuts_section_nav": "移動",
+  "shortcuts_show_help": "ショートカット一覧を表示"
 }
