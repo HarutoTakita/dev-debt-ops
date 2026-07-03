@@ -144,17 +144,37 @@
         padding: 0 1.5rem 2.5rem;
         display: flex;
         flex-wrap: wrap;
-        gap: 0.75rem;
+        align-items: stretch;
+        gap: 0.6rem;
       }
       .step {
-        flex: 1 1 240px;
+        flex: 1 1 200px;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.7rem;
         border: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(255, 255, 255, 0.03);
         border-radius: 0.75rem;
-        padding: 0.85rem 1rem;
+        padding: 0.8rem 0.9rem;
+      }
+      /* ステップ間の矢印（処理の流れ）。1 行に並ぶ lg でのみ表示する。 */
+      .step-arrow {
+        display: none;
+        flex: 0 0 auto;
+        align-items: center;
+        color: rgba(148, 163, 184, 0.65);
+      }
+      .step-arrow svg {
+        width: 1.15rem;
+        height: 1.15rem;
+      }
+      @media (min-width: 1024px) {
+        .hero-steps {
+          flex-wrap: nowrap;
+        }
+        .step-arrow {
+          display: flex;
+        }
       }
       .step-badge {
         display: inline-grid;
@@ -368,27 +388,43 @@
         </div>
       </div>
 
-      <!-- 下部: 「実測 → 可視化 → 改善」の閉ループ（本アプリの核）をひと目で伝えるフロー帯 -->
+      <!-- 下部: AI エージェントの処理フローを矢印で表現（探索 → クイズ生成 → 学習プラン → 改善提案）。 -->
       <div class="hero-steps">
         <div class="step">
           <span class="step-badge know">01</span>
           <div>
-            <div class="step-title">実測</div>
-            <div class="step-desc">クイズで理解度を測る（git blame 非依存・PM も計測可）</div>
+            <div class="step-title">リポジトリ解析</div>
+            <div class="step-desc">AI エージェントが MCP でコードを探索・機能を抽出</div>
           </div>
+        </div>
+        <div class="step-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
         </div>
         <div class="step">
           <span class="step-badge know">02</span>
           <div>
-            <div class="step-title">可視化</div>
-            <div class="step-desc">理解度マップ × コード品質マップで弱点を特定</div>
+            <div class="step-title">クイズを生成・実測</div>
+            <div class="step-desc">機能ごとの理解度クイズをエージェントが生成し測定</div>
           </div>
         </div>
+        <div class="step-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </div>
         <div class="step">
-          <span class="step-badge code">03</span>
+          <span class="step-badge know">03</span>
           <div>
-            <div class="step-title">改善</div>
-            <div class="step-desc">AI の自動修正 PR と学習プランで解消する</div>
+            <div class="step-title">学習プランを生成</div>
+            <div class="step-desc">弱点に合わせた学習プランをエージェントが自動作成</div>
+          </div>
+        </div>
+        <div class="step-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </div>
+        <div class="step">
+          <span class="step-badge code">04</span>
+          <div>
+            <div class="step-title">改善を提案</div>
+            <div class="step-desc">低品質コードの自動修正 PR・Issue を提案</div>
           </div>
         </div>
       </div>
