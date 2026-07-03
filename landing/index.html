@@ -106,27 +106,84 @@
       .hero-devices .phone-img {
         position: absolute;
         z-index: 2;
-        left: -11%;
+        left: -4%;
         bottom: -6%;
         width: 22%;
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
       }
-      /* ファーストビューを横広に使い、コピー列とデバイス列の間隔を広めに取って重なりを防ぐ。 */
+      /* ファーストビュー（代表画像）を 1 画面に収め、コンテンツを縦中央に。 */
+      .hero-section {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: calc(100svh - 4rem);
+      }
+      /* コピー列とデバイス列。左列は見出しが 1 行に収まる最小幅にして、右のデバイスを近づける。 */
       .hero-grid {
         max-width: 84rem;
         margin-inline: auto;
+        width: 100%;
         display: grid;
         gap: 2.5rem;
         align-items: center;
-        padding: 4rem 1.5rem 6rem;
+        padding: 2.5rem 1.5rem 1.25rem;
       }
       @media (min-width: 1024px) {
         .hero-grid {
-          grid-template-columns: 1.15fr 0.85fr;
-          gap: 1rem;
-          padding-top: 6rem;
+          grid-template-columns: 1.1fr 0.9fr;
+          gap: 0.75rem;
+          padding-top: 3rem;
         }
+      }
+      /* 下部の「実測 → 可視化 → 改善」フロー帯（核となる価値をひと目で伝える）。 */
+      .hero-steps {
+        max-width: 84rem;
+        margin: 1rem auto 0;
+        width: 100%;
+        padding: 0 1.5rem 2.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .step {
+        flex: 1 1 240px;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 0.75rem;
+        padding: 0.85rem 1rem;
+      }
+      .step-badge {
+        display: inline-grid;
+        place-items: center;
+        width: 1.9rem;
+        height: 1.9rem;
+        border-radius: 0.5rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+      }
+      .step-badge.know {
+        background: rgba(34, 184, 196, 0.15);
+        color: #22b8c4;
+      }
+      .step-badge.code {
+        background: rgba(224, 162, 58, 0.15);
+        color: #e0a23a;
+      }
+      .step-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #f1f5f9;
+      }
+      .step-desc {
+        font-size: 0.8rem;
+        line-height: 1.35;
+        color: #94a3b8;
+        margin-top: 0.15rem;
       }
       /* ファーストビュー左上のブランド（ログインと同じ、背景が光るアプリアイコン＋アプリ名＋サブタイトル）。 */
       .brand-lockup {
@@ -223,7 +280,7 @@
       </nav>
     </header>
 
-    <section id="top" class="grad">
+    <section id="top" class="grad hero-section">
       <div class="hero-grid">
         <!-- 左: コピー -->
         <div class="text-center lg:text-left">
@@ -241,7 +298,7 @@
               <p class="brand-sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
             </div>
           </div>
-          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[28px]">
+          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[26px]">
             クイズで<span class="text-know">理解度</span>を実測し、<span class="text-know">理解度マップ</span>で可視化。<br
               class="hidden sm:block"
             />
@@ -308,6 +365,31 @@
             height="2016"
             decoding="async"
           />
+        </div>
+      </div>
+
+      <!-- 下部: 「実測 → 可視化 → 改善」の閉ループ（本アプリの核）をひと目で伝えるフロー帯 -->
+      <div class="hero-steps">
+        <div class="step">
+          <span class="step-badge know">01</span>
+          <div>
+            <div class="step-title">実測</div>
+            <div class="step-desc">クイズで理解度を測る（git blame 非依存・PM も計測可）</div>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-badge know">02</span>
+          <div>
+            <div class="step-title">可視化</div>
+            <div class="step-desc">理解度マップ × コード品質マップで弱点を特定</div>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-badge code">03</span>
+          <div>
+            <div class="step-title">改善</div>
+            <div class="step-desc">AI の自動修正 PR と学習プランで解消する</div>
+          </div>
         </div>
       </div>
     </section>
