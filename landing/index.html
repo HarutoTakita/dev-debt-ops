@@ -81,7 +81,7 @@
       .hero-devices {
         position: relative;
         width: 100%;
-        max-width: 660px;
+        max-width: 720px;
         margin-inline: auto;
       }
       .hero-devices::before {
@@ -121,7 +121,7 @@
       }
       /* コピー列とデバイス列。左列は見出しが 1 行に収まる最小幅にして、右のデバイスを近づける。 */
       .hero-grid {
-        max-width: 74rem;
+        max-width: 76rem;
         margin-inline: auto;
         width: 100%;
         display: grid;
@@ -131,14 +131,14 @@
       }
       @media (min-width: 1024px) {
         .hero-grid {
-          grid-template-columns: 1.08fr 0.92fr;
+          grid-template-columns: 1.05fr 0.95fr;
           gap: 1rem;
           padding-top: 3rem;
         }
       }
       /* 下部の「実測 → 可視化 → 改善」フロー帯（核となる価値をひと目で伝える）。 */
       .flow-eyebrow {
-        max-width: 74rem;
+        max-width: 76rem;
         margin: 1.5rem auto 0.9rem;
         padding: 0 1.5rem;
         text-align: center;
@@ -147,7 +147,7 @@
         color: #22b8c4;
       }
       .hero-steps {
-        max-width: 74rem;
+        max-width: 76rem;
         margin: 0 auto;
         width: 100%;
         padding: 0 1.5rem 2.75rem;
@@ -217,8 +217,8 @@
       /* 分岐する処理フロー図: 01 → (理解負債: 2-1→3-1 / 技術負債: 2-2→3-2) → 04。
          モバイルは縦積み、lg で横並び＋分岐/合流のコネクタ(SVG)を表示する。 */
       .flow-diagram {
-        max-width: 74rem;
-        margin: 2.75rem auto 0;
+        max-width: 76rem;
+        margin: 1.5rem auto 0;
         width: 100%;
         padding: 0 1.5rem 2.75rem;
         display: flex;
@@ -272,6 +272,7 @@
         }
         .flow-single {
           flex: 0 0 15rem;
+          align-self: center;
         }
         .flow-tracks {
           flex: 1 1 auto;
@@ -417,7 +418,7 @@
               <p class="brand-sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
             </div>
           </div>
-          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[26px]">
+          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[23px]">
             クイズで<span class="text-know">理解度</span>を実測し、<span class="text-know">理解度マップ</span>で可視化。<br
               class="hidden sm:block"
             />
@@ -498,7 +499,7 @@
           <div>
             <div class="step-title">リポジトリ解析</div>
             <div class="step-desc">
-              AI エージェントが MCP を使ってコードベースを横断探索。ファイル群を機能単位にクラスタリングし、技術スタックや依存関係も把握します。
+              AI エージェントが MCP を使ってコードベースを横断探索。ファイル群を機能単位にクラスタリングし、技術スタックや依存関係も把握。
             </div>
           </div>
         </div>
@@ -523,7 +524,7 @@
               <div>
                 <div class="step-title">クイズを生成・実測</div>
                 <div class="step-desc">
-                  機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で客観的に実測します。
+                  機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で客観的に実測。
                 </div>
               </div>
             </div>
@@ -537,7 +538,7 @@
               <div>
                 <div class="step-title">学習プランを生成</div>
                 <div class="step-desc">
-                  理解が浅い機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立てます。
+                  理解が浅い機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立て。
                 </div>
               </div>
             </div>
@@ -552,7 +553,7 @@
               <div>
                 <div class="step-title">低品質コードの検知</div>
                 <div class="step-desc">
-                  重複・複雑度・デッドコード・AI 生成痕跡などを解析し、品質が低く優先度の高いファイルを特定します。
+                  重複・複雑度・デッドコード・AI 生成痕跡などを解析し、品質が低く優先度の高いファイルを特定。
                 </div>
               </div>
             </div>
@@ -566,7 +567,7 @@
               <div>
                 <div class="step-title">コード改善を提案</div>
                 <div class="step-desc">
-                  低品質コードに対し AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応します。
+                  低品質コードに対し AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応。
                 </div>
               </div>
             </div>
@@ -590,7 +591,7 @@
           <div>
             <div class="step-title">理解度・品質が向上</div>
             <div class="step-desc">
-              「実測 → 学習」と「検知 → 改善」の両輪で属人化を解消し、コードベースの理解度とコード品質を継続的に高めます。
+              「実測 → 学習」と「検知 → 改善」の両輪で属人化を解消し、コードベースの理解度とコード品質を継続的に向上。
             </div>
           </div>
         </div>
