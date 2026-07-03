@@ -112,6 +112,36 @@
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
       }
+      /* ファーストビューを横広に使い、コピー列とデバイス列の間隔を広めに取って重なりを防ぐ。 */
+      .hero-grid {
+        max-width: 84rem;
+        margin-inline: auto;
+        display: grid;
+        gap: 2.5rem;
+        align-items: center;
+        padding: 4rem 1.5rem 6rem;
+      }
+      @media (min-width: 1024px) {
+        .hero-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 5rem;
+          padding-top: 6rem;
+        }
+      }
+      /* ファーストビュー左上のブランド（ログインと同じ、背景が光るアプリアイコン＋アプリ名）。 */
+      .hero-brand-icon {
+        width: 3rem;
+        height: 3rem;
+        filter: drop-shadow(0 0 18px rgba(34, 184, 196, 0.45));
+      }
+      /* 上部タブの CTA（アプリの「デモ環境」と同じアンバー）。 */
+      .btn-demo {
+        background-color: #e0a23a;
+        color: #0c1116;
+      }
+      .btn-demo:hover {
+        filter: brightness(1.08);
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -146,16 +176,27 @@
         <a
           id="nav-cta"
           href="/login"
-          class="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium ring-1 ring-white/15 ring-inset transition hover:bg-white/15"
-          >アプリを開く</a
+          class="btn-demo rounded-lg px-4 py-2 text-sm font-semibold shadow-lg transition"
+          >デモを体験する</a
         >
       </nav>
     </header>
 
     <section id="top" class="grad">
-      <div class="mx-auto grid max-w-6xl items-center gap-12 px-6 pt-16 pb-24 lg:grid-cols-2 lg:gap-8 lg:pt-24">
+      <div class="hero-grid">
         <!-- 左: コピー -->
         <div class="text-center lg:text-left">
+          <!-- 左上ブランド: ログインと同じ、背景が光るアプリアイコン（デュアルループ・バッジ）＋アプリ名 -->
+          <div class="mb-6 flex items-center justify-center gap-3 lg:justify-start">
+            <svg class="hero-brand-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+              <rect width="32" height="32" rx="8" fill="#0c1116" />
+              <path d="M8.21 11.5 A9 9 0 0 1 23.79 11.5" fill="none" stroke="#22b8c4" stroke-width="3.2" stroke-linecap="round" />
+              <path d="M25.09 13.75 L22.14 12.45 L25.44 10.55 Z" fill="#22b8c4" />
+              <path d="M23.79 20.5 A9 9 0 0 1 8.21 20.5" fill="none" stroke="#e0a23a" stroke-width="3.2" stroke-linecap="round" />
+              <path d="M6.91 18.25 L9.86 19.55 L6.56 21.45 Z" fill="#e0a23a" />
+            </svg>
+            <span class="text-2xl font-bold tracking-tight">DevDebtOps</span>
+          </div>
           <p
             class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
           >
@@ -171,20 +212,6 @@
             品質の低いコードは AI が<strong class="font-semibold text-white">修正 PR</strong>で改善。
             属人化とコード品質を、ひとつのダッシュボードで管理します。
           </p>
-          <div class="mt-9 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-            <a
-              id="hero-cta"
-              href="/login"
-              class="rounded-lg bg-know px-6 py-3 font-semibold text-ink shadow-lg shadow-know/20 transition hover:brightness-110"
-              >リポジトリを接続して解析</a
-            >
-            <a
-              href="#how"
-              class="rounded-lg px-6 py-3 font-medium text-slate-200 ring-1 ring-white/15 ring-inset transition hover:bg-white/10"
-              >仕組みを見る</a
-            >
-          </div>
-          <p class="mt-7 text-xs text-slate-500">GitHub App 連携 ・ Google Cloud / Cloud Run ・ Vertex AI (Gemini) で稼働</p>
         </div>
 
         <!-- 右: 実アプリのスクリーンショット（ノートPC＝ダッシュボード / スマホ＝コード改善）を重ねて配置 -->
@@ -685,7 +712,7 @@
 
       document.getElementById("year").textContent = new Date().getFullYear();
       // App への導線をまとめて差し替え（デプロイで __APP_URL__ を実 URL に置換）。
-      for (const id of ["nav-cta", "hero-cta", "foot-cta"]) {
+      for (const id of ["nav-cta", "foot-cta"]) {
         const el = document.getElementById(id);
         if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
       }
