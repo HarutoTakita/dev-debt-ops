@@ -25,6 +25,8 @@ const SESSIONS: Record<string, QuizSession> = {
     started_at: null,
     completed_at: null,
     score: null,
+    flagged_question_ids: [],
+    retest_mode: null,
     answers: [],
     questions: [
       {
@@ -87,6 +89,8 @@ const SESSIONS: Record<string, QuizSession> = {
     started_at: null,
     completed_at: null,
     score: null,
+    flagged_question_ids: [],
+    retest_mode: null,
     answers: [],
     questions: [
       {

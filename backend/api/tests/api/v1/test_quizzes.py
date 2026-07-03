@@ -185,6 +185,83 @@ async def test_result_includes_per_question_review(authenticated_client: AsyncCl
     assert review["q2"]["correct_answer"] == "No"  # answer "b" → label
 
 
+async def _seed_graded_mc(project_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID:
+    """Seed a completed 2-question MC session: q1 correct, q2 wrong (graded)."""
+    async with app_db.async_session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=user_id,
+            file_path="src/a.py",
+            repo_full_name="acme/rosetta",
+            status="completed",
+            questions=[
+                {"id": "q1", "kind": "multiple_choice", "prompt": "Q1?", "choices": [{"id": "a", "label": "A"}]},
+                {"id": "q2", "kind": "multiple_choice", "prompt": "Q2?", "choices": [{"id": "b", "label": "B"}]},
+            ],
+            answer_key={"q1": {"answer": "a"}, "q2": {"answer": "b"}},
+        )
+        session.add(qs)
+        await session.flush()
+        sid = qs.id
+        session.add_all(
+            [
+                QuizAnswer(session_id=sid, question_id="q1", value="a", is_correct=True),
+                QuizAnswer(session_id=sid, question_id="q2", value="a", is_correct=False),
+            ]
+        )
+        await session.commit()
+        return sid
+
+
+async def test_flag_question_reflected_in_session(authenticated_client: AsyncClient) -> None:
+    """#6: flagging a question surfaces it in the session's flagged_question_ids; clearing removes it."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_session(project_id, user_id)
+    base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}"
+    assert (await authenticated_client.put(f"{base}/questions/q1/flag", json={"flagged": True})).status_code == 204
+    # idempotent
+    assert (await authenticated_client.put(f"{base}/questions/q1/flag", json={"flagged": True})).status_code == 204
+    body = (await authenticated_client.get(base)).json()
+    assert body["flagged_question_ids"] == ["q1"]
+    assert (await authenticated_client.put(f"{base}/questions/q1/flag", json={"flagged": False})).status_code == 204
+    assert (await authenticated_client.get(base)).json()["flagged_question_ids"] == []
+
+
+async def test_retest_wrong_only_copies_incorrect_questions(authenticated_client: AsyncClient) -> None:
+    """#6: retest mode=wrong creates a new session with only the all-attempts-wrong questions."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_graded_mc(project_id, user_id)
+    resp = await authenticated_client.post(
+        f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/retest", json={"mode": "wrong"}
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["question_count"] == 1
+    async with app_db.async_session_maker() as session:
+        retest = await session.get(QuizSession, uuid.UUID(data["session_id"]))
+        assert [q["id"] for q in retest.questions] == ["q2"]  # only the wrong one
+        assert retest.status == "not_started"
+        assert retest.origin_session_id == sid
+        assert retest.retest_mode == "wrong"
+        assert set(retest.answer_key.keys()) == {"q2"}
+
+
+async def test_retest_flagged_only_and_empty_is_400(authenticated_client: AsyncClient) -> None:
+    """#6: retest mode=flagged uses flagged questions; an empty subset is a 400."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_graded_mc(project_id, user_id)
+    base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}"
+    # nothing flagged yet → 400
+    assert (await authenticated_client.post(f"{base}/retest", json={"mode": "flagged"})).status_code == 400
+    await authenticated_client.put(f"{base}/questions/q1/flag", json={"flagged": True})
+    resp = await authenticated_client.post(f"{base}/retest", json={"mode": "flagged"})
+    assert resp.status_code == 201
+    assert resp.json()["question_count"] == 1
+    async with app_db.async_session_maker() as session:
+        retest = await session.get(QuizSession, uuid.UUID(resp.json()["session_id"]))
+        assert [q["id"] for q in retest.questions] == ["q1"]
+
+
 async def test_other_users_session_is_403(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, project_id, _ = await _project(authenticated_client)
     sid = await _seed_session(project_id, uuid.uuid4())  # someone else's session

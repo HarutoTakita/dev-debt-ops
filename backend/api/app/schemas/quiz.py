@@ -36,6 +36,8 @@ class QuizSessionOut(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     score: float | None
+    flagged_question_ids: list[str] = []  # このユーザーがフラグを付けた設問 id（#6）
+    retest_mode: str | None = None  # None=通常 / "flagged" / "wrong"（#6 再テストで生成された場合）
 
 
 class QuizReviewItemOut(BaseModel):
@@ -89,6 +91,25 @@ class SaveAnswerIn(BaseModel):
 
     question_id: str
     value: str
+
+
+class FlagQuestionIn(BaseModel):
+    """Body for ``PUT .../quizzes/{id}/questions/{question_id}/flag`` (#6)."""
+
+    flagged: bool
+
+
+class RetestIn(BaseModel):
+    """Body for ``POST .../quizzes/{id}/retest`` (#6). flagged=フラグ設問のみ / wrong=全回誤答のみ."""
+
+    mode: str  # "flagged" | "wrong"
+
+
+class RetestOut(BaseModel):
+    """Result of creating a filtered re-test session (#6)."""
+
+    session_id: str
+    question_count: int
 
 
 class BaselineQuizzesOut(BaseModel):

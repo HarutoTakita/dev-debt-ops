@@ -9,8 +9,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -23,6 +23,7 @@ from app.schemas.job import JobEnqueuedOut
 from app.schemas.quiz import (
     BaselineQuizzesOut,
     FileRefOut,
+    FlagQuestionIn,
     GenerateQuizIn,
     QuizAnswerOut,
     QuizListItemOut,
@@ -30,6 +31,8 @@ from app.schemas.quiz import (
     QuizResultOut,
     QuizReviewItemOut,
     QuizSessionOut,
+    RetestIn,
+    RetestOut,
     SaveAnswerIn,
 )
 from app.services.dependencies import get_blob_client, get_task_dispatcher
@@ -140,6 +143,7 @@ async def _owned_session(db: AsyncSession, *, session_id: uuid.UUID, project_id:
 
 async def _session_out(db: AsyncSession, qs: QuizSession) -> QuizSessionOut:
     answers = (await db.execute(select(QuizAnswer).where(col(QuizAnswer.session_id) == qs.id))).scalars().all()
+    flagged = await _flagged_qids(db, session_id=qs.id, developer_id=qs.developer_id)
     return QuizSessionOut(
         id=str(qs.id),
         developer_id=str(qs.developer_id),
@@ -150,6 +154,8 @@ async def _session_out(db: AsyncSession, qs: QuizSession) -> QuizSessionOut:
         started_at=qs.started_at,
         completed_at=qs.completed_at,
         score=qs.score,
+        flagged_question_ids=sorted(flagged),
+        retest_mode=qs.retest_mode,
     )
 
 
@@ -397,6 +403,131 @@ async def save_quiz_answer(
         session.add(qs)
     await session.commit()
     return QuizAnswerOut(question_id=body.question_id, value=body.value, saved_at=now)
+
+
+@router.put(
+    "/orgs/{slug}/projects/{project_slug}/quizzes/{session_id}/questions/{question_id}/flag",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="設問にフラグを設定/解除する（#6）",
+)
+async def flag_question(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    session_id: uuid.UUID,
+    question_id: Annotated[str, Path(description="Question id within the session.")],
+    body: FlagQuestionIn,
+    org_membership: OrgScope,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> Response:
+    """Set (insert-if-absent) or clear the caller's flag on one question in a session (#6)."""
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
+    if body.flagged:
+        stmt = pg_insert(QuizQuestionFlag).values(
+            developer_id=current_user.id, session_id=session_id, question_id=question_id
+        )
+        await session.execute(stmt.on_conflict_do_nothing(constraint="uq_quiz_question_flags_dev_session_q"))
+    else:
+        await session.execute(
+            delete(QuizQuestionFlag).where(
+                col(QuizQuestionFlag.developer_id) == current_user.id,
+                col(QuizQuestionFlag.session_id) == session_id,
+                col(QuizQuestionFlag.question_id) == question_id,
+            )
+        )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+async def _retest_question_ids(
+    db: AsyncSession, *, source: QuizSession, mode: str, developer_id: uuid.UUID
+) -> list[str]:
+    """Pick the question ids to include in a re-test (#6).
+
+    ``flagged``: questions the caller flagged in the source session.
+    ``wrong``: questions answered incorrectly on *every* graded attempt across the retest chain
+    (「全回間違えた問題だけ」). The chain is the source's origin (or itself) plus all its retests.
+    """
+    all_qids = [str(q.get("id")) for q in source.questions if isinstance(q, dict) and q.get("id") is not None]
+    if mode == "flagged":
+        flagged = await _flagged_qids(db, session_id=source.id, developer_id=developer_id)
+        return [qid for qid in all_qids if qid in flagged]
+
+    # mode == "wrong": incorrect on all attempts across the chain.
+    root_id = source.origin_session_id or source.id
+    chain = (
+        (
+            await db.execute(
+                select(QuizSession).where(
+                    col(QuizSession.developer_id) == developer_id,
+                    (col(QuizSession.id) == root_id) | (col(QuizSession.origin_session_id) == root_id),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    chain_ids = [s.id for s in chain]
+    answers = (await db.execute(select(QuizAnswer).where(col(QuizAnswer.session_id).in_(chain_ids)))).scalars().all()
+    graded: dict[str, list[bool]] = {}
+    for a in answers:
+        if a.is_correct is not None:
+            graded.setdefault(a.question_id, []).append(a.is_correct)
+    # 全回誤答: at least one graded attempt, and none of them correct.
+    return [qid for qid in all_qids if graded.get(qid) and not any(graded[qid])]
+
+
+@router.post(
+    "/orgs/{slug}/projects/{project_slug}/quizzes/{session_id}/retest",
+    response_model=RetestOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="フィルタ再テストを作成する（フラグのみ / 全回誤答のみ）（#6）",
+)
+async def create_retest(
+    project_slug: Annotated[str, Path(description="Project slug within the org.")],
+    session_id: uuid.UUID,
+    body: RetestIn,
+    org_membership: OrgScope,
+    current_user: CurrentUser,
+    service: ProjectServiceDep,
+    session: SASessionDep,
+) -> RetestOut:
+    """Create a new not-started session that reuses a filtered subset of the source's questions (#6).
+
+    Deterministic — no Gemini: questions and answer key are copied verbatim from the source, so the
+    re-test measures the same items. 404 if the source is missing, 400 for bad mode / empty subset.
+    """
+    org, _ = org_membership
+    project = await service.get_by_slug(org, project_slug)
+    source = await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
+    if body.mode not in ("flagged", "wrong"):
+        raise HTTPException(status_code=400, detail="mode は flagged または wrong を指定してください")
+
+    qids = await _retest_question_ids(session, source=source, mode=body.mode, developer_id=current_user.id)
+    if not qids:
+        raise HTTPException(status_code=400, detail="対象の設問がありません")
+    keep = set(qids)
+    questions = [q for q in source.questions if isinstance(q, dict) and str(q.get("id")) in keep]
+    answer_key = {qid: source.answer_key[qid] for qid in source.answer_key if str(qid) in keep}
+
+    retest = QuizSession(
+        project_id=project.id,
+        developer_id=current_user.id,
+        file_path=source.file_path,
+        repo_full_name=source.repo_full_name,
+        granularity=source.granularity,
+        feature_id=source.feature_id,
+        status="not_started",
+        questions=questions,
+        answer_key=answer_key,
+        origin_session_id=source.origin_session_id or source.id,
+        retest_mode=body.mode,
+    )
+    session.add(retest)
+    await session.commit()
+    return RetestOut(session_id=str(retest.id), question_count=len(questions))
 
 
 @router.post(

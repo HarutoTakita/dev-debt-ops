@@ -1,10 +1,14 @@
 <script lang="ts">
   import X from "@lucide/svelte/icons/x";
   import Check from "@lucide/svelte/icons/check";
+  import Flag from "@lucide/svelte/icons/flag";
+  import { untrack } from "svelte";
   import { scale } from "svelte/transition";
+  import { SvelteSet } from "svelte/reactivity";
   import type { QuizSession } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { quiz } from "$lib/stores/quiz-store.svelte";
+  import { cn } from "$lib/utils";
   import CodeSnippetPanel from "./code-snippet-panel.svelte";
   import AnswerInput from "./answer-input.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -18,6 +22,24 @@
   const q = $derived(session.questions[index]);
   const value = $derived(quiz.draftAnswers[q.id]?.value ?? "");
   const isLast = $derived(index === total - 1);
+
+  // 設問フラグ（#6）。サーバ初期値で seed（このコンポーネントは session ごとに再マウント）。
+  // 楽観更新 + 失敗時ロールバック。SvelteSet でミューテーションが反応的。
+  const flagged = new SvelteSet<string>(untrack(() => session.flagged_question_ids));
+  const isFlagged = $derived(flagged.has(q.id));
+
+  async function toggleFlag() {
+    const qid = q.id;
+    const next = !flagged.has(qid);
+    if (next) flagged.add(qid);
+    else flagged.delete(qid);
+    try {
+      await quiz.flagQuestion(qid, next);
+    } catch {
+      if (next) flagged.delete(qid);
+      else flagged.add(qid);
+    }
+  }
 
   function onanswer(v: string) {
     quiz.saveDraft({ question_id: q.id, value: v, saved_at: new Date().toISOString() });
@@ -47,9 +69,20 @@
         {/key}
       {/if}
     </span>
-    <button onclick={onexit} class="text-muted-foreground hover:text-foreground" aria-label={m.quiz_focus_abort()}>
-      <X class="size-4" />
-    </button>
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        onclick={toggleFlag}
+        aria-pressed={isFlagged}
+        title={isFlagged ? m.quiz_flag_remove() : m.quiz_flag_add()}
+        class={cn("rounded p-1 hover:bg-accent/40", isFlagged ? "text-debt-knowledge" : "text-muted-foreground")}
+      >
+        <Flag class="size-4" fill={isFlagged ? "currentColor" : "none"} />
+      </button>
+      <button onclick={onexit} class="text-muted-foreground hover:text-foreground" aria-label={m.quiz_focus_abort()}>
+        <X class="size-4" />
+      </button>
+    </div>
   </div>
 
   <!-- 本体: 左コード / 右解答。モバイルは縦積み＋ページスクロール（各ペインが潰れないよう高さを確保）、
