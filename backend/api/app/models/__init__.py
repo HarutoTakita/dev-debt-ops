@@ -1,3 +1,4 @@
+from app.models.app_metadata import AppMetadata
 from app.models.oauth_account import OAuthAccount
 from app.models.org import Org, OrgMember, OrgRole
 from app.models.project import Project
@@ -30,6 +31,7 @@ from shared.models import (
 
 __all__ = [
     "AnalysisRun",
+    "AppMetadata",
     "AssignedDeveloper",
     "CodeDebt",
     "DebtTrendPoint",
