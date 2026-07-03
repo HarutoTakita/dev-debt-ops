@@ -640,5 +640,6 @@
   "admin_summary_members": "Mitglieder",
   "admin_summary_quizzes": "Erledigte Quizze",
   "admin_summary_prs": "Erstellte PRs",
-  "admin_summary_issues": "Erstellte Issues"
+  "admin_summary_issues": "Erstellte Issues",
+  "admin_demo_readonly": "Im Demo nur lesbar"
 }

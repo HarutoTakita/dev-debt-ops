@@ -53,7 +53,7 @@
       <span>{m.shell_account()}</span>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
-    {#if auth.isAdmin}
+    {#if auth.canAccessAdmin}
       <DropdownMenu.Item onSelect={() => goto(resolve("/admin"))}>
         <Shield class="size-4" />
         <span>{m.shell_user_admin()}</span>
