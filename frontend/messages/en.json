@@ -630,5 +630,15 @@
   "shortcuts_title": "Keyboard shortcuts",
   "shortcuts_section_general": "General",
   "shortcuts_section_nav": "Navigation",
-  "shortcuts_show_help": "Show keyboard shortcuts"
+  "shortcuts_show_help": "Show keyboard shortcuts",
+  "admin_col_last_active": "Last active",
+  "admin_col_learning": "Learning",
+  "admin_col_quiz": "Quiz",
+  "admin_col_pr": "PRs",
+  "admin_col_issue": "Issues",
+  "admin_never_active": "Never",
+  "admin_summary_members": "Members",
+  "admin_summary_quizzes": "Quizzes done",
+  "admin_summary_prs": "PRs created",
+  "admin_summary_issues": "Issues created"
 }

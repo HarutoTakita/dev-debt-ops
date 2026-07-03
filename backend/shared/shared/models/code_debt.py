@@ -47,6 +47,9 @@ class CodeDebt(SQLModel, table=True):
     related_pr: str | None = Field(default=None)
     # 「人に頼む」経路で作成した GitHub issue の URL（担当割当 + issue 作成、issue 210）。
     related_issue: str | None = Field(default=None)
+    # その issue を作成したユーザー（= users.id）。管理ダッシュボードの「Issue 作成数」集計に使う。
+    # index-only・FK 無し（projects 同様 api 所有領域を参照するため）。旧行は NULL。
+    related_issue_by: uuid.UUID | None = Field(default=None, index=True)
     related_adr: str | None = Field(default=None)
     # 検知根拠の人間可読文（"循環的複雑度 24" 等）。
     archaeology_notes: str = Field(default="", nullable=False)

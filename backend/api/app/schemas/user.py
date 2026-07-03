@@ -55,3 +55,34 @@ class UserCreditsGrant(BaseModel):
     """Request body for granting repository-analysis credits to a user (admin-only, issue 298)."""
 
     amount: int = Field(ge=1, le=1000, description="Number of analysis credits to add to the user's balance.")
+
+
+class UserActivityOut(BaseModel):
+    """Per-member operational activity for the admin dashboard (superuser only).
+
+    Aggregates a user's activity across ALL projects/workspaces: learning-plan progress, quiz average
+    and completion, code-quality engagement (PRs / Issues created), and last activity. Read-only.
+    """
+
+    id: uuid.UUID
+    email: str
+    display_name: str | None = None
+    is_superuser: bool = False
+    is_demo: bool = False
+    last_active_at: datetime | None = None
+    created_at: datetime | None = None
+    analysis_credits: int = 0
+
+    # 学習プラン: 完了ステップ / 全ステップ（受講状況）。
+    learning_plans_count: int = 0
+    learning_steps_total: int = 0
+    learning_steps_completed: int = 0
+
+    # 理解度テスト: 割当セッション数 / 完了数 / 完了分の平均スコア（0–1 の割合、未受験なら null）。
+    quiz_total: int = 0
+    quiz_completed: int = 0
+    quiz_avg_score: float | None = None
+
+    # コード品質改善への取り組み: 返済 PR 作成数 / Issue 作成数。
+    pr_count: int = 0
+    issue_count: int = 0

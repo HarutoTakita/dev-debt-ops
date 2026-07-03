@@ -302,7 +302,7 @@ async def create_debt_issue(
     ``code_debts.related_issue`` に保存する。issue 作成は軽量なので同期で行う（返済PRのような非同期ジョブは不要）。
     冪等性: 既に related_issue があれば再作成せず 409。
     """
-    org, _ = org_membership
+    org, membership = org_membership
     project = await service.get_by_slug(org, project_slug)
     debt = await session.get(CodeDebt, debt_id)
     if debt is None or debt.project_id != project.id:
@@ -340,6 +340,7 @@ async def create_debt_issue(
         raise HTTPException(status_code=502, detail="GitHub issue の作成に失敗しました") from e
 
     debt.related_issue = issue_url
+    debt.related_issue_by = membership.user_id  # 管理ダッシュボードの「Issue 作成数」集計用（作成者）
     session.add(debt)
     await session.commit()
 
