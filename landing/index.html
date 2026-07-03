@@ -404,18 +404,19 @@
         background: rgba(224, 162, 58, 0.1);
         color: #eabd76;
       }
-      /* インフラ図版（白基調）の「白×暗背景」の境目を和らげる放射状グラデーションの額縁。
-         中心（白カード付近）は明るく、外側へ向けて暗色へフェードさせ、硬い境界線を消す。 */
+      /* インフラ図版（白基調）を暗色 LP に馴染ませる。アプリアイコンの drop-shadow グローと同系の、
+         ティール色の柔らかいグローをカード周囲に滲ませ、白×暗背景の境目を滑らかにフェードさせる。 */
       .infra-frame {
-        padding: clamp(1rem, 3.5vw, 2.5rem);
-        border-radius: 2rem;
-        background: radial-gradient(
-          120% 120% at 50% 45%,
-          rgba(233, 238, 245, 0.22) 0%,
-          rgba(203, 213, 225, 0.12) 38%,
-          rgba(148, 163, 184, 0.05) 62%,
-          rgba(148, 163, 184, 0) 80%
-        );
+        padding: clamp(1.75rem, 5vw, 4rem);
+      }
+      .infra-card {
+        border-radius: 1rem;
+        background: #fff;
+        box-shadow:
+          0 0 140px 12px rgba(34, 184, 196, 0.22),
+          0 0 70px 0 rgba(34, 184, 196, 0.18),
+          0 0 30px 0 rgba(126, 231, 234, 0.14),
+          0 24px 60px rgba(0, 0, 0, 0.45);
       }
     </style>
   </head>
@@ -920,7 +921,7 @@
         <!-- インフラ構成図（白基調の図版。暗色 LP でも「意図した図版」として馴染むよう、
              角丸・余白・リング・ドロップシャドウで額装し、キャプションを添える）。 -->
         <figure class="infra-frame mx-auto mt-10 max-w-5xl">
-          <div class="rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-white/10 sm:p-5">
+          <div class="infra-card rounded-2xl p-3 ring-1 ring-white/10 sm:p-5">
             <img
               src="assets/infra-architecture.png"
               alt="DevDebtOps のインフラ構成図 — GitHub 連携、Cloud Armor＋HTTPS ロードバランサ、api／service を分離した Cloud Run、Cloud Tasks による非同期処理、Cloud SQL・Cloud Storage、Secret Manager、Artifact Registry、Terraform、GitHub Actions（Gemini Code Review／各種スキャン）、Google ADK と各種 MCP、Gemini"
