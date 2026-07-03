@@ -5,15 +5,14 @@ blame line-share (027 authorship matching → ``users.id``), aggregates KC(file)
 thresholds, extracts intra-repo dependency edges (wormholes), and upserts ``file_kc`` / ``dependencies``
 under an ``analysis_run``. ``shared.worker.run_task`` owns the Job lifecycle + ``result_data``.
 
-KC formula is an MVP: KC(file,dev) = the developer's blame line-share (``certified_via="authorship"``),
-*capped at ``_AUTHORSHIP_KC_CEILING`` (below the ``dim_star`` threshold) so authorship alone maps to
-**``black_hole`` = 未理解, not "understood"*** — authoring a file is *contact*, not verified mastery, and
-understanding is meant to be **measured by quizzes**, not inferred from blame (product premise / issue-048).
-Otherwise every authored file reads as teal ("理解済み") and the map looks done before any quiz is taken.
+KC formula (MVP, ``certified_via="authorship"``): KC(file,dev) = blame line-share × a **size-based initial
+estimate** ``_initial_kc_factor`` (``[_KC_INITIAL_FLOOR, _KC_INITIAL_MAX]``). Trivial / boilerplate files
+(``__init__.py`` 等・極小行数) start high (理解済み, star 域まで可 — 0.35 超もあり得る); large / complex files
+start low (理解負債ホットスポット, black_hole). This disperses initial KC across the matrix for single-author
+repos (raw line-share ≈ 1.0 everywhere) instead of a flat value. Understanding is still meant to be
+**measured by quizzes** — quiz-certified KC (034, ``certified_via`` != authorship) overwrites these rows.
 half-life / decay are unknown (no spec in repo) and intentionally omitted. KC(file) aggregate = max of dev
-KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``. quiz-certified KC (034) updates rows later
-(uncapped → can reach ``dim_star`` / ``star``) — this pipeline writes the ``certified_via`` column and
-upsert path it will reuse.
+KCs. See ADR ``docs/adr/0003-kc-mastery-thresholds.md``.
 
 Idempotent across at-least-once redelivery: the run is keyed by ``job_id`` and rows upsert on their
 unique constraints (dev rows on ``(run_id, file_path, dev_id)``; aggregate rows on the partial index
@@ -49,36 +48,36 @@ _MAX_FILES = 200  # blame is a GraphQL call per file; cap per run (aligned with 
 # 対象拡張子。Python / TS・JS に加えフロントの .svelte / .vue も含める（理解度マップに Python 以外も出す）。
 _SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".vue")
 
-# Authorship is evidence of *contact*, not verified mastery. Cap authorship-derived KC **below the
-# ``dim_star`` threshold (0.4)** so "I wrote it" maps to ``black_hole`` (未理解), never teal — otherwise
-# a repo's dominant author makes almost every file read as understood before any quiz, and the map looks
-# "done". Understanding is measured by quizzes: verified KC (quiz/review, issue 034) writes uncapped rows
-# and can reach ``dim_star`` / ``star``. (issue-048 revisited)
-_AUTHORSHIP_KC_CEILING = 0.35
-
-# 単独著者リポジトリだと blame 行シェアが全ファイル≒1.0 になり、authorship KC が一律 ``_AUTHORSHIP_KC_CEILING``
-# に張り付いてマトリクスが平坦になる。初期推定に「規模＝理解負荷」のスプレッドを与えるため、行数で floor..1 に
-# 減衰する係数を authorship KC に掛ける（大きいファイルほど低い＝理解負債ホットスポット）。
-# 係数は**対数スケール**（`_KC_SIZE_MIN_LINES`〜`_KC_SIZE_MAX_LINES` 行を 1..floor に線形写像）にして、実際のコード
-# （数十〜数百行）が狭い帯に固まらず広く分散するようにする。クイズ実測 KC（certified_via != authorship）は
-# 対象外で、product 前提（理解はクイズで実測）は維持する。
-_KC_SIZE_MIN_LINES = 10  # これ以下は係数 1.0（小さい＝理解しやすい）
-_KC_SIZE_MAX_LINES = 800  # これ以上は floor（大きい＝理解負荷大）
-_KC_SIZE_FACTOR_FLOOR = 0.05
+# 初期 KC（authorship）を「規模＝理解負荷」で分散させる推定モデル。単独著者リポジトリだと blame 行シェアが
+# 全ファイル≒1.0 になり KC が一律になってしまうため、行数（対数スケール）で 0..1 に写像し、KC レンジ
+# ``[_KC_INITIAL_FLOOR, _KC_INITIAL_MAX]`` に配分する:
+#  - 極小コード / ボイラープレート（``__init__.py`` 等）は初めから高い＝理解済み（star 域, 0.35 超もあり得る）
+#  - 大きい/複雑なファイルほど低い＝理解負債ホットスポット（black_hole）
+# 旧仕様の一律 0.35 上限は撤廃。クイズ実測 KC（certified_via != authorship）はこの推定の対象外で、実測が
+# 入ればそれで上書きされる（理解はクイズで実測、という product 前提は維持）。
+_KC_SIZE_MIN_LINES = 6  # これ以下は最大（極小＝理解しやすい）
+_KC_SIZE_MAX_LINES = 500  # これ以上は floor（大きい＝理解負荷大）
+_KC_INITIAL_MAX = 0.9  # 極小/ボイラープレートの初期 KC（star 域）
+_KC_INITIAL_FLOOR = 0.05  # 巨大ファイルの初期 KC（未理解）
+# 中身がほぼ定型で、書いた時点で理解済みとみなせるボイラープレート（サイズに依らず高 KC）。
+_BOILERPLATE_NAMES = frozenset({"__init__.py", "__main__.py", "py.typed"})
 
 
-def _size_factor(content: str) -> float:
-    """Return a floor..1.0 factor decaying (log scale) with file line count (larger file → smaller).
+def _initial_kc_factor(path: str, content: str) -> float:
+    """Return the initial authorship-KC estimate in ``[_KC_INITIAL_FLOOR, _KC_INITIAL_MAX]``.
 
-    Log scale spreads typical code (tens–hundreds of lines) across the whole range so the initial KC
-    estimate disperses across the matrix instead of clustering near one value.
+    Trivial / boilerplate files start high (understood); larger files start low (knowledge-debt
+    hotspots). Log scale spreads typical code (tens–hundreds of lines) across the whole range.
     """
+    if path.rsplit("/", 1)[-1] in _BOILERPLATE_NAMES:
+        return _KC_INITIAL_MAX
     lines = content.count("\n") + 1 if content else 0
     if lines <= _KC_SIZE_MIN_LINES:
-        return 1.0
-    span = math.log(_KC_SIZE_MAX_LINES) - math.log(_KC_SIZE_MIN_LINES)
-    frac = (math.log(lines) - math.log(_KC_SIZE_MIN_LINES)) / span
-    return max(_KC_SIZE_FACTOR_FLOOR, min(1.0, 1.0 - frac))
+        shape = 1.0
+    else:
+        span = math.log(_KC_SIZE_MAX_LINES) - math.log(_KC_SIZE_MIN_LINES)
+        shape = max(0.0, min(1.0, 1.0 - (math.log(lines) - math.log(_KC_SIZE_MIN_LINES)) / span))
+    return _KC_INITIAL_FLOOR + (_KC_INITIAL_MAX - _KC_INITIAL_FLOOR) * shape
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -302,14 +301,13 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
     for path in source_paths:
         module = _module_of(path)
         dev_ratios = aggregate_blame(blames.get(path, []))
-        # 規模ベースのスプレッド（大きいファイルほど初期 KC を低く）。行シェアが一律でも spread が出る。
-        size_factor = _size_factor(files.get(path, ""))
+        # 規模ベースの初期KC推定（極小/ボイラープレート=高い＝理解済み / 大=低い＝理解負債）。行シェアが
+        # 一律でも spread が出る。旧仕様の 0.35 上限は撤廃（トリビアルなファイルは star 域まで上がる）。
+        init_kc = _initial_kc_factor(path, files.get(path, ""))
         dev_kcs: list[float] = []
         for identity, ratio in dev_ratios:
             dev_id = await resolve_author_user_id(session, identity)
-            # Cap authorship KC below the dim_star threshold → black_hole (未理解): writing a file is
-            # contact, not verified mastery; understanding is raised by quizzes, not blame (issue-048 revisited).
-            kc_auth = min(ratio, _AUTHORSHIP_KC_CEILING) * size_factor
+            kc_auth = min(ratio, 1.0) * init_kc
             await _upsert_file_kc(
                 session,
                 run_id=run.id,
