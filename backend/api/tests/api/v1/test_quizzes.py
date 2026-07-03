@@ -262,6 +262,50 @@ async def test_retest_flagged_only_and_empty_is_400(authenticated_client: AsyncC
         assert [q["id"] for q in retest.questions] == ["q1"]
 
 
+async def test_review_and_retest_work_when_is_correct_null(authenticated_client: AsyncClient) -> None:
+    """Regression: sessions graded before per-question correctness (is_correct NULL) still work.
+
+    Correctness is derived at read time from answer_key, so review shows ✓/✗ and wrong-retest
+    finds the incorrect questions even though quiz_answers.is_correct was never persisted.
+    """
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=user_id,
+            file_path="src/a.py",
+            repo_full_name="acme/rosetta",
+            status="completed",
+            questions=[
+                {"id": "q1", "kind": "multiple_choice", "prompt": "Q1?", "choices": [{"id": "a", "label": "A"}]},
+                {"id": "q2", "kind": "multiple_choice", "prompt": "Q2?", "choices": [{"id": "b", "label": "B"}]},
+            ],
+            answer_key={"q1": {"answer": "a"}, "q2": {"answer": "b"}},
+        )
+        session.add(qs)
+        await session.flush()
+        sid = qs.id
+        # NOTE: is_correct intentionally left NULL (default) — mimics a pre-feature grade.
+        session.add_all(
+            [
+                QuizAnswer(session_id=sid, question_id="q1", value="a"),  # correct
+                QuizAnswer(session_id=sid, question_id="q2", value="a"),  # wrong
+            ]
+        )
+        session.add(QuizResult(session_id=sid, understood=[], gap_concepts=[], kc_before=0.1, kc_after=0.5))
+        await session.commit()
+
+    base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}"
+    review = {r["question_id"]: r for r in (await authenticated_client.get(f"{base}/result")).json()["review"]}
+    assert review["q1"]["is_correct"] is True  # derived, not from NULL column
+    assert review["q1"]["your_answer"] == "A"  # answered, not 未回答
+    assert review["q2"]["is_correct"] is False
+
+    resp = await authenticated_client.post(f"{base}/retest", json={"mode": "wrong"})
+    assert resp.status_code == 201
+    assert resp.json()["question_count"] == 1  # only q2
+
+
 async def test_other_users_session_is_403(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, project_id, _ = await _project(authenticated_client)
     sid = await _seed_session(project_id, uuid.uuid4())  # someone else's session

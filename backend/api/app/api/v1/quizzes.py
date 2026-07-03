@@ -78,6 +78,27 @@ def _normalize_questions(questions: list) -> list[dict]:
     return out
 
 
+def _answer_correct(answer_key: dict, question_id: str, value: str | None) -> bool | None:
+    """Deterministically match a saved answer against the key (mirrors quiz_grading._choice_matches).
+
+    Correctness is derived at read time from ``answer_key`` + the saved value rather than trusting the
+    persisted ``quiz_answers.is_correct`` — so review (#4) and wrong-retest (#6) work for sessions
+    graded before per-question correctness was stored. Returns ``None`` when the question is ungradeable.
+    """
+    key = answer_key.get(question_id)
+    if not isinstance(key, dict):
+        return None
+    expected = key.get("answer")
+    if expected is None:
+        return None
+    if value is None:
+        return False
+    if isinstance(expected, list):
+        chosen = {p.strip() for p in str(value).split(",") if p.strip()}
+        return chosen == {str(e) for e in expected}
+    return str(value).strip() == str(expected)
+
+
 def _labels_for(value: object, id_to_label: dict[str, str]) -> str:
     """Map a stored answer value (choice id, or comma-separated ids / list) to human labels."""
     if value is None:
@@ -101,13 +122,16 @@ def _build_review(
             continue
         id_to_label = {str(c.get("id")): str(c.get("label", c.get("id"))) for c in (q.get("choices") or [])}
         ans = given.get(qid)
+        # Derive correctness from the key (read-time) so it works even when is_correct was never stored.
+        answered = ans is not None and (ans.value or "").strip() != ""
+        is_correct = bool(_answer_correct(answer_key, qid, ans.value)) if answered else False
         review.append(
             QuizReviewItemOut(
                 question_id=qid,
                 prompt=str(q.get("prompt") or qid),
-                your_answer=_labels_for(ans.value if ans is not None else None, id_to_label),
+                your_answer=_labels_for(ans.value if answered else None, id_to_label),
                 correct_answer=_labels_for(key.get("answer"), id_to_label),
-                is_correct=bool(ans.is_correct) if ans is not None else False,
+                is_correct=is_correct,
                 flagged=qid in flagged_qids,
             )
         )
@@ -469,12 +493,19 @@ async def _retest_question_ids(
         .scalars()
         .all()
     )
-    chain_ids = [s.id for s in chain]
-    answers = (await db.execute(select(QuizAnswer).where(col(QuizAnswer.session_id).in_(chain_ids)))).scalars().all()
+    # Correctness is derived at read time from each session's own answer_key (not the is_correct
+    # column) so sessions graded before per-question correctness was stored still work.
+    key_by_session = {s.id: s.answer_key for s in chain}
+    answers = (
+        (await db.execute(select(QuizAnswer).where(col(QuizAnswer.session_id).in_([s.id for s in chain]))))
+        .scalars()
+        .all()
+    )
     graded: dict[str, list[bool]] = {}
     for a in answers:
-        if a.is_correct is not None:
-            graded.setdefault(a.question_id, []).append(a.is_correct)
+        correct = _answer_correct(key_by_session.get(a.session_id, {}), a.question_id, a.value)
+        if correct is not None:
+            graded.setdefault(a.question_id, []).append(correct)
     # 全回誤答: at least one graded attempt, and none of them correct.
     return [qid for qid in all_qids if graded.get(qid) and not any(graded[qid])]
 
