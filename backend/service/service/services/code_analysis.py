@@ -76,6 +76,11 @@ _VENDORED_DIRS: frozenset[str] = frozenset(
 #  - ``*.dist-info`` / ``*.egg-info`` / ``*.egg``: pip / setuptools がインストールしたパッケージのメタデータ。
 _VENDORED_SEGMENT_RE = re.compile(r".+\.(?:dist-info|egg-info|egg)$", re.IGNORECASE)
 
+# 自動生成・ボイラープレートのパス（開発者が読み書きして「理解」する対象ではない）: DB マイグレーション等。
+# 単独著者リポジトリでは機能クラスタリング / 学習 / KC がこれら（例 ``alembic/versions/0001_*.py``）に
+# 埋もれてしまうため、解析対象から一律除外する。
+_GENERATED_PATH_RE = re.compile(r"(?:^|/)(?:alembic/versions|migrations|db/migrate)/", re.IGNORECASE)
+
 # 開発者が自前モジュールとして書くことがまず無い、ユビキタスな第三者パッケージのトップレベル名。
 # AWS Lambda 等のデプロイバンドル（任意ディレクトリ名）に同梱された installed module を、親ディレクトリ名に
 # 依存せず除外するための補助シグナル（例: ``lambda_package/urllib3/connection.py``）。誤検知を避けるため
@@ -107,7 +112,10 @@ def is_vendored_path(path: str) -> bool:
       - セグメントが ``_VENDORED_DIRS`` に一致（例: ``frontend/node_modules/…``、``…/lambda_package/…``）
       - セグメントが ``*.dist-info`` / ``*.egg-info`` / ``*.egg``（pip/setuptools のパッケージメタデータ）
       - セグメントがユビキタスな第三者パッケージ名（``_VENDORED_PACKAGE_NAMES``）＝任意名バンドル内の installed module
+      - 自動生成パス（``alembic/versions/`` / ``migrations/`` / ``db/migrate/`` = DB マイグレーション等）
     """
+    if _GENERATED_PATH_RE.search(path):
+        return True
     for segment in path.split("/"):
         if segment in _VENDORED_DIRS or segment in _VENDORED_PACKAGE_NAMES or _VENDORED_SEGMENT_RE.match(segment):
             return True

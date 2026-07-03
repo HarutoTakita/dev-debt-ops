@@ -139,22 +139,25 @@ async def test_process_computes_kc_and_wormholes(
         rows = (await session.execute(select(FileKc).where(FileKc.run_id == run.id))).scalars().all()
         by = {(r.file_path, r.dev_id, r.github_handle): r for r in rows}
 
-        # alice's 0.7 blame share is capped to the authorship ceiling (0.35) → black_hole (未理解), not teal
-        # (issue-048 revisited: authoring ≠ verified mastery; teal requires quiz/review certification).
+        # authorship KC = min(share, ceiling 0.35) × 規模ファクター（大きいファイルほど低い spread、単独著者対策）。
+        # a.py は小さいので factor ≈ 1（capped 値がほぼそのまま）。いずれも black_hole（未理解）のまま。
+        f_a = kc_analysis._size_factor(_FILES["pkg/a.py"])
+
+        # alice's 0.7 blame share is capped to the authorship ceiling (0.35), then size-scaled → black_hole.
         alice_a = by[("pkg/a.py", _ALICE, "alice")]
-        assert round(alice_a.kc, 3) == 0.35
+        assert alice_a.kc == pytest.approx(0.35 * f_a, abs=1e-3)
         assert alice_a.mastery == "black_hole"
         assert alice_a.certified_via == "authorship"
 
         # bob is unmatched → dev_id None but github_handle preserved (no fabricated user link).
-        # 0.3 is below the ceiling so it is unchanged (still black_hole).
+        # 0.3 is below the ceiling, then size-scaled (still black_hole).
         bob_a = by[("pkg/a.py", None, "bob")]
-        assert round(bob_a.kc, 3) == 0.3
+        assert bob_a.kc == pytest.approx(0.3 * f_a, abs=1e-3)
         assert bob_a.mastery == "black_hole"
 
-        # aggregate row: dev_id None, handle None, kc = max(capped dev kcs) = 0.35 → black_hole.
+        # aggregate row: dev_id None, handle None, kc = max(size-scaled dev kcs) → black_hole.
         agg_a = by[("pkg/a.py", None, None)]
-        assert round(agg_a.kc, 3) == 0.35
+        assert agg_a.kc == pytest.approx(0.35 * f_a, abs=1e-3)
         assert agg_a.mastery == "black_hole"
 
         # lonely.py has no blame → unexplored aggregate, no dev rows.

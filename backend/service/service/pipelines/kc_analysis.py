@@ -55,6 +55,20 @@ _SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".c
 # and can reach ``dim_star`` / ``star``. (issue-048 revisited)
 _AUTHORSHIP_KC_CEILING = 0.35
 
+# 単独著者リポジトリだと blame 行シェアが全ファイル≒1.0 になり、authorship KC が一律 ``_AUTHORSHIP_KC_CEILING``
+# に張り付いてマトリクスが平坦になる。初期推定に「規模＝理解負荷」のスプレッドを与えるため、行数で 0..1 に
+# 減衰する係数を authorship KC に掛ける（大きいファイルほど低い＝理解負債ホットスポット）。クイズ実測 KC
+# （certified_via != authorship）は対象外で、product 前提（理解はクイズで実測）は維持する。
+_KC_SIZE_REF_LINES = 60  # この行数で係数 ≈ 0.5。小さいほど 1 に、大きいほど下限へ近づく。
+_KC_SIZE_FACTOR_FLOOR = 0.15
+
+
+def _size_factor(content: str) -> float:
+    """Return a 0.15..1.0 factor that decays with file line count (larger file → smaller factor)."""
+    lines = content.count("\n") + 1 if content else 0
+    factor = _KC_SIZE_REF_LINES / (_KC_SIZE_REF_LINES + lines)
+    return max(_KC_SIZE_FACTOR_FLOOR, min(1.0, factor))
+
 
 async def _mint_installation_token(github: GitHubRef) -> str:
     """Method B: explicit access_token if present, else mint from the Secret Manager key."""
@@ -277,12 +291,14 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
     for path in source_paths:
         module = _module_of(path)
         dev_ratios = aggregate_blame(blames.get(path, []))
+        # 規模ベースのスプレッド（大きいファイルほど初期 KC を低く）。行シェアが一律でも spread が出る。
+        size_factor = _size_factor(files.get(path, ""))
         dev_kcs: list[float] = []
         for identity, ratio in dev_ratios:
             dev_id = await resolve_author_user_id(session, identity)
             # Cap authorship KC below the dim_star threshold → black_hole (未理解): writing a file is
             # contact, not verified mastery; understanding is raised by quizzes, not blame (issue-048 revisited).
-            kc_auth = min(ratio, _AUTHORSHIP_KC_CEILING)
+            kc_auth = min(ratio, _AUTHORSHIP_KC_CEILING) * size_factor
             await _upsert_file_kc(
                 session,
                 run_id=run.id,
