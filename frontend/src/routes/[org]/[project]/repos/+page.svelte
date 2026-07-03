@@ -78,7 +78,7 @@
 
   function loadDebts() {
     if (!orgSlug || !projectSlug) return;
-    listDebts(orgSlug, projectSlug, { kind: ["code"] }, { key: "severity", dir: "desc" })
+    listDebts(orgSlug, projectSlug, { kind: ["code"] }, { key: "priority", dir: "desc" })
       .then((res) => {
         codeDebts = res.debts.filter((d): d is CodeDebt => d.kind === "code");
       })

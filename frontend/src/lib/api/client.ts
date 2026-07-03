@@ -58,7 +58,6 @@ import {
   type QuizSession,
   type Repository,
   type RepositoryList,
-  type Severity,
   type TechStack,
   type Tree,
   type User,
@@ -549,11 +548,11 @@ export async function getFeatureDrilldown(
 // Debt registry（Matrix）— issue 031 で実 API に接続。フィルタ/ソートはクエリでサーバに委譲。
 export type DebtFilter = {
   kind?: ("code" | "knowledge")[];
-  severity?: Severity[];
+  priority?: ("P0" | "P1" | "P2" | "P3")[];
   agent?: string[];
   status?: string[];
 };
-export type DebtSort = { key: "severity" | "detected_at" | "estimated_repay_hours"; dir: "asc" | "desc" };
+export type DebtSort = { key: "priority" | "detected_at" | "estimated_repay_hours"; dir: "asc" | "desc" };
 
 export async function listDebts(
   orgSlug: string,
@@ -563,7 +562,7 @@ export async function listDebts(
 ): Promise<DebtList> {
   const params = new URLSearchParams();
   for (const k of filter.kind ?? []) params.append("kind", k);
-  for (const s of filter.severity ?? []) params.append("severity", s);
+  for (const p of filter.priority ?? []) params.append("priority", p);
   for (const a of filter.agent ?? []) params.append("agent", a);
   for (const st of filter.status ?? []) params.append("status", st);
   params.set("sort_key", sort.key);

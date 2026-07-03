@@ -13,7 +13,6 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
-  import { cn } from "$lib/utils";
   import { auth } from "$lib/stores/auth.svelte";
   import { getLocale } from "$lib/paraglide/runtime";
   import * as m from "$lib/paraglide/messages";
@@ -60,6 +59,10 @@
 
   function quizAvg(u: UserActivity): number | null {
     return u.quiz_avg_score != null ? Math.round(u.quiz_avg_score * 100) : null;
+  }
+
+  function quizPct(u: UserActivity): number {
+    return u.quiz_total > 0 ? Math.round((u.quiz_completed / u.quiz_total) * 100) : 0;
   }
 
   // 最終アクティブをロケール依存の相対時刻で表示（未ログインは "—" 相当）。
@@ -127,7 +130,6 @@
     <Shield class="size-5 text-debt-knowledge" />
     <h1 class="font-display text-xl font-semibold">{m.shell_user_admin()}</h1>
   </div>
-  <p class="text-sm text-muted-foreground">{m.admin_desc()}</p>
 
   {#if !loading && !error}
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -165,6 +167,7 @@
         <tbody>
           {#each filtered as u (u.id)}
             {@const pct = learningPct(u)}
+            {@const qpct = quizPct(u)}
             {@const avg = quizAvg(u)}
             <tr class="border-b last:border-0">
               <td class="min-w-0 px-3 py-2">
@@ -192,11 +195,13 @@
                 </div>
               </td>
               <td class="px-3 py-2">
-                <div class="flex items-baseline gap-1.5">
-                  <span class={cn("text-sm font-medium tabular-nums", avg == null && "text-muted-foreground")}>
-                    {avg == null ? "—" : `${avg}%`}
+                <div class="flex items-center gap-2">
+                  <div class="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted">
+                    <div class="h-full rounded-full bg-debt-knowledge" style="width: {qpct}%"></div>
+                  </div>
+                  <span class="text-xs tabular-nums text-muted-foreground">
+                    {u.quiz_completed}/{u.quiz_total}{avg == null ? "" : ` · ${avg}%`}
                   </span>
-                  <span class="text-xs tabular-nums text-muted-foreground">{u.quiz_completed}/{u.quiz_total}</span>
                 </div>
               </td>
               <td class="px-3 py-2 text-right tabular-nums">{u.pr_count}</td>

@@ -5,7 +5,7 @@ import type { DebtFilter } from "$lib/api/client";
 const MAX = 5;
 
 function hasAnyFilter(f: DebtFilter): boolean {
-  return Boolean(f.kind?.length || f.severity?.length || f.agent?.length || f.status?.length);
+  return Boolean(f.kind?.length || f.priority?.length || f.agent?.length || f.status?.length);
 }
 
 class RecentSearchesStore {

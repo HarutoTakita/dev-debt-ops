@@ -641,5 +641,8 @@
   "admin_summary_quizzes": "완료 테스트",
   "admin_summary_prs": "생성한 PR",
   "admin_summary_issues": "생성한 Issue",
-  "admin_demo_readonly": "데모에서는 부여할 수 없습니다"
+  "admin_demo_readonly": "데모에서는 부여할 수 없습니다",
+  "filter_facet_priority": "우선순위",
+  "sort_priority": "우선순위",
+  "debt_meta_priority": "우선순위"
 }

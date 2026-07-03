@@ -3,6 +3,7 @@
   import SunMoon from "@lucide/svelte/icons/sun-moon";
   import Shield from "@lucide/svelte/icons/shield";
   import CircleUser from "@lucide/svelte/icons/circle-user";
+  import Languages from "@lucide/svelte/icons/languages";
   import Check from "@lucide/svelte/icons/check";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -65,13 +66,22 @@
       <span>{m.shell_toggle_theme()}</span>
     </DropdownMenu.Item>
     <DropdownMenu.Separator />
-    <DropdownMenu.Label class="text-xs font-normal text-muted-foreground">{m.shell_language()}</DropdownMenu.Label>
-    {#each locales as loc (loc)}
-      <DropdownMenu.Item onSelect={() => setLocale(loc)}>
-        <Check class={cn("size-4", currentLocale !== loc && "opacity-0")} />
-        <span>{localeNames[loc]}</span>
-      </DropdownMenu.Item>
-    {/each}
+    <!-- 言語切替は普段は選択中の 1 言語だけ表示し、サブメニュー（アプリ UI の DropdownMenu.Sub）で展開して選ぶ。 -->
+    <DropdownMenu.Sub>
+      <DropdownMenu.SubTrigger>
+        <Languages class="size-4" />
+        <span>{m.shell_language()}</span>
+        <span class="ml-auto pl-2 text-xs text-muted-foreground">{localeNames[currentLocale]}</span>
+      </DropdownMenu.SubTrigger>
+      <DropdownMenu.SubContent class="w-40">
+        {#each locales as loc (loc)}
+          <DropdownMenu.Item onSelect={() => setLocale(loc)}>
+            <Check class={cn("size-4", currentLocale !== loc && "opacity-0")} />
+            <span>{localeNames[loc]}</span>
+          </DropdownMenu.Item>
+        {/each}
+      </DropdownMenu.SubContent>
+    </DropdownMenu.Sub>
     <DropdownMenu.Separator />
     <DropdownMenu.Item onSelect={logout}>
       <LogOut class="size-4" />

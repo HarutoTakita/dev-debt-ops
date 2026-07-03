@@ -20,7 +20,7 @@
 
   // URL クエリ由来の初期フィルタを一度だけ seed する（以降は state を直接更新）。
   let filter = $state<DebtFilter>(untrack(() => data.initialFilter ?? {}));
-  let sort = $state<DebtSort>({ key: "severity", dir: "desc" });
+  let sort = $state<DebtSort>({ key: "priority", dir: "desc" });
   let debts = $state<DebtItem[]>([]);
   let loading = $state(true);
 

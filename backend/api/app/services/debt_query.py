@@ -31,6 +31,7 @@ from shared.models import (
 )
 
 SEVERITY_RANK = {"critical": 3, "high": 2, "medium": 1, "low": 0}
+PRIORITY_RANK = {"P0": 3, "P1": 2, "P2": 1, "P3": 0}
 
 # 推移ブロックに表示する直近スナップショット数（issue 067, 解析ごとに 1 点）。
 _TREND_LIMIT = 12
@@ -406,11 +407,16 @@ async def list_debts(
     *,
     kinds: list[str] | None,
     severities: list[str] | None,
+    priorities: list[str] | None = None,
     statuses: list[str] | None,
     sort_key: str,
     sort_dir: str,
 ) -> DebtListOut:
-    """List code + knowledge debts (latest runs) with filter/sort applied (``debtListSchema``)."""
+    """List code + knowledge debts (latest runs) with filter/sort applied (``debtListSchema``).
+
+    ``priorities`` (P0–P3) filters on the two-axis priority band derived from each debt's
+    (code_debt_score, knowledge_coverage) — the primary facet now that the UI unifies on priority.
+    """
     want_code = kinds is None or "code" in kinds
     want_knowledge = kinds is None or "knowledge" in kinds
 
@@ -440,8 +446,18 @@ async def list_debts(
             for r in kn_rows:
                 items.append(await _knowledge_out(session, r, amap.get(r.id, [])))
 
+    # Priority is a derived band (not a stored column) → filter after building the delivery items.
+    if priorities:
+        wanted = set(priorities)
+        items = [d for d in items if derive_priority(d.code_debt_score, d.knowledge_coverage) in wanted]
+
     reverse = sort_dir != "asc"
-    if sort_key == "severity":
+    if sort_key == "priority":
+        items.sort(
+            key=lambda d: PRIORITY_RANK.get(derive_priority(d.code_debt_score, d.knowledge_coverage), 0),
+            reverse=reverse,
+        )
+    elif sort_key == "severity":
         items.sort(key=lambda d: SEVERITY_RANK.get(d.severity, 0), reverse=reverse)
     elif sort_key == "estimated_repay_hours":
         items.sort(key=lambda d: d.estimated_repay_hours, reverse=reverse)

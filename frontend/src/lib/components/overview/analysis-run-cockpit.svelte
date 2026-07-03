@@ -24,9 +24,9 @@
     await auth.refreshUser(); // 1 クレジット消費後の残高を反映
   }
 
-  // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。最上部に親「エージェントによる
-  // リポジトリ解析」を置き、その子として「検知 / 整理 / 生成」の 3 グループを入れ子表示（issue 256/258）。
-  // 各グループは内部ステージ（裏のジョブ）の集約状態と実行中サブステップを示す。
+  // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。モーダル上部の「リポジトリ解析」
+  // タイトルと重複するため親ブロック見出しは置かず、4 ブロック（リポジトリ探索 / 技術負債の検知 / 理解負債の整理 /
+  // クイズと学習の生成）を直接並べる。各ブロックは内部ステージの集約状態と実行中サブステップを示す。
   type Props = { ctx: RunContext };
   const { ctx }: Props = $props();
 
@@ -122,10 +122,6 @@
     return fallback;
   }
 
-  // 全タスクの親＝「エージェントによるリポジトリ解析」（issue 256/258）。3 グループをその子として入れ子表示し、
-  // 親のステータスは agentic ステージ全体（＝解析ジョブ全体）に連動させる。
-  const agenticStatus = $derived<StageStatus>(analysisRun.stages["agentic"]?.status ?? "idle");
-
   // グループの集約状態と、実行中サブステージのラベルを内部ステージ群から導出する。
   function groupView(g: StageGroupDef): { status: StageStatus; activeLabel: string | null } {
     const members = g.stageIds.map((id) => analysisRun.stages[id]).filter(Boolean);
@@ -199,68 +195,59 @@
         ></div>
       </div>
     {/if}
-    <!-- 全タスクの親: エージェントによるリポジトリ解析（issue 256/258）。3 グループはその子タスクとして入れ子表示。
-         親のステータスは解析ジョブ全体（agentic ステージ）に連動する。 -->
-    <div class="rounded-md border border-debt-knowledge/40 bg-debt-knowledge/5 px-3 py-2">
-      <div class="flex items-center gap-3 text-sm">
-        <span
-          class={`w-16 shrink-0 text-xs font-medium ${tone(statusTone[agenticStatus], agenticStatus === "PROCESSING")}`}
-          >{statusLabel(agenticStatus)}</span
-        >
-        <span class="min-w-0 flex-1 truncate font-medium">{m.analysis_base_agentic()}</span>
-      </div>
-      <ul class="mt-2 flex flex-col gap-1.5 border-t pt-2 pl-2">
-        {#each STAGE_GROUPS as group (group.id)}
-          {@const gv = groupView(group)}
-          {@const children = childrenFor(group.id)}
-          {@const bs = blockStatus(children, gv.status)}
-          <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
-            <div class="flex items-center gap-3">
-              <span class={`w-16 shrink-0 text-xs font-medium ${tone(statusTone[bs], bs === "PROCESSING")}`}
-                >{statusLabel(bs)}</span
+    <!-- 解析タスクの各ブロック（リポジトリ探索 / 技術負債の検知 / 理解負債の整理 / クイズと学習の生成）。
+         「リポジトリ解析」タイトルと重複するため親ブロックの見出しは置かず、各ブロックを直接並べる。 -->
+    <ul class="flex flex-col gap-1.5">
+      {#each STAGE_GROUPS as group (group.id)}
+        {@const gv = groupView(group)}
+        {@const children = childrenFor(group.id)}
+        {@const bs = blockStatus(children, gv.status)}
+        <li class="rounded-md border bg-background/40 px-3 py-2 text-sm">
+          <div class="flex items-center gap-3">
+            <span class={`w-16 shrink-0 text-xs font-medium ${tone(statusTone[bs], bs === "PROCESSING")}`}
+              >{statusLabel(bs)}</span
+            >
+            <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
+            {#if gv.status === "COMPLETED" && group.deepLink}
+              <a
+                href={group.deepLink(ctx) as ResolvedPathname}
+                class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
               >
-              <span class="min-w-0 flex-1 truncate">{groupLabel[group.labelKey]()}</span>
-              {#if gv.status === "COMPLETED" && group.deepLink}
-                <a
-                  href={group.deepLink(ctx) as ResolvedPathname}
-                  class="shrink-0 text-xs font-medium text-debt-knowledge underline hover:text-foreground"
-                >
-                  {m.analysis_view()}
-                </a>
-              {:else if gv.status === "FAILED"}
-                <button
-                  type="button"
-                  onclick={() => retryGroup(group)}
-                  class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
-                >
-                  {m.analysis_retry_stage()}
-                </button>
-              {/if}
-            </div>
-            {#if children.length > 0}
-              <!-- このブロックに属する内部サブステップ（どこまで・どの程度進んだか）。 -->
-              <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
-                {#each children as s (s.key)}
-                  <li class="flex items-center gap-2 text-xs">
-                    <span
-                      class={`w-3 shrink-0 text-center ${tone(stepTone[s.status] ?? "text-muted-foreground", s.status === "running")}`}
-                    >
-                      {stepMark(s.status)}
-                    </span>
-                    <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
-                      {s.label}
-                    </span>
-                    {#if s.total != null && s.total > 0}
-                      <span class="shrink-0 text-muted-foreground tabular-nums">{s.done ?? 0}/{s.total}</span>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
+                {m.analysis_view()}
+              </a>
+            {:else if gv.status === "FAILED"}
+              <button
+                type="button"
+                onclick={() => retryGroup(group)}
+                class="shrink-0 text-xs font-medium text-destructive underline hover:text-foreground"
+              >
+                {m.analysis_retry_stage()}
+              </button>
             {/if}
-          </li>
-        {/each}
-      </ul>
-    </div>
+          </div>
+          {#if children.length > 0}
+            <!-- このブロックに属する内部サブステップ（どこまで・どの程度進んだか）。 -->
+            <ul class="mt-2 flex flex-col gap-1 border-t pt-2 pl-0.5">
+              {#each children as s (s.key)}
+                <li class="flex items-center gap-2 text-xs">
+                  <span
+                    class={`w-3 shrink-0 text-center ${tone(stepTone[s.status] ?? "text-muted-foreground", s.status === "running")}`}
+                  >
+                    {stepMark(s.status)}
+                  </span>
+                  <span class={`min-w-0 flex-1 truncate ${s.status === "pending" ? "text-muted-foreground" : ""}`}>
+                    {s.label}
+                  </span>
+                  {#if s.total != null && s.total > 0}
+                    <span class="shrink-0 text-muted-foreground tabular-nums">{s.done ?? 0}/{s.total}</span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </li>
+      {/each}
+    </ul>
     {#if auth.isDemo}
       <p class="mt-2 text-xs leading-snug text-muted-foreground">{demoBlockMain}<br />{demoBlockHint}</p>
     {:else if auth.creditsEnabled}
