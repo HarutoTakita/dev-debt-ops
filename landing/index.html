@@ -106,9 +106,9 @@
       .hero-devices .phone-img {
         position: absolute;
         z-index: 2;
-        left: -12%;
-        bottom: -9%;
-        width: 22%;
+        left: -13%;
+        bottom: -14%;
+        width: 21%;
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
       }
@@ -132,7 +132,7 @@
       @media (min-width: 1024px) {
         .hero-grid {
           grid-template-columns: 1.08fr 0.92fr;
-          gap: 2rem;
+          gap: 1rem;
           padding-top: 3rem;
         }
       }
@@ -218,12 +218,17 @@
          モバイルは縦積み、lg で横並び＋分岐/合流のコネクタ(SVG)を表示する。 */
       .flow-diagram {
         max-width: 84rem;
-        margin: 0 auto;
+        margin: 2.75rem auto 0;
         width: 100%;
         padding: 0 1.5rem 2.75rem;
         display: flex;
         flex-direction: column;
         gap: 0.6rem;
+      }
+      /* バッジ内アイコン（番号の代わり）。 */
+      .step-badge svg {
+        width: 1.05rem;
+        height: 1.05rem;
       }
       .flow-tracks {
         display: flex;
@@ -283,6 +288,9 @@
         }
         .track-tag {
           align-self: center;
+          writing-mode: vertical-rl;
+          padding: 0.55rem 0.22rem;
+          letter-spacing: 0.04em;
         }
         .flow-branch,
         .flow-merge {
@@ -415,7 +423,7 @@
             />
             低品質コードを <span class="text-code">AI の自動修正 PR</span>で改善。
           </h1>
-          <p class="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-slate-300 lg:mx-0">
+          <p class="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 lg:mx-0">
             AI エージェントが<strong class="font-semibold text-white">サブエージェント・MCP・Hook</strong>を活用してリポジトリを多角的に解析。<br
               class="hidden lg:block"
             />
@@ -484,7 +492,9 @@
       <div class="flow-diagram">
         <!-- 起点: リポジトリ解析 -->
         <div class="step flow-single">
-          <span class="step-badge know">01</span>
+          <span class="step-badge know">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          </span>
           <div>
             <div class="step-title">リポジトリ解析</div>
             <div class="step-desc">
@@ -507,7 +517,9 @@
           <div class="flow-track">
             <span class="track-tag know">理解負債</span>
             <div class="step">
-              <span class="step-badge know">2-1</span>
+              <span class="step-badge know">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="m9 14 2 2 4-4" /></svg>
+              </span>
               <div>
                 <div class="step-title">クイズを生成・実測</div>
                 <div class="step-desc">
@@ -519,7 +531,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
             </div>
             <div class="step">
-              <span class="step-badge know">3-1</span>
+              <span class="step-badge know">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></svg>
+              </span>
               <div>
                 <div class="step-title">学習プランを生成</div>
                 <div class="step-desc">
@@ -532,7 +546,9 @@
           <div class="flow-track">
             <span class="track-tag code">技術負債</span>
             <div class="step">
-              <span class="step-badge code">2-2</span>
+              <span class="step-badge code">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+              </span>
               <div>
                 <div class="step-title">低品質コードの検知</div>
                 <div class="step-desc">
@@ -544,7 +560,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
             </div>
             <div class="step">
-              <span class="step-badge code">3-2</span>
+              <span class="step-badge code">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" x2="6" y1="9" y2="21" /></svg>
+              </span>
               <div>
                 <div class="step-title">コード改善を提案</div>
                 <div class="step-desc">
@@ -566,7 +584,9 @@
 
         <!-- 合流点: 理解度・品質向上 -->
         <div class="step flow-single">
-          <span class="step-badge code">04</span>
+          <span class="step-badge code">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h6v6" /><path d="m22 7-8.5 8.5-5-5L2 17" /></svg>
+          </span>
           <div>
             <div class="step-title">理解度・品質が向上</div>
             <div class="step-desc">
