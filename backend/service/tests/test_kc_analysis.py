@@ -139,26 +139,25 @@ async def test_process_computes_kc_and_wormholes(
         rows = (await session.execute(select(FileKc).where(FileKc.run_id == run.id))).scalars().all()
         by = {(r.file_path, r.dev_id, r.github_handle): r for r in rows}
 
-        # authorship KC = min(share, ceiling 0.35) × 規模ファクター（大きいファイルほど低い spread、単独著者対策）。
-        # a.py は小さいので factor ≈ 1（capped 値がほぼそのまま）。いずれも black_hole（未理解）のまま。
-        f_a = kc_analysis._size_factor(_FILES["pkg/a.py"])
+        # authorship KC = min(share,1.0) × 初期KC推定（規模ベース: 極小/ボイラープレート=高い / 大=低い）。
+        # 旧仕様の一律 0.35 上限は撤廃。a.py は極小なので init_kc は最大寄り（0.9）。
+        f_a = kc_analysis._initial_kc_factor("pkg/a.py", _FILES["pkg/a.py"])
 
-        # alice's 0.7 blame share is capped to the authorship ceiling (0.35), then size-scaled → black_hole.
+        # alice's 0.7 blame share × 高めの初期KC(小さいファイル) → dim_star 域まで上がる。
         alice_a = by[("pkg/a.py", _ALICE, "alice")]
-        assert alice_a.kc == pytest.approx(0.35 * f_a, abs=1e-3)
-        assert alice_a.mastery == "black_hole"
+        assert alice_a.kc == pytest.approx(0.7 * f_a, abs=1e-3)
+        assert alice_a.mastery == "dim_star"
         assert alice_a.certified_via == "authorship"
 
         # bob is unmatched → dev_id None but github_handle preserved (no fabricated user link).
-        # 0.3 is below the ceiling, then size-scaled (still black_hole).
         bob_a = by[("pkg/a.py", None, "bob")]
         assert bob_a.kc == pytest.approx(0.3 * f_a, abs=1e-3)
         assert bob_a.mastery == "black_hole"
 
-        # aggregate row: dev_id None, handle None, kc = max(size-scaled dev kcs) → black_hole.
+        # aggregate row: dev_id None, handle None, kc = max(dev kcs) = alice's → dim_star.
         agg_a = by[("pkg/a.py", None, None)]
-        assert agg_a.kc == pytest.approx(0.35 * f_a, abs=1e-3)
-        assert agg_a.mastery == "black_hole"
+        assert agg_a.kc == pytest.approx(0.7 * f_a, abs=1e-3)
+        assert agg_a.mastery == "dim_star"
 
         # lonely.py has no blame → unexplored aggregate, no dev rows.
         agg_lonely = by[("pkg/lonely.py", None, None)]
