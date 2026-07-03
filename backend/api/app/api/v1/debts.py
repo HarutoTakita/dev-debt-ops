@@ -94,9 +94,10 @@ async def list_project_debts(
     session: SASessionDep,
     kind: Annotated[list[str] | None, Query()] = None,
     severity: Annotated[list[str] | None, Query()] = None,
+    priority: Annotated[list[str] | None, Query()] = None,
     debt_status: Annotated[list[str] | None, Query(alias="status")] = None,
     agent: Annotated[list[str] | None, Query()] = None,
-    sort_key: Annotated[str, Query()] = "severity",
+    sort_key: Annotated[str, Query()] = "priority",
     sort_dir: Annotated[str, Query()] = "desc",
 ) -> DebtListOut:
     """Return the latest code + knowledge debts with filter/sort applied (``debtListSchema``)."""
@@ -112,6 +113,7 @@ async def list_project_debts(
         project,
         kinds=kinds,
         severities=severity,
+        priorities=priority,
         statuses=debt_status,
         sort_key=sort_key,
         sort_dir=sort_dir,

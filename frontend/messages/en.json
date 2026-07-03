@@ -641,5 +641,8 @@
   "admin_summary_quizzes": "Quizzes done",
   "admin_summary_prs": "PRs created",
   "admin_summary_issues": "Issues created",
-  "admin_demo_readonly": "Read-only in demo"
+  "admin_demo_readonly": "Read-only in demo",
+  "filter_facet_priority": "Priority",
+  "sort_priority": "Priority",
+  "debt_meta_priority": "Priority"
 }

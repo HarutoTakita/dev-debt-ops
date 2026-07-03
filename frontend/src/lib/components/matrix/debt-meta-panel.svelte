@@ -4,7 +4,8 @@
   import { formatKc, formatKcPct } from "$lib/format/kc";
   import DeveloperAvatar from "./developer-avatar.svelte";
   import DeveloperKey from "./developer-key.svelte";
-  import { categoryLabel, kindLabel, severityLabel } from "./labels";
+  import { categoryLabel, kindLabel } from "./labels";
+  import { derivePriority, priorityLabel } from "./priority";
 
   // 要 Tooltip.Provider 祖先（呼び出し側ページで包む）。showKc=false で理解度(KC)行を省く
   // （コード品質の文脈では不要 — issue 210）。
@@ -12,7 +13,10 @@
   const { debt, showKc = true }: Props = $props();
 
   const rows = $derived([
-    { label: m.debt_meta_severity(), value: severityLabel(debt.severity) },
+    {
+      label: m.debt_meta_priority(),
+      value: priorityLabel(derivePriority(debt.code_debt_score, 1 - debt.knowledge_coverage)),
+    },
     { label: m.debt_meta_kind(), value: `${kindLabel(debt.kind)} · ${categoryLabel(debt)}` },
     { label: m.debt_meta_cost(), value: m.list_estimated({ hours: debt.estimated_repay_hours }) },
     ...(showKc ? [{ label: m.debt_meta_kc(), value: formatKcPct(debt.knowledge_coverage) }] : []),

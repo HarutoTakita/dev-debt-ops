@@ -8,12 +8,12 @@
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import * as m from "$lib/paraglide/messages";
 
-  // ソートキー（深刻度 / 検出日 / 推定返済コスト）+ 昇降順トグル。
+  // ソートキー（優先度 / 検出日 / 推定返済コスト）+ 昇降順トグル。
   type Props = { sort: DebtSort; onsort: (s: DebtSort) => void };
   const { sort, onsort }: Props = $props();
 
   const KEYS: { key: DebtSort["key"]; label: () => string }[] = [
-    { key: "severity", label: m.sort_severity },
+    { key: "priority", label: m.sort_priority },
     { key: "detected_at", label: m.sort_detected_at },
     { key: "estimated_repay_hours", label: m.sort_cost },
   ];

@@ -9,25 +9,25 @@
   import { recentSearches } from "$lib/stores/recent-searches.svelte";
   import * as m from "$lib/paraglide/messages";
 
-  // GitLab filtered_search_bar_root.vue の写像。深刻度/ステータスをトークン（scope:value ピル）で
+  // GitLab filtered_search_bar_root.vue の写像。優先度/ステータスをトークン（scope:value ピル）で
   // 多選択フィルタし、最近の検索を localStorage（recent-searches ストア）から復元する。
   // コード品質マップは技術負債のみのページのため「種別」ファセットは持たない。
   type Props = { filter: DebtFilter; onfilter: (f: DebtFilter) => void };
   const { filter, onfilter }: Props = $props();
 
-  type FacetKey = "severity" | "status";
+  type FacetKey = "priority" | "status";
   type FacetValue = { value: string; label: () => string };
   type Facet = { key: FacetKey; label: () => string; values: FacetValue[] };
 
   const FACETS: Facet[] = [
     {
-      key: "severity",
-      label: m.filter_facet_severity,
+      key: "priority",
+      label: m.filter_facet_priority,
       values: [
-        { value: "critical", label: m.severity_critical },
-        { value: "high", label: m.severity_high },
-        { value: "medium", label: m.severity_medium },
-        { value: "low", label: m.severity_low },
+        { value: "P0", label: m.priority_p0 },
+        { value: "P1", label: m.priority_p1 },
+        { value: "P2", label: m.priority_p2 },
+        { value: "P3", label: m.priority_p3 },
       ],
     },
     {

@@ -1,10 +1,9 @@
 import type { DebtFilter } from "$lib/api/client";
-import type { Severity } from "$lib/api/schemas";
 import type { PageLoad } from "./$types";
 
 export const ssr = false;
 
-// Overview マトリクスのセル/象限クリック → /[org]/matrix?cell=...&kind=...&severity=... の入口。
+// Overview マトリクスのセル/象限クリック → /[org]/matrix?cell=...&kind=...&priority=... の入口。
 // クエリからフィルタ初期値を組み立てる。
 function parseFilter(url: URL): DebtFilter {
   const list = (key: string): string[] | undefined => {
@@ -14,8 +13,8 @@ function parseFilter(url: URL): DebtFilter {
   const filter: DebtFilter = {};
   const kind = list("kind");
   if (kind) filter.kind = kind as ("code" | "knowledge")[];
-  const severity = list("severity");
-  if (severity) filter.severity = severity as Severity[];
+  const priority = list("priority");
+  if (priority) filter.priority = priority as ("P0" | "P1" | "P2" | "P3")[];
   const agent = list("agent");
   if (agent) filter.agent = agent;
   const status = list("status");

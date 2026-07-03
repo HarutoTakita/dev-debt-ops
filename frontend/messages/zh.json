@@ -641,5 +641,8 @@
   "admin_summary_quizzes": "完成测验",
   "admin_summary_prs": "创建的 PR",
   "admin_summary_issues": "创建的 Issue",
-  "admin_demo_readonly": "演示模式下只读"
+  "admin_demo_readonly": "演示模式下只读",
+  "filter_facet_priority": "优先级",
+  "sort_priority": "优先级",
+  "debt_meta_priority": "优先级"
 }

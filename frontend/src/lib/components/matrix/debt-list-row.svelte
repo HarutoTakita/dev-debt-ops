@@ -7,7 +7,7 @@
   import KcGauge from "./kc-gauge.svelte";
   import DeveloperAvatar from "./developer-avatar.svelte";
   import DeveloperKey from "./developer-key.svelte";
-  import { categoryLabel, severityLabel } from "./labels";
+  import { categoryLabel } from "./labels";
 
   // dataTour: 先頭行だけ付与し、オンボーディングガイドのハイライト＆詳細への reveal 遷移対象にする。
   type Props = { orgSlug: string; projectSlug: string; debt: DebtItem; dataTour?: string };
@@ -43,8 +43,6 @@
     {/if}
     <span class="ml-auto flex items-center gap-1.5 text-muted-foreground">
       <span>{categoryLabel(debt)}</span>
-      <span aria-hidden="true">·</span>
-      <span>{severityLabel(debt.severity)}</span>
     </span>
   </div>
 </a>
