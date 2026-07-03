@@ -15,6 +15,7 @@ from shared.models.job import Job
 from shared.models.knowledge_debt import KnowledgeDebt
 from shared.models.learning_plan import LearningPlan, LearningResource, LearningStep
 from shared.models.quiz_answer import QuizAnswer
+from shared.models.quiz_question_flag import QuizQuestionFlag
 from shared.models.quiz_result import QuizResult
 from shared.models.quiz_session import QuizSession
 from shared.models.repo_file import RepoFile
@@ -38,6 +39,7 @@ __all__ = [
     "LearningResource",
     "LearningStep",
     "QuizAnswer",
+    "QuizQuestionFlag",
     "QuizResult",
     "QuizSession",
     "RepoFile",

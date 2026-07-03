@@ -28,6 +28,7 @@ from app.schemas.quiz import (
     QuizListItemOut,
     QuizListOut,
     QuizResultOut,
+    QuizReviewItemOut,
     QuizSessionOut,
     SaveAnswerIn,
 )
@@ -35,7 +36,15 @@ from app.services.dependencies import get_blob_client, get_task_dispatcher
 from app.services.job_orchestrator import enqueue_job
 from app.services.project import ProjectServiceDep
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Feature, FeatureFile, QuizAnswer, QuizResult, QuizSession
+from shared.models import (
+    AnalysisRun,
+    Feature,
+    FeatureFile,
+    QuizAnswer,
+    QuizQuestionFlag,
+    QuizResult,
+    QuizSession,
+)
 from shared.queue import BlobClient, TaskDispatcher
 
 router = APIRouter(tags=["quizzes"])
@@ -64,6 +73,59 @@ def _normalize_questions(questions: list) -> list[dict]:
             q["code_snippet"] = _clean_snippet(q.get("code_snippet"))
             out.append(q)
     return out
+
+
+def _labels_for(value: object, id_to_label: dict[str, str]) -> str:
+    """Map a stored answer value (choice id, or comma-separated ids / list) to human labels."""
+    if value is None:
+        return ""
+    ids = [str(v).strip() for v in value] if isinstance(value, list) else [p.strip() for p in str(value).split(",")]
+    return "、".join(id_to_label.get(i, i) for i in ids if i)
+
+
+def _build_review(
+    questions: list, answer_key: dict, answers: list[QuizAnswer], flagged_qids: set[str]
+) -> list[QuizReviewItemOut]:
+    """Build per-question review rows (#4): your answer vs correct answer + correctness + flag."""
+    given = {a.question_id: a for a in answers}
+    review: list[QuizReviewItemOut] = []
+    for q in questions:
+        if not isinstance(q, dict):
+            continue
+        qid = str(q.get("id"))
+        key = answer_key.get(q.get("id")) or answer_key.get(qid)
+        if not isinstance(key, dict) or key.get("answer") is None:
+            continue
+        id_to_label = {str(c.get("id")): str(c.get("label", c.get("id"))) for c in (q.get("choices") or [])}
+        ans = given.get(qid)
+        review.append(
+            QuizReviewItemOut(
+                question_id=qid,
+                prompt=str(q.get("prompt") or qid),
+                your_answer=_labels_for(ans.value if ans is not None else None, id_to_label),
+                correct_answer=_labels_for(key.get("answer"), id_to_label),
+                is_correct=bool(ans.is_correct) if ans is not None else False,
+                flagged=qid in flagged_qids,
+            )
+        )
+    return review
+
+
+async def _flagged_qids(db: AsyncSession, *, session_id: uuid.UUID, developer_id: uuid.UUID) -> set[str]:
+    """Return the question ids this developer flagged within a session (#6)."""
+    rows = (
+        (
+            await db.execute(
+                select(col(QuizQuestionFlag.question_id)).where(
+                    col(QuizQuestionFlag.session_id) == session_id,
+                    col(QuizQuestionFlag.developer_id) == developer_id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return set(rows)
 
 
 async def _owned_session(db: AsyncSession, *, session_id: uuid.UUID, project_id: uuid.UUID, user: User) -> QuizSession:
@@ -402,12 +464,17 @@ async def get_quiz_result(
     """Return the graded result for a session (404 until grading completes)."""
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
-    await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
+    qs = await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
     result = (
         await session.execute(select(QuizResult).where(col(QuizResult.session_id) == session_id))
     ).scalar_one_or_none()
     if result is None:
         raise HTTPException(status_code=404, detail="まだ採点が完了していません")
+    answers = (
+        (await session.execute(select(QuizAnswer).where(col(QuizAnswer.session_id) == session_id))).scalars().all()
+    )
+    flagged = await _flagged_qids(session, session_id=session_id, developer_id=current_user.id)
+    review = _build_review(qs.questions, qs.answer_key, list(answers), flagged)
     return QuizResultOut(
         session_id=str(result.session_id),
         understood=list(result.understood),
@@ -415,4 +482,5 @@ async def get_quiz_result(
         kc_before=result.kc_before,
         kc_after=result.kc_after,
         learning_plan_id=str(result.learning_plan_id) if result.learning_plan_id else None,
+        review=review,
     )

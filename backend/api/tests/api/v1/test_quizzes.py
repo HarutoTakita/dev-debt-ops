@@ -15,7 +15,7 @@ from app.main import app
 from app.models.project import Project
 from app.services.dependencies import get_task_dispatcher, reset_blob_client, reset_task_dispatcher
 from shared.enums import JobType
-from shared.models import QuizResult, QuizSession
+from shared.models import QuizAnswer, QuizResult, QuizSession
 
 
 @pytest.fixture(autouse=True)
@@ -135,6 +135,54 @@ async def test_result_404_until_graded(authenticated_client: AsyncClient) -> Non
     res = await authenticated_client.get(base)
     assert res.status_code == 200
     assert res.json()["kc_after"] == 0.6
+
+
+async def test_result_includes_per_question_review(authenticated_client: AsyncClient) -> None:
+    """#4 誤答チェック: result exposes each question's your-answer vs correct-answer + correctness."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=user_id,
+            file_path="src/a.py",
+            repo_full_name="acme/rosetta",
+            status="completed",
+            questions=[
+                {
+                    "id": "q1",
+                    "kind": "multiple_choice",
+                    "prompt": "Q1?",
+                    "choices": [{"id": "a", "label": "Alpha"}, {"id": "b", "label": "Beta"}],
+                },
+                {
+                    "id": "q2",
+                    "kind": "multiple_choice",
+                    "prompt": "Q2?",
+                    "choices": [{"id": "a", "label": "Yes"}, {"id": "b", "label": "No"}],
+                },
+            ],
+            answer_key={"q1": {"answer": "a"}, "q2": {"answer": "b"}},
+        )
+        session.add(qs)
+        await session.flush()
+        sid = qs.id
+        session.add_all(
+            [
+                QuizAnswer(session_id=sid, question_id="q1", value="a", is_correct=True),
+                QuizAnswer(session_id=sid, question_id="q2", value="a", is_correct=False),
+            ]
+        )
+        session.add(QuizResult(session_id=sid, understood=[], gap_concepts=[], kc_before=0.1, kc_after=0.5))
+        await session.commit()
+
+    body = (
+        await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/result")
+    ).json()
+    review = {r["question_id"]: r for r in body["review"]}
+    assert review["q1"]["is_correct"] is True
+    assert review["q2"]["is_correct"] is False
+    assert review["q2"]["your_answer"] == "Yes"  # value "a" → label
+    assert review["q2"]["correct_answer"] == "No"  # answer "b" → label
 
 
 async def test_other_users_session_is_403(authenticated_client: AsyncClient) -> None:

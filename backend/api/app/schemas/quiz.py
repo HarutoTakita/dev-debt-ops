@@ -38,6 +38,17 @@ class QuizSessionOut(BaseModel):
     score: float | None
 
 
+class QuizReviewItemOut(BaseModel):
+    """One question's post-grade review row (#4 誤答チェック). Correct answer is exposed post-completion."""
+
+    question_id: str
+    prompt: str
+    your_answer: str  # 選んだ選択肢ラベル（複数は「, 」区切り）。未回答は空文字。
+    correct_answer: str  # 正答ラベル（複数は「, 」区切り）。
+    is_correct: bool
+    flagged: bool = False  # このユーザーがこの設問にフラグを付けているか（#6）
+
+
 class QuizResultOut(BaseModel):
     """A graded result (``quizResultSchema``)."""
 
@@ -47,6 +58,7 @@ class QuizResultOut(BaseModel):
     kc_before: float
     kc_after: float
     learning_plan_id: str | None
+    review: list[QuizReviewItemOut] = []  # 全設問の正誤レビュー（#4）
 
 
 class QuizListItemOut(BaseModel):

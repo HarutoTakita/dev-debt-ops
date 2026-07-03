@@ -190,6 +190,10 @@ async def test_grading_offline_partial_score(session_maker: async_sessionmaker) 
     async with session_maker() as session:
         qr = (await session.execute(select(QuizResult).where(QuizResult.session_id == sid))).scalar_one()
         assert [c["id"] for c in qr.gap_concepts] == ["q2"]
+        # #4/#6: per-question correctness is persisted onto the answers.
+        answers = (await session.execute(select(QuizAnswer).where(QuizAnswer.session_id == sid))).scalars().all()
+        by_qid = {a.question_id: a.is_correct for a in answers}
+        assert by_qid == {"q1": True, "q2": False}
 
 
 async def test_grading_idempotent_when_completed(session_maker: async_sessionmaker) -> None:
