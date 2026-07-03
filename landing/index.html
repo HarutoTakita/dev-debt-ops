@@ -161,10 +161,12 @@
         display: flex;
         align-items: center;
         gap: 0.7rem;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 13, 26, 0.5);
         border-radius: 0.75rem;
         padding: 0.8rem 0.9rem;
+        /* 日本語を文節境界で折り返す（対応ブラウザ）。未対応時は通常の禁則折り返しにフォールバック。 */
+        word-break: auto-phrase;
       }
       /* ステップ間の矢印（処理の流れ）。1 行に並ぶ lg でのみ表示する。 */
       .step-arrow {
