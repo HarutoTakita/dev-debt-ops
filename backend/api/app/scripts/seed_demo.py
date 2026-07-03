@@ -1831,61 +1831,57 @@ def _feature_plan(feature_key: str, feature_name: str, member_files: list[str]) 
 
 
 # Hand-written, line-anchored walkthroughs for the code-理解 resources referenced by learning plans.
-# Each list of steps explains the ACTUAL seeded snippet (identifiers, line ranges, the concrete risk and
-# how to fix it) at a senior-review level, so the demo reads like a real code review rather than a
-# templated summary. Line numbers match the corresponding ``_DEMO_SNIPPETS`` entry. Files without an
-# entry fall back to the generic two-part split in ``_walkthrough_for``.
+# 学習プランの解説は「レビュー（何が問題か・どう直すか）」ではなく、実装されている内容が **どんな仕組み・
+# どんな意図で・どんな処理を** しているのかを解説する役割。各 step は実際のスニペット（識別子・行範囲）に沿って
+# 挙動と目的を説明する。行番号は対応する ``_DEMO_SNIPPETS`` に一致。未登録ファイルは ``_walkthrough_for`` の
+# 汎用 2 分割にフォールバックする。
 _WALKTHROUGHS: dict[str, list[dict]] = {
     "src/checkout/payment.py": [
         {
             "start_line": 1,
             "end_line": 3,
-            "title": "入口と多重ガード",
+            "title": "決済確定の入口と前提条件",
             "explanation": (
-                "confirm_payment は注文・ユーザーと、キーワード専用の retries を受け取る。2〜3 行目で "
-                "order.total > 0 と user.is_active を入れ子の if で確認しており、ここからガード条件がネスト"
-                "し始める。ガードを増やすたびに 1 段深くなる構造が、この関数の循環的複雑度が 31 まで跳ね上がる"
-                "主因。early-return（ガード節）に直すだけで見通しは大きく良くなる。"
+                "confirm_payment は注文とユーザーを受け取り、決済を確定する関数です。2〜3 行目ではまず "
+                "『金額が正であること（order.total > 0）』『ユーザーが有効であること（user.is_active）』を確認し、"
+                "この前提を満たしたときだけ後続の処理に進みます。無効な決済を最初に取り除くための入口チェックです。"
             ),
         },
         {
             "start_line": 4,
             "end_line": 5,
-            "title": "在庫引当 → 課金の順序",
+            "title": "在庫の確保 → 課金",
             "explanation": (
-                "4 行目 reserve_stock で在庫を確保してから 5 行目 charge で課金する。『在庫を押さえてから請求"
-                "する』という順序自体は正しい。ただし各ステップの成否をさらに入れ子の if で分岐するため、成功"
-                "パスと失敗パスが同じ深いブロックの中で絡み合い、どの条件でどこへ抜けるのかを追いにくい。"
+                "4 行目 reserve_stock で購入分の在庫を先に確保し、5 行目 charge でユーザーのカードに課金します。"
+                "『在庫を押さえてから請求する』というこの順序が決済フローの基本で、支払ったのに在庫が無いという"
+                "事態を防ぎます。"
             ),
         },
         {
             "start_line": 6,
             "end_line": 8,
-            "title": "確定失敗時の補償（ロールバック）",
+            "title": "注文の確定と失敗時の巻き戻し",
             "explanation": (
-                "6 行目 mark_paid（注文確定）が失敗すると、7 行目 rollback_charge で課金を取り消し 8 行目で "
-                "False を返す。課金済みなのに確定できない不整合を補償する最重要の分岐。ただしここでは在庫の解放"
-                "を行っておらず、確定失敗時に在庫が確保されたまま取り残される抜けがある。"
+                "課金に成功したら 6 行目 mark_paid で注文を『支払い済み』に確定します。もし確定に失敗した場合は "
+                "7 行目 rollback_charge で先ほどの課金を取り消し、8 行目で False を返します。課金の実態と注文の"
+                "状態を食い違わせないための後始末（補償）処理です。"
             ),
         },
         {
             "start_line": 9,
             "end_line": 10,
-            "title": "課金失敗時の在庫解放",
+            "title": "課金できなかった場合の在庫解放",
             "explanation": (
-                "9〜10 行目の else は charge が失敗した場合で、release_stock で確保済み在庫を戻す。補償処理が"
-                "『charge 失敗』と『mark_paid 失敗』の 2 箇所に分散しているため、どちらがどの後始末をするのかが"
-                "読み手に伝わりづらい。補償は 1 か所（例: try/except or finally）へ集約したい。"
+                "5 行目の課金が失敗したときは 9〜10 行目の else に入り、release_stock で先に確保した在庫を戻します。"
+                "支払われないまま在庫だけが押さえられた状態を残さないようにする処理です。"
             ),
         },
         {
             "start_line": 11,
             "end_line": 11,
-            "title": "既定の戻り値に潜む落とし穴",
+            "title": "処理の完了を返す",
             "explanation": (
-                "最後は無条件で True を返す。このため total<=0 や非アクティブユーザーでガードに弾かれ、何も課金"
-                "していないケースでも True（成功）を返してしまう。呼び出し側は成功と誤認し得る。状態ごとに明示的"
-                "な戻り値（または例外）を返し、冪等キーで再送を安全にするのが正攻法。"
+                "一連の処理を終えると 11 行目で True を返し、呼び出し側に決済フローが完了したことを伝えます。"
             ),
         },
     ],
@@ -1893,39 +1889,37 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
         {
             "start_line": 1,
             "end_line": 1,
-            "title": "引当のエントリポイント",
+            "title": "在庫引当の入口",
             "explanation": (
-                "allocate_inventory はカート内の各明細を走査して在庫を引き当てる。カート全体を 1 つの処理で回す"
-                "ため、途中で例外が出たときに『どこまで確保したか』が曖昧になりやすい構造を最初に押さえておく。"
+                "allocate_inventory は、カートに入った各商品について在庫を引き当てる処理です。注文を確定する前に、"
+                "購入したい数量ぶんの在庫を確保しておく役割を担います。"
             ),
         },
         {
             "start_line": 2,
             "end_line": 4,
-            "title": "数量ガード",
+            "title": "対象明細の絞り込み",
             "explanation": (
-                "2〜4 行目で明細をループし、qty<=0 の明細は continue でスキップする。無効数量を弾く定石だが、"
-                "この後の在庫状態チェックと合わさってネストが深くなり、複雑度 18 を押し上げている。"
+                "2〜4 行目でカート内の明細を 1 件ずつ処理します。数量が 0 以下の明細は continue でスキップし、"
+                "実際に在庫確保が必要な明細だけを対象にします。"
             ),
         },
         {
             "start_line": 5,
             "end_line": 6,
-            "title": "在庫状態による分岐",
+            "title": "在庫状況の判定",
             "explanation": (
-                "5 行目で『予約済み(RESERVED) かつ backorder 不可』を判定し 6 行目で OutOfStock を送出する。"
-                "2 つ以上の条件が組み合わさっており、backorder_allowed の意味を知らないと分岐の意図が読み取れない。"
-                "条件に名前を付けて（例: needs_immediate_stock）意図を明示すると良い。"
+                "5 行目で『すでに予約済み(RESERVED) で、かつ取り寄せ(backorder) も許可されていない』商品かどうかを"
+                "判定します。該当する場合は 6 行目で OutOfStock を送出し、在庫切れであることを呼び出し側に知らせます。"
             ),
         },
         {
             "start_line": 7,
             "end_line": 7,
-            "title": "引当の実行と部分確保のリーク",
+            "title": "在庫の確保",
             "explanation": (
-                "7 行目 reserve(item) で実際に確保する。ただし後続の明細で OutOfStock を投げると、それ以前に "
-                "reserve 済みの明細が解放されないまま関数を抜ける（部分引当のリーク）。全明細を 1 つのトランザク"
-                "ション境界にまとめ、いずれか失敗したら一括ロールバックする設計が必要。"
+                "条件を満たした明細について、7 行目 reserve で在庫を確保します。ここまでで、カート内の購入可能な"
+                "商品ぶんの在庫が押さえられます。"
             ),
         },
     ],
@@ -1933,21 +1927,20 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
         {
             "start_line": 1,
             "end_line": 3,
-            "title": "セッション検証の本体",
+            "title": "セッションの検証",
             "explanation": (
-                "validate_session は token を decode してクレームを取り出し、3 行目で expired でなければその"
-                "クレームを、期限切れなら None を返す。呼び出し側は None を見て再認証へ誘導する契約。ここで"
-                "重要なのは『期限切れを黙って通さない』こと。expired の判定は信頼できる時刻源で行う。"
+                "validate_session は受け取ったトークンを decode し、利用者情報や有効期限を含むクレームを取り出します。"
+                "3 行目で有効期限が切れていなければそのクレームを返し、期限切れなら None を返します。呼び出し側は "
+                "None を見てログイン済みかどうかを判断し、必要なら再ログインへ誘導します。"
             ),
         },
         {
             "start_line": 4,
             "end_line": 6,
-            "title": "未使用の旧クッキー検証（dead code）",
+            "title": "旧方式のクッキー検証（補助関数）",
             "explanation": (
-                "5〜6 行目の _legacy_cookie_check は旧 sid_v1 クッキーを読むが、どこからも呼ばれていない到達不能"
-                "コード。残すと『まだ使われている』と誤解され、変更・削除の判断を鈍らせる（＝理解負債の温床）。"
-                "参照検索で未使用を確認したうえで安全に削除するのが望ましい。"
+                "_legacy_cookie_check は、以前 sid_v1 クッキーでセッションを判定していた頃の補助関数です。現在の"
+                "検証経路とは別に、過去の実装の名残としてコード上に残っています。"
             ),
         },
     ],
@@ -1955,30 +1948,27 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
         {
             "start_line": 1,
             "end_line": 2,
-            "title": "フィルタ生成の入口",
+            "title": "検索フィルタ生成の入口",
             "explanation": (
-                "buildFilters はクエリ q から Filter 配列を組み立てて返す。空配列 f に条件を push していく素直な"
-                "作りで、ここまでは読みやすい。"
+                "buildFilters は検索クエリ q を受け取り、検索エンジンに渡す Filter の配列を組み立てて返します。"
+                "ユーザーが指定した絞り込み条件を、API が扱える形式に変換する役割です。"
             ),
         },
         {
             "start_line": 3,
             "end_line": 6,
-            "title": "重複したフィルタ組み立て",
+            "title": "条件ごとのフィルタ追加",
             "explanation": (
-                "3〜6 行目は category / minPrice / maxPrice / brand を、それぞれ if で判定して push する『ほぼ"
-                "同一形』のブロックが 4 回並ぶ。条件を 1 つ足すたびにこのパターンをコピーする必要があり、片方"
-                "だけ直して他を直し忘れる修正漏れの温床になる。"
+                "3〜6 行目で、カテゴリ・最低価格・最高価格・ブランドの各条件について『指定があれば対応するフィルタを"
+                "配列に追加する』処理を並べています。ユーザーが指定した条件だけが検索に反映される仕組みです。"
             ),
         },
         {
             "start_line": 7,
             "end_line": 8,
-            "title": "共通化の余地",
+            "title": "組み立て結果の返却",
             "explanation": (
-                "7 行目のコメントどおり、同じ組み立てがリポジトリ内 4 箇所に重複している。フィールド名・演算子・"
-                "値の対応表（例: [{key:'category', op:'eq'}, ...]）を用意して map で回す形へ共通化すれば、条件"
-                "追加が 1 行で済み重複も消える。テストも 1 か所で担保できる。"
+                "組み上がったフィルタ配列を返します。呼び出し側はこれを検索クエリに渡し、条件に合う商品を絞り込みます。"
             ),
         },
     ],
@@ -1986,30 +1976,28 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
         {
             "start_line": 1,
             "end_line": 2,
-            "title": "現在庫の読み取り",
+            "title": "現在庫の参照",
             "explanation": (
-                "reserve は SKU と数量を受け取り、2 行目で在庫辞書 STOCK から現在の在庫レベルを読む（未登録は 0）。"
-                "この『読み取り』が後続の『更新』と別ステップに分かれている点が、以降で問題になる。"
+                "reserve は SKU（商品識別子）と数量を受け取って在庫を引き当てる処理です。まず 2 行目で在庫テーブル "
+                "STOCK から現在の在庫数を取得します（未登録の商品は 0 として扱います）。"
             ),
         },
         {
             "start_line": 3,
             "end_line": 4,
-            "title": "在庫チェック",
+            "title": "在庫の確認",
             "explanation": (
-                "3〜4 行目で要求数量が在庫を上回れば OutOfStock を送出する。単体のロジックとしては正しいが、"
-                "この判定（read）と後続の減算（write）の間に隙間があることが競合の入り口になる。"
+                "3〜4 行目で、要求された数量が現在庫を上回っていないかを確認します。足りない場合は OutOfStock を"
+                "送出して、在庫切れであることを呼び出し側に知らせます。"
             ),
         },
         {
             "start_line": 5,
             "end_line": 6,
-            "title": "非アトミックな引当（レースの核心）",
+            "title": "引当の確定",
             "explanation": (
-                "5 行目で在庫を減算し 6 行目で Reservation を返す。read（2 行目）と write（5 行目）の間に他の"
-                "リクエストが割り込むと、同じ在庫を二重に引き当てて在庫がマイナスになる競合（レースコンディション）"
-                "が起きる。トランザクション＋行ロック、または DB の原子的な条件付き更新"
-                "（UPDATE stock SET qty = qty - :n WHERE sku = :sku AND qty >= :n）で守る必要がある。"
+                "在庫が足りていれば、5 行目で在庫数を要求ぶんだけ減らし、6 行目で確保済みを表す Reservation を"
+                "返します。これで購入分の在庫が押さえられます。"
             ),
         },
     ],
@@ -2017,59 +2005,54 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
         {
             "start_line": 1,
             "end_line": 2,
-            "title": "更新対象の読み込み",
+            "title": "更新対象の取得",
             "explanation": (
-                "update_profile は user_id と patch（更新内容）を受け取り、2 行目で対象ユーザーを読み込む。"
-                "ここまでは普通の更新処理。問題は次の一括代入にある。"
+                "update_profile はユーザー ID と更新内容 patch を受け取り、2 行目で対象のユーザーを読み込みます。"
+                "プロフィール編集画面からの変更を反映するための処理です。"
             ),
         },
         {
             "start_line": 3,
             "end_line": 4,
-            "title": "無検証の一括代入（mass assignment）",
+            "title": "変更内容の反映",
             "explanation": (
-                "3〜4 行目で patch の全キーをそのまま setattr している。patch に is_admin や email_verified など"
-                "本来クライアントに更新させたくない属性が混じっていても上書きできてしまう、典型的な mass "
-                "assignment 脆弱性。更新可能フィールドのホワイトリスト化と入力バリデーションが必須。"
+                "3〜4 行目で、patch に含まれる各項目を対応するユーザー属性へ順番に設定していきます。送られてきた"
+                "変更内容を、ユーザーオブジェクトへ書き写す処理です。"
             ),
         },
         {
             "start_line": 5,
             "end_line": 5,
-            "title": "永続化と欠けている認可",
-            "explanation": (
-                "5 行目で保存する。ここへ来る前に『誰が・どのフィールドを』更新してよいかの認可チェックも要る"
-                "が、現状は本人性・権限の確認がない。認可 → 検証 → ホワイトリスト適用 → 保存の順に整える。"
-            ),
+            "title": "保存",
+            "explanation": ("すべての変更を反映したユーザーを 5 行目で保存し、更新内容を永続化します。"),
         },
     ],
     "src/shipping/shipping.py": [
         {
             "start_line": 1,
             "end_line": 2,
-            "title": "配送キャリアの選定",
+            "title": "配送業者の選定",
             "explanation": (
-                "create_shipment は注文の地域に応じてキャリアを選ぶ（2 行目 pick_carrier）。ここは純粋な選定"
-                "ロジックで副作用はない。"
+                "create_shipment は注文をもとに出荷を作成する処理です。2 行目で、注文の配送先地域に応じて適切な"
+                "配送業者（キャリア）を選びます。"
             ),
         },
         {
             "start_line": 3,
             "end_line": 3,
-            "title": "外部連携（失敗前提が抜けている）",
+            "title": "配送ラベルの発行",
             "explanation": (
-                "3 行目 carrier.create_label は外部 API 呼び出しであり、失敗・タイムアウトが前提。にもかかわらず"
-                "リトライも補償もなく、例外が出れば注文だけ進んで出荷ラベルが無い不整合になり得る。外部境界は"
-                "つねに『落ちる』前提で設計する。"
+                "3 行目で、選んだキャリアの API を呼び出して配送ラベルを発行します。ここで外部の配送業者システムと"
+                "連携します。"
             ),
         },
         {
             "start_line": 4,
             "end_line": 5,
-            "title": "結果の反映と冪等性",
+            "title": "追跡番号の記録",
             "explanation": (
-                "4〜5 行目で tracking 番号を注文に書き戻して返す。外部連携はタイムアウト設定・有限リトライ"
-                "（指数バックオフ）・冪等キー（同じ注文で二重にラベル発行しない）をセットで設計するのが定石。"
+                "発行されたラベルから追跡番号を取り出して注文に記録し（4 行目）、ラベルを返します（5 行目）。"
+                "以降、ユーザーはこの追跡番号で配送状況を確認できます。"
             ),
         },
     ],
@@ -2079,28 +2062,24 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
             "end_line": 2,
             "title": "テンプレートの取得",
             "explanation": (
-                "send_order_email は注文からテンプレート order_confirm を取り出す（2 行目）。ここは辞書参照で、"
-                "テンプレ名が固定なら安全。"
+                "send_order_email は注文確認メールを送る処理です。2 行目で『注文確認(order_confirm)』用のメール"
+                "テンプレートを取り出します。"
             ),
         },
         {
             "start_line": 3,
             "end_line": 3,
-            "title": "危険なテンプレ描画",
+            "title": "本文の生成",
             "explanation": (
-                "3 行目で order.__dict__ を丸ごと展開して format している。テンプレートが参照する変数が注文"
-                "オブジェクトに無ければ実行時 KeyError で送信そのものが失敗する。__dict__ の丸投げは意図しない"
-                "属性の露出にもつながる。必要な変数だけを明示的に渡し、描画前に存在を検証すべき。"
+                "3 行目で、注文オブジェクトの各項目をテンプレートに差し込み、メール本文を組み立てます。テンプレート"
+                "中のプレースホルダを、実際の注文内容で置き換える処理です。"
             ),
         },
         {
             "start_line": 4,
             "end_line": 4,
-            "title": "送信の信頼性",
-            "explanation": (
-                "4 行目で SMTP 送信する。通知は失敗前提でキュー投入＋リトライにし、テンプレ変数の欠落は描画前に"
-                "検出する設計が望ましい。同期送信は遅延と失敗連鎖の原因になる。"
-            ),
+            "title": "送信",
+            "explanation": ("4 行目で、組み立てた本文をユーザーのメールアドレス宛に SMTP で送信します。"),
         },
     ],
 }
@@ -2132,14 +2111,16 @@ def _walkthrough_for(source_ref: str) -> tuple[str, list[dict]]:
         {
             "start_line": 1,
             "end_line": mid,
-            "title": "前半: 入力と前提",
-            "explanation": "何を受け取り、どんな前提・分岐から処理が始まるかを読む。",
+            "title": "前半: 入力と処理の準備",
+            "explanation": "何を受け取り、どんな前提のもとで処理を始めるか（入力・初期化・前提条件）を読み解きます。",
         },
         {
             "start_line": mid + 1,
             "end_line": total,
-            "title": "後半: 中核処理と副作用",
-            "explanation": "中核処理と副作用（DB 書き込み・例外・状態遷移）の流れを追う。理解負債が集まりやすい。",
+            "title": "後半: 中核処理と結果",
+            "explanation": (
+                "中核となる処理（計算・DB への読み書き・状態の更新）と、何を結果として返すかの流れを追います。"
+            ),
         },
     ]
 
@@ -2769,7 +2750,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "2"
+DEMO_SEED_VERSION = "3"
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)
