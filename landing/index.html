@@ -128,19 +128,44 @@
           padding-top: 6rem;
         }
       }
-      /* ファーストビュー左上のブランド（ログインと同じ、背景が光るアプリアイコン＋アプリ名）。 */
-      .hero-brand-icon {
-        width: 3rem;
-        height: 3rem;
-        filter: drop-shadow(0 0 18px rgba(34, 184, 196, 0.45));
+      /* ファーストビュー左上のブランド（ログインと同じ、背景が光るアプリアイコン＋アプリ名＋サブタイトル）。 */
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
       }
-      /* 上部タブの CTA（アプリの「デモ環境」と同じアンバー）。 */
+      .hero-brand-icon {
+        width: 4.5rem;
+        height: 4.5rem;
+        flex-shrink: 0;
+        filter: drop-shadow(0 0 22px rgba(34, 184, 196, 0.5));
+      }
+      .brand-name {
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        color: #f1f5f9;
+      }
+      .brand-sub {
+        margin-top: 0.4rem;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        color: #94a3b8;
+      }
+      /* 上部タブの CTA。アプリの「デモ環境」バッジと同じアンバー配色（暗色地向け dark バリアント）。 */
       .btn-demo {
-        background-color: #e0a23a;
-        color: #0c1116;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        background-color: rgba(69, 26, 3, 0.45);
+        color: #fde68a;
       }
       .btn-demo:hover {
-        filter: brightness(1.08);
+        background-color: rgba(69, 26, 3, 0.75);
+        border-color: rgba(245, 158, 11, 0.55);
       }
     </style>
   </head>
@@ -173,12 +198,25 @@
           <a href="#infra" class="transition hover:text-white">インフラ</a>
           <a href="#security" class="transition hover:text-white">セキュリティ</a>
         </div>
-        <a
-          id="nav-cta"
-          href="/login"
-          class="btn-demo rounded-lg px-4 py-2 text-sm font-semibold shadow-lg transition"
-          >デモを体験する</a
-        >
+        <a id="nav-cta" href="/login" class="btn-demo rounded-lg px-4 py-2 text-sm font-semibold transition">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="size-4"
+            aria-hidden="true"
+          >
+            <path d="M10 2v7.31" />
+            <path d="M14 9.3V1.99" />
+            <path d="M8.5 2h7" />
+            <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+            <path d="M5.52 16h12.96" />
+          </svg>
+          デモを体験する
+        </a>
       </nav>
     </header>
 
@@ -186,8 +224,8 @@
       <div class="hero-grid">
         <!-- 左: コピー -->
         <div class="text-center lg:text-left">
-          <!-- 左上ブランド: ログインと同じ、背景が光るアプリアイコン（デュアルループ・バッジ）＋アプリ名 -->
-          <div class="mb-6 flex items-center justify-center gap-3 lg:justify-start">
+          <!-- 左上ブランド: ログインと同じ、背景が光るアプリアイコン（デュアルループ・バッジ）＋アプリ名＋サブタイトル -->
+          <div class="brand-lockup justify-center lg:justify-start">
             <svg class="hero-brand-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
               <rect width="32" height="32" rx="8" fill="#0c1116" />
               <path d="M8.21 11.5 A9 9 0 0 1 23.79 11.5" fill="none" stroke="#22b8c4" stroke-width="3.2" stroke-linecap="round" />
@@ -195,22 +233,20 @@
               <path d="M23.79 20.5 A9 9 0 0 1 8.21 20.5" fill="none" stroke="#e0a23a" stroke-width="3.2" stroke-linecap="round" />
               <path d="M6.91 18.25 L9.86 19.55 L6.56 21.45 Z" fill="#e0a23a" />
             </svg>
-            <span class="text-2xl font-bold tracking-tight">DevDebtOps</span>
+            <div class="text-left">
+              <div class="brand-name">DevDebtOps</div>
+              <p class="brand-sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
+            </div>
           </div>
-          <p
-            class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300"
-          >
-            <span class="size-1.5 rounded-full bg-know"></span>
-            コードベースの理解度を実測する開発プラットフォーム
-          </p>
-          <h1 class="text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl lg:text-6xl">
-            誰も理解していないコードを、<br class="hidden sm:block" />
-            <span class="text-know">可視化</span>して<span class="text-code">解消</span>する。
+          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-4xl">
+            クイズで<span class="text-know">理解度</span>を実測し、<span class="text-know">理解度マップ</span>で可視化。<br
+              class="hidden sm:block"
+            />
+            低品質コードは <span class="text-code">AI の修正 PR</span>・Issue で改善する。
           </h1>
           <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-slate-300 lg:mx-0">
-            GitHub リポジトリを解析し、チームの理解度を<strong class="font-semibold text-white">クイズで実測</strong>。
-            品質の低いコードは AI が<strong class="font-semibold text-white">修正 PR</strong>で改善。
-            属人化とコード品質を、ひとつのダッシュボードで管理します。
+            理解度マップ・コード品質マップ・学習プランを<strong class="font-semibold text-white">ひとつのダッシュボード</strong>に集約。
+            誰がどこを理解しているかを可視化し、<strong class="font-semibold text-white">属人化とコード品質</strong>を継続的に改善します。
           </p>
         </div>
 
