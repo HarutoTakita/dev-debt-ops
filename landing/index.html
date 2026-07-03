@@ -404,20 +404,6 @@
         background: rgba(224, 162, 58, 0.1);
         color: #eabd76;
       }
-      /* インフラ図版（白基調）を暗色 LP に馴染ませる。白カードの縁から無彩色（白→グレー→黒）の
-         グラデーションで滲ませ、境界線を消す。明るいグレーを近く、暗いグレーを遠くに多層でぼかす。 */
-      .infra-frame {
-        padding: clamp(1.75rem, 5vw, 4rem);
-      }
-      .infra-card {
-        border-radius: 1rem;
-        background: #fff;
-        box-shadow:
-          0 0 22px 4px rgba(226, 232, 240, 0.55),
-          0 0 55px 10px rgba(148, 163, 184, 0.38),
-          0 0 120px 32px rgba(100, 116, 139, 0.26),
-          0 0 200px 60px rgba(71, 85, 105, 0.16);
-      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -920,8 +906,8 @@
 
         <!-- インフラ構成図（白基調の図版。暗色 LP でも「意図した図版」として馴染むよう、
              角丸・余白・リング・ドロップシャドウで額装し、キャプションを添える）。 -->
-        <figure class="infra-frame mx-auto mt-10 max-w-5xl">
-          <div class="infra-card rounded-2xl p-3 ring-1 ring-white/10 sm:p-5">
+        <figure class="mx-auto mt-10 max-w-5xl">
+          <div class="rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-white/10 sm:p-5">
             <img
               src="assets/infra-architecture.png"
               alt="DevDebtOps のインフラ構成図 — GitHub 連携、Cloud Armor＋HTTPS ロードバランサ、api／service を分離した Cloud Run、Cloud Tasks による非同期処理、Cloud SQL・Cloud Storage、Secret Manager、Artifact Registry、Terraform、GitHub Actions（Gemini Code Review／各種スキャン）、Google ADK と各種 MCP、Gemini"
