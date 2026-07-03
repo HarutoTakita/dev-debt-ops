@@ -266,7 +266,7 @@
           gap: 0.5rem;
         }
         .flow-single {
-          flex: 0 0 12.5rem;
+          flex: 0 0 15rem;
         }
         .flow-tracks {
           flex: 1 1 auto;
@@ -481,14 +481,15 @@
 
       <!-- 下部: AI エージェントの処理フロー（分岐図）。01 で解析→ 理解負債(2-1→3-1)と技術負債(2-2→3-2)へ
            分岐し、04 でコードベースの理解度・品質向上へ合流する様子を示す。 -->
-      <p class="flow-eyebrow">AI エージェントの処理フロー</p>
       <div class="flow-diagram">
         <!-- 起点: リポジトリ解析 -->
         <div class="step flow-single">
           <span class="step-badge know">01</span>
           <div>
             <div class="step-title">リポジトリ解析</div>
-            <div class="step-desc">MCP でコードを横断探索し、機能単位に抽出</div>
+            <div class="step-desc">
+              AI エージェントが MCP を使ってコードベースを横断探索。ファイル群を機能単位にクラスタリングし、技術スタックや依存関係も把握します。
+            </div>
           </div>
         </div>
 
@@ -509,7 +510,9 @@
               <span class="step-badge know">2-1</span>
               <div>
                 <div class="step-title">クイズを生成・実測</div>
-                <div class="step-desc">機能ごとに理解度を測定（git blame 非依存）</div>
+                <div class="step-desc">
+                  機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で客観的に実測します。
+                </div>
               </div>
             </div>
             <div class="step-arrow" aria-hidden="true">
@@ -519,7 +522,9 @@
               <span class="step-badge know">3-1</span>
               <div>
                 <div class="step-title">学習プランを生成</div>
-                <div class="step-desc">弱点に合わせ、コード解説つきで自動作成</div>
+                <div class="step-desc">
+                  理解が浅い機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立てます。
+                </div>
               </div>
             </div>
           </div>
@@ -530,7 +535,9 @@
               <span class="step-badge code">2-2</span>
               <div>
                 <div class="step-title">低品質コードの検知</div>
-                <div class="step-desc">重複・複雑度・AI 生成痕跡などを解析</div>
+                <div class="step-desc">
+                  重複・複雑度・デッドコード・AI 生成痕跡などを解析し、品質が低く優先度の高いファイルを特定します。
+                </div>
               </div>
             </div>
             <div class="step-arrow" aria-hidden="true">
@@ -540,7 +547,9 @@
               <span class="step-badge code">3-2</span>
               <div>
                 <div class="step-title">コード改善を提案</div>
-                <div class="step-desc">自動修正 PR・担当者割り当て Issue を起票</div>
+                <div class="step-desc">
+                  低品質コードに対し AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応します。
+                </div>
               </div>
             </div>
           </div>
@@ -560,7 +569,9 @@
           <span class="step-badge code">04</span>
           <div>
             <div class="step-title">理解度・品質が向上</div>
-            <div class="step-desc">属人化を解消し、コードベースを継続的に改善</div>
+            <div class="step-desc">
+              「実測 → 学習」と「検知 → 改善」の両輪で属人化を解消し、コードベースの理解度とコード品質を継続的に高めます。
+            </div>
           </div>
         </div>
       </div>
