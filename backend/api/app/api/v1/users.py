@@ -2,14 +2,16 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Path, Query, status
-from sqlalchemy import func, or_
-from sqlmodel import select
+from sqlalchemy import case, func, or_
+from sqlmodel import col, select
 
 from app.api.deps import CurrentSuperuser, SessionDep
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.core.security import fastapi_users
 from app.models.user import User
-from app.schemas.user import UserCreditsGrant, UserRead, UserRoleUpdate, UserUpdate
+from app.schemas.user import UserActivityOut, UserCreditsGrant, UserRead, UserRoleUpdate, UserUpdate
+from shared.enums import JobType
+from shared.models import CodeDebt, Job, LearningPlan, LearningStep, QuizSession
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -49,6 +51,122 @@ async def list_users(
     # `User.oauth_accounts` は lazy="joined"（コレクションの joined eager load）のため、
     # 重複行を畳む unique() が必須（未呼び出しだと InvalidRequestError）。
     return list(result.unique().all())
+
+
+@router.get(
+    "/activity",
+    response_model=list[UserActivityOut],
+    summary="List members with operational activity",
+    response_description="Per-member activity for the admin dashboard (learning / quiz / PR / issue / last active).",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Not authenticated."},
+        status.HTTP_403_FORBIDDEN: {"description": "Caller is not a superuser."},
+    },
+)
+async def list_user_activity(
+    _admin: CurrentSuperuser,
+    session: SessionDep,
+    q: str | None = Query(
+        default=None,
+        description="Substring filter applied case-insensitively to email and display_name.",
+    ),
+    limit: int = Query(default=200, le=500, description="Maximum number of members to return (capped at 500)."),
+    offset: int = Query(default=0, ge=0, description="Number of members to skip before returning results."),
+) -> list[UserActivityOut]:
+    """Return members with their aggregated activity across all projects (superuser only).
+
+    Aggregates are computed with a handful of grouped queries (one per metric family) rather than
+    per-user loops, then joined in Python — so the response stays O(1) queries regardless of member
+    count. Metrics: learning-plan step progress, quiz completion + average score, repayment-PR and
+    GitHub-issue creation counts, and last activity.
+    """
+    # 1) Members (same filter/pagination as list_users). oauth_accounts joined-eager → unique().
+    stmt = select(User).where(User.deleted_at.is_(None))
+    if q:
+        pattern = f"%{q.lower()}%"
+        stmt = stmt.where(or_(func.lower(User.email).like(pattern), func.lower(User.display_name).like(pattern)))
+    stmt = stmt.order_by(User.created_at.desc()).offset(offset).limit(limit)
+    users = list((await session.exec(stmt)).unique().all())
+    ids = [u.id for u in users]
+    if not ids:
+        return []
+
+    # 2) Learning: plan count + step totals/completed, grouped by owner (developer_id = users.id).
+    plans_q = (
+        select(LearningPlan.developer_id, func.count(col(LearningPlan.id)))
+        .where(col(LearningPlan.developer_id).in_(ids))
+        .group_by(col(LearningPlan.developer_id))
+    )
+    plans_count = {dev: int(n) for dev, n in (await session.exec(plans_q)).all()}
+
+    steps_q = (
+        select(
+            LearningPlan.developer_id,
+            func.count(col(LearningStep.id)),
+            func.coalesce(func.sum(case((col(LearningStep.completed), 1), else_=0)), 0),
+        )
+        .join(LearningStep, col(LearningStep.plan_id) == col(LearningPlan.id))
+        .where(col(LearningPlan.developer_id).in_(ids))
+        .group_by(col(LearningPlan.developer_id))
+    )
+    steps_by_user = {dev: (int(total), int(done)) for dev, total, done in (await session.exec(steps_q)).all()}
+
+    # 3) Quiz: total sessions, completed count, and average score over completed (0–1 fraction).
+    quiz_q = (
+        select(
+            QuizSession.developer_id,
+            func.count(col(QuizSession.id)),
+            func.coalesce(func.sum(case((col(QuizSession.status) == "completed", 1), else_=0)), 0),
+            func.avg(case((col(QuizSession.status) == "completed", col(QuizSession.score)))),
+        )
+        .where(col(QuizSession.developer_id).in_(ids))
+        .group_by(col(QuizSession.developer_id))
+    )
+    quiz_by_user = {
+        dev: (int(total), int(done), float(avg) if avg is not None else None)
+        for dev, total, done, avg in (await session.exec(quiz_q)).all()
+    }
+
+    # 4) Code-quality engagement: repayment-PR jobs + issues created, attributed to the acting user.
+    pr_q = (
+        select(Job.created_by, func.count(col(Job.id)))
+        .where(col(Job.job_type) == JobType.REPAYMENT_PR_GENERATION, col(Job.created_by).in_(ids))
+        .group_by(col(Job.created_by))
+    )
+    pr_count = {dev: int(n) for dev, n in (await session.exec(pr_q)).all()}
+
+    issue_q = (
+        select(CodeDebt.related_issue_by, func.count(col(CodeDebt.id)))
+        .where(col(CodeDebt.related_issue_by).in_(ids))
+        .group_by(col(CodeDebt.related_issue_by))
+    )
+    issue_count = {dev: int(n) for dev, n in (await session.exec(issue_q)).all()}
+
+    out: list[UserActivityOut] = []
+    for u in users:
+        steps_total, steps_done = steps_by_user.get(u.id, (0, 0))
+        quiz_total, quiz_done, quiz_avg = quiz_by_user.get(u.id, (0, 0, None))
+        out.append(
+            UserActivityOut(
+                id=u.id,
+                email=u.email,
+                display_name=u.display_name,
+                is_superuser=u.is_superuser,
+                is_demo=u.is_demo,
+                last_active_at=u.last_active_at,
+                created_at=u.created_at,
+                analysis_credits=u.analysis_credits,
+                learning_plans_count=plans_count.get(u.id, 0),
+                learning_steps_total=steps_total,
+                learning_steps_completed=steps_done,
+                quiz_total=quiz_total,
+                quiz_completed=quiz_done,
+                quiz_avg_score=quiz_avg,
+                pr_count=pr_count.get(u.id, 0),
+                issue_count=issue_count.get(u.id, 0),
+            )
+        )
+    return out
 
 
 @router.patch(

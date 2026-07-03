@@ -630,5 +630,15 @@
   "shortcuts_title": "Tastenkürzel",
   "shortcuts_section_general": "Allgemein",
   "shortcuts_section_nav": "Navigation",
-  "shortcuts_show_help": "Tastenkürzel anzeigen"
+  "shortcuts_show_help": "Tastenkürzel anzeigen",
+  "admin_col_last_active": "Zuletzt aktiv",
+  "admin_col_learning": "Lernen",
+  "admin_col_quiz": "Quiz",
+  "admin_col_pr": "PRs",
+  "admin_col_issue": "Issues",
+  "admin_never_active": "Nie",
+  "admin_summary_members": "Mitglieder",
+  "admin_summary_quizzes": "Erledigte Quizze",
+  "admin_summary_prs": "Erstellte PRs",
+  "admin_summary_issues": "Erstellte Issues"
 }

@@ -13,6 +13,26 @@ export const userSchema = z.object({
   analysis_credits: z.number().int().default(0),
 });
 
+// 管理ダッシュボードのメンバー活動（superuser 限定）。学習・テスト・PR/Issue・最終アクティブの集計。
+export const userActivitySchema = z.object({
+  id: z.uuid(),
+  email: z.string(),
+  display_name: z.string().nullable(),
+  is_superuser: z.boolean().default(false),
+  is_demo: z.boolean().default(false),
+  last_active_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  created_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  analysis_credits: z.number().int().default(0),
+  learning_plans_count: z.number().int().default(0),
+  learning_steps_total: z.number().int().default(0),
+  learning_steps_completed: z.number().int().default(0),
+  quiz_total: z.number().int().default(0),
+  quiz_completed: z.number().int().default(0),
+  quiz_avg_score: z.number().nullable().default(null), // 0–1 の割合（完了分の平均）
+  pr_count: z.number().int().default(0),
+  issue_count: z.number().int().default(0),
+});
+
 export const orgSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -42,6 +62,7 @@ export const orgMemberSchema = z.object({
 });
 
 export type User = z.infer<typeof userSchema>;
+export type UserActivity = z.infer<typeof userActivitySchema>;
 export type Org = z.infer<typeof orgSchema>;
 export type OrgRole = z.infer<typeof orgRoleSchema>;
 export type OrgMember = z.infer<typeof orgMemberSchema>;

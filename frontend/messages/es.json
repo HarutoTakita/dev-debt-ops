@@ -630,5 +630,15 @@
   "shortcuts_title": "Atajos de teclado",
   "shortcuts_section_general": "General",
   "shortcuts_section_nav": "Navegación",
-  "shortcuts_show_help": "Mostrar atajos de teclado"
+  "shortcuts_show_help": "Mostrar atajos de teclado",
+  "admin_col_last_active": "Última actividad",
+  "admin_col_learning": "Aprendizaje",
+  "admin_col_quiz": "Test",
+  "admin_col_pr": "PR",
+  "admin_col_issue": "Issues",
+  "admin_never_active": "Nunca",
+  "admin_summary_members": "Miembros",
+  "admin_summary_quizzes": "Tests completados",
+  "admin_summary_prs": "PR creados",
+  "admin_summary_issues": "Issues creados"
 }

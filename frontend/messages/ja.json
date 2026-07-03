@@ -630,5 +630,15 @@
   "shortcuts_title": "キーボードショートカット",
   "shortcuts_section_general": "全般",
   "shortcuts_section_nav": "移動",
-  "shortcuts_show_help": "ショートカット一覧を表示"
+  "shortcuts_show_help": "ショートカット一覧を表示",
+  "admin_col_last_active": "最終アクティブ",
+  "admin_col_learning": "学習",
+  "admin_col_quiz": "テスト",
+  "admin_col_pr": "PR",
+  "admin_col_issue": "Issue",
+  "admin_never_active": "未ログイン",
+  "admin_summary_members": "メンバー",
+  "admin_summary_quizzes": "完了テスト",
+  "admin_summary_prs": "作成 PR",
+  "admin_summary_issues": "作成 Issue"
 }

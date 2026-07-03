@@ -30,6 +30,7 @@ import {
   techStackSchema,
   treeSchema,
   userSchema,
+  userActivitySchema,
   type AnalyzeStackJob,
   type BranchList,
   type AnalysisStatus,
@@ -61,6 +62,7 @@ import {
   type TechStack,
   type Tree,
   type User,
+  type UserActivity,
 } from "./schemas";
 
 export type {
@@ -196,6 +198,13 @@ export async function listUsers(q?: string): Promise<User[]> {
   const response = await apiFetch(`/api/v1/users${qs}`);
   if (!response.ok) throw new Error(await errorDetail(response, "ユーザー一覧の取得に失敗しました"));
   return z.array(userSchema).parse(await response.json());
+}
+
+export async function listUserActivity(q?: string): Promise<UserActivity[]> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  const response = await apiFetch(`/api/v1/users/activity${qs}`);
+  if (!response.ok) throw new Error(await errorDetail(response, "メンバー活動の取得に失敗しました"));
+  return z.array(userActivitySchema).parse(await response.json());
 }
 
 export async function grantUserCredits(userId: string, amount: number): Promise<User> {
