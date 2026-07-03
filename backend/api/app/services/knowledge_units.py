@@ -15,7 +15,7 @@ from app.models.project import Project
 from app.schemas.knowledge_unit import KnowledgeUnitOut
 from app.services.debt_query import _latest_run_id, build_overview
 from shared.enums import JobType
-from shared.models import Feature, LearningPlan, QuizSession
+from shared.models import Feature, LearningPlan, LearningStep, QuizSession
 
 _STAR = 0.7  # KC ≥ star → 理解済み（ADR 0003）
 _BLACK_HOLE = 0.4
@@ -73,6 +73,16 @@ async def build_knowledge_units(
                 .limit(1)
             )
         ).scalar_one_or_none()
+        # 学習プランの進捗（完了/総ステップ数）。一覧のプログレスバー用（steps は少数なので Python 集計）。
+        steps_done = steps_total = 0
+        if plan is not None:
+            steps = (
+                (await session.execute(select(LearningStep).where(col(LearningStep.plan_id) == plan.id)))
+                .scalars()
+                .all()
+            )
+            steps_total = len(steps)
+            steps_done = sum(1 for s in steps if s.completed)
         kc = node.knowledge_coverage if node is not None else 0.0
         units.append(
             KnowledgeUnitOut(
@@ -86,6 +96,8 @@ async def build_knowledge_units(
                 learning_plan_id=str(plan.id) if plan is not None else None,
                 quiz_session_id=str(qs.id) if qs is not None else None,
                 quiz_status=qs.status if qs is not None else None,
+                learning_steps_done=steps_done,
+                learning_steps_total=steps_total,
             )
         )
     return units

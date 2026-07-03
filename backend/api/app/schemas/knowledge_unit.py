@@ -17,6 +17,9 @@ class KnowledgeUnitOut(BaseModel):
     learning_plan_id: str | None = None
     quiz_session_id: str | None = None
     quiz_status: str | None = None  # not_started / in_progress / grading / completed
+    # 学習プランの進捗（完了ステップ数 / 総ステップ数）。一覧のプログレスバー表示に使う（プラン未生成なら 0/0）。
+    learning_steps_done: int = 0
+    learning_steps_total: int = 0
 
 
 class KnowledgeUnitsOut(BaseModel):
