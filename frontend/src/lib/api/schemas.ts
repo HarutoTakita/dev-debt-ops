@@ -455,6 +455,8 @@ export const quizSessionSchema = z.object({
   started_at: z.iso.datetime({ offset: true }).nullable(),
   completed_at: z.iso.datetime({ offset: true }).nullable(),
   score: z.number().nullable(),
+  flagged_question_ids: z.array(z.string()).default([]), // フラグ付き設問 id（#6）
+  retest_mode: z.enum(["flagged", "wrong"]).nullable().default(null), // 再テストで生成された場合のモード（#6）
 });
 
 export const quizReviewItemSchema = z.object({

@@ -677,6 +677,37 @@ export async function submitQuiz(
   return analyzeStackJobSchema.parse(await response.json());
 }
 
+// 設問フラグの設定/解除（#6）: PUT .../quizzes/{id}/questions/{qid}/flag。204。
+export async function setQuestionFlag(
+  orgSlug: string,
+  projectSlug: string,
+  sessionId: string,
+  questionId: string,
+  flagged: boolean,
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/questions/${encodeURIComponent(questionId)}/flag`,
+    { method: "PUT", body: JSON.stringify({ flagged }) },
+  );
+  if (!response.ok) throw new Error(await errorDetail(response, "フラグの更新に失敗しました"));
+}
+
+// フィルタ再テストの作成（#6）: POST .../quizzes/{id}/retest {mode}。新セッション id を返す。
+export async function createRetest(
+  orgSlug: string,
+  projectSlug: string,
+  sessionId: string,
+  mode: "flagged" | "wrong",
+): Promise<{ session_id: string; question_count: number }> {
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/retest`, {
+    method: "POST",
+    body: JSON.stringify({ mode }),
+  });
+  if (!response.ok) throw new Error(await errorDetail(response, "再テストの作成に失敗しました"));
+  const data = (await response.json()) as { session_id: string; question_count: number };
+  return data;
+}
+
 // 採点中はまだ結果が無く 404。その場合は null を返し、呼び出し側で完了までポーリングする。
 export async function getQuizResult(
   orgSlug: string,

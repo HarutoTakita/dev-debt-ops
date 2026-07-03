@@ -1,4 +1,4 @@
-import { listQuizzes, saveQuizAnswer } from "$lib/api/client";
+import { listQuizzes, saveQuizAnswer, setQuestionFlag } from "$lib/api/client";
 import type { QuizAnswer, QuizListItem } from "$lib/api/schemas";
 
 // クイズ返済体験のストア（Svelte 5 クラスベース runes）。
@@ -40,6 +40,12 @@ class QuizStore {
     } catch {
       this.saveStatus = "idle"; // 保存失敗時はドラフトは保持しつつ未保存に戻す
     }
+  }
+
+  // 設問フラグの永続化（#6）。ローカル状態は focus-mode が保持し、ここは PUT のみ担う。
+  async flagQuestion(questionId: string, flagged: boolean) {
+    if (!this.#ctx) return;
+    await setQuestionFlag(this.#ctx.orgSlug, this.#ctx.projectSlug, this.#ctx.sessionId, questionId, flagged);
   }
 
   reset() {

@@ -1,9 +1,14 @@
 <script lang="ts">
   import Check from "@lucide/svelte/icons/check";
   import X from "@lucide/svelte/icons/x";
+  import Flag from "@lucide/svelte/icons/flag";
   import Sprout from "@lucide/svelte/icons/sprout";
+  import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
+  import { SvelteSet } from "svelte/reactivity";
+  import { createRetest, setQuestionFlag } from "$lib/api/client";
   import type { QuizResult } from "$lib/api/schemas";
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils";
@@ -21,6 +26,39 @@
   // 誤答チェック（#4）: 誤答を先頭に並べ、各設問の自分の回答 vs 正答を確認できる。
   const review = $derived([...result.review].sort((a, b) => Number(a.is_correct) - Number(b.is_correct)));
   const wrongCount = $derived(result.review.filter((r) => !r.is_correct).length);
+
+  // 設問フラグ（#6）: サーバ初期値で seed。フィルタ再テストの対象になる。楽観更新 + 失敗時ロールバック。
+  const flagged = new SvelteSet<string>(
+    untrack(() => result.review.filter((r) => r.flagged).map((r) => r.question_id)),
+  );
+  let retesting = $state(false);
+  let retestError = $state<string | null>(null);
+
+  async function toggleFlag(questionId: string) {
+    const next = !flagged.has(questionId);
+    if (next) flagged.add(questionId);
+    else flagged.delete(questionId);
+    try {
+      await setQuestionFlag(orgSlug, projectSlug, result.session_id, questionId, next);
+    } catch {
+      if (next) flagged.delete(questionId);
+      else flagged.add(questionId);
+    }
+  }
+
+  // フィルタ再テスト（#6）: 対象設問だけの新セッションを作り、そのクイズへ遷移する。
+  async function startRetest(mode: "flagged" | "wrong") {
+    if (retesting) return;
+    retesting = true;
+    retestError = null;
+    try {
+      const { session_id } = await createRetest(orgSlug, projectSlug, result.session_id, mode);
+      await goto(resolve(`/${orgSlug}/${projectSlug}/quizzes/${session_id}`));
+    } catch {
+      retestError = m.quiz_retest_failed();
+      retesting = false;
+    }
+  }
 </script>
 
 <div class="mx-auto max-w-2xl space-y-5 p-4">
@@ -85,6 +123,18 @@
                 <X class="mt-0.5 size-4 shrink-0 text-destructive" />
               {/if}
               <p class="min-w-0 flex-1 text-sm">{r.prompt}</p>
+              <button
+                type="button"
+                onclick={() => toggleFlag(r.question_id)}
+                aria-pressed={flagged.has(r.question_id)}
+                title={flagged.has(r.question_id) ? m.quiz_flag_remove() : m.quiz_flag_add()}
+                class={cn(
+                  "shrink-0 rounded p-1 hover:bg-accent/40",
+                  flagged.has(r.question_id) ? "text-debt-knowledge" : "text-muted-foreground",
+                )}
+              >
+                <Flag class="size-4" fill={flagged.has(r.question_id) ? "currentColor" : "none"} />
+              </button>
             </div>
             {#if !r.is_correct}
               <dl class="mt-2 space-y-0.5 pl-6 text-xs">
@@ -102,6 +152,26 @@
         {/each}
       </ul>
     </div>
+  {/if}
+
+  {#if flagged.size > 0 || wrongCount > 0}
+    <!-- フィルタ再テスト（#6）: フラグした問題だけ / 全回間違えた問題だけ。 -->
+    <div class="flex flex-wrap items-center justify-center gap-2">
+      {#if flagged.size > 0}
+        <Button variant="outline" size="sm" disabled={retesting} onclick={() => startRetest("flagged")}>
+          <Flag class="size-4" />
+          {m.quiz_retest_flagged()} ({flagged.size})
+        </Button>
+      {/if}
+      {#if wrongCount > 0}
+        <Button variant="outline" size="sm" disabled={retesting} onclick={() => startRetest("wrong")}>
+          {m.quiz_retest_wrong()}
+        </Button>
+      {/if}
+    </div>
+    {#if retestError}
+      <p class="text-center text-xs text-destructive">{retestError}</p>
+    {/if}
   {/if}
 
   <div class="text-center">
