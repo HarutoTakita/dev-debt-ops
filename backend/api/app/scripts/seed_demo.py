@@ -771,6 +771,107 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "    body = tpl.format(**order.__dict__)  # テンプレ変数の欠落で KeyError の恐れ\n"
         "    smtp.send(order.email, body)\n"
     ),
+    # --- 各機能のクイズが参照する追加ソース（機能ごとに実在ファイルの断片を見せる）--------------------
+    "src/checkout/order.py": (
+        "def place_order(cart, user):\n"
+        "    order = Order(user_id=user.id, items=cart.items)\n"
+        "    order.total = sum(i.price * i.qty for i in cart.items)  # クーポン/税/送料を未加味\n"
+        "    db.add(order)\n"
+        "    db.commit()  # 決済確定前にコミット → 失敗すると未払い注文が残る\n"
+        "    return order\n"
+    ),
+    "src/checkout/coupon.py": (
+        "def apply_coupon(order, code):\n"
+        "    coupon = COUPONS.get(code)\n"
+        "    if coupon and coupon.active:\n"
+        "        order.total -= coupon.amount  # 下限チェックなし → 合計が負になり得る\n"
+        "    return order.total\n"
+    ),
+    "src/auth/oauth.py": (
+        "def handle_callback(request):\n"
+        "    code = request.args['code']\n"
+        "    token = exchange_code(code)  # state を検証しておらず CSRF の余地\n"
+        "    profile = fetch_profile(token)\n"
+        "    return login_or_create(profile.email)  # メール検証前にアカウント連携\n"
+    ),
+    "src/auth/password.py": (
+        "import hashlib\n"
+        "\n"
+        "def hash_password(raw):\n"
+        "    return hashlib.md5(raw.encode()).hexdigest()  # ソルトなし・高速ハッシュで総当たりに弱い\n"
+        "\n"
+        "def verify_password(raw, stored):\n"
+        "    return hash_password(raw) == stored\n"
+    ),
+    "src/auth/jwt.py": (
+        "def decode_token(token):\n"
+        "    header, payload, sig = token.split('.')\n"
+        "    claims = json.loads(b64decode(payload))\n"
+        "    return claims  # 署名(sig) も exp も検証せず → 改ざん・期限切れを見逃す\n"
+    ),
+    "src/catalog/product.ts": (
+        "export async function getProduct(id: string): Promise<Product> {\n"
+        "  const p = await db.query(`SELECT * FROM products WHERE id = ${id}`); // 文字列連結で SQL インジェクション\n"
+        "  p.reviews = await db.query(`SELECT * FROM reviews WHERE product_id = ${id}`); // 商品ごとに追加クエリ(N+1)\n"
+        "  return p;\n"
+        "}\n"
+    ),
+    "src/catalog/category.ts": (
+        "export function buildTree(cats: Category[]): Node[] {\n"
+        "  return cats.map((c) => ({\n"
+        "    ...c,\n"
+        "    children: cats.filter((x) => x.parentId === c.id).map(toNode), // O(n^2)・孫階層が欠落\n"
+        "  }));\n"
+        "}\n"
+    ),
+    "src/inventory/warehouse.py": (
+        "def pick_warehouse(order):\n"
+        "    for wh in WAREHOUSES:\n"
+        "        if wh.region == order.region:\n"
+        "            return wh  # 在庫の有無を見ず地域一致だけで選定（欠品倉庫を返し得る）\n"
+        "    return WAREHOUSES[0]  # 暗黙のフォールバックで遠隔倉庫に割り当たる\n"
+    ),
+    "src/inventory/reservation.py": (
+        "def reserve_for_order(order):\n"
+        "    holds = []\n"
+        "    for item in order.items:\n"
+        "        holds.append(reserve(item.sku, item.qty))  # 途中失敗で確保済みが解放されない（部分確保のリーク）\n"
+        "    return holds\n"
+    ),
+    "src/user/address.py": (
+        "def save_address(user_id, data):\n"
+        "    addr = Address(**data)  # 郵便番号・国コードの検証なしで保存\n"
+        "    addr.user_id = user_id\n"
+        "    db.add(addr)\n"
+        "    db.commit()\n"
+        "    return addr\n"
+    ),
+    "src/shipping/tracking.ts": (
+        "export async function poll(trackingNo: string) {\n"
+        "  while (true) {                       // 終了条件なしの無限ポーリング（配達済みでも止まらない）\n"
+        "    const s = await carrier.status(trackingNo);\n"
+        "    await sleep(1000);                 // バックオフなしで毎秒外部 API を叩く\n"
+        "    update(trackingNo, s);\n"
+        "  }\n"
+        "}\n"
+    ),
+    "src/shipping/carrier.py": (
+        "def create_label(order):\n"
+        "    resp = requests.post(CARRIER_URL, json=order.to_dict())  # タイムアウト未設定でハングし得る\n"
+        "    return resp.json()['tracking_no']  # 失敗レスポンス(4xx/5xx)を確認せず KeyError の恐れ\n"
+    ),
+    "src/notifications/push.ts": (
+        "export async function pushAll(userIds: string[], msg: Message) {\n"
+        "  for (const id of userIds) {\n"
+        "    await device.send(id, msg);  // 直列送信で件数に比例して遅延、失敗時のリトライもなし\n"
+        "  }\n"
+        "}\n"
+    ),
+    "src/notifications/templates.py": (
+        "def render(name, ctx):\n"
+        "    tpl = TEMPLATES[name]           # 未知のテンプレ名で KeyError\n"
+        "    return tpl % ctx                # % 書式は欠損キー・型不一致に弱い\n"
+    ),
 }
 
 
@@ -875,6 +976,19 @@ def _snippet_for(file_path: str, dtype: str) -> str:
     )
 
 
+_LANG_BY_EXT = {"py": "python", "ts": "typescript", "tsx": "tsx", "svelte": "svelte", "js": "javascript"}
+
+
+def _code_snippet(path: str) -> dict:
+    """Build a quiz ``code_snippet`` dict from a seeded demo file (reuses its realistic source)."""
+    ext = path.rsplit(".", 1)[-1]
+    return {
+        "language": _LANG_BY_EXT.get(ext, "text"),
+        "path": path,
+        "content": _DEMO_SNIPPETS.get(path) or _snippet_for(path, "other"),
+    }
+
+
 # Assigned developers per debt (debt natural key → list of (handle, coverage, certified_via)).
 _ASSIGNEES: dict[tuple[str, str], list[tuple[str, float, str | None]]] = {
     ("knowledge", "src/checkout/payment.py|author_left"): [("alice-dev", 0.18, "authorship")],
@@ -915,27 +1029,60 @@ _QUIZ_QUESTIONS = [
     {
         "id": "q1",
         "kind": "multiple_choice",
-        "prompt": "payment.py の決済確定処理で、在庫引当が失敗したときに最初に行うべき処理はどれ？",
-        "code_snippet": {
-            "language": "python",
-            "path": _QUIZ_FILE,
-            "content": (
-                "def confirm_payment(order):\n    reserve_stock(order)\n    charge(order.total)\n    mark_paid(order)"
-            ),
-        },
+        "prompt": "payment.py の confirm_payment で mark_paid（確定）が失敗したとき、正しい後始末はどれ？",
+        "code_snippet": _code_snippet("src/checkout/payment.py"),
         "choices": [
-            {"id": "a", "label": "課金をロールバックしてから例外を送出する"},
-            {"id": "b", "label": "そのまま mark_paid を呼ぶ"},
-            {"id": "c", "label": "在庫を無視して続行する"},
-            {"id": "d", "label": "リトライを無限ループで回す"},
+            {"id": "a", "label": "課金をロールバックしてから失敗を返す"},
+            {"id": "b", "label": "そのまま True を返して成功扱いにする"},
+            {"id": "c", "label": "在庫だけ解放して課金は放置する"},
+            {"id": "d", "label": "mark_paid を無限にリトライする"},
         ],
         "difficulty": "L3",
     },
     {
         "id": "q2",
+        "kind": "multiple_choice",
+        "prompt": "confirm_payment はガード条件で弾かれた場合も末尾で True を返す。この設計の問題はどれ？",
+        "code_snippet": _code_snippet("src/checkout/payment.py"),
+        "choices": [
+            {"id": "a", "label": "何も課金していないのに呼び出し側が成功と誤認する"},
+            {"id": "b", "label": "特に問題はない"},
+            {"id": "c", "label": "処理が遅くなるだけ"},
+            {"id": "d", "label": "ログが増えるだけ"},
+        ],
+        "difficulty": "L3",
+    },
+    {
+        "id": "q3",
+        "kind": "multiple_choice",
+        "prompt": "coupon.py の apply_coupon に潜む不具合はどれ？",
+        "code_snippet": _code_snippet("src/checkout/coupon.py"),
+        "choices": [
+            {"id": "a", "label": "下限チェックがなく、合計金額が負になり得る"},
+            {"id": "b", "label": "クーポンを二重に適用している"},
+            {"id": "c", "label": "有効期限を見ていない点だけが問題"},
+            {"id": "d", "label": "問題はない"},
+        ],
+        "difficulty": "L2",
+    },
+    {
+        "id": "q4",
+        "kind": "multiple_choice",
+        "prompt": "order.py の place_order で、決済確定前に db.commit している点の問題はどれ？",
+        "code_snippet": _code_snippet("src/checkout/order.py"),
+        "choices": [
+            {"id": "a", "label": "決済に失敗すると未払いの注文が DB に残る"},
+            {"id": "b", "label": "コミットが遅くなるだけ"},
+            {"id": "c", "label": "在庫が二重に減る"},
+            {"id": "d", "label": "問題はない"},
+        ],
+        "difficulty": "L3",
+    },
+    {
+        "id": "q5",
         "kind": "multiple_select",
         "prompt": "この決済フローで冪等性を担保するために必要な要素をすべて選べ。",
-        "code_snippet": None,
+        "code_snippet": _code_snippet("src/checkout/payment.py"),
         "choices": [
             {"id": "a", "label": "冪等キー（idempotency key）"},
             {"id": "b", "label": "重複課金の検出"},
@@ -946,8 +1093,11 @@ _QUIZ_QUESTIONS = [
     },
 ]
 _QUIZ_ANSWER_KEY = {
-    "q1": {"answer": "a", "rubric": "失敗時は副作用を巻き戻すのが正解。"},
-    "q2": {"answer": ["a", "b", "d"], "rubric": "冪等キー・重複検出・状態永続化が必須。"},
+    "q1": {"answer": "a", "rubric": "確定失敗時は課金を巻き戻して不整合を防ぐ。"},
+    "q2": {"answer": "a", "rubric": "何も処理していない経路で成功を返すのは誤り。状態ごとに明示的な戻り値を返す。"},
+    "q3": {"answer": "a", "rubric": "割引後の下限（0 以上）を保証しないと合計が負になる。"},
+    "q4": {"answer": "a", "rubric": "決済確定までコミットを遅延し、失敗時はロールバックする。"},
+    "q5": {"answer": ["a", "b", "d"], "rubric": "冪等キー・重複検出・状態永続化が必須。"},
 }
 
 # Learning plan (gap concepts + ordered steps → resources). Team assets先頭の閉ループを表現する。
@@ -998,19 +1148,6 @@ _PLAN_RESOURCES: list[dict] = [
 ]
 
 
-_LANG_BY_EXT = {"py": "python", "ts": "typescript", "tsx": "tsx", "svelte": "svelte", "js": "javascript"}
-
-
-def _code_snippet(path: str) -> dict:
-    """Build a quiz ``code_snippet`` dict from a seeded demo file (reuses its realistic source)."""
-    ext = path.rsplit(".", 1)[-1]
-    return {
-        "language": _LANG_BY_EXT.get(ext, "text"),
-        "path": path,
-        "content": _DEMO_SNIPPETS.get(path) or _snippet_for(path, "other"),
-    }
-
-
 # Per-feature curated content (issue: enrich the demo so sample-shop looks like a real connected repo).
 # Each core feature gets its own realistic quiz (with code snippets from its seeded files) and a learning
 # plan (a code walkthrough of a representative file + tech-appropriate external docs). Checkout keeps its
@@ -1034,34 +1171,48 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q2",
                 "kind": "multiple_choice",
-                "prompt": "パスワードを安全に保存する方法として最も適切なのはどれ？",
-                "code_snippet": None,
+                "prompt": "password.py の hash_password に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/auth/password.py"),
                 "choices": [
-                    {"id": "a", "label": "ソルト付きの遅いハッシュ（bcrypt / argon2）"},
-                    {"id": "b", "label": "平文のまま保存"},
-                    {"id": "c", "label": "MD5 でハッシュ"},
-                    {"id": "d", "label": "可逆暗号だけで保存"},
+                    {"id": "a", "label": "ソルトなしの高速ハッシュ(MD5)で総当たり・レインボーテーブルに弱い"},
+                    {"id": "b", "label": "ハッシュが遅すぎて実用にならない"},
+                    {"id": "c", "label": "特に問題はない"},
+                    {"id": "d", "label": "戻り値の型が誤っている"},
                 ],
                 "difficulty": "L2",
             },
             {
                 "id": "q3",
-                "kind": "multiple_select",
-                "prompt": "JWT を安全に扱うために必要な対策をすべて選べ。",
-                "code_snippet": None,
+                "kind": "multiple_choice",
+                "prompt": "jwt.py の decode_token が見落としている検証はどれ？",
+                "code_snippet": _code_snippet("src/auth/jwt.py"),
                 "choices": [
-                    {"id": "a", "label": "署名の検証"},
-                    {"id": "b", "label": "有効期限（exp）の検証"},
-                    {"id": "c", "label": "秘密鍵のローテーション"},
-                    {"id": "d", "label": "ペイロードに生パスワードを格納する"},
+                    {"id": "a", "label": "署名(sig)と有効期限(exp)の検証（改ざん・失効を見逃す）"},
+                    {"id": "b", "label": "Base64 のデコード"},
+                    {"id": "c", "label": "JSON のパース"},
+                    {"id": "d", "label": "トークンの分割"},
+                ],
+                "difficulty": "L4",
+            },
+            {
+                "id": "q4",
+                "kind": "multiple_choice",
+                "prompt": "oauth.py の handle_callback に潜むセキュリティ上の問題はどれ？",
+                "code_snippet": _code_snippet("src/auth/oauth.py"),
+                "choices": [
+                    {"id": "a", "label": "state を検証しておらず CSRF、メール検証前に連携している"},
+                    {"id": "b", "label": "認可コードを使っている点"},
+                    {"id": "c", "label": "プロフィールを取得している点"},
+                    {"id": "d", "label": "問題はない"},
                 ],
                 "difficulty": "L4",
             },
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "期限切れは無効化し再認証へ導くのが正解。"},
-            "q2": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。"},
-            "q3": {"answer": ["a", "b", "c"], "rubric": "署名・期限検証と鍵管理が必須。生パスワード格納は不可。"},
+            "q2": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。MD5 は不可。"},
+            "q3": {"answer": "a", "rubric": "署名と exp を検証しないと改ざん・期限切れトークンを受理してしまう。"},
+            "q4": {"answer": "a", "rubric": "state 検証で CSRF を防ぎ、メール検証済みか確認してから連携する。"},
         },
         "gap_concepts": ["セッション失効の設計", "OAuth コールバックの検証", "JWT の署名と失効"],
         "resources": [
@@ -1124,20 +1275,48 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q2",
                 "kind": "multiple_select",
-                "prompt": "商品検索を高速かつ安全にするための対策をすべて選べ。",
-                "code_snippet": None,
+                "prompt": "product.ts の getProduct に潜む問題をすべて選べ。",
+                "code_snippet": _code_snippet("src/catalog/product.ts"),
                 "choices": [
-                    {"id": "a", "label": "適切なインデックスの活用"},
-                    {"id": "b", "label": "入力のサニタイズ（SQL インジェクション対策）"},
-                    {"id": "c", "label": "ページング / 上限件数"},
-                    {"id": "d", "label": "全件をメモリに読み込んで絞り込む"},
+                    {"id": "a", "label": "文字列連結のクエリで SQL インジェクションの恐れ"},
+                    {"id": "b", "label": "商品ごとにレビューを追加取得しており N+1"},
+                    {"id": "c", "label": "async/await を使っている点"},
+                    {"id": "d", "label": "Promise を返している点"},
+                ],
+                "difficulty": "L4",
+            },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "db.py の fetch_one が不具合を見えにくくしている原因はどれ？",
+                "code_snippet": _code_snippet("src/lib/db.py"),
+                "choices": [
+                    {"id": "a", "label": "例外を握り潰し、戻り値の型も不明で失敗に気づけない"},
+                    {"id": "b", "label": "クエリを実行している点"},
+                    {"id": "c", "label": "first() を呼んでいる点"},
+                    {"id": "d", "label": "引数を 2 つ取る点"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q4",
+                "kind": "multiple_choice",
+                "prompt": "category.ts の buildTree の性能・正しさの問題はどれ？",
+                "code_snippet": _code_snippet("src/catalog/category.ts"),
+                "choices": [
+                    {"id": "a", "label": "全件を毎回 filter する O(n^2) で、孫階層も欠落する"},
+                    {"id": "b", "label": "map を使っている点"},
+                    {"id": "c", "label": "スプレッド構文を使っている点"},
+                    {"id": "d", "label": "問題はない"},
                 ],
                 "difficulty": "L3",
             },
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "重複したフィルタ生成は共通化して修正漏れを防ぐ。"},
-            "q2": {"answer": ["a", "b", "c"], "rubric": "索引・サニタイズ・ページングが有効。全件ロードは不可。"},
+            "q2": {"answer": ["a", "b"], "rubric": "パラメータ化クエリと結合/一括取得で SQLi と N+1 を解消する。"},
+            "q3": {"answer": "a", "rubric": "例外の握り潰しと型欠落は失敗の握り込み。明示的に扱い型を付ける。"},
+            "q4": {"answer": "a", "rubric": "親→子のマップを一度作り再帰で組む。都度 filter は O(n^2)。"},
         },
         "gap_concepts": ["検索クエリの組み立て", "N+1 とインデックス", "フィルタの共通化"],
         "resources": [
@@ -1187,20 +1366,48 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q2",
                 "kind": "multiple_choice",
-                "prompt": "同時実行下で在庫引当を正しく行うにはどうすべき？",
-                "code_snippet": None,
+                "prompt": "stock.py の reserve を同時実行下でも正しくするにはどうすべき？",
+                "code_snippet": _code_snippet("src/inventory/stock.py"),
                 "choices": [
-                    {"id": "a", "label": "トランザクション＋行ロック（または原子的更新）で守る"},
+                    {"id": "a", "label": "トランザクション＋行ロック、または原子的な条件付き更新で守る"},
                     {"id": "b", "label": "処理前に固定時間 sleep する"},
                     {"id": "c", "label": "特に対策しない"},
                     {"id": "d", "label": "グローバル変数で在庫を管理する"},
                 ],
                 "difficulty": "L3",
             },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "reservation.py の reserve_for_order が抱える問題はどれ？",
+                "code_snippet": _code_snippet("src/inventory/reservation.py"),
+                "choices": [
+                    {"id": "a", "label": "途中の明細で失敗しても確保済みが解放されない（部分確保のリーク）"},
+                    {"id": "b", "label": "確保数が常に 0 になる"},
+                    {"id": "c", "label": "リストを返している点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q4",
+                "kind": "multiple_choice",
+                "prompt": "warehouse.py の pick_warehouse の倉庫選定に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/inventory/warehouse.py"),
+                "choices": [
+                    {"id": "a", "label": "在庫の有無を見ず地域一致だけで選び、欠品倉庫を返し得る"},
+                    {"id": "b", "label": "地域を見ている点"},
+                    {"id": "c", "label": "ループを使っている点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L2",
+            },
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "read→write が非アトミックだと超過引当が起きうる。"},
             "q2": {"answer": "a", "rubric": "トランザクション境界と行ロック/原子的更新で競合を防ぐ。"},
+            "q3": {"answer": "a", "rubric": "全明細を 1 トランザクションにまとめ、失敗時は一括ロールバックする。"},
+            "q4": {"answer": "a", "rubric": "在庫と距離/コストを加味して選ぶ。地域一致だけでは欠品倉庫を返し得る。"},
         },
         "gap_concepts": ["在庫引当のトランザクション境界", "競合状態（レースコンディション）", "冪等な引当"],
         "resources": [
@@ -1250,8 +1457,8 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q2",
                 "kind": "multiple_select",
-                "prompt": "プロフィール更新を安全にする対策をすべて選べ。",
-                "code_snippet": None,
+                "prompt": "profile.py の update_profile を安全にする対策をすべて選べ。",
+                "code_snippet": _code_snippet("src/user/profile.py"),
                 "choices": [
                     {"id": "a", "label": "更新可能フィールドのホワイトリスト化"},
                     {"id": "b", "label": "入力バリデーション"},
@@ -1260,10 +1467,38 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 ],
                 "difficulty": "L2",
             },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "address.py の save_address に不足している処理はどれ？",
+                "code_snippet": _code_snippet("src/user/address.py"),
+                "choices": [
+                    {"id": "a", "label": "郵便番号・国コードなど入力値のバリデーション"},
+                    {"id": "b", "label": "user_id の設定"},
+                    {"id": "c", "label": "コミット"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L2",
+            },
+            {
+                "id": "q4",
+                "kind": "multiple_choice",
+                "prompt": "Address(**data) のように受け取ったデータをそのままモデルに展開する危険はどれ？",
+                "code_snippet": _code_snippet("src/user/address.py"),
+                "choices": [
+                    {"id": "a", "label": "想定外のフィールドまで設定され得る（mass assignment）"},
+                    {"id": "b", "label": "辞書を使っている点"},
+                    {"id": "c", "label": "キーワード引数を使っている点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L3",
+            },
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "検証なしの一括上書きは権限昇格・改ざんの温床。"},
             "q2": {"answer": ["a", "b", "c"], "rubric": "ホワイトリスト・検証・認可が対策。無差別 setattr は不可。"},
+            "q3": {"answer": "a", "rubric": "住所は形式検証が必須。未検証保存は配送失敗や不正データの原因。"},
+            "q4": {"answer": "a", "rubric": "受信データの丸展開は許可フィールドに限定して防ぐ。"},
         },
         "gap_concepts": ["mass assignment 対策", "入力バリデーション", "認可の境界"],
         "resources": [
@@ -1313,20 +1548,48 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q2",
                 "kind": "multiple_choice",
-                "prompt": "外部キャリア API 連携の信頼性を高める組み合わせはどれ？",
-                "code_snippet": None,
+                "prompt": "carrier.py の create_label に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/shipping/carrier.py"),
                 "choices": [
-                    {"id": "a", "label": "タイムアウト・リトライ・冪等キー"},
-                    {"id": "b", "label": "無限リトライ"},
-                    {"id": "c", "label": "例外を握り潰す"},
-                    {"id": "d", "label": "同期で無制限に待つ"},
+                    {"id": "a", "label": "タイムアウト未設定でハングし、失敗レスポンスも確認していない"},
+                    {"id": "b", "label": "POST を使っている点"},
+                    {"id": "c", "label": "JSON を送っている点"},
+                    {"id": "d", "label": "問題はない"},
                 ],
                 "difficulty": "L3",
+            },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "tracking.ts の poll の実装に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/shipping/tracking.ts"),
+                "choices": [
+                    {"id": "a", "label": "終了条件のない無限ループで、バックオフもなく毎秒 API を叩く"},
+                    {"id": "b", "label": "await を使っている点"},
+                    {"id": "c", "label": "status を取得している点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q4",
+                "kind": "multiple_select",
+                "prompt": "外部キャリア API 連携の信頼性を高める対策をすべて選べ。",
+                "code_snippet": _code_snippet("src/shipping/carrier.py"),
+                "choices": [
+                    {"id": "a", "label": "タイムアウトの設定"},
+                    {"id": "b", "label": "有限回のリトライ（指数バックオフ）"},
+                    {"id": "c", "label": "冪等キーで二重発行を防ぐ"},
+                    {"id": "d", "label": "例外を握り潰して無視する"},
+                ],
+                "difficulty": "L4",
             },
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "外部連携は失敗前提。リトライ/補償と冪等性が要る。"},
-            "q2": {"answer": "a", "rubric": "タイムアウト・有限リトライ・冪等キーの組み合わせが定石。"},
+            "q2": {"answer": "a", "rubric": "タイムアウト設定とレスポンス検証がないと、ハングや KeyError を招く。"},
+            "q3": {"answer": "a", "rubric": "配達完了で止まる終了条件と、バックオフ付きのポーリングにする。"},
+            "q4": {"answer": ["a", "b", "c"], "rubric": "タイムアウト・有限リトライ・冪等キーが定石。握り潰しは不可。"},
         },
         "gap_concepts": ["外部 API 連携の信頼性", "リトライと冪等性", "配送状態の遷移"],
         "resources": [
@@ -1375,9 +1638,35 @@ _FEATURE_CONTENT: dict[str, dict] = {
             },
             {
                 "id": "q2",
+                "kind": "multiple_choice",
+                "prompt": "templates.py の render に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/notifications/templates.py"),
+                "choices": [
+                    {"id": "a", "label": "未知テンプレ名や欠損キーで KeyError になり得る"},
+                    {"id": "b", "label": "辞書を使っている点"},
+                    {"id": "c", "label": "文字列を返している点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L2",
+            },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "push.ts の pushAll に潜む問題はどれ？",
+                "code_snippet": _code_snippet("src/notifications/push.ts"),
+                "choices": [
+                    {"id": "a", "label": "直列送信で件数に比例して遅く、失敗時のリトライもない"},
+                    {"id": "b", "label": "for-of を使っている点"},
+                    {"id": "c", "label": "await を使っている点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q4",
                 "kind": "multiple_select",
                 "prompt": "通知を確実に届けるための設計をすべて選べ。",
-                "code_snippet": None,
+                "code_snippet": _code_snippet("src/notifications/push.ts"),
                 "choices": [
                     {"id": "a", "label": "送信の非同期化・キュー投入"},
                     {"id": "b", "label": "失敗時のリトライ"},
@@ -1389,7 +1678,9 @@ _FEATURE_CONTENT: dict[str, dict] = {
         ],
         "quiz_answer_key": {
             "q1": {"answer": "a", "rubric": "テンプレ変数の欠落は実行時 KeyError の原因。事前検証が必要。"},
-            "q2": {"answer": ["a", "b", "c"], "rubric": "非同期化・リトライ・変数検証が有効。同期一斉送信は不可。"},
+            "q2": {"answer": "a", "rubric": "テンプレ名・変数の存在を検証し、安全なテンプレエンジンで描画する。"},
+            "q3": {"answer": "a", "rubric": "並行送信＋失敗リトライにする。直列送信は件数に比例して遅い。"},
+            "q4": {"answer": ["a", "b", "c"], "rubric": "非同期化・リトライ・変数検証が有効。同期一斉送信は不可。"},
         },
         "gap_concepts": ["テンプレートの安全な描画", "非同期送信とリトライ", "通知の重複防止"],
         "resources": [
@@ -1424,24 +1715,40 @@ _FEATURE_CONTENT: dict[str, dict] = {
 }
 
 
-def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict]:
+def _feature_quiz(feature_key: str, feature_name: str, member_files: list[str]) -> tuple[list[dict], dict]:
     """Return ``(questions, answer_key)`` for a feature's confirmation quiz.
 
     Checkout reuses the rich payment-specific quiz, the core EC features have their own curated
-    banks (``_FEATURE_CONTENT``), and the long-tail extra features fall back to a generic but valid
-    two-question set so every 理解度チェック is takeable end-to-end in the demo.
+    banks (``_FEATURE_CONTENT``), and the long-tail extra features fall back to a generic-but-valid
+    three-question set. The fallback attaches the feature's representative file as a code snippet so
+    every 理解度チェック shows real code (no "コードスニペットなし") and is takeable end-to-end.
     """
     if feature_key == "checkout":
         return _QUIZ_QUESTIONS, _QUIZ_ANSWER_KEY
     curated = _FEATURE_CONTENT.get(feature_key)
     if curated:
         return curated["quiz_questions"], curated["quiz_answer_key"]
+    rep = member_files[0] if member_files else ""
+    snippet = _code_snippet(rep) if rep else None
     questions: list[dict] = [
         {
             "id": "q1",
             "kind": "multiple_choice",
-            "prompt": f"「{feature_name}」のコードを安全に変更するため、最初に確認すべきことはどれ？",
-            "code_snippet": None,
+            "prompt": f"「{feature_name}」の代表ファイル {rep} を初めて読むとき、意図を最も正しく掴める進め方はどれ？",
+            "code_snippet": snippet,
+            "choices": [
+                {"id": "a", "label": "公開関数の入出力と副作用（DB 書き込み・外部呼び出し）を追う"},
+                {"id": "b", "label": "変数名の見た目だけで判断する"},
+                {"id": "c", "label": "コメントを読まずに書き換える"},
+                {"id": "d", "label": "実行して落ちるまで放置する"},
+            ],
+            "difficulty": "L2",
+        },
+        {
+            "id": "q2",
+            "kind": "multiple_choice",
+            "prompt": f"{rep} を安全に変更するため、着手前に最初に確認すべきことはどれ？",
+            "code_snippet": snippet,
             "choices": [
                 {"id": "a", "label": "既存のテストと関連 PR / ドキュメントを読む"},
                 {"id": "b", "label": "まず実装してから挙動を確認する"},
@@ -1451,10 +1758,10 @@ def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict
             "difficulty": "L2",
         },
         {
-            "id": "q2",
+            "id": "q3",
             "kind": "multiple_select",
             "prompt": f"「{feature_name}」の理解を深めるうえで有効な行動をすべて選べ。",
-            "code_snippet": None,
+            "code_snippet": snippet,
             "choices": [
                 {"id": "a", "label": "代表ファイルを読んで責務を把握する"},
                 {"id": "b", "label": "依存関係をたどって境界を確認する"},
@@ -1465,8 +1772,9 @@ def _feature_quiz(feature_key: str, feature_name: str) -> tuple[list[dict], dict
         },
     ]
     answer_key = {
-        "q1": {"answer": "a", "rubric": "変更前に既存資産を読むのが基本。"},
-        "q2": {"answer": ["a", "b", "c"], "rubric": "代表ファイル・依存・履歴の確認が有効。"},
+        "q1": {"answer": "a", "rubric": "入出力と副作用を追うのがコード理解の基本。"},
+        "q2": {"answer": "a", "rubric": "変更前に既存資産（テスト・PR・ドキュメント）を読むのが基本。"},
+        "q3": {"answer": ["a", "b", "c"], "rubric": "代表ファイル・依存・履歴の確認が有効。"},
     }
     return questions, answer_key
 
@@ -1515,13 +1823,293 @@ def _feature_plan(feature_key: str, feature_name: str, member_files: list[str]) 
     return [f"「{feature_name}」全体の理解", "代表ファイルの責務", "依存関係の境界"], resources
 
 
+# Hand-written, line-anchored walkthroughs for the code-理解 resources referenced by learning plans.
+# Each list of steps explains the ACTUAL seeded snippet (identifiers, line ranges, the concrete risk and
+# how to fix it) at a senior-review level, so the demo reads like a real code review rather than a
+# templated summary. Line numbers match the corresponding ``_DEMO_SNIPPETS`` entry. Files without an
+# entry fall back to the generic two-part split in ``_walkthrough_for``.
+_WALKTHROUGHS: dict[str, list[dict]] = {
+    "src/checkout/payment.py": [
+        {
+            "start_line": 1,
+            "end_line": 3,
+            "title": "入口と多重ガード",
+            "explanation": (
+                "confirm_payment は注文・ユーザーと、キーワード専用の retries を受け取る。2〜3 行目で "
+                "order.total > 0 と user.is_active を入れ子の if で確認しており、ここからガード条件がネスト"
+                "し始める。ガードを増やすたびに 1 段深くなる構造が、この関数の循環的複雑度が 31 まで跳ね上がる"
+                "主因。early-return（ガード節）に直すだけで見通しは大きく良くなる。"
+            ),
+        },
+        {
+            "start_line": 4,
+            "end_line": 5,
+            "title": "在庫引当 → 課金の順序",
+            "explanation": (
+                "4 行目 reserve_stock で在庫を確保してから 5 行目 charge で課金する。『在庫を押さえてから請求"
+                "する』という順序自体は正しい。ただし各ステップの成否をさらに入れ子の if で分岐するため、成功"
+                "パスと失敗パスが同じ深いブロックの中で絡み合い、どの条件でどこへ抜けるのかを追いにくい。"
+            ),
+        },
+        {
+            "start_line": 6,
+            "end_line": 8,
+            "title": "確定失敗時の補償（ロールバック）",
+            "explanation": (
+                "6 行目 mark_paid（注文確定）が失敗すると、7 行目 rollback_charge で課金を取り消し 8 行目で "
+                "False を返す。課金済みなのに確定できない不整合を補償する最重要の分岐。ただしここでは在庫の解放"
+                "を行っておらず、確定失敗時に在庫が確保されたまま取り残される抜けがある。"
+            ),
+        },
+        {
+            "start_line": 9,
+            "end_line": 10,
+            "title": "課金失敗時の在庫解放",
+            "explanation": (
+                "9〜10 行目の else は charge が失敗した場合で、release_stock で確保済み在庫を戻す。補償処理が"
+                "『charge 失敗』と『mark_paid 失敗』の 2 箇所に分散しているため、どちらがどの後始末をするのかが"
+                "読み手に伝わりづらい。補償は 1 か所（例: try/except or finally）へ集約したい。"
+            ),
+        },
+        {
+            "start_line": 11,
+            "end_line": 11,
+            "title": "既定の戻り値に潜む落とし穴",
+            "explanation": (
+                "最後は無条件で True を返す。このため total<=0 や非アクティブユーザーでガードに弾かれ、何も課金"
+                "していないケースでも True（成功）を返してしまう。呼び出し側は成功と誤認し得る。状態ごとに明示的"
+                "な戻り値（または例外）を返し、冪等キーで再送を安全にするのが正攻法。"
+            ),
+        },
+    ],
+    "src/checkout/cart.py": [
+        {
+            "start_line": 1,
+            "end_line": 1,
+            "title": "引当のエントリポイント",
+            "explanation": (
+                "allocate_inventory はカート内の各明細を走査して在庫を引き当てる。カート全体を 1 つの処理で回す"
+                "ため、途中で例外が出たときに『どこまで確保したか』が曖昧になりやすい構造を最初に押さえておく。"
+            ),
+        },
+        {
+            "start_line": 2,
+            "end_line": 4,
+            "title": "数量ガード",
+            "explanation": (
+                "2〜4 行目で明細をループし、qty<=0 の明細は continue でスキップする。無効数量を弾く定石だが、"
+                "この後の在庫状態チェックと合わさってネストが深くなり、複雑度 18 を押し上げている。"
+            ),
+        },
+        {
+            "start_line": 5,
+            "end_line": 6,
+            "title": "在庫状態による分岐",
+            "explanation": (
+                "5 行目で『予約済み(RESERVED) かつ backorder 不可』を判定し 6 行目で OutOfStock を送出する。"
+                "2 つ以上の条件が組み合わさっており、backorder_allowed の意味を知らないと分岐の意図が読み取れない。"
+                "条件に名前を付けて（例: needs_immediate_stock）意図を明示すると良い。"
+            ),
+        },
+        {
+            "start_line": 7,
+            "end_line": 7,
+            "title": "引当の実行と部分確保のリーク",
+            "explanation": (
+                "7 行目 reserve(item) で実際に確保する。ただし後続の明細で OutOfStock を投げると、それ以前に "
+                "reserve 済みの明細が解放されないまま関数を抜ける（部分引当のリーク）。全明細を 1 つのトランザク"
+                "ション境界にまとめ、いずれか失敗したら一括ロールバックする設計が必要。"
+            ),
+        },
+    ],
+    "src/auth/session.py": [
+        {
+            "start_line": 1,
+            "end_line": 3,
+            "title": "セッション検証の本体",
+            "explanation": (
+                "validate_session は token を decode してクレームを取り出し、3 行目で expired でなければその"
+                "クレームを、期限切れなら None を返す。呼び出し側は None を見て再認証へ誘導する契約。ここで"
+                "重要なのは『期限切れを黙って通さない』こと。expired の判定は信頼できる時刻源で行う。"
+            ),
+        },
+        {
+            "start_line": 4,
+            "end_line": 6,
+            "title": "未使用の旧クッキー検証（dead code）",
+            "explanation": (
+                "5〜6 行目の _legacy_cookie_check は旧 sid_v1 クッキーを読むが、どこからも呼ばれていない到達不能"
+                "コード。残すと『まだ使われている』と誤解され、変更・削除の判断を鈍らせる（＝理解負債の温床）。"
+                "参照検索で未使用を確認したうえで安全に削除するのが望ましい。"
+            ),
+        },
+    ],
+    "src/catalog/search.ts": [
+        {
+            "start_line": 1,
+            "end_line": 2,
+            "title": "フィルタ生成の入口",
+            "explanation": (
+                "buildFilters はクエリ q から Filter 配列を組み立てて返す。空配列 f に条件を push していく素直な"
+                "作りで、ここまでは読みやすい。"
+            ),
+        },
+        {
+            "start_line": 3,
+            "end_line": 6,
+            "title": "重複したフィルタ組み立て",
+            "explanation": (
+                "3〜6 行目は category / minPrice / maxPrice / brand を、それぞれ if で判定して push する『ほぼ"
+                "同一形』のブロックが 4 回並ぶ。条件を 1 つ足すたびにこのパターンをコピーする必要があり、片方"
+                "だけ直して他を直し忘れる修正漏れの温床になる。"
+            ),
+        },
+        {
+            "start_line": 7,
+            "end_line": 8,
+            "title": "共通化の余地",
+            "explanation": (
+                "7 行目のコメントどおり、同じ組み立てがリポジトリ内 4 箇所に重複している。フィールド名・演算子・"
+                "値の対応表（例: [{key:'category', op:'eq'}, ...]）を用意して map で回す形へ共通化すれば、条件"
+                "追加が 1 行で済み重複も消える。テストも 1 か所で担保できる。"
+            ),
+        },
+    ],
+    "src/inventory/stock.py": [
+        {
+            "start_line": 1,
+            "end_line": 2,
+            "title": "現在庫の読み取り",
+            "explanation": (
+                "reserve は SKU と数量を受け取り、2 行目で在庫辞書 STOCK から現在の在庫レベルを読む（未登録は 0）。"
+                "この『読み取り』が後続の『更新』と別ステップに分かれている点が、以降で問題になる。"
+            ),
+        },
+        {
+            "start_line": 3,
+            "end_line": 4,
+            "title": "在庫チェック",
+            "explanation": (
+                "3〜4 行目で要求数量が在庫を上回れば OutOfStock を送出する。単体のロジックとしては正しいが、"
+                "この判定（read）と後続の減算（write）の間に隙間があることが競合の入り口になる。"
+            ),
+        },
+        {
+            "start_line": 5,
+            "end_line": 6,
+            "title": "非アトミックな引当（レースの核心）",
+            "explanation": (
+                "5 行目で在庫を減算し 6 行目で Reservation を返す。read（2 行目）と write（5 行目）の間に他の"
+                "リクエストが割り込むと、同じ在庫を二重に引き当てて在庫がマイナスになる競合（レースコンディション）"
+                "が起きる。トランザクション＋行ロック、または DB の原子的な条件付き更新"
+                "（UPDATE stock SET qty = qty - :n WHERE sku = :sku AND qty >= :n）で守る必要がある。"
+            ),
+        },
+    ],
+    "src/user/profile.py": [
+        {
+            "start_line": 1,
+            "end_line": 2,
+            "title": "更新対象の読み込み",
+            "explanation": (
+                "update_profile は user_id と patch（更新内容）を受け取り、2 行目で対象ユーザーを読み込む。"
+                "ここまでは普通の更新処理。問題は次の一括代入にある。"
+            ),
+        },
+        {
+            "start_line": 3,
+            "end_line": 4,
+            "title": "無検証の一括代入（mass assignment）",
+            "explanation": (
+                "3〜4 行目で patch の全キーをそのまま setattr している。patch に is_admin や email_verified など"
+                "本来クライアントに更新させたくない属性が混じっていても上書きできてしまう、典型的な mass "
+                "assignment 脆弱性。更新可能フィールドのホワイトリスト化と入力バリデーションが必須。"
+            ),
+        },
+        {
+            "start_line": 5,
+            "end_line": 5,
+            "title": "永続化と欠けている認可",
+            "explanation": (
+                "5 行目で保存する。ここへ来る前に『誰が・どのフィールドを』更新してよいかの認可チェックも要る"
+                "が、現状は本人性・権限の確認がない。認可 → 検証 → ホワイトリスト適用 → 保存の順に整える。"
+            ),
+        },
+    ],
+    "src/shipping/shipping.py": [
+        {
+            "start_line": 1,
+            "end_line": 2,
+            "title": "配送キャリアの選定",
+            "explanation": (
+                "create_shipment は注文の地域に応じてキャリアを選ぶ（2 行目 pick_carrier）。ここは純粋な選定"
+                "ロジックで副作用はない。"
+            ),
+        },
+        {
+            "start_line": 3,
+            "end_line": 3,
+            "title": "外部連携（失敗前提が抜けている）",
+            "explanation": (
+                "3 行目 carrier.create_label は外部 API 呼び出しであり、失敗・タイムアウトが前提。にもかかわらず"
+                "リトライも補償もなく、例外が出れば注文だけ進んで出荷ラベルが無い不整合になり得る。外部境界は"
+                "つねに『落ちる』前提で設計する。"
+            ),
+        },
+        {
+            "start_line": 4,
+            "end_line": 5,
+            "title": "結果の反映と冪等性",
+            "explanation": (
+                "4〜5 行目で tracking 番号を注文に書き戻して返す。外部連携はタイムアウト設定・有限リトライ"
+                "（指数バックオフ）・冪等キー（同じ注文で二重にラベル発行しない）をセットで設計するのが定石。"
+            ),
+        },
+    ],
+    "src/notifications/email.py": [
+        {
+            "start_line": 1,
+            "end_line": 2,
+            "title": "テンプレートの取得",
+            "explanation": (
+                "send_order_email は注文からテンプレート order_confirm を取り出す（2 行目）。ここは辞書参照で、"
+                "テンプレ名が固定なら安全。"
+            ),
+        },
+        {
+            "start_line": 3,
+            "end_line": 3,
+            "title": "危険なテンプレ描画",
+            "explanation": (
+                "3 行目で order.__dict__ を丸ごと展開して format している。テンプレートが参照する変数が注文"
+                "オブジェクトに無ければ実行時 KeyError で送信そのものが失敗する。__dict__ の丸投げは意図しない"
+                "属性の露出にもつながる。必要な変数だけを明示的に渡し、描画前に存在を検証すべき。"
+            ),
+        },
+        {
+            "start_line": 4,
+            "end_line": 4,
+            "title": "送信の信頼性",
+            "explanation": (
+                "4 行目で SMTP 送信する。通知は失敗前提でキュー投入＋リトライにし、テンプレ変数の欠落は描画前に"
+                "検出する設計が望ましい。同期送信は遅延と失敗連鎖の原因になる。"
+            ),
+        },
+    ],
+}
+
+
 def _walkthrough_for(source_ref: str) -> tuple[str, list[dict]]:
     """Return ``(source_content, walkthrough steps)`` for a demo code resource.
 
-    Uses the file's demo snippet (or the default) as inline source and splits it into a couple of
-    line-anchored steps, so the code-理解 walkthrough renders without fetching source from GitHub.
+    Curated files (``_WALKTHROUGHS``) get hand-written, line-anchored steps that explain the actual
+    seeded source concretely; any other file falls back to a generic two-part split. Either way the
+    code-理解 walkthrough renders inline without fetching source from GitHub (demo is GitHub-less).
     """
     content = _DEMO_SNIPPETS.get(source_ref) or _snippet_for(source_ref, "other")
+    curated = _WALKTHROUGHS.get(source_ref)
+    if curated:
+        return content, curated
     total = max(1, len(content.rstrip("\n").split("\n")))
     if total <= 2:
         return content, [
@@ -1973,7 +2561,7 @@ async def _ensure_quizzes(session: AsyncSession, project: Project, dev_id: uuid.
         feature_id = _u("feature", fc_run, feature_key)
         row_id = _u("quiz_session", project.id, dev_id, feature_key)
         if await _get(session, QuizSession, row_id) is None:
-            questions, answer_key = _feature_quiz(feature_key, feature_name)
+            questions, answer_key = _feature_quiz(feature_key, feature_name, paths)
             session.add(
                 QuizSession(
                     id=row_id,

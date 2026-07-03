@@ -13,6 +13,7 @@ from app.api.deps import CurrentUser, SASessionDep, get_github_app_service
 from app.core.config import settings
 from app.models.oauth_account import OAuthAccount
 from app.models.project import Project
+from app.services.demo_scaffold import scaffold_for
 from app.services.github_app import GitHubAppService
 from app.services.github_git_client import GitHubGitClient
 from shared.models import CodeDebt
@@ -342,13 +343,16 @@ async def get_repository_tree(
     """Return the recursive file tree for a repository branch."""
     if client is None:  # guest demo — build a blob list from the seeded file universe (file-tree folds dirs).
         by_path = await _demo_code_debts(session, owner, repo)
-        return TreeOut(
-            tree=[
-                TreeItemOut(path=path, type="blob", size=len(debt.code_snippet or "")) for path, debt in by_path.items()
-            ],
-            branch=branch,
-            truncated=False,
-        )
+        tree = [
+            TreeItemOut(path=path, type="blob", size=len(debt.code_snippet or "")) for path, debt in by_path.items()
+        ]
+        # Root-level scaffolding (README, manifests, CI, Docker, tests, docs) so the browser shows more
+        # than just src/ and reads like a real repository. These carry no analysis rows.
+        tree += [
+            TreeItemOut(path=path, type="blob", size=len(content))
+            for path, content in scaffold_for(owner, repo).items()
+        ]
+        return TreeOut(tree=tree, branch=branch, truncated=False)
     try:
         items = await client.get_repository_tree(owner, repo, branch)
     except httpx.HTTPStatusError as e:
@@ -376,7 +380,11 @@ async def get_file_content(
     """Return the decoded content of a file in the repository."""
     if not path:
         raise HTTPException(status_code=422, detail="path is required")
-    if client is None:  # guest demo — serve the seeded snippet for this file.
+    if client is None:  # guest demo — serve the seeded snippet (or root scaffolding) for this file.
+        scaffold = scaffold_for(owner, repo)
+        if path in scaffold:
+            content = scaffold[path]
+            return FileContentOut(path=path, content=content, sha="demo", size=len(content))
         by_path = await _demo_code_debts(session, owner, repo)
         debt = by_path.get(path)
         if debt is None or debt.code_snippet is None:

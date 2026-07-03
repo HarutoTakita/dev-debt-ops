@@ -69,3 +69,25 @@ async def test_demo_user_can_browse_seeded_repos(client: AsyncClient) -> None:
     repos = gh.json()["repositories"]
     assert isinstance(repos, list)
     assert len(repos) > 0  # seeded sample repos, not a real GitHub call
+
+
+async def test_demo_repo_tree_includes_root_scaffold(client: AsyncClient) -> None:
+    """The demo repo browser shows root-level scaffolding (README, CI, Docker) beyond ``src/``.
+
+    Scaffolding is served statically (``demo_scaffold``) with no analysis rows, so the file tree reads
+    like a real repository and each scaffold file is openable via the contents endpoint.
+    """
+    resp = await client.post("/api/v1/auth/demo")
+    client.cookies = resp.cookies
+
+    tree = await client.get("/api/v1/github/repositories/devdebtops/sample-shop/tree")
+    assert tree.status_code == 200
+    paths = {i["path"] for i in tree.json()["tree"]}
+    assert {"README.md", ".github/workflows/ci.yml", "pyproject.toml"} <= paths
+
+    content = await client.get(
+        "/api/v1/github/repositories/devdebtops/sample-shop/contents",
+        params={"path": "README.md"},
+    )
+    assert content.status_code == 200
+    assert "sample-shop" in (content.json()["content"] or "")
