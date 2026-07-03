@@ -8,6 +8,7 @@
 
 ### Added
 
+- **キーボードショートカットを拡充**。従来は `⌘K`/`Ctrl+K`（コマンドパレット）のみだったが、`/`（パレットを開く）・`?`（ショートカット一覧を表示）・`g` に続けて文字を押す移動ショートカット（`g d` ダッシュボード / `g m` 理解度マップ / `g l` クイズと学習 / `g q` コード品質マップ / `g i` コード改善 / `g s` 設定 / `g p` プロジェクト一覧）を追加（GitHub/Linear 流）。入力欄フォーカス中はナビ系を無効化し、Mac は ⌘・その他は Ctrl に対応。一覧は `?` で表示（全 UI 言語対応）。
 - **構造化ログ（JSON）と可観測性を導入**（issue 302）。api・service とも標準出力へ **Cloud Logging ネイティブな JSON**（`severity`・`message`・`time`・`logger`＋任意の構造化フィールド・例外スタック）で出力するようにした（追加依存なし）。`RequestContextMiddleware` が各リクエストに**リクエストID**を付与（`X-Request-ID` で返却）し、Cloud Run の `X-Cloud-Trace-Context` から **`logging.googleapis.com/trace`** を設定するため、Log Explorer で `severity>=ERROR` やフィールド検索、リクエスト単位の集約・Cloud Trace 相関ができる。`LOG_FORMAT=text` でローカルは人間可読に切替可、`LOG_LEVEL` でレベル調整（既定 JSON / INFO）。
 - **ヘルスチェック（readiness）エンドポイント `GET /api/v1/health/ready` を追加**（issue 301）。DB へ実際に `SELECT 1` を実行してレイテンシを計測し、プロセスのメモリ使用量(RSS)と稼働時間を JSON で返す。DB 不達時は全体ステータス `degraded` として **503** を返し、ロードバランサ/オーケストレータがトラフィックを退避できる。既存の `GET /api/v1/health` は依存なしの軽量な liveness プローブとして維持。Cloud Run(api) に startup プローブ（`/health/ready`＝DB 疎通まで配信しない）と liveness プローブ（`/health`）を設定。
 - **対応言語を 6 言語に拡大**（日本語 / English / 中文 / 한국어 / Español / Deutsch）。右上のアカウントメニューから切り替え可能。全 UI メッセージ（`messages/{zh,ko,es,de}.json`、各 627 キー）を翻訳。

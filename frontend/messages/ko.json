@@ -626,5 +626,9 @@
   "project_switcher_error": "프로젝트를 불러오지 못했습니다",
   "matrix_priority_aria": "우선순위 {priority}, 기술 부채 {code}, 이해 부채 {know}",
   "overview_scatter_count": "{count}개 파일",
-  "shell_toggle_theme": "테마 전환"
+  "shell_toggle_theme": "테마 전환",
+  "shortcuts_title": "키보드 단축키",
+  "shortcuts_section_general": "일반",
+  "shortcuts_section_nav": "탐색",
+  "shortcuts_show_help": "단축키 목록 표시"
 }

@@ -626,5 +626,9 @@
   "project_switcher_error": "No se pudieron cargar los proyectos",
   "matrix_priority_aria": "Prioridad {priority}, deuda técnica {code}, deuda de conocimiento {know}",
   "overview_scatter_count": "{count} archivos",
-  "shell_toggle_theme": "Alternar tema"
+  "shell_toggle_theme": "Alternar tema",
+  "shortcuts_title": "Atajos de teclado",
+  "shortcuts_section_general": "General",
+  "shortcuts_section_nav": "Navegación",
+  "shortcuts_show_help": "Mostrar atajos de teclado"
 }
