@@ -48,6 +48,17 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     to the separate ``service`` container, keeping api request-driven / zero-scalable.
     """
     logger.info("Starting backend replica: %s", os.environ.get("REPLICA_ID", "single"))
+
+    # デモ環境のみ: 内容バージョンが上がっていれば起動時に一度だけデモデータを再シード（複数レプリカは
+    # アドバイザリロックで直列化）。失敗しても起動は絶対に止めない。
+    try:
+        from app.scripts.seed_demo import refresh_demo_if_stale
+
+        if await refresh_demo_if_stale():
+            logger.info("demo dataset refreshed on startup")
+    except Exception:  # best-effort; a demo-seed failure must never block app startup
+        logger.warning("demo startup refresh skipped due to an error", exc_info=True)
+
     mock_worker_task: asyncio.Task[None] | None = None
     if settings.use_mock_worker():
         from app.services.mock_worker import run_mock_worker

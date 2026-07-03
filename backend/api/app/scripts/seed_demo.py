@@ -27,16 +27,19 @@ from the ``api`` workspace member, e.g.::
 import argparse
 import asyncio
 import hashlib
+import logging
 import posixpath
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession as SAAsyncSession
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import db as app_db
+from app.core.config import settings
+from app.models.app_metadata import AppMetadata
 from app.models.org import Org, OrgMember, OrgRole
 from app.models.project import Project
 from app.services.demo import ensure_demo_user
@@ -2755,6 +2758,65 @@ async def reset_analysis(session: SAAsyncSession) -> None:
     # The runs themselves last.
     await session.execute(delete(AnalysisRun).where(col(AnalysisRun.id).in_(run_ids)))
     await session.commit()
+
+
+logger = logging.getLogger(__name__)
+
+# Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
+# graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
+# so edits show up on the next deploy without wiping an in-progress demo on every boot.
+DEMO_SEED_VERSION = "1"
+
+_SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
+_SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)
+
+
+async def refresh_demo_if_stale() -> bool:
+    """Reseed the demo dataset on startup iff its content version changed (``DEMO_MODE_ENABLED`` only).
+
+    ``seed()`` is idempotent (skips existing rows), so content edits require a reset+reseed to take
+    effect. This gates on ``DEMO_SEED_VERSION`` stored in ``app_metadata`` and serializes replicas with
+    a Postgres advisory lock, so exactly one instance reseeds and only when the version actually
+    changed (a shared DB means the others just read the refreshed rows). Best-effort: callers should
+    guard so a failure never blocks app startup.
+
+    Returns:
+        ``True`` if a reseed ran, ``False`` otherwise (disabled / already current / lock not acquired).
+    """
+    if not settings.DEMO_MODE_ENABLED:
+        return False
+    # The advisory lock is CONNECTION-scoped, so hold it on a dedicated session that never commits
+    # (committing would rotate the pooled connection and the unlock would land on a different one).
+    # All real work — version read, reset, reseed, marker upsert — runs on SEPARATE sessions.
+    async with app_db.sa_async_session_maker() as lock_session:
+        acquired = (await lock_session.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": _SEED_LOCK_KEY})).scalar()
+        if not acquired:
+            return False  # another replica is (re)seeding; the shared DB will reflect its result
+        try:
+            async with app_db.async_session_maker() as check_session:
+                marker = await check_session.get(AppMetadata, _SEED_VERSION_KEY)
+                current = marker.value if marker is not None else None
+            if current == DEMO_SEED_VERSION:
+                return False
+
+            async with app_db.sa_async_session_maker() as reset_session:
+                await reset_analysis(reset_session)  # clear the demo org's seeded analysis rows (demo-only)
+            async with app_db.async_session_maker() as seed_session:
+                await seed(seed_session)
+
+            async with app_db.async_session_maker() as mark_session:
+                marker = await mark_session.get(AppMetadata, _SEED_VERSION_KEY)
+                if marker is None:
+                    mark_session.add(AppMetadata(key=_SEED_VERSION_KEY, value=DEMO_SEED_VERSION))
+                else:
+                    marker.value = DEMO_SEED_VERSION
+                    mark_session.add(marker)
+                await mark_session.commit()
+            logger.info("demo dataset reseeded (version=%s)", DEMO_SEED_VERSION)
+            return True
+        finally:
+            # Release on the same still-open, never-committed lock connection.
+            await lock_session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _SEED_LOCK_KEY})
 
 
 async def main(do_reset: bool) -> None:
