@@ -90,13 +90,14 @@
         height: auto;
         filter: drop-shadow(0 26px 44px rgba(0, 0, 0, 0.5));
       }
-      /* スマホは手前・左下に少しはみ出して重ねる（奥行きを出す）。幅は % 指定で全幅に追従。 */
+      /* スマホは手前・左下へ重ねる（奥行きを出す）。ラップトップ側アプリの左サイドバーが見える程度に、
+         重なりを浅くして左へ寄せる。幅は % 指定で全幅に追従。 */
       .hero-devices .phone-img {
         position: absolute;
         z-index: 2;
-        left: -2%;
-        bottom: -7%;
-        width: 25%;
+        left: -11%;
+        bottom: -6%;
+        width: 22%;
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
       }
