@@ -560,6 +560,7 @@
   "analysis_run_short": "解析",
   "analysis_run_title": "リポジトリ解析",
   "analysis_run_cta": "このリポジトリを解析する",
+  "analysis_run_guide": "リポジトリ解析を実行して、技術負債・理解負債を可視化しましょう。",
   "analysis_run_running": "解析を実行中…",
   "analysis_regenerate": "再解析する",
   "analysis_stage_detect_code": "検知（技術負債）",
