@@ -204,7 +204,7 @@
   "project_home_new": "新規プロジェクト",
   "project_home_org_settings": "組織設定",
   "project_home_empty_title": "最初のプロジェクトを作成",
-  "project_home_empty_desc": "1 プロジェクト = 1 リポジトリ。観測したいリポジトリを接続して始めましょう。",
+  "project_home_empty_desc": "解析したいリポジトリを接続して始めましょう。",
   "project_card_repo": "リポジトリ",
   "project_create_title": "新規プロジェクト",
   "project_create_pick_repo": "リポジトリを選択",
