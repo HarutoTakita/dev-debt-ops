@@ -571,10 +571,14 @@ def _det01(salt: str, path: str) -> float:
 
 
 def _kc_of(path: str) -> float:
-    """Varied but deterministic KC so map colors are a mix (理解済み/部分/未理解/未着手)."""
-    if _det01("kc", path) < 0.10:
-        return 0.0  # ~10% は未着手（unexplored / グレー）
-    return round(0.12 + _det01("kcv", path) * 0.83, 2)  # 0.12〜0.95 に分布
+    """Varied but deterministic KC so map colors are a mix (理解済み/部分/未理解/未着手).
+
+    KC=0（未着手）はごく少数（~3%）に絞る。多いと散布図の左端に点が一直線に並んで見栄えが悪いため。
+    残りは 0.06〜0.95 に広く分布させ、横軸(理解度)方向にしっかりバラけるようにする。
+    """
+    if _det01("kc", path) < 0.03:
+        return 0.0  # ~3% だけ未着手（unexplored / グレー）— 象徴的に残す
+    return round(0.06 + _det01("kcv", path) * 0.89, 2)  # 0.06〜0.95 に分布
 
 
 def _build_extra() -> tuple[list, list, list]:
@@ -2765,7 +2769,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "1"
+DEMO_SEED_VERSION = "2"
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)
