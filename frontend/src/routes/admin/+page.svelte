@@ -14,6 +14,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Badge } from "$lib/components/ui/badge";
   import { cn } from "$lib/utils";
+  import { auth } from "$lib/stores/auth.svelte";
   import { getLocale } from "$lib/paraglide/runtime";
   import * as m from "$lib/paraglide/messages";
 
@@ -202,18 +203,22 @@
               <td class="px-3 py-2 text-right tabular-nums">{u.issue_count}</td>
               <td class="px-3 py-2 text-right font-medium tabular-nums">{u.analysis_credits}</td>
               <td class="px-3 py-2">
-                <div class="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={amounts[u.id] ?? 5}
-                    oninput={(e) => (amounts = { ...amounts, [u.id]: e.currentTarget.valueAsNumber })}
-                    class="h-8 w-20"
-                  />
-                  <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => grant(u)}
-                    >{m.admin_grant()}</Button
-                  >
-                </div>
+                {#if auth.isDemo}
+                  <span class="text-xs text-muted-foreground">{m.admin_demo_readonly()}</span>
+                {:else}
+                  <div class="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={amounts[u.id] ?? 5}
+                      oninput={(e) => (amounts = { ...amounts, [u.id]: e.currentTarget.valueAsNumber })}
+                      class="h-8 w-20"
+                    />
+                    <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => grant(u)}
+                      >{m.admin_grant()}</Button
+                    >
+                  </div>
+                {/if}
               </td>
             </tr>
           {/each}

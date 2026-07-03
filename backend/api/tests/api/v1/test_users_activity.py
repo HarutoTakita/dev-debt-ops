@@ -10,9 +10,15 @@ from datetime import UTC, datetime
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.api.v1.auth_demo import router as _demo_router
 from app.core import db as app_db
 from app.core.config import settings
 from app.main import app
+
+# DEMO_MODE_ENABLED is false in tests, so auth.py does not mount the demo router. Mount it here
+# (idempotently) so the demo-user activity test can log in — mirrors test_demo_auth.py.
+if not any(getattr(r, "path", None) == "/api/v1/auth/demo" for r in app.routes):
+    app.include_router(_demo_router, prefix="/api/v1/auth")
 from shared.enums import JobStatus, JobType
 from shared.models import (
     AnalysisRun,
@@ -111,5 +117,29 @@ async def test_activity_forbidden_for_general_user(monkeypatch: pytest.MonkeyPat
         me = (await client.get("/api/v1/users/me")).json()
         assert me["is_superuser"] is False
         assert (await client.get("/api/v1/users/activity")).status_code == 403
+    finally:
+        await client.aclose()
+
+
+async def test_activity_demo_user_sees_fabricated_members() -> None:
+    """The guest-demo user can open the admin dashboard and gets fabricated sample members only.
+
+    Demo is not a superuser but is allowed in to showcase the management UI — the rows are synthetic
+    (all @sample-shop.demo), so no real account data is ever exposed to a guest.
+    """
+    client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+    try:
+        resp = await client.post("/api/v1/auth/demo")
+        client.cookies = resp.cookies
+
+        activity = await client.get("/api/v1/users/activity")
+        assert activity.status_code == 200, activity.text
+        rows = activity.json()
+        assert len(rows) >= 5
+        # Every returned member is fabricated demo data (no real accounts leaked).
+        assert all(r["email"].endswith("@sample-shop.demo") for r in rows)
+        # The metrics the dashboard renders are present and varied.
+        assert any(r["pr_count"] > 0 for r in rows)
+        assert any(r["quiz_avg_score"] is not None for r in rows)
     finally:
         await client.aclose()

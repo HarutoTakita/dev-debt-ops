@@ -107,22 +107,6 @@
             {/if}
           </a>
         {/each}
-
-        <!-- ホバーツールチップ -->
-        {#if hovered}
-          <div
-            class="pointer-events-none absolute z-20 max-w-[80%] -translate-x-1/2 -translate-y-full rounded-md bg-foreground px-2 py-1 text-[10px] whitespace-nowrap text-background"
-            style="left: {pct(hovered.knowledge_coverage)}%; top: calc({pct(hovered.code_debt_score)}% - 6px);"
-          >
-            <span class="font-mono">{hovered.path}</span>
-            <span class="opacity-80">
-              · {m.overview_tooltip_quality_kc({
-                quality: Math.round((1 - hovered.code_debt_score) * 100),
-                kc: Math.round(hovered.knowledge_coverage * 100),
-              })}
-            </span>
-          </div>
-        {/if}
       </div>
 
       <!-- 横軸ラベル（チーム理解度 →） -->
@@ -130,3 +114,18 @@
     </div>
   </div>
 </div>
+
+<!-- 情報ツールチップ。端の点でもマトリクス枠に埋もれないよう、画面最上部に固定表示する。 -->
+{#if hovered}
+  <div
+    class="pointer-events-none fixed top-2 left-1/2 z-50 max-w-[92vw] -translate-x-1/2 rounded-md border border-border bg-foreground px-2.5 py-1 text-xs whitespace-nowrap text-background shadow-lg"
+  >
+    <span class="font-mono">{hovered.path}</span>
+    <span class="opacity-80">
+      · {m.overview_tooltip_quality_kc({
+        quality: Math.round((1 - hovered.code_debt_score) * 100),
+        kc: Math.round(hovered.knowledge_coverage * 100),
+      })}
+    </span>
+  </div>
+{/if}

@@ -21,6 +21,12 @@ class AuthStore {
     return this.user?.is_superuser ?? false;
   }
 
+  /** Who may open the admin dashboard: real admins AND the guest-demo user (demo showcases the admin
+   * UI with seeded sample members — the backend serves fabricated demo data, never real users). */
+  get canAccessAdmin() {
+    return this.isAdmin || this.isDemo;
+  }
+
   /** Remaining repository-analysis credits for the signed-in user (issue 298). */
   get analysisCredits() {
     return this.user?.analysis_credits ?? 0;

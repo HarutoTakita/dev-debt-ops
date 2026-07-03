@@ -1,15 +1,16 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 from sqlalchemy import case, func, or_
 from sqlmodel import col, select
 
-from app.api.deps import CurrentSuperuser, SessionDep
+from app.api.deps import CurrentSuperuser, CurrentUser, SessionDep
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.core.security import fastapi_users
 from app.models.user import User
 from app.schemas.user import UserActivityOut, UserCreditsGrant, UserRead, UserRoleUpdate, UserUpdate
+from app.services.demo_members import demo_member_activity
 from shared.enums import JobType
 from shared.models import CodeDebt, Job, LearningPlan, LearningStep, QuizSession
 
@@ -64,7 +65,7 @@ async def list_users(
     },
 )
 async def list_user_activity(
-    _admin: CurrentSuperuser,
+    current_user: CurrentUser,
     session: SessionDep,
     q: str | None = Query(
         default=None,
@@ -73,13 +74,29 @@ async def list_user_activity(
     limit: int = Query(default=200, le=500, description="Maximum number of members to return (capped at 500)."),
     offset: int = Query(default=0, ge=0, description="Number of members to skip before returning results."),
 ) -> list[UserActivityOut]:
-    """Return members with their aggregated activity across all projects (superuser only).
+    """Return members with their aggregated activity across all projects.
+
+    Superusers get the real aggregation; the guest-demo user gets fabricated sample members (so the
+    admin dashboard is demoable without exposing any real account). Everyone else is forbidden.
 
     Aggregates are computed with a handful of grouped queries (one per metric family) rather than
     per-user loops, then joined in Python — so the response stays O(1) queries regardless of member
     count. Metrics: learning-plan step progress, quiz completion + average score, repayment-PR and
     GitHub-issue creation counts, and last activity.
     """
+    if not (current_user.is_superuser or current_user.is_demo):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="管理者のみ利用できます。")
+
+    # Guest demo: serve fabricated sample members (never real user data), then apply q / pagination.
+    if current_user.is_demo:
+        members = demo_member_activity()
+        if q:
+            needle = q.lower()
+            members = [
+                mmb for mmb in members if needle in mmb.email.lower() or needle in (mmb.display_name or "").lower()
+            ]
+        return members[offset : offset + limit]
+
     # 1) Members (same filter/pagination as list_users). oauth_accounts joined-eager → unique().
     stmt = select(User).where(User.deleted_at.is_(None))
     if q:

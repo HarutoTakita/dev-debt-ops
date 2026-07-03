@@ -640,5 +640,6 @@
   "admin_summary_members": "メンバー",
   "admin_summary_quizzes": "完了テスト",
   "admin_summary_prs": "作成 PR",
-  "admin_summary_issues": "作成 Issue"
+  "admin_summary_issues": "作成 Issue",
+  "admin_demo_readonly": "デモでは付与できません"
 }

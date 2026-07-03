@@ -10,6 +10,7 @@ export const ssr = false;
 export const load: PageLoad = async () => {
   if (!auth.isAuthenticated) await auth.init();
   if (!auth.isAuthenticated) throw redirect(307, resolve("/login"));
-  if (!auth.isAdmin) throw redirect(307, resolve("/"));
+  // デモユーザーも管理ダッシュボードを閲覧できる（サンプルデータで管理者体験を見せる）。
+  if (!auth.canAccessAdmin) throw redirect(307, resolve("/"));
   return {};
 };
