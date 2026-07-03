@@ -214,6 +214,88 @@
         color: #94a3b8;
         margin-top: 0.15rem;
       }
+      /* 分岐する処理フロー図: 01 → (理解負債: 2-1→3-1 / 技術負債: 2-2→3-2) → 04。
+         モバイルは縦積み、lg で横並び＋分岐/合流のコネクタ(SVG)を表示する。 */
+      .flow-diagram {
+        max-width: 84rem;
+        margin: 0 auto;
+        width: 100%;
+        padding: 0 1.5rem 2.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .flow-tracks {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .flow-track {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .track-tag {
+        display: inline-flex;
+        align-items: center;
+        align-self: flex-start;
+        flex: 0 0 auto;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.2rem 0.6rem;
+        border-radius: 9999px;
+        white-space: nowrap;
+      }
+      .track-tag.know {
+        background: rgba(34, 184, 196, 0.15);
+        color: #22b8c4;
+      }
+      .track-tag.code {
+        background: rgba(224, 162, 58, 0.15);
+        color: #e0a23a;
+      }
+      .flow-branch,
+      .flow-merge {
+        display: none;
+        color: rgba(148, 163, 184, 0.55);
+      }
+      @media (min-width: 1024px) {
+        .flow-diagram {
+          flex-direction: row;
+          align-items: stretch;
+          gap: 0.5rem;
+        }
+        .flow-single {
+          flex: 0 0 12.5rem;
+        }
+        .flow-tracks {
+          flex: 1 1 auto;
+          justify-content: center;
+          gap: 1rem;
+        }
+        .flow-track {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .flow-track .step {
+          flex: 1 1 0;
+        }
+        .track-tag {
+          align-self: center;
+        }
+        .flow-branch,
+        .flow-merge {
+          display: flex;
+          align-items: center;
+          flex: 0 0 2.4rem;
+        }
+        .flow-branch svg,
+        .flow-merge svg {
+          width: 2.4rem;
+          height: 100%;
+        }
+      }
       /* ファーストビュー左上のブランド（ログインと同じ、背景が光るアプリアイコン＋アプリ名＋サブタイトル）。 */
       .brand-lockup {
         display: flex;
@@ -370,7 +452,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
               </svg>
-              スケーラブルな Cloud Run 構成
+              スケーラブルなインフラ構成
             </span>
           </div>
         </div>
@@ -397,52 +479,88 @@
         </div>
       </div>
 
-      <!-- 下部: AI エージェントの処理フローを矢印で表現（探索 → クイズ生成 → 学習プラン → 改善提案）。 -->
+      <!-- 下部: AI エージェントの処理フロー（分岐図）。01 で解析→ 理解負債(2-1→3-1)と技術負債(2-2→3-2)へ
+           分岐し、04 でコードベースの理解度・品質向上へ合流する様子を示す。 -->
       <p class="flow-eyebrow">AI エージェントの処理フロー</p>
-      <div class="hero-steps">
-        <div class="step">
+      <div class="flow-diagram">
+        <!-- 起点: リポジトリ解析 -->
+        <div class="step flow-single">
           <span class="step-badge know">01</span>
           <div>
             <div class="step-title">リポジトリ解析</div>
-            <div class="step-desc">
-              AI エージェントが MCP でコードベースを横断探索。機能単位にクラスタリングし、技術スタックや依存関係も把握します。
+            <div class="step-desc">MCP でコードを横断探索し、機能単位に抽出</div>
+          </div>
+        </div>
+
+        <!-- 分岐コネクタ（1 → 2 本） -->
+        <div class="flow-branch" aria-hidden="true">
+          <svg viewBox="0 0 40 100" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="none">
+            <path d="M2 50 H14" />
+            <path d="M14 50 C 26 50 26 26 38 26" />
+            <path d="M14 50 C 26 50 26 74 38 74" />
+          </svg>
+        </div>
+
+        <!-- 2 本のトラック: 理解負債 / 技術負債 -->
+        <div class="flow-tracks">
+          <div class="flow-track">
+            <span class="track-tag know">理解負債</span>
+            <div class="step">
+              <span class="step-badge know">2-1</span>
+              <div>
+                <div class="step-title">クイズを生成・実測</div>
+                <div class="step-desc">機能ごとに理解度を測定（git blame 非依存）</div>
+              </div>
+            </div>
+            <div class="step-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </div>
+            <div class="step">
+              <span class="step-badge know">3-1</span>
+              <div>
+                <div class="step-title">学習プランを生成</div>
+                <div class="step-desc">弱点に合わせ、コード解説つきで自動作成</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-track">
+            <span class="track-tag code">技術負債</span>
+            <div class="step">
+              <span class="step-badge code">2-2</span>
+              <div>
+                <div class="step-title">低品質コードの検知</div>
+                <div class="step-desc">重複・複雑度・AI 生成痕跡などを解析</div>
+              </div>
+            </div>
+            <div class="step-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </div>
+            <div class="step">
+              <span class="step-badge code">3-2</span>
+              <div>
+                <div class="step-title">コード改善を提案</div>
+                <div class="step-desc">自動修正 PR・担当者割り当て Issue を起票</div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="step-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+
+        <!-- 合流コネクタ（2 → 1 本） -->
+        <div class="flow-merge" aria-hidden="true">
+          <svg viewBox="0 0 40 100" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="none">
+            <path d="M2 26 C 14 26 14 50 26 50" />
+            <path d="M2 74 C 14 74 14 50 26 50" />
+            <path d="M26 50 H38" />
+          </svg>
         </div>
-        <div class="step">
-          <span class="step-badge know">02</span>
-          <div>
-            <div class="step-title">クイズを生成・実測</div>
-            <div class="step-desc">
-              機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で実測します（git blame 非依存）。
-            </div>
-          </div>
-        </div>
-        <div class="step-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-        </div>
-        <div class="step">
-          <span class="step-badge know">03</span>
-          <div>
-            <div class="step-title">学習プランを生成</div>
-            <div class="step-desc">
-              弱点の機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立てます。
-            </div>
-          </div>
-        </div>
-        <div class="step-arrow" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-        </div>
-        <div class="step">
+
+        <!-- 合流点: 理解度・品質向上 -->
+        <div class="step flow-single">
           <span class="step-badge code">04</span>
           <div>
-            <div class="step-title">改善を提案</div>
-            <div class="step-desc">
-              低品質コードを検知し、AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応します。
-            </div>
+            <div class="step-title">理解度・品質が向上</div>
+            <div class="step-desc">属人化を解消し、コードベースを継続的に改善</div>
           </div>
         </div>
       </div>
