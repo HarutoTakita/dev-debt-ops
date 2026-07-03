@@ -24,12 +24,14 @@
   });
 
   // 新規プロジェクト（リポジトリ接続済み）でまだ一度も解析していないときは、解析ボタンを点滅させ、
-  // ホバーで「解析を実行しましょう」の案内ツールチップを出して最初の一歩へ誘導する。
+  // ボタン下に案内の吹き出しを出して最初の一歩へ誘導する（解析ウィンドウを開いている間は隠す）。
+  let popoverOpen = $state(false);
   const needsFirstRun = $derived(repo.connected != null && !analysisRun.started && !analysisRun.running);
+  const showGuide = $derived(needsFirstRun && !popoverOpen);
 </script>
 
 <div class="relative flex items-center">
-  <Popover.Root>
+  <Popover.Root bind:open={popoverOpen}>
     <Popover.Trigger>
       {#snippet child({ props })}
         <button
@@ -58,11 +60,16 @@
     </Popover.Content>
   </Popover.Root>
 
-  <!-- 未解析プロジェクトでは常時、ボタン左に案内を出す（ホバー不要）。クリックを妨げないよう pointer-events-none。 -->
-  {#if needsFirstRun}
+  <!-- 未解析プロジェクトでは、ボタン下に案内の吹き出しを表示（ホバー不要）。解析ウィンドウを開いている間は隠す。
+       クリックを妨げないよう pointer-events-none。 -->
+  {#if showGuide}
     <div
-      class="pointer-events-none absolute top-1/2 right-full z-50 mr-2 hidden w-56 -translate-y-1/2 rounded-md border border-debt-knowledge/40 bg-popover px-2.5 py-1.5 text-xs leading-snug text-popover-foreground shadow-md md:block"
+      class="pointer-events-none absolute top-full right-0 z-50 mt-2 w-56 rounded-md border border-debt-knowledge/40 bg-popover px-2.5 py-1.5 text-xs leading-snug text-popover-foreground shadow-md"
     >
+      <!-- 吹き出しの矢印（ボタンを指す。align=end に合わせ右寄せ） -->
+      <div
+        class="absolute -top-1 right-3 size-2 rotate-45 border-t border-l border-debt-knowledge/40 bg-popover"
+      ></div>
       {m.analysis_run_guide()}
     </div>
   {/if}
