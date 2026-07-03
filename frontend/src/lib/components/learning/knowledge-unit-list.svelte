@@ -69,6 +69,21 @@
               >{m.unit_files_count({ count: u.file_count })}</span
             >
           </div>
+          {#if u.learning_steps_total > 0}
+            <!-- この単元の学習プラン進捗（完了ステップ / 総ステップ）。 -->
+            <div class="mt-2">
+              <div class="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{m.learning_progress()}</span>
+                <span class="tabular-nums">{u.learning_steps_done}/{u.learning_steps_total}</span>
+              </div>
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  class="h-full rounded-full bg-debt-knowledge/60"
+                  style="width: {Math.round((u.learning_steps_done / u.learning_steps_total) * 100)}%"
+                ></div>
+              </div>
+            </div>
+          {/if}
           <div class="mt-2 flex flex-wrap items-center gap-2">
             {#if u.learning_plan_id}
               <a

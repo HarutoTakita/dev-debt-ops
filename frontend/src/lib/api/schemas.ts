@@ -280,6 +280,8 @@ export const knowledgeUnitSchema = z.object({
   learning_plan_id: z.string().nullable().default(null),
   quiz_session_id: z.string().nullable().default(null),
   quiz_status: z.string().nullable().default(null),
+  learning_steps_done: z.number().default(0), // 学習プランの完了ステップ数（進捗バー用）
+  learning_steps_total: z.number().default(0), // 学習プランの総ステップ数
 });
 export const knowledgeUnitsSchema = z.object({ units: z.array(knowledgeUnitSchema) });
 
