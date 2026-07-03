@@ -560,6 +560,7 @@
   "analysis_run_short": "Analyze",
   "analysis_run_title": "Repository analysis",
   "analysis_run_cta": "Analyze this repository",
+  "analysis_run_guide": "Run a repository analysis to visualize your code and knowledge debt.",
   "analysis_run_running": "Running analysis…",
   "analysis_regenerate": "Re-analyze",
   "analysis_stage_detect_code": "Detect (technical debt)",

@@ -22,6 +22,10 @@
   $effect(() => {
     if (orgSlug && projectSlug) void analysisRun.hydrate(ctx);
   });
+
+  // 新規プロジェクト（リポジトリ接続済み）でまだ一度も解析していないときは、解析ボタンを点滅させ、
+  // ホバーで「解析を実行しましょう」の案内ツールチップを出して最初の一歩へ誘導する。
+  const needsFirstRun = $derived(repo.connected != null && !analysisRun.started && !analysisRun.running);
 </script>
 
 <Popover.Root>
@@ -29,16 +33,20 @@
     {#snippet child({ props })}
       <button
         {...props}
-        title={m.analysis_run_cta()}
+        title={needsFirstRun ? m.analysis_run_guide() : m.analysis_run_cta()}
         data-tour="analysis-run"
         class={cn(
-          "flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-sm transition-colors hover:bg-accent",
-          analysisRun.running ? "text-debt-knowledge" : "text-muted-foreground hover:text-foreground",
+          "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors hover:bg-accent",
+          analysisRun.running
+            ? "border-border text-debt-knowledge"
+            : needsFirstRun
+              ? "animate-pulse border-debt-knowledge text-debt-knowledge"
+              : "border-border text-muted-foreground hover:text-foreground",
         )}
       >
         <Radar class={cn("size-4 shrink-0", analysisRun.running && "animate-spin")} />
         <span class="hidden sm:inline">{m.analysis_run_short()}</span>
-        {#if analysisRun.running}
+        {#if analysisRun.running || needsFirstRun}
           <span class="size-1.5 shrink-0 rounded-full bg-debt-knowledge"></span>
         {/if}
       </button>
