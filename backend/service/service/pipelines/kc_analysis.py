@@ -21,6 +21,7 @@ unique constraints (dev rows on ``(run_id, file_path, dev_id)``; aggregate rows 
 """
 
 import logging
+import math
 import posixpath
 import uuid
 from datetime import UTC, datetime
@@ -56,18 +57,28 @@ _SOURCE_EXTS = (".py", ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".c
 _AUTHORSHIP_KC_CEILING = 0.35
 
 # 単独著者リポジトリだと blame 行シェアが全ファイル≒1.0 になり、authorship KC が一律 ``_AUTHORSHIP_KC_CEILING``
-# に張り付いてマトリクスが平坦になる。初期推定に「規模＝理解負荷」のスプレッドを与えるため、行数で 0..1 に
-# 減衰する係数を authorship KC に掛ける（大きいファイルほど低い＝理解負債ホットスポット）。クイズ実測 KC
-# （certified_via != authorship）は対象外で、product 前提（理解はクイズで実測）は維持する。
-_KC_SIZE_REF_LINES = 60  # この行数で係数 ≈ 0.5。小さいほど 1 に、大きいほど下限へ近づく。
-_KC_SIZE_FACTOR_FLOOR = 0.15
+# に張り付いてマトリクスが平坦になる。初期推定に「規模＝理解負荷」のスプレッドを与えるため、行数で floor..1 に
+# 減衰する係数を authorship KC に掛ける（大きいファイルほど低い＝理解負債ホットスポット）。
+# 係数は**対数スケール**（`_KC_SIZE_MIN_LINES`〜`_KC_SIZE_MAX_LINES` 行を 1..floor に線形写像）にして、実際のコード
+# （数十〜数百行）が狭い帯に固まらず広く分散するようにする。クイズ実測 KC（certified_via != authorship）は
+# 対象外で、product 前提（理解はクイズで実測）は維持する。
+_KC_SIZE_MIN_LINES = 10  # これ以下は係数 1.0（小さい＝理解しやすい）
+_KC_SIZE_MAX_LINES = 800  # これ以上は floor（大きい＝理解負荷大）
+_KC_SIZE_FACTOR_FLOOR = 0.05
 
 
 def _size_factor(content: str) -> float:
-    """Return a 0.15..1.0 factor that decays with file line count (larger file → smaller factor)."""
+    """Return a floor..1.0 factor decaying (log scale) with file line count (larger file → smaller).
+
+    Log scale spreads typical code (tens–hundreds of lines) across the whole range so the initial KC
+    estimate disperses across the matrix instead of clustering near one value.
+    """
     lines = content.count("\n") + 1 if content else 0
-    factor = _KC_SIZE_REF_LINES / (_KC_SIZE_REF_LINES + lines)
-    return max(_KC_SIZE_FACTOR_FLOOR, min(1.0, factor))
+    if lines <= _KC_SIZE_MIN_LINES:
+        return 1.0
+    span = math.log(_KC_SIZE_MAX_LINES) - math.log(_KC_SIZE_MIN_LINES)
+    frac = (math.log(lines) - math.log(_KC_SIZE_MIN_LINES)) / span
+    return max(_KC_SIZE_FACTOR_FLOOR, min(1.0, 1.0 - frac))
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
