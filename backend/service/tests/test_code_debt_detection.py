@@ -58,6 +58,8 @@ class TestVendoredExclusion:
             "src/urllib3/util/retry.py",  # 任意位置の installed module（パッケージ名で検出）
             "deploy/requests-2.31.0.dist-info/RECORD",  # pip メタデータ
             "x/foo.egg-info/PKG-INFO",
+            "backend/api/app/alembic/versions/0001_initial.py",  # 自動生成 DB マイグレーション
+            "app/migrations/0002_add_field.py",  # Django 等のマイグレーション
         ],
     )
     def test_vendored_paths_excluded(self, path: str) -> None:
