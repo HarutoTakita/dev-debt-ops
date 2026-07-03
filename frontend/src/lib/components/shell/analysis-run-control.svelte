@@ -28,31 +28,42 @@
   const needsFirstRun = $derived(repo.connected != null && !analysisRun.started && !analysisRun.running);
 </script>
 
-<Popover.Root>
-  <Popover.Trigger>
-    {#snippet child({ props })}
-      <button
-        {...props}
-        title={needsFirstRun ? m.analysis_run_guide() : m.analysis_run_cta()}
-        data-tour="analysis-run"
-        class={cn(
-          "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors hover:bg-accent",
-          analysisRun.running
-            ? "border-border text-debt-knowledge"
-            : needsFirstRun
-              ? "animate-pulse border-debt-knowledge text-debt-knowledge"
-              : "border-border text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <Radar class={cn("size-4 shrink-0", analysisRun.running && "animate-spin")} />
-        <span class="hidden sm:inline">{m.analysis_run_short()}</span>
-        {#if analysisRun.running || needsFirstRun}
-          <span class="size-1.5 shrink-0 rounded-full bg-debt-knowledge"></span>
-        {/if}
-      </button>
-    {/snippet}
-  </Popover.Trigger>
-  <Popover.Content align="end" sideOffset={6} class="w-96 max-w-[calc(100vw-1rem)] p-2">
-    <AnalysisRunCockpit {ctx} />
-  </Popover.Content>
-</Popover.Root>
+<div class="relative flex items-center">
+  <Popover.Root>
+    <Popover.Trigger>
+      {#snippet child({ props })}
+        <button
+          {...props}
+          title={needsFirstRun ? m.analysis_run_guide() : m.analysis_run_cta()}
+          data-tour="analysis-run"
+          class={cn(
+            "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors hover:bg-accent",
+            analysisRun.running
+              ? "border-border text-debt-knowledge"
+              : needsFirstRun
+                ? "animate-pulse border-debt-knowledge text-debt-knowledge"
+                : "border-border text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Radar class={cn("size-4 shrink-0", analysisRun.running && "animate-spin")} />
+          <span class="hidden sm:inline">{m.analysis_run_short()}</span>
+          {#if analysisRun.running || needsFirstRun}
+            <span class="size-1.5 shrink-0 rounded-full bg-debt-knowledge"></span>
+          {/if}
+        </button>
+      {/snippet}
+    </Popover.Trigger>
+    <Popover.Content align="end" sideOffset={6} class="w-96 max-w-[calc(100vw-1rem)] p-2">
+      <AnalysisRunCockpit {ctx} />
+    </Popover.Content>
+  </Popover.Root>
+
+  <!-- 未解析プロジェクトでは常時、ボタン左に案内を出す（ホバー不要）。クリックを妨げないよう pointer-events-none。 -->
+  {#if needsFirstRun}
+    <div
+      class="pointer-events-none absolute top-1/2 right-full z-50 mr-2 hidden w-56 -translate-y-1/2 rounded-md border border-debt-knowledge/40 bg-popover px-2.5 py-1.5 text-xs leading-snug text-popover-foreground shadow-md md:block"
+    >
+      {m.analysis_run_guide()}
+    </div>
+  {/if}
+</div>
