@@ -106,8 +106,8 @@
       .hero-devices .phone-img {
         position: absolute;
         z-index: 2;
-        left: -1%;
-        bottom: -13%;
+        left: -12%;
+        bottom: -6%;
         width: 21%;
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
@@ -121,7 +121,7 @@
       }
       /* コピー列とデバイス列。左列は見出しが 1 行に収まる最小幅にして、右のデバイスを近づける。 */
       .hero-grid {
-        max-width: 82rem;
+        max-width: 78rem;
         margin-inline: auto;
         width: 100%;
         display: grid;
@@ -131,14 +131,14 @@
       }
       @media (min-width: 1024px) {
         .hero-grid {
-          grid-template-columns: 0.97fr 1.03fr;
-          gap: 1rem;
+          grid-template-columns: 0.93fr 1.07fr;
+          gap: 3rem;
           padding-top: 3rem;
         }
       }
       /* 下部の「実測 → 可視化 → 改善」フロー帯（核となる価値をひと目で伝える）。 */
       .flow-eyebrow {
-        max-width: 82rem;
+        max-width: 78rem;
         margin: 1.5rem auto 0.9rem;
         padding: 0 1.5rem;
         text-align: center;
@@ -147,7 +147,7 @@
         color: #22b8c4;
       }
       .hero-steps {
-        max-width: 82rem;
+        max-width: 78rem;
         margin: 0 auto;
         width: 100%;
         padding: 0 1.5rem 2.75rem;
@@ -219,7 +219,7 @@
       /* 分岐する処理フロー図: 01 → (理解負債: 2-1→3-1 / 技術負債: 2-2→3-2) → 04。
          モバイルは縦積み、lg で横並び＋分岐/合流のコネクタ(SVG)を表示する。 */
       .flow-diagram {
-        max-width: 82rem;
+        max-width: 78rem;
         margin: 1.5rem auto 0;
         width: 100%;
         padding: 0 1.5rem 2.75rem;
@@ -329,9 +329,14 @@
       }
       .brand-sub {
         margin-top: 0.5rem;
-        font-size: 1.05rem;
+        font-size: 0.98rem;
         line-height: 1.4;
         color: #94a3b8;
+      }
+      @media (min-width: 1024px) {
+        .brand-sub {
+          white-space: nowrap;
+        }
       }
       /* 上部タブの CTA。アプリの「デモ環境」バッジと同じアンバー配色（暗色地向け dark バリアント）。 */
       .btn-demo {
@@ -420,13 +425,13 @@
               <p class="brand-sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
             </div>
           </div>
-          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[23px]">
+          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[22px]">
             クイズで<span class="text-know">理解度</span>を実測し、<span class="text-know">理解度マップ</span>で可視化。<br
               class="hidden sm:block"
             />
             低品質コードを <span class="text-code">AI の自動修正 PR</span>で改善。
           </h1>
-          <p class="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 lg:mx-0">
+          <p class="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 lg:mx-0 lg:max-w-[30rem]">
             AI エージェントが<strong class="font-semibold text-white">サブエージェント・MCP・Hook</strong>を活用してリポジトリを多角的に解析。<br
               class="hidden lg:block"
             />
@@ -434,7 +439,7 @@
           </p>
 
           <!-- 機能ハイライト（売り文句）のアイコンチップ群。 -->
-          <div class="mt-8 flex max-w-2xl flex-wrap justify-center gap-2 lg:justify-start">
+          <div class="mt-8 flex max-w-2xl flex-wrap justify-center gap-2 lg:max-w-[30rem] lg:justify-start">
             <span class="chip">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
