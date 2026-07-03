@@ -204,7 +204,7 @@
   "project_home_new": "New project",
   "project_home_org_settings": "Org settings",
   "project_home_empty_title": "Create your first project",
-  "project_home_empty_desc": "1 project = 1 repository. Connect a repository to start observing it.",
+  "project_home_empty_desc": "Connect a repository you want to analyze to get started.",
   "project_card_repo": "Repository",
   "project_create_title": "New project",
   "project_create_pick_repo": "Select a repository",
