@@ -370,6 +370,40 @@
         flex-shrink: 0;
         color: #4ecdc4;
       }
+      /* 各機能を実現している技術・仕組みのキーワードタグ（ファーストビューのチップと同系のハッシュタグ風ピル）。
+         理解負債側の機能は teal、コード負債側の機能は amber で色分けする。 */
+      .tag-row {
+        margin-top: 1.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.72rem;
+        line-height: 1.2;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        color: #cbd5e1;
+      }
+      .tag::before {
+        content: "#";
+        margin-right: 0.15rem;
+        opacity: 0.55;
+      }
+      .tag.know {
+        border-color: rgba(34, 184, 196, 0.35);
+        background: rgba(34, 184, 196, 0.1);
+        color: #7fe3ea;
+      }
+      .tag.code {
+        border-color: rgba(224, 162, 58, 0.35);
+        background: rgba(224, 162, 58, 0.1);
+        color: #eabd76;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -720,6 +754,11 @@
               <li>・理解度 × コード品質の推移グラフ</li>
               <li>・優先対応リスト</li>
             </ul>
+            <div class="tag-row">
+              <span class="tag know">理解度 × 品質の二軸</span>
+              <span class="tag code">ホットスポット可視化</span>
+              <span class="tag know">優先対応スコア</span>
+            </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
             <img
@@ -747,6 +786,11 @@
               <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #ef4444"></span>未理解</li>
               <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #94a3b8"></span>未着手</li>
             </ul>
+            <div class="tag-row">
+              <span class="tag know">force-graph 可視化</span>
+              <span class="tag know">import・関数コール解析</span>
+              <span class="tag know">機能クラスタリング</span>
+            </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
             <img
@@ -768,6 +812,11 @@
             <p class="mt-3 text-slate-300">
               ソースコードをファイル単位で閲覧し、どのファイルに品質の問題が多いかを俯瞰。重複・複雑度・dead code・AI 生成痕跡の検知結果を理解度と重ね、着手すべきホットスポットを見つけます。
             </p>
+            <div class="tag-row">
+              <span class="tag code">重複・複雑度解析</span>
+              <span class="tag code">dead code 検知</span>
+              <span class="tag code">AI 生成痕跡検知</span>
+            </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
             <img
@@ -794,6 +843,12 @@
               <li><strong class="text-white">・技術スタックを学ぶ</strong> — 関連技術の公式ドキュメント / チュートリアル</li>
               <li>・未学習 / 学習中 / 理解済み / 要復習 のステータス</li>
             </ul>
+            <div class="tag-row">
+              <span class="tag know">Gemini でクイズ生成</span>
+              <span class="tag know">L1〜L5 難易度</span>
+              <span class="tag know">blame 非依存の実測</span>
+              <span class="tag know">コードウォークスルー</span>
+            </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
             <img
@@ -815,6 +870,11 @@
             <p class="mt-3 text-slate-300">
               改善対象リストから対象を選ぶと、該当コードを行ハイライトで解説。「AI に頼む」で修正 PR を自動生成、「人に頼む」で担当者を割り当てた GitHub Issue を作成します。
             </p>
+            <div class="tag-row">
+              <span class="tag code">Google ADK エージェント</span>
+              <span class="tag code">修正 PR 自動生成</span>
+              <span class="tag code">GitHub Issue 起票</span>
+            </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
             <img
