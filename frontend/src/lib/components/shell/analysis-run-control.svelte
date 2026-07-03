@@ -4,6 +4,7 @@
   import { cn } from "$lib/utils";
   import * as Popover from "$lib/components/ui/popover";
   import { repo } from "$lib/stores/repo-store.svelte";
+  import { auth } from "$lib/stores/auth.svelte";
   import { analysisRun, type RunContext } from "$lib/stores/analysis-run-store.svelte";
   import AnalysisRunCockpit from "$lib/components/overview/analysis-run-cockpit.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -25,8 +26,11 @@
 
   // 新規プロジェクト（リポジトリ接続済み）でまだ一度も解析していないときは、解析ボタンを点滅させ、
   // ボタン下に案内の吹き出しを出して最初の一歩へ誘導する（解析ウィンドウを開いている間は隠す）。
+  // デモモードはサンプルデータで解析済み扱い＆解析実行不可のため、案内・点滅は出さない。
+  const needsFirstRun = $derived(
+    repo.connected != null && !auth.isDemo && !analysisRun.started && !analysisRun.running,
+  );
   let popoverOpen = $state(false);
-  const needsFirstRun = $derived(repo.connected != null && !analysisRun.started && !analysisRun.running);
   const showGuide = $derived(needsFirstRun && !popoverOpen);
 </script>
 
