@@ -457,6 +457,15 @@ export const quizSessionSchema = z.object({
   score: z.number().nullable(),
 });
 
+export const quizReviewItemSchema = z.object({
+  question_id: z.string(),
+  prompt: z.string(),
+  your_answer: z.string(), // 選んだ選択肢ラベル（未回答は空文字）
+  correct_answer: z.string(), // 正答ラベル
+  is_correct: z.boolean(),
+  flagged: z.boolean().default(false), // この設問にフラグを付けているか（#6）
+});
+
 export const quizResultSchema = z.object({
   session_id: z.string(),
   understood: z.array(conceptSchema), // あなたが理解していたこと
@@ -464,6 +473,7 @@ export const quizResultSchema = z.object({
   kc_before: z.number(), // 例: 0.23
   kc_after: z.number(), // 例: 0.47
   learning_plan_id: z.string().nullable(),
+  review: z.array(quizReviewItemSchema).default([]), // 全設問の正誤レビュー（#4）
 });
 
 export const quizListItemSchema = z.object({
@@ -481,6 +491,7 @@ export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
 export type QuizAnswer = z.infer<typeof quizAnswerSchema>;
 export type QuizSession = z.infer<typeof quizSessionSchema>;
 export type QuizResult = z.infer<typeof quizResultSchema>;
+export type QuizReviewItem = z.infer<typeof quizReviewItemSchema>;
 export type QuizListItem = z.infer<typeof quizListItemSchema>;
 export type QuizList = z.infer<typeof quizListSchema>;
 

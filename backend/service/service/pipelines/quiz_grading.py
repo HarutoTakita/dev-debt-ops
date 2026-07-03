@@ -47,8 +47,9 @@ def _choice_matches(expected: object, given: object) -> bool:
 def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> dict:
     """Deterministically grade a choice-only quiz with no GitHub/LLM (the sole grader — issue 298).
 
-    Returns ``score`` (fraction correct) plus ``understood`` / ``gap_concepts`` (the prompts of the
-    correct / incorrect questions) — the shape the result UI renders.
+    Returns ``score`` (fraction correct), ``understood`` / ``gap_concepts`` (the prompts of the
+    correct / incorrect questions), and ``correct_by_qid`` ({question_id: bool}) so the grader can
+    persist per-question correctness onto ``quiz_answers`` (#4 誤答チェック / #6 全回誤答再テスト).
     """
     given = {a["question_id"]: a.get("value") for a in answers}
     total = 0
@@ -56,6 +57,7 @@ def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> di
     # understood/gap_concepts are {id, label} dicts (concept shape the result UI renders).
     understood: list[dict] = []
     gap: list[dict] = []
+    correct_by_qid: dict[str, bool] = {}
     for q in questions:
         if not isinstance(q, dict):
             continue
@@ -68,12 +70,19 @@ def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> di
             continue
         total += 1
         concept = {"id": str(qid), "label": q.get("prompt") or str(qid)}
-        if _choice_matches(expected, given.get(qid)):
+        is_correct = _choice_matches(expected, given.get(qid))
+        correct_by_qid[str(qid)] = is_correct
+        if is_correct:
             correct += 1
             understood.append(concept)
         else:
             gap.append(concept)
-    return {"score": (correct / total) if total else 0.0, "understood": understood, "gap_concepts": gap}
+    return {
+        "score": (correct / total) if total else 0.0,
+        "understood": understood,
+        "gap_concepts": gap,
+        "correct_by_qid": correct_by_qid,
+    }
 
 
 async def _upsert_kc_row(
@@ -205,6 +214,13 @@ async def process(request: QuizGradingRequest, ctx: PipelineContext) -> QuizGrad
     # fetch, no Gemini (issue 298). ``request.github`` is retained on the schema but unused here.
     graded = _grade_offline(quiz.questions, quiz.answer_key, answer_dicts)
     score = graded["score"]
+
+    # Persist per-question correctness onto the saved answers (#4 誤答チェック / #6 全回誤答再テスト).
+    correct_by_qid: dict[str, bool] = graded["correct_by_qid"]
+    for a in answers:
+        if a.question_id in correct_by_qid:
+            a.is_correct = correct_by_qid[a.question_id]
+            session.add(a)
 
     # Reflect the score into file_kc (certified_via="quiz", uncapped — issue 053 / ADR 0005).
     # A feature-scope session (issue 054) expands uniformly to every file in the feature.

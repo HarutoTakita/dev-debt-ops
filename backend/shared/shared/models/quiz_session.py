@@ -27,6 +27,9 @@ class QuizSession(SQLModel, table=True):
     granularity: str = Field(default="file", nullable=False)
     feature_id: uuid.UUID | None = Field(default=None)  # granularity="feature" のとき features.id
     is_baseline: bool = Field(default=False, nullable=False)  # 初回ベースライン受験フラグ（自動生成 / 集計用）
+    # 再テスト系譜（#6）。フィルタ再テストで生成されたセッションは元セッションの id を指す（chain の根）。
+    origin_session_id: uuid.UUID | None = Field(default=None, index=True)
+    retest_mode: str | None = Field(default=None)  # None=通常 / "flagged"=フラグのみ / "wrong"=全回誤答のみ
     # not_started / in_progress / grading / completed（小文字。Job の JobStatus 大文字とは別系列）。
     status: str = Field(default="not_started", nullable=False)
     score: float | None = Field(default=None)

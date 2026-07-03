@@ -21,6 +21,8 @@ class QuizAnswer(SQLModel, table=True):
     session_id: uuid.UUID = Field(foreign_key="quiz_sessions.id", index=True, nullable=False)
     question_id: str = Field(nullable=False)
     value: str = Field(default="", nullable=False)  # MC は choice id、free_text は本文
+    # 採点時に確定する設問正誤（未採点は None）。誤答チェック（#4）と「全回誤答」再テスト（#6）に使う。
+    is_correct: bool | None = Field(default=None)
     saved_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
     )

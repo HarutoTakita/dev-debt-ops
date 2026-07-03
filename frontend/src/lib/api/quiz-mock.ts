@@ -153,6 +153,24 @@ const RESULT: QuizResult = {
   kc_before: 0.23,
   kc_after: 0.47,
   learning_plan_id: "plan-001",
+  review: [
+    {
+      question_id: "q3",
+      prompt: "再利用検出（ReuseDetectedError）が必要な理由は？",
+      your_answer: "パフォーマンス向上のため",
+      correct_answer: "盗まれたトークンの再使用を検出して全セッションを失効させるため",
+      is_correct: false,
+      flagged: true,
+    },
+    {
+      question_id: "q1",
+      prompt: "この関数の主目的は何ですか？",
+      your_answer: "アクセストークンの発行",
+      correct_answer: "アクセストークンの発行",
+      is_correct: true,
+      flagged: false,
+    },
+  ],
 };
 
 export const QUIZ_LIST: QuizList = {

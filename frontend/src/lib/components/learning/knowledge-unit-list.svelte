@@ -68,6 +68,11 @@
   function statusOf(s: string) {
     return STATUS[s] ?? STATUS.unstarted;
   }
+
+  // 苦手単元フィルタ（#4）: 確認クイズで低スコアだった単元（needs_review）だけに絞り込む。
+  let showWeakOnly = $state(false);
+  const weakCount = $derived(units.filter((u) => u.status === "needs_review").length);
+  const visibleUnits = $derived(showWeakOnly ? units.filter((u) => u.status === "needs_review") : units);
 </script>
 
 <div class="mx-auto max-w-6xl space-y-4 p-4" data-tour="units-list">
@@ -78,8 +83,38 @@
   {:else if units.length === 0}
     <p class="py-8 text-center text-sm text-muted-foreground">{m.units_empty()}</p>
   {:else}
+    {#if weakCount > 0}
+      <!-- 苦手単元フィルタ（#4）。 -->
+      <div class="flex items-center gap-2 text-xs">
+        <button
+          type="button"
+          onclick={() => (showWeakOnly = false)}
+          class={cn(
+            "rounded-full border px-2.5 py-1 font-medium",
+            !showWeakOnly ? "border-foreground/30 bg-accent/50" : "text-muted-foreground hover:bg-accent/30",
+          )}
+        >
+          {m.units_filter_all()}
+        </button>
+        <button
+          type="button"
+          onclick={() => (showWeakOnly = true)}
+          class={cn(
+            "rounded-full border px-2.5 py-1 font-medium",
+            showWeakOnly
+              ? "border-destructive/40 bg-destructive/10 text-destructive"
+              : "text-muted-foreground hover:bg-accent/30",
+          )}
+        >
+          {m.units_filter_weak()} ({weakCount})
+        </button>
+      </div>
+    {/if}
+    {#if showWeakOnly && visibleUnits.length === 0}
+      <p class="py-8 text-center text-sm text-muted-foreground">{m.units_weak_none()}</p>
+    {/if}
     <ul class="flex flex-col gap-2">
-      {#each units as u (u.feature_key)}
+      {#each visibleUnits as u (u.feature_key)}
         <li class="rounded-lg border bg-card p-3">
           <div class="flex items-center gap-3">
             <button
