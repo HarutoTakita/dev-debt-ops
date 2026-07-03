@@ -106,8 +106,8 @@
       .hero-devices .phone-img {
         position: absolute;
         z-index: 2;
-        left: -4%;
-        bottom: -6%;
+        left: -12%;
+        bottom: -9%;
         width: 22%;
         height: auto;
         filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
@@ -131,17 +131,26 @@
       }
       @media (min-width: 1024px) {
         .hero-grid {
-          grid-template-columns: 1.1fr 0.9fr;
-          gap: 0.75rem;
+          grid-template-columns: 1.08fr 0.92fr;
+          gap: 2rem;
           padding-top: 3rem;
         }
       }
       /* 下部の「実測 → 可視化 → 改善」フロー帯（核となる価値をひと目で伝える）。 */
+      .flow-eyebrow {
+        max-width: 84rem;
+        margin: 1.5rem auto 0.9rem;
+        padding: 0 1.5rem;
+        text-align: center;
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        color: #22b8c4;
+      }
       .hero-steps {
         max-width: 84rem;
-        margin: 1rem auto 0;
+        margin: 0 auto;
         width: 100%;
-        padding: 0 1.5rem 2.5rem;
+        padding: 0 1.5rem 2.75rem;
         display: flex;
         flex-wrap: wrap;
         align-items: stretch;
@@ -389,12 +398,15 @@
       </div>
 
       <!-- 下部: AI エージェントの処理フローを矢印で表現（探索 → クイズ生成 → 学習プラン → 改善提案）。 -->
+      <p class="flow-eyebrow">AI エージェントの処理フロー</p>
       <div class="hero-steps">
         <div class="step">
           <span class="step-badge know">01</span>
           <div>
             <div class="step-title">リポジトリ解析</div>
-            <div class="step-desc">AI エージェントが MCP でコードを探索・機能を抽出</div>
+            <div class="step-desc">
+              AI エージェントが MCP でコードベースを横断探索。機能単位にクラスタリングし、技術スタックや依存関係も把握します。
+            </div>
           </div>
         </div>
         <div class="step-arrow" aria-hidden="true">
@@ -404,7 +416,9 @@
           <span class="step-badge know">02</span>
           <div>
             <div class="step-title">クイズを生成・実測</div>
-            <div class="step-desc">機能ごとの理解度クイズをエージェントが生成し測定</div>
+            <div class="step-desc">
+              機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で実測します（git blame 非依存）。
+            </div>
           </div>
         </div>
         <div class="step-arrow" aria-hidden="true">
@@ -414,7 +428,9 @@
           <span class="step-badge know">03</span>
           <div>
             <div class="step-title">学習プランを生成</div>
-            <div class="step-desc">弱点に合わせた学習プランをエージェントが自動作成</div>
+            <div class="step-desc">
+              弱点の機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立てます。
+            </div>
           </div>
         </div>
         <div class="step-arrow" aria-hidden="true">
@@ -424,7 +440,9 @@
           <span class="step-badge code">04</span>
           <div>
             <div class="step-title">改善を提案</div>
-            <div class="step-desc">低品質コードの自動修正 PR・Issue を提案</div>
+            <div class="step-desc">
+              低品質コードを検知し、AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応します。
+            </div>
           </div>
         </div>
       </div>
