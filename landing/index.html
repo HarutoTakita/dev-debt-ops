@@ -909,8 +909,11 @@
         <div class="text-center">
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
           <h2 class="mt-2 text-2xl font-bold sm:text-3xl">インフラ構成</h2>
-          <p class="mx-auto mt-3 max-w-2xl text-slate-400">
-            Google Cloud 上のコンテナ構成。重い解析は非同期ワーカーへ分離し、Webhook 駆動で自動スケールします。
+          <p class="mx-auto mt-3 max-w-3xl text-slate-400">
+            Google Cloud 上のコンテナ構成。重い解析は非同期ワーカーへ分離し、負荷に応じて Cloud Run が自動スケールします。エッジのレート制限（Cloud
+            Armor）・Secret Manager・長期鍵レスの Workload Identity
+            でセキュリティを担保し、CI/CD がテスト〜デプロイに加えてリンター／フォーマッターの自動適用と Gemini
+            による自動コードレビューまで回して、コード品質を高く保ちます。
           </p>
         </div>
 
@@ -927,9 +930,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-center text-xs text-slate-500">
-            Google Cloud 上の全体アーキテクチャ（CI/CD・セキュリティスキャン・エージェント／MCP 連携を含む）
-          </figcaption>
+          <figcaption class="mt-3 text-center text-xs text-slate-500">Google Cloud 上の全体アーキテクチャ</figcaption>
         </figure>
 
         <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -955,7 +956,16 @@
           </div>
           <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
             <h3 class="font-semibold text-white">IaC — Terraform</h3>
-            <p class="mt-2 text-sm text-slate-400">全リソースをコード化。この LP も api と同一ドメインの /lp に同梱して配信。</p>
+            <p class="mt-2 text-sm text-slate-400">
+              全リソースをコード化。デプロイは Workload Identity Federation（長期鍵レス）で GitHub Actions から実行。
+            </p>
+          </div>
+          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
+            <h3 class="font-semibold text-white">CI/CD — 品質の自動化</h3>
+            <p class="mt-2 text-sm text-slate-400">
+              GitHub Actions でテスト・デプロイを自動化。Ruff／Prettier／ESLint の自動適用、Gitleaks・CodeQL・OWASP ZAP
+              スキャン、そして Gemini による自動コードレビューでコード品質を担保。
+            </p>
           </div>
         </div>
       </div>
