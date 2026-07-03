@@ -15,7 +15,7 @@ from app.models.project import Project
 from app.schemas.knowledge_unit import KnowledgeUnitOut
 from app.services.debt_query import _latest_run_id, build_overview
 from shared.enums import JobType
-from shared.models import Feature, LearningPlan, LearningStep, QuizSession
+from shared.models import Feature, FeatureFlag, LearningPlan, LearningStep, QuizSession
 
 _STAR = 0.7  # KC ≥ star → 理解済み（ADR 0003）
 _BLACK_HOLE = 0.4
@@ -45,6 +45,20 @@ async def build_knowledge_units(
     # 055 rollup gives KC / code / file_count per feature key.
     overview = await build_overview(session, project, "", granularity="feature")
     node_by_key = {n.key: n for n in overview.features}
+
+    # このユーザーがフラグを付けた feature_key（フラグ付きは一覧上部にソートする）。
+    flagged_keys = set(
+        (
+            await session.execute(
+                select(col(FeatureFlag.feature_key)).where(
+                    col(FeatureFlag.developer_id) == developer_id,
+                    col(FeatureFlag.project_id) == project.id,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     units: list[KnowledgeUnitOut] = []
     for feat in features:
@@ -98,6 +112,9 @@ async def build_knowledge_units(
                 quiz_status=qs.status if qs is not None else None,
                 learning_steps_done=steps_done,
                 learning_steps_total=steps_total,
+                flagged=feat.key in flagged_keys,
             )
         )
+    # フラグ付きを上部へ（同グループ内の元順序は保持＝安定ソート）。
+    units.sort(key=lambda u: not u.flagged)
     return units

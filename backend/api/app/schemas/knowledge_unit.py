@@ -20,9 +20,16 @@ class KnowledgeUnitOut(BaseModel):
     # 学習プランの進捗（完了ステップ数 / 総ステップ数）。一覧のプログレスバー表示に使う（プラン未生成なら 0/0）。
     learning_steps_done: int = 0
     learning_steps_total: int = 0
+    flagged: bool = False  # このユーザーがフラグを付けた単元か（フラグ付きは一覧上部にソート）
 
 
 class KnowledgeUnitsOut(BaseModel):
     """Feature units for a project (the learn→confirm hub)."""
 
     units: list[KnowledgeUnitOut]
+
+
+class FeatureFlagIn(BaseModel):
+    """Set/clear the caller's flag on a feature unit (flagged units sort to the top)."""
+
+    flagged: bool

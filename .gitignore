@@ -70,3 +70,8 @@ secrets/*.json
 
 # ── Reference material (not part of the project; scratch/competitor LP saved for reference) ──
 参考LP/
+
+# ローカルDBダンプ（移植用・リポジトリに含めない）
+app-data.dump
+app-data.dump.bak
+*.dump
