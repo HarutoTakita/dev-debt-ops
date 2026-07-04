@@ -511,7 +511,7 @@
   "tour_ov_stats_title": "Key metrics",
   "tour_ov_stats_body": "Track understanding, the number of low-quality files, and items repaid — each with its change.",
   "tour_ov_trend_title": "Trend chart",
-  "tour_ov_trend_body": "See how understanding and debt change over time in the strata chart to follow your progress.",
+  "tour_ov_trend_body": "See how understanding and debt change over time in the bar chart to follow your progress.",
   "tour_ov_priority_title": "Priority list",
   "tour_ov_priority_body": "Lists the files to address first. Jump to all low-quality files from here.",
   "tour_gx_views_title": "Switch views (map / list)",

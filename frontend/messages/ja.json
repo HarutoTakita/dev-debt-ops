@@ -511,7 +511,7 @@
   "tour_ov_stats_title": "主要指標",
   "tour_ov_stats_body": "理解度・低品質ファイルの件数・修正済みの件数を、変化量つきで把握できます。",
   "tour_ov_trend_title": "推移グラフ",
-  "tour_ov_trend_body": "理解度や負債の時間推移を地層グラフで確認し、改善の傾向を追えます。",
+  "tour_ov_trend_body": "理解度や負債の時間推移を棒グラフで確認し、改善の傾向を追えます。",
   "tour_ov_priority_title": "優先対応リスト",
   "tour_ov_priority_body": "いま優先して対応すべきファイルを一覧します。低品質ファイルはここから一括で確認できます。",
   "tour_gx_views_title": "表示の切替（マップ／リスト）",
