@@ -270,10 +270,7 @@
       </button>
     {/if}
     <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <span class="flex items-center gap-2 text-xs text-muted-foreground">
-        <span class="tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
-        <span class="hidden sm:inline text-muted-foreground/70">{m.tour_kbd_hint()}</span>
-      </span>
+      <span class="text-xs text-muted-foreground tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
       <div class="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
