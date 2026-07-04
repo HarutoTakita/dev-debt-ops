@@ -62,6 +62,7 @@
   const STATUS: Record<string, { label: () => string; tone: string }> = {
     unstarted: { label: m.unit_status_unstarted, tone: "text-muted-foreground" },
     in_progress: { label: m.unit_status_in_progress, tone: "text-debt-knowledge" },
+    learned: { label: m.unit_status_learned, tone: "text-debt-knowledge" },
     verified: { label: m.unit_status_verified, tone: "text-success" },
     needs_review: { label: m.unit_status_needs_review, tone: "text-destructive" },
   };

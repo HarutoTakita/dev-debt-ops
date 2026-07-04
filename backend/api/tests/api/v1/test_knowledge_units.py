@@ -11,7 +11,16 @@ from app.main import app
 from app.models.project import Project
 from app.services.dependencies import reset_blob_client, reset_task_dispatcher
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Feature, FeatureFile, FileKc, LearningPlan, QuizSession
+from shared.models import (
+    AnalysisRun,
+    Feature,
+    FeatureFile,
+    FileKc,
+    LearningPlan,
+    LearningResource,
+    LearningStep,
+    QuizSession,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -101,6 +110,39 @@ async def test_knowledge_units_joins_kc_plan_and_quiz(authenticated_client: Asyn
     assert u["quiz_session_id"] == qs_id
     assert u["quiz_status"] == "completed"
     assert u["status"] == "verified"  # kc >= 0.7
+
+
+async def test_all_learning_steps_done_sets_status_learned(authenticated_client: AsyncClient) -> None:
+    """完了ステップ = 総ステップ（進捗100%）でクイズ未検証なら status は learned（学習中ではない）。"""
+    org_slug, project_slug, project_id, user_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        feat_run = AnalysisRun(
+            project_id=project_id, commit_sha="f", kind=JobType.FEATURE_CLUSTERING.value, status=JobStatus.COMPLETED
+        )
+        session.add(feat_run)
+        await session.flush()
+        feat = Feature(project_id=project_id, run_id=feat_run.id, key="auth", name="認証")
+        session.add(feat)
+        await session.flush()
+        plan = LearningPlan(project_id=project_id, developer_id=user_id, feature_id=feat.id, gap_concepts=["auth"])
+        session.add(plan)
+        await session.flush()
+        res = LearningResource(project_id=project_id, origin="external", kind="docs", title="R", priority="required")
+        session.add(res)
+        await session.flush()
+        # 2 ステップとも完了 → 進捗 100%。
+        session.add_all(
+            [
+                LearningStep(plan_id=plan.id, order=1, resource_id=res.id, completed=True),
+                LearningStep(plan_id=plan.id, order=2, resource_id=res.id, completed=True),
+            ]
+        )
+        await session.commit()
+
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/knowledge-units")).json()
+    u = {x["feature_key"]: x for x in body["units"]}["auth"]
+    assert u["learning_steps_done"] == u["learning_steps_total"] == 2
+    assert u["status"] == "learned"  # 学習完了（確認へ）— 「学習中」のままにしない
 
 
 async def test_feature_flag_sorts_flagged_units_to_top(authenticated_client: AsyncClient) -> None:
