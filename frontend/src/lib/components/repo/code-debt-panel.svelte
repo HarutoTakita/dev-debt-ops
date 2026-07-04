@@ -26,7 +26,7 @@
     <p class="px-1 text-[11px] text-muted-foreground">{m.code_improve_file_empty()}</p>
   {:else}
     <ul class="flex flex-col gap-1">
-      {#each debts as d (d.id)}
+      {#each debts as d, i (d.id)}
         <li
           class={cn(
             "flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs",
@@ -37,6 +37,7 @@
             type="button"
             onclick={() => onhighlight?.(d)}
             title={d.archaeology_notes}
+            data-tour={i === 0 ? "repos-debt-first" : undefined}
             class="flex min-w-0 flex-1 items-center gap-1.5 text-left hover:text-foreground"
           >
             <span class="shrink-0 font-medium">{categoryLabel(d)}</span>

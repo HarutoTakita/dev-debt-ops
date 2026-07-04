@@ -217,13 +217,20 @@ export const pageTours: Record<string, TourStep[]> = {
   // ファイルツリー＋ファイル閲覧＋指摘箇所。指摘のあるファイルを事前選択して閲覧欄を空にしない。
   matrix: [
     {
+      // 概要（中央表示）。当ページへ遷移し、指摘のあるファイルを事前選択して閲覧欄を空にしない。
+      id: "repos-overview",
+      title: m.tour_rp_overview_title,
+      body: m.tour_rp_overview_body,
+      placement: "bottom",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+      search: () => "?path=src/checkout/payment.py",
+    },
+    {
       id: "repos-tree",
       target: "repos-tree",
       title: m.tour_rp_tree_title,
       body: m.tour_rp_tree_body,
       placement: "right",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
-      search: () => "?path=src/checkout/payment.py",
     },
     {
       id: "repos-viewer",
@@ -233,8 +240,10 @@ export const pageTours: Record<string, TourStep[]> = {
       placement: "left",
     },
     {
+      // 指摘箇所。一番目の指摘を reveal（クリック）してソースをハイライトした状態で説明する。
       id: "repos-debts",
       target: "repos-debts",
+      reveal: "repos-debt-first",
       title: m.tour_rp_debts_title,
       body: m.tour_rp_debts_body,
       placement: "top",
