@@ -16,8 +16,11 @@
     <section class="min-w-0" data-tour="plan-code">
       <h3 class="font-display text-sm font-semibold text-debt-knowledge">{m.learning_code_heading()}</h3>
       <div class="mt-2 space-y-2">
-        {#each codeSteps as s (s.order)}
-          <ResourceCard resource={s.resource} completed={s.completed} order={s.order} {ontoggle} />
+        {#each codeSteps as s, i (s.order)}
+          <!-- 先頭の 1 件はガイドのハイライト対象（このコードを理解する）。 -->
+          <div data-tour={i === 0 ? "plan-code-first" : undefined}>
+            <ResourceCard resource={s.resource} completed={s.completed} order={s.order} {ontoggle} />
+          </div>
         {/each}
       </div>
     </section>
