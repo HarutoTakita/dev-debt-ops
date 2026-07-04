@@ -17,6 +17,8 @@ class OnboardingStore {
   steps = $state<TourStep[]>([]);
   // ページ別ガイドを表示中か（true のとき「全体ガイドに戻る」を出す）。
   inDetail = $state(false);
+  // 現在ロード中のガイド識別子（pageTours のキー等）。同じショートカットでの一時停止/再開判定に使う。
+  startKey = $state<string | null>(null);
   // 「詳細を確認する」で抜ける前のメイン手順の位置（全体ガイドへ戻すため）。
   #mainReturn: { steps: TourStep[]; stepIndex: number } | null = null;
 
@@ -59,13 +61,25 @@ class OnboardingStore {
     return !this.isCompleted(orgSlug);
   }
 
-  /** 指定したステップ列でツアーを開始（全体ガイド）。詳細からの復帰位置はクリアする。 */
-  start(steps: TourStep[]) {
+  /** 指定したステップ列でツアーを開始（全体ガイド）。詳細からの復帰位置はクリアする。
+   *  ``key`` を渡すと、同じキーでの一時停止/再開（``pause``/``resume``）の対象として識別する。 */
+  start(steps: TourStep[], key: string | null = null) {
     this.#mainReturn = null;
     this.inDetail = false;
     this.steps = steps;
     this.stepIndex = 0;
+    this.startKey = key;
     this.active = true;
+  }
+
+  /** ガイドを一時停止（非表示）。ステップ位置・内容は保持し、resume で同じ場所から再開できる。 */
+  pause() {
+    this.active = false;
+  }
+
+  /** 一時停止したガイドを、中断したステップから再開する。 */
+  resume() {
+    if (this.steps.length > 0) this.active = true;
   }
 
   /** 「詳細を確認する」: 現在のメイン位置を覚えてページ別ガイドへ切り替える。 */
@@ -101,6 +115,7 @@ class OnboardingStore {
     this.stepIndex = 0;
     this.#mainReturn = null;
     this.inDetail = false;
+    this.startKey = null;
     if (orgSlug) {
       this.#completed = { ...this.#completed, [orgSlug]: true };
       this.#persist();

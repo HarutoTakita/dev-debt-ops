@@ -53,12 +53,20 @@
     tTimer = undefined;
   }
 
-  // 指定キーの詳細ガイドを開く（プロジェクト選択時のみ。ガイドは各ページへ遷移してハイライトするため）。
+  // 指定キーの詳細ガイドをトグル（プロジェクト選択時のみ。ガイドは各ページへ遷移してハイライトするため）。
+  // 表示中に同じショートカット → 一時停止（非表示）。停止中に同じショートカット → 中断位置から再開。
+  // 別のガイド/未起動なら新規開始。
   function openGuide(key: string) {
     if (!page.params.project) return;
     const g = GUIDE_KEYS.find((n) => n.key === key);
     const steps = g && pageTours[g.id];
-    if (steps) onboarding.start(steps);
+    if (!g || !steps) return;
+    if (onboarding.startKey === g.id) {
+      if (onboarding.active) onboarding.pause();
+      else onboarding.resume();
+    } else {
+      onboarding.start(steps, g.id);
+    }
   }
 
   // 入力要素にフォーカス中はナビ系ショートカットを発火させない（検索窓での "/" 入力等を邪魔しない）。
