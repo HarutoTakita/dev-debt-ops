@@ -299,7 +299,15 @@ export const pageTours: Record<string, TourStep[]> = {
       body: m.tour_rp_tree_body,
       placement: "right",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
-      search: () => "?path=src/checkout/payment.py",
+      // 既に /repos でファイルを選択中ならその選択を維持する（上書きして「空のファイル」にしない）。
+      // 未選択のときだけ、閲覧欄が空にならないようデモの指摘ファイルを事前選択する。
+      search: () => {
+        if (typeof window !== "undefined") {
+          const u = new URL(window.location.href);
+          if (u.pathname.endsWith("/repos") && u.searchParams.get("path")) return u.search;
+        }
+        return "?path=src/checkout/payment.py";
+      },
     },
     {
       id: "repos-viewer",
