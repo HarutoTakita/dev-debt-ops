@@ -145,6 +145,15 @@ export const pageTours: Record<string, TourStep[]> = {
       placement: "left",
     },
     {
+      // 関連ファイルの強調表示。reveal で最多隣接ノードをホバー中として強調し、グラフ表示部分をハイライト。
+      id: "galaxy-highlight",
+      target: "galaxy-map",
+      reveal: "galaxy-hover-demo",
+      title: m.tour_gx_highlight_title,
+      body: m.tour_gx_highlight_body,
+      placement: "left",
+    },
+    {
       id: "galaxy-list",
       target: "galaxy-list",
       reveal: "galaxy-tab-list",
