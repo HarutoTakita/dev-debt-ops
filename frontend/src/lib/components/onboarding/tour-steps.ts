@@ -213,9 +213,9 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   "knowledge-hub": [
     {
-      // 機能一覧（/learning）。各学習プランの状態と理解度。
+      // 機能一覧（/learning）。各学習プランの状態と理解度。先頭 1 件をハイライトする。
       id: "knowledge-units",
-      target: "units-list",
+      target: "units-list-first",
       title: m.tour_kn_units_title,
       body: m.tour_kn_units_body,
       placement: "top",
@@ -230,9 +230,9 @@ export const pageTours: Record<string, TourStep[]> = {
       placement: "bottom",
     },
     {
-      // 「このコードを理解する」= リポジトリ特有の機能の学習プラン。reveal で学習プランを開く。
+      // 「このコードを理解する」= リポジトリ特有の機能の学習プラン。reveal で学習プランを開く。先頭 1 件をハイライト。
       id: "knowledge-plan-code",
-      target: "plan-code",
+      target: "plan-code-first",
       reveal: "unit-learn",
       title: m.tour_kn_plan_code_title,
       body: m.tour_kn_plan_code_body,

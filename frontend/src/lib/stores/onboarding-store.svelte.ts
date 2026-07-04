@@ -81,9 +81,19 @@ class OnboardingStore {
     this.active = false;
   }
 
-  /** 一時停止したガイドを、中断したステップから再開する。 */
+  /** 一時停止したガイドを「1 つ先」のステップから再開する。最後まで来ていたら終了（次回は最初から）。 */
   resume() {
-    if (this.steps.length > 0) this.active = true;
+    if (this.steps.length === 0) return;
+    if (this.stepIndex < this.steps.length - 1) {
+      this.stepIndex += 1;
+      this.viewNonce += 1; // 次のステップ＝別対象なので位置を初期化して再計測
+      this.active = true;
+    } else {
+      this.active = false;
+      this.stepIndex = 0;
+      this.startKey = null;
+      this.inDetail = false;
+    }
   }
 
   /** 「詳細を確認する」: 現在のメイン位置を覚えてページ別ガイドへ切り替える。 */

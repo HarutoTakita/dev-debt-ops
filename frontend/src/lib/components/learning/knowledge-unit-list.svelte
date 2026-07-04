@@ -115,8 +115,8 @@
       <p class="py-8 text-center text-sm text-muted-foreground">{m.units_weak_none()}</p>
     {/if}
     <ul class="flex flex-col gap-2">
-      {#each visibleUnits as u (u.feature_key)}
-        <li class="rounded-lg border bg-card p-3">
+      {#each visibleUnits as u, i (u.feature_key)}
+        <li class="rounded-lg border bg-card p-3" data-tour={i === 0 ? "units-list-first" : undefined}>
           <div class="flex items-center gap-3">
             <button
               type="button"
