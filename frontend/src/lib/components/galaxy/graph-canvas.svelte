@@ -210,13 +210,15 @@
     if (cw > 0 && ch > 0) graph?.width(cw).height(ch);
   });
 
-  // オンボーディング: demoHoverId 指定時、そのノードをホバー中として強調（隣接を明るく・他を減光）し再描画。
+  // オンボーディング: demoHoverId 指定時、そのノードをホバー中として強調（隣接を明るく・他を減光）。
+  // 再描画は resumeAnimation（データ非破壊）で促す。graphData の再投入はしない — 変異済みの
+  // source/target を壊し、以後の実ホバーによる関連ノード強調が効かなくなる原因になるため。
   $effect(() => {
     const id = demoHoverId;
     if (!graph || !id) return;
     hoveredId = id;
     recomputeNeighbors();
-    graph.graphData(graph.graphData()); // 同一データ再投入で再描画をトリガ（配色/強調を反映）
+    graph.resumeAnimation(); // 静止中でも 1 フレーム描画させて強調を反映（ノードは動かさない）
   });
 </script>
 

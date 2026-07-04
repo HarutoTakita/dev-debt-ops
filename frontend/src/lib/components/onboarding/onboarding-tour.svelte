@@ -63,8 +63,16 @@
         }
       }
       // タブ等の隠れた対象は、表示前に reveal 要素をクリックして出す（例: マップ/リスト切替、詳細画面への遷移）。
+      // route 直後は reveal 要素の描画待ちがあるため、出現するまで待ってからクリックする（クリック取りこぼし防止）。
       if (s.reveal) {
-        const rev = document.querySelector<HTMLElement>(`[data-tour="${s.reveal}"]`);
+        const revSel = s.reveal;
+        let rev: HTMLElement | null = null;
+        for (let i = 0; i < 40 && !cancelled; i++) {
+          rev = document.querySelector<HTMLElement>(`[data-tour="${revSel}"]`);
+          if (rev) break;
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        if (cancelled) return;
         rev?.click();
         // reveal がリンク（クライアント遷移）の場合、遷移完了までわずかに待ってから対象を探す。
         await new Promise((r) => setTimeout(r, 120));

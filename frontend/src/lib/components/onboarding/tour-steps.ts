@@ -255,20 +255,19 @@ export const pageTours: Record<string, TourStep[]> = {
       placement: "bottom",
     },
     {
-      // 理解度テストの実施。一覧へ戻り「理解度を確認する」でクイズへ。左コード＋右解答をまとめてハイライト。
+      // 理解度テストの実施。一覧へ戻り「理解度を確認する」ボタン自体をハイライト（クイズ受験の入口）。
       id: "knowledge-quiz",
-      target: "quiz-body",
-      reveal: "unit-confirm",
+      target: "unit-confirm",
       title: m.tour_kn_quiz_title,
       body: m.tour_kn_quiz_body,
-      placement: "top",
+      placement: "bottom",
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
-      // 不安な問題へのフラグ付け。reveal でフラグを有効化した状態でハイライト。
+      // 不安な問題へのフラグ付け。reveal「理解度を確認する」でクイズ受験画面へ遷移し、右上のフラグをハイライト。
       id: "knowledge-flag",
       target: "quiz-flag",
-      reveal: "quiz-flag",
+      reveal: "unit-confirm",
       title: m.tour_kn_flag_title,
       body: m.tour_kn_flag_body,
       placement: "bottom",
