@@ -75,6 +75,7 @@
         onclick={toggleFlag}
         aria-pressed={isFlagged}
         title={isFlagged ? m.quiz_flag_remove() : m.quiz_flag_add()}
+        data-tour="quiz-flag"
         class={cn("rounded p-1 hover:bg-accent/40", isFlagged ? "text-debt-knowledge" : "text-muted-foreground")}
       >
         <Flag class="size-4" fill={isFlagged ? "currentColor" : "none"} />
@@ -87,7 +88,7 @@
 
   <!-- 本体: 左コード / 右解答。モバイルは縦積み＋ページスクロール（各ペインが潰れないよう高さを確保）、
        lg 以上で左右 2 ペイン＋各ペイン内スクロール。 -->
-  <div class="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2 lg:overflow-hidden">
+  <div class="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2 lg:overflow-hidden" data-tour="quiz-body">
     <div class="min-h-0 max-lg:h-72">
       {#if q.code_snippet}
         <CodeSnippetPanel snippet={q.code_snippet} />
