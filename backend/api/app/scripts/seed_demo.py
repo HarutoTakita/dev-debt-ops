@@ -736,12 +736,60 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "        reserve(item)\n"
     ),
     "src/auth/session.py": (
-        "def validate_session(token):\n"
-        "    claims = decode(token)\n"
-        "    return claims if not claims.expired else None\n"
+        "SESSION_TTL = timedelta(hours=2)      # アクセスセッションの有効期間\n"
+        "REFRESH_TTL = timedelta(days=14)      # 「ログイン状態を保持」の更新期間\n"
         "\n"
-        "def _legacy_cookie_check(req):  # どこからも呼ばれない未到達パス（dead）\n"
-        "    return req.cookies.get('sid_v1')\n"
+        "\n"
+        "def create_session(user, response):\n"
+        '    """ログイン成功時にセッションを発行し、Cookie に載せる。"""\n'
+        "    now = utcnow()\n"
+        "    claims = {\n"
+        '        "sub": user.id,\n'
+        '        "epoch": user.token_epoch,    # 失効の世代番号（後述）\n'
+        '        "iat": now,\n'
+        '        "exp": now + SESSION_TTL,\n'
+        "    }\n"
+        "    token = jwt.encode(claims)\n"
+        '    response.set_cookie("sid", token, httponly=True, secure=True, samesite="Lax")\n'
+        '    response.set_cookie("csrf", new_csrf_token(), samesite="Lax")\n'
+        "    return token\n"
+        "\n"
+        "\n"
+        "def validate_session(request):\n"
+        '    """セッション Cookie を検証し、有効ならユーザーを返す。"""\n'
+        '    token = request.cookies.get("sid")\n'
+        "    if not token:\n"
+        "        return None\n"
+        "    claims = jwt.decode(token)         # 署名を検証（改ざん検出）\n"
+        '    if claims is None or claims["exp"] < utcnow():\n'
+        "        return None                    # 改ざん・期限切れは無効 → 再認証\n"
+        '    user = load_user(claims["sub"])\n'
+        '    if user is None or user.token_epoch != claims["epoch"]:\n'
+        "        return None                    # 世代不一致は失効済み\n"
+        "    return user\n"
+        "\n"
+        "\n"
+        "def refresh_session(request, response):\n"
+        '    """期限が近いセッションを再ログインなしで延長（スライディング更新）。"""\n'
+        "    user = validate_session(request)\n"
+        "    if user is None:\n"
+        "        return None\n"
+        "    return create_session(user, response)  # 新しい exp で再発行＝ローテーション\n"
+        "\n"
+        "\n"
+        "def revoke_all_sessions(user):\n"
+        '    """全端末ログアウト。token_epoch を進めて既存トークンを一括失効。"""\n'
+        "    user.token_epoch += 1\n"
+        "    save_user(user)\n"
+        "\n"
+        "\n"
+        "def check_csrf(request):\n"
+        '    """状態変更の前に Cookie とヘッダの CSRF トークン一致を確認（二重送信）。"""\n'
+        '    return request.cookies.get("csrf") == request.headers.get("X-CSRF-Token")\n'
+        "\n"
+        "\n"
+        "def _legacy_cookie_check(request):     # どこからも呼ばれない未到達パス（dead）\n"
+        '    return request.cookies.get("sid_v1")  # 旧 v1 形式。移行後の削除漏れ\n'
     ),
     "src/lib/db.py": (
         "def fetch_one(query, params):\n"
@@ -1165,18 +1213,66 @@ _FEATURE_CONTENT: dict[str, dict] = {
             {
                 "id": "q1",
                 "kind": "multiple_choice",
-                "prompt": "session.py の validate_session で、期限切れのトークンはどう扱うべき？",
+                "prompt": (
+                    "create_session が sid Cookie に付ける属性の組み合わせとして、"
+                    "XSS・盗聴・CSRF の緩和に最も適切なのはどれ？"
+                ),
                 "code_snippet": _code_snippet("src/auth/session.py"),
                 "choices": [
-                    {"id": "a", "label": "None を返し、呼び出し側で再認証させる"},
-                    {"id": "b", "label": "期限を無視してそのまま通す"},
-                    {"id": "c", "label": "例外を握り潰して真を返す"},
-                    {"id": "d", "label": "クライアントの時刻を信用して延長する"},
+                    {"id": "a", "label": "httponly=True, secure=True, samesite=Lax"},
+                    {"id": "b", "label": "属性なし（デフォルトのまま）"},
+                    {"id": "c", "label": "httponly=False にして JS から読めるようにする"},
+                    {"id": "d", "label": "有効期限を無期限にする"},
+                ],
+                "difficulty": "L1",
+            },
+            {
+                "id": "q2",
+                "kind": "multiple_select",
+                "prompt": (
+                    "validate_session が None を返す（＝無効と判断する）のはどのケース？"
+                    "該当するものをすべて選んでください。"
+                ),
+                "code_snippet": _code_snippet("src/auth/session.py"),
+                "choices": [
+                    {"id": "a", "label": "sid Cookie が存在しない"},
+                    {"id": "b", "label": "署名が検証できない（改ざん）"},
+                    {"id": "c", "label": "exp を過ぎている（期限切れ）"},
+                    {"id": "d", "label": "トークンの epoch がユーザーの token_epoch と一致しない"},
+                ],
+                "difficulty": "L2",
+            },
+            {
+                "id": "q3",
+                "kind": "multiple_choice",
+                "prompt": "refresh_session の「スライディング更新」の説明として正しいのはどれ？",
+                "code_snippet": _code_snippet("src/auth/session.py"),
+                "choices": [
+                    {
+                        "id": "a",
+                        "label": "有効なセッションを新しい exp で再発行し、再ログインなしに延長する（ローテーション）",
+                    },
+                    {"id": "b", "label": "期限切れでも無条件に延長する"},
+                    {"id": "c", "label": "パスワードを再入力させてから延長する"},
+                    {"id": "d", "label": "全ユーザーのセッションをまとめて延長する"},
                 ],
                 "difficulty": "L3",
             },
             {
-                "id": "q2",
+                "id": "q4",
+                "kind": "multiple_choice",
+                "prompt": "revoke_all_sessions は user.token_epoch を +1 するだけです。これで何が実現できる？",
+                "code_snippet": _code_snippet("src/auth/session.py"),
+                "choices": [
+                    {"id": "a", "label": "発行済みの全トークンが世代チェックに外れ、全端末で即時ログアウトになる"},
+                    {"id": "b", "label": "次回ログイン時のみ影響し、既存セッションはそのまま"},
+                    {"id": "c", "label": "特定の 1 端末だけログアウトさせる"},
+                    {"id": "d", "label": "パスワードがリセットされる"},
+                ],
+                "difficulty": "L3",
+            },
+            {
+                "id": "q5",
                 "kind": "multiple_choice",
                 "prompt": "password.py の hash_password に潜む問題はどれ？",
                 "code_snippet": _code_snippet("src/auth/password.py"),
@@ -1189,7 +1285,7 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 "difficulty": "L2",
             },
             {
-                "id": "q3",
+                "id": "q6",
                 "kind": "multiple_choice",
                 "prompt": "jwt.py の decode_token が見落としている検証はどれ？",
                 "code_snippet": _code_snippet("src/auth/jwt.py"),
@@ -1201,40 +1297,88 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 ],
                 "difficulty": "L4",
             },
-            {
-                "id": "q4",
-                "kind": "multiple_choice",
-                "prompt": "oauth.py の handle_callback に潜むセキュリティ上の問題はどれ？",
-                "code_snippet": _code_snippet("src/auth/oauth.py"),
-                "choices": [
-                    {"id": "a", "label": "state を検証しておらず CSRF、メール検証前に連携している"},
-                    {"id": "b", "label": "認可コードを使っている点"},
-                    {"id": "c", "label": "プロフィールを取得している点"},
-                    {"id": "d", "label": "問題はない"},
-                ],
-                "difficulty": "L4",
-            },
         ],
         "quiz_answer_key": {
-            "q1": {"answer": "a", "rubric": "期限切れは無効化し再認証へ導くのが正解。"},
-            "q2": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。MD5 は不可。"},
-            "q3": {"answer": "a", "rubric": "署名と exp を検証しないと改ざん・期限切れトークンを受理してしまう。"},
-            "q4": {"answer": "a", "rubric": "state 検証で CSRF を防ぎ、メール検証済みか確認してから連携する。"},
+            "q1": {
+                "answer": "a",
+                "rubric": "httponly は XSS でのトークン窃取、secure は平文送信、samesite は CSRF を緩和する。",
+            },
+            "q2": {
+                "answer": "a,b,c,d",
+                "rubric": "無し・改ざん・期限切れ・世代不一致のいずれか一つでも無効。4 条件すべてが該当。",
+            },
+            "q3": {
+                "answer": "a",
+                "rubric": "有効なセッションを新 exp で再発行して延長するのがスライディング更新＝ローテーション。",
+            },
+            "q4": {
+                "answer": "a",
+                "rubric": (
+                    "token_epoch を進めると、発行済みトークンが validate_session の世代チェックで弾かれ即時失効する。"
+                ),
+            },
+            "q5": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。MD5 は不可。"},
+            "q6": {"answer": "a", "rubric": "署名と exp を検証しないと改ざん・期限切れトークンを受理してしまう。"},
         },
-        "gap_concepts": ["セッション失効の設計", "OAuth コールバックの検証", "JWT の署名と失効"],
+        "gap_concepts": [
+            "セッション発行と Cookie の安全属性",
+            "セッションの検証と失効（世代方式）",
+            "スライディング更新とローテーション",
+            "CSRF 二重送信",
+            "パスワードハッシュと JWT 検証",
+        ],
         "resources": [
             {
                 "key": "code",
                 "origin": "team",
                 "section": "code",
                 "kind": "code",
-                "title": "セッション検証: session.py を読む",
-                "summary": "トークンの検証・失効の扱いと、認可の組み立てを読み解く。",
+                "title": "セッション管理: session.py を読む",
+                "summary": "発行・検証・スライディング更新・全端末失効・CSRF まで、認証の中核を行ごとに読み解く。",
                 "tech": "",
                 "url": None,
-                "minutes": 12,
+                "minutes": 15,
                 "priority": "required",
                 "source_ref": "src/auth/session.py",
+            },
+            {
+                "key": "adr_expiry",
+                "origin": "team",
+                "section": "code",
+                "kind": "adr",
+                "title": "ADR: セッション有効期限と token_epoch による一括失効",
+                "summary": "なぜ 2 時間 + 14 日の二段構えなのか、なぜ世代番号で失効させるのか。設計判断の背景。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "required",
+                "source_ref": None,
+            },
+            {
+                "key": "owasp_session",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "OWASP セッション管理チートシート",
+                "summary": "セッション ID の発行・失効・固定化対策の実務ベストプラクティス。",
+                "tech": "Security",
+                "url": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html",
+                "minutes": 20,
+                "priority": "recommended",
+                "source_ref": None,
+            },
+            {
+                "key": "cookies",
+                "origin": "external",
+                "section": "stack",
+                "kind": "docs",
+                "title": "Set-Cookie と SameSite（MDN）",
+                "summary": "HttpOnly / Secure / SameSite の意味と CSRF・XSS への効き方。",
+                "tech": "HTTP Cookie",
+                "url": "https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Set-Cookie",
+                "minutes": 12,
+                "priority": "recommended",
+                "source_ref": None,
             },
             {
                 "key": "jwt",
@@ -1926,21 +2070,74 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
     "src/auth/session.py": [
         {
             "start_line": 1,
-            "end_line": 3,
-            "title": "セッションの検証",
+            "end_line": 2,
+            "title": "セッションの有効期間を決める定数",
             "explanation": (
-                "validate_session は受け取ったトークンを decode し、利用者情報や有効期限を含むクレームを取り出します。"
-                "3 行目で有効期限が切れていなければそのクレームを返し、期限切れなら None を返します。呼び出し側は "
-                "None を見てログイン済みかどうかを判断し、必要なら再ログインへ誘導します。"
+                "SESSION_TTL はログイン後のアクセスセッションが有効な時間（ここでは 2 時間）、REFRESH_TTL は"
+                "「ログイン状態を保持」で再ログインなしに延長できる期間（14 日）です。この 2 つの期間設計が、"
+                "利便性（すぐ切れない）と安全性（盗まれても短時間で無効化）のバランスを決めています。"
             ),
         },
         {
-            "start_line": 4,
-            "end_line": 6,
-            "title": "旧方式のクッキー検証（補助関数）",
+            "start_line": 5,
+            "end_line": 17,
+            "title": "create_session — セッションの発行と Cookie 設定",
             "explanation": (
-                "_legacy_cookie_check は、以前 sid_v1 クッキーでセッションを判定していた頃の補助関数です。現在の"
-                "検証経路とは別に、過去の実装の名残としてコード上に残っています。"
+                "ログイン成功時に呼ばれ、ユーザー ID(sub)・失効世代(epoch)・発行時刻(iat)・有効期限(exp) を"
+                "クレームに詰めて JWT を署名発行します(14 行目)。15〜16 行目では sid（セッション本体）と csrf "
+                "トークンを Cookie に載せ、httponly（JS から読めない=XSS 対策）・secure（HTTPS のみ）・"
+                "samesite=Lax（別サイトからの送信を抑制=CSRF 緩和）を付けて安全に配布します。"
+            ),
+        },
+        {
+            "start_line": 20,
+            "end_line": 31,
+            "title": "validate_session — 署名・期限・世代の 3 段検証",
+            "explanation": (
+                "リクエストの sid Cookie を取り出し(22 行目)、jwt.decode で署名を検証して改ざんを検出します"
+                "(25 行目)。26 行目で有効期限(exp)を確認し、期限切れや改ざん時は None を返して再認証へ導きます。"
+                "さらに 29 行目で、トークン内の epoch がユーザーの現在の token_epoch と一致するかを確認します。"
+                "この 3 段（署名・期限・世代）をすべて通ったときだけユーザーを返すのが、この関数の要です。"
+            ),
+        },
+        {
+            "start_line": 34,
+            "end_line": 39,
+            "title": "refresh_session — スライディング更新（ローテーション）",
+            "explanation": (
+                "まだ有効なセッションを、期限が近づいたら再ログインなしで延長する処理です。validate_session で"
+                "現在のセッションが有効なことを確かめてから(36 行目)、create_session を呼んで新しい exp の"
+                "トークンを再発行します(39 行目)。古いトークンを新しいものへ差し替える『ローテーション』であり、"
+                "長時間ログインを保ちつつ、トークンを定期的に入れ替えて漏洩リスクを下げます。"
+            ),
+        },
+        {
+            "start_line": 42,
+            "end_line": 45,
+            "title": "revoke_all_sessions — 全端末の一括失効",
+            "explanation": (
+                "『すべての端末からログアウト』やパスワード変更時に呼ばれます。ユーザーの token_epoch を +1 する"
+                "だけで(44 行目)、既に発行済みの全トークンは validate_session の世代チェック(29 行目)に引っかかり、"
+                "その瞬間から無効になります。トークンを 1 件ずつ探して消す必要がない、軽量な一括失効の仕組みです。"
+            ),
+        },
+        {
+            "start_line": 48,
+            "end_line": 50,
+            "title": "check_csrf — 二重送信による CSRF 対策",
+            "explanation": (
+                "注文確定など『状態を変える操作』の前に呼び、Cookie 側の csrf トークンとリクエストヘッダの "
+                "X-CSRF-Token が一致するかを確認します。別サイトから勝手に送られたリクエストはヘッダを付けられない"
+                "ため一致せず、なりすまし送信（CSRF）を防げます。"
+            ),
+        },
+        {
+            "start_line": 53,
+            "end_line": 54,
+            "title": "_legacy_cookie_check — 未使用の旧経路（dead code）",
+            "explanation": (
+                "以前 sid_v1 Cookie でセッションを判定していた頃の名残で、現在はどこからも呼ばれていません"
+                "（到達しないコード）。移行後に削除し忘れているもので、読む人を惑わせるため整理の候補です。"
             ),
         },
     ],
@@ -2750,7 +2947,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "3"
+DEMO_SEED_VERSION = "4"  # v4: 認証(auth)の session.py 拡充 + 学習プラン/クイズ充実（デモ動画向け）
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)
