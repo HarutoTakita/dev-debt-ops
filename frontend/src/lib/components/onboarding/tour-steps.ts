@@ -22,8 +22,9 @@ export type TourStep = {
   reveal?: string;
 };
 
-// 順序は左サイドバーの上から（ダッシュボード → 理解度マップ → クイズと学習 → コード品質マップ → コード改善）。
-// 続けて、トップバー右上の「解析」ボタンとヘルプ ?。
+// 順序は左サイドバーの上から（ダッシュボード → 理解度マップ → クイズと学習 → コード品質マップ → コード改善 →
+// 設定）。各ステップで route により該当ページを開いてから nav 項目をハイライトする。続けてトップバー右上の
+// 「解析」（パネルを開く）→ ユーザーメニュー（各種設定・言語）→ ヘルプ → ショートカット。
 export const tourSteps: TourStep[] = [
   {
     id: "overview",
@@ -31,6 +32,7 @@ export const tourSteps: TourStep[] = [
     title: m.tour_overview_title,
     body: m.tour_overview_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
   },
   {
     id: "galaxy",
@@ -38,6 +40,7 @@ export const tourSteps: TourStep[] = [
     title: m.tour_galaxy_title,
     body: m.tour_galaxy_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
   },
   {
     id: "knowledge-hub",
@@ -45,6 +48,7 @@ export const tourSteps: TourStep[] = [
     title: m.tour_knowledge_title,
     body: m.tour_knowledge_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
   },
   {
     id: "matrix",
@@ -52,6 +56,7 @@ export const tourSteps: TourStep[] = [
     title: m.tour_matrix_title,
     body: m.tour_matrix_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
   },
   {
     id: "repos",
@@ -59,6 +64,7 @@ export const tourSteps: TourStep[] = [
     title: m.tour_repos_title,
     body: m.tour_repos_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
   },
   {
     id: "settings",
@@ -66,21 +72,46 @@ export const tourSteps: TourStep[] = [
     title: m.tour_settings_title,
     body: m.tour_settings_body,
     placement: "right",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/settings`,
   },
   {
-    // 最重要操作。トップバー右上の「解析」ボタン（常時表示）をハイライト。
+    // 「解析」パネルを開いてハイライト（開閉は shellMenus をツアーが制御）。
     id: "analysis",
-    target: "analysis-run",
+    target: "analysis-panel",
     title: m.tour_analysis_title,
     body: m.tour_analysis_body,
-    placement: "bottom",
+    placement: "left",
   },
   {
+    // 各種設定: 右上ユーザーメニューを開いてハイライト。
+    id: "user-settings",
+    target: "user-menu",
+    title: m.tour_user_settings_title,
+    body: m.tour_user_settings_body,
+    placement: "left",
+  },
+  {
+    // 言語: ユーザーメニューの言語サブメニューを開いた状態でハイライト。
+    id: "language",
+    target: "user-menu-language",
+    title: m.tour_language_title,
+    body: m.tour_language_body,
+    placement: "left",
+  },
+  {
+    // ヘルプ: サイドバー左下のヘルプメニューを開いてハイライト（ガイド再確認・バージョン履歴）。
     id: "help",
-    target: "help",
+    target: "help-menu",
     title: m.tour_help_title,
     body: m.tour_help_body,
     placement: "right",
+  },
+  {
+    // キーボードショートカット（中央説明）。
+    id: "shortcuts",
+    title: m.tour_shortcuts_title,
+    body: m.tour_shortcuts_body,
+    placement: "bottom",
   },
 ];
 
