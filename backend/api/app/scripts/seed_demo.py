@@ -2995,7 +2995,8 @@ async def _ensure_learning_plans(session: AsyncSession, project: Project, dev_id
                         id=step_id,
                         plan_id=plan_id,
                         order=order,
-                        completed=False,
+                        # 先頭 2 ステップは学習済みにして進捗を「一部完了」にする（進捗バー/オンボーディング用）。
+                        completed=order < 2,
                         resource_id=resource_ids[res["key"]],
                     )
                 )
@@ -3108,7 +3109,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "6"  # v6: 品質理由から具体的数値を除去（複雑度の数値等）
+DEMO_SEED_VERSION = "7"  # v7: 学習プラン先頭 2 ステップを完了済みに（進捗デモ/オンボーディング用）
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)

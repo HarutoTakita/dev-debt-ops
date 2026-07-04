@@ -155,6 +155,7 @@ export const pageTours: Record<string, TourStep[]> = {
   ],
   "knowledge-hub": [
     {
+      // 機能一覧（/learning）。各学習プランの状態と理解度。
       id: "knowledge-units",
       target: "units-list",
       title: m.tour_kn_units_title,
@@ -163,54 +164,70 @@ export const pageTours: Record<string, TourStep[]> = {
       route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
-      id: "knowledge-confirm",
-      target: "unit-confirm",
-      title: m.tour_kn_confirm_title,
-      body: m.tour_kn_confirm_body,
-      placement: "bottom",
-    },
-    {
-      // 「理解度を確認する」の遷移先（クイズ受験画面）まで案内する。reveal でリンクをクリックして遷移。
-      id: "knowledge-quiz",
-      target: "quiz-answer",
-      reveal: "unit-confirm",
-      title: m.tour_kn_quiz_title,
-      body: m.tour_kn_quiz_body,
-      placement: "left",
-    },
-    {
-      // クイズ画面から単元一覧へ戻し、「学習を開く」を説明。
+      // 学習を開く（一覧上のリンク）。
       id: "knowledge-learn",
       target: "unit-learn",
       title: m.tour_kn_learn_title,
       body: m.tour_kn_learn_body,
       placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
     },
     {
-      // 「学習を開く」の遷移先（学習プラン閲覧画面）。まず進捗を案内。
-      id: "knowledge-plan",
-      target: "plan-progress",
-      reveal: "unit-learn",
-      title: m.tour_kn_plan_title,
-      body: m.tour_kn_plan_body,
-      placement: "bottom",
-    },
-    {
-      // 「このコードを理解する」= リポジトリ特有の機能に関する学習プラン。
+      // 「このコードを理解する」= リポジトリ特有の機能の学習プラン。reveal で学習プランを開く。
       id: "knowledge-plan-code",
       target: "plan-code",
+      reveal: "unit-learn",
       title: m.tour_kn_plan_code_title,
       body: m.tour_kn_plan_code_body,
       placement: "right",
     },
     {
-      // 「技術スタックを学ぶ」= 関連技術の公式ドキュメント/チュートリアル（最後のステップ）。
+      // 「技術スタックを学ぶ」= 関連技術の公式ドキュメント/チュートリアル（先頭 1 件をハイライト）。
       id: "knowledge-plan-stack",
-      target: "plan-stack",
+      target: "plan-stack-first",
       title: m.tour_kn_plan_stack_title,
       body: m.tour_kn_plan_stack_body,
       placement: "left",
+    },
+    {
+      // 進捗確認: チェック済みを集計した全体進捗（進捗バー）。
+      id: "knowledge-progress",
+      target: "plan-progress",
+      title: m.tour_kn_plan_title,
+      body: m.tour_kn_plan_body,
+      placement: "bottom",
+    },
+    {
+      // 理解度テストの実施。一覧へ戻り「理解度を確認する」でクイズへ。左コード＋右解答をまとめてハイライト。
+      id: "knowledge-quiz",
+      target: "quiz-body",
+      reveal: "unit-confirm",
+      title: m.tour_kn_quiz_title,
+      body: m.tour_kn_quiz_body,
+      placement: "top",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+    },
+    {
+      // 不安な問題へのフラグ付け。reveal でフラグを有効化した状態でハイライト。
+      id: "knowledge-flag",
+      target: "quiz-flag",
+      reveal: "quiz-flag",
+      title: m.tour_kn_flag_title,
+      body: m.tour_kn_flag_body,
+      placement: "bottom",
+    },
+    {
+      // テスト結果確認（中央説明）。採点後の結果画面の説明。
+      id: "knowledge-result",
+      title: m.tour_kn_result_title,
+      body: m.tour_kn_result_body,
+      placement: "bottom",
+    },
+    {
+      // 再テスト（中央説明）。フラグ/誤答に絞った再受験。
+      id: "knowledge-retest",
+      title: m.tour_kn_retest_title,
+      body: m.tour_kn_retest_body,
+      placement: "bottom",
     },
   ],
   // 「コード品質マップ」（nav id=matrix, ラベル=コード品質マップ, ルート=/repos）の詳細ガイド。
