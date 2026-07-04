@@ -50,8 +50,7 @@
     }
     onboarding.start(tourSteps);
   }
-  // 変更履歴（CHANGELOG）を中央モーダルで表示する。
-  let changelogOpen = $state(false);
+  // 変更履歴（CHANGELOG）を中央モーダルで表示する。開閉は shellMenus と共有（ガイドが開いて説明する）。
 
   // アクティブなプロジェクトが属するグループキー（スター優先 → セクション → 既定）。
   const activeGroupKey = $derived.by(() => {
@@ -355,7 +354,7 @@
             <span>{m.help_view_guide()}</span>
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
-          <DropdownMenu.Item onSelect={() => (changelogOpen = true)}>
+          <DropdownMenu.Item onSelect={() => (shellMenus.changelog = true)}>
             <History class="size-4" />
             <span>{m.help_version()}</span>
             <span class="ml-auto text-xs text-muted-foreground">v{__APP_VERSION__}</span>
@@ -399,4 +398,4 @@
   </Dialog.Content>
 </Dialog.Root>
 
-<ChangelogDialog bind:open={changelogOpen} />
+<ChangelogDialog bind:open={shellMenus.changelog} />
