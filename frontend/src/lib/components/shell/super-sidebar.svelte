@@ -70,11 +70,6 @@
     }
     onboarding.start(steps);
   }
-  // LP は別ホスト（別デプロイ）なのでビルド時の公開 env で URL を渡す。未設定なら項目は無効のまま。
-  const lpUrl = import.meta.env.VITE_LP_URL as string | undefined;
-  function openLp() {
-    if (lpUrl) window.open(lpUrl, "_blank", "noopener,noreferrer");
-  }
   // 変更履歴（CHANGELOG）を中央モーダルで表示する。
   let changelogOpen = $state(false);
 
@@ -392,9 +387,6 @@
               {/each}
             </DropdownMenu.SubContent>
           </DropdownMenu.Sub>
-          <DropdownMenu.Item disabled={!lpUrl} onSelect={openLp}>
-            <span>{m.help_view_lp()}</span>
-          </DropdownMenu.Item>
           <DropdownMenu.Separator />
           <DropdownMenu.Item onSelect={() => (changelogOpen = true)}>
             <History class="size-4" />
