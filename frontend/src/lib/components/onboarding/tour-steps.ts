@@ -107,8 +107,9 @@ export const tourSteps: TourStep[] = [
     placement: "right",
   },
   {
-    // キーボードショートカット（中央説明）。
+    // キーボードショートカット: ⌘/Ctrl+K のコマンドパレットを実際に開いて説明（開閉はツアーが制御）。
     id: "shortcuts",
+    target: "command-palette",
     title: m.tour_shortcuts_title,
     body: m.tour_shortcuts_body,
     placement: "bottom",
@@ -119,6 +120,23 @@ export const tourSteps: TourStep[] = [
 // 先頭ステップで当該ページへ遷移（route）し、各ページの主要 UI 要素を順にハイライトして詳しく説明する。
 // タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
 export const pageTours: Record<string, TourStep[]> = {
+  // ヘルプの詳細: 実際に ? のショートカット一覧とチェンジログを開いて見せる（開閉はツアーが shellMenus 経由で制御）。
+  help: [
+    {
+      id: "help-shortcuts",
+      target: "shortcut-list",
+      title: m.tour_help_shortcuts_title,
+      body: m.tour_help_shortcuts_body,
+      placement: "left",
+    },
+    {
+      id: "help-changelog",
+      target: "changelog",
+      title: m.tour_help_changelog_title,
+      body: m.tour_help_changelog_body,
+      placement: "left",
+    },
+  ],
   overview: [
     {
       id: "overview-primary",

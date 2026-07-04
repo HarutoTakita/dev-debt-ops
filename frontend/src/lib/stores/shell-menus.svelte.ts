@@ -7,12 +7,16 @@ class ShellMenus {
   userMenu = $state(false); // 右上ユーザーメニュー
   userLanguage = $state(false); // ユーザーメニュー内「言語」サブメニュー
   helpMenu = $state(false); // サイドバー左下ヘルプメニュー
+  shortcutList = $state(false); // ? のショートカット一覧ダイアログ
+  changelog = $state(false); // 変更履歴（チェンジログ）ダイアログ
 
   reset() {
     this.analysisPanel = false;
     this.userMenu = false;
     this.userLanguage = false;
     this.helpMenu = false;
+    this.shortcutList = false;
+    this.changelog = false;
   }
 }
 

@@ -4,6 +4,7 @@
   import { page } from "$app/state";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
+  import { commandPalette } from "$lib/stores/command-palette.svelte";
   import { pageTours, type TourPlacement } from "./tour-steps";
   import * as m from "$lib/paraglide/messages";
 
@@ -115,6 +116,9 @@
     shellMenus.userMenu = id === "user-settings" || id === "language";
     shellMenus.userLanguage = id === "language";
     shellMenus.helpMenu = id === "help";
+    shellMenus.shortcutList = id === "help-shortcuts"; // ヘルプ詳細: ? のショートカット一覧
+    shellMenus.changelog = id === "help-changelog"; // ヘルプ詳細: 変更履歴
+    commandPalette.open = id === "shortcuts"; // ショートカット: ⌘K コマンドパレット
   });
 
   // キーボード操作: Esc で終了、Enter / → / Space で次へ、← で戻る（入力欄フォーカス中は無効）。
@@ -248,7 +252,7 @@
     aria-label={step.title()}
     bind:clientWidth={bubbleW}
     bind:clientHeight={bubbleH}
-    class="fixed z-[201] w-[320px] rounded-lg border bg-card p-4 shadow-xl"
+    class="pointer-events-auto fixed z-[201] w-[320px] rounded-lg border bg-card p-4 shadow-xl"
     style={bubble.centered
       ? "left: 50%; top: 50%; transform: translate(-50%, -50%);"
       : `left: ${bubble.left}px; top: ${bubble.top}px;`}

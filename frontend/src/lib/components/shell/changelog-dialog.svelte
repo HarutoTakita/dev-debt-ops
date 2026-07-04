@@ -37,7 +37,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="sm:max-w-2xl">
+  <Dialog.Content class="sm:max-w-2xl" data-tour="changelog">
     <Dialog.Header>
       <Dialog.Title>{m.changelog_title()}</Dialog.Title>
       <Dialog.Description>v{__APP_VERSION__}</Dialog.Description>

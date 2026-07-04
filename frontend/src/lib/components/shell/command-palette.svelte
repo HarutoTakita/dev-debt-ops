@@ -64,7 +64,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="overflow-hidden p-0 sm:max-w-lg" showCloseButton={false}>
+  <Dialog.Content class="overflow-hidden p-0 sm:max-w-lg" showCloseButton={false} data-tour="command-palette">
     <Dialog.Title class="sr-only">{m.shell_command_palette()}</Dialog.Title>
     <Dialog.Description class="sr-only">{m.command_placeholder()}</Dialog.Description>
     <Command.Root class="flex w-full flex-col">

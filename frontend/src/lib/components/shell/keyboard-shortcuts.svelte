@@ -6,6 +6,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { allNavItems, type NavContext } from "$lib/config/nav";
   import { commandPalette } from "$lib/stores/command-palette.svelte";
+  import { shellMenus } from "$lib/stores/shell-menus.svelte";
   import * as m from "$lib/paraglide/messages";
 
   // アプリ全体のキーボードショートカットを 1 か所で処理する（issue: ショートカット充実 Tier 1）。
@@ -28,8 +29,6 @@
     { key: "i", id: "repos", label: m.nav_repos },
     { key: "s", id: "settings", label: m.nav_settings },
   ];
-
-  let showHelp = $state(false);
 
   // g を押した直後 1.2 秒だけ「2 打鍵目待ち」状態にする（Linear と同様のタイムアウト）。
   let gPending = false;
@@ -87,7 +86,7 @@
     }
     if (e.key === "?") {
       e.preventDefault();
-      showHelp = true;
+      shellMenus.shortcutList = true;
       return;
     }
     if (e.key === "/") {
@@ -122,8 +121,8 @@
   </li>
 {/snippet}
 
-<Dialog.Root bind:open={showHelp}>
-  <Dialog.Content class="max-w-md">
+<Dialog.Root bind:open={shellMenus.shortcutList}>
+  <Dialog.Content class="max-w-md" data-tour="shortcut-list">
     <Dialog.Header>
       <Dialog.Title>{m.shortcuts_title()}</Dialog.Title>
     </Dialog.Header>
