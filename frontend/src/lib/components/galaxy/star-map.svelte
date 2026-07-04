@@ -32,6 +32,27 @@
 
   const zoomBtnClass =
     "rounded-md border bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:text-foreground";
+
+  // オンボーディング「関連ファイルの強調表示」用: 隣接が最も多いノードを既定の強調対象にする。
+  const endId = (e: unknown) =>
+    typeof e === "object" && e !== null ? String((e as { id?: unknown }).id ?? "") : String(e);
+  const topDegreeNodeId = $derived.by(() => {
+    const deg: Record<string, number> = {};
+    for (const l of graphData.links) {
+      for (const id of [endId(l.source), endId(l.target)]) deg[id] = (deg[id] ?? 0) + 1;
+    }
+    let best: string | null = null;
+    let max = -1;
+    for (const [id, d] of Object.entries(deg)) {
+      if (d > max) {
+        max = d;
+        best = id;
+      }
+    }
+    return best;
+  });
+  // ガイドのトリガー（reveal クリック）で最多隣接ノードをホバー中として強調する。
+  let demoHoverId = $state<string | null>(null);
 </script>
 
 <div class="flex h-full flex-col gap-2">
@@ -41,7 +62,22 @@
         <p class="max-w-sm text-sm text-muted-foreground">{m.galaxy_no_features()}</p>
       </div>
     {:else}
-      <GraphCanvas nodes={graphData.nodes} links={graphData.links} bindControls={(c) => (controls = c)} />
+      <GraphCanvas
+        nodes={graphData.nodes}
+        links={graphData.links}
+        {demoHoverId}
+        bindControls={(c) => (controls = c)}
+      />
+
+      <!-- オンボーディング用の不可視トリガー。ガイドが reveal でクリックすると最多隣接ノードを強調する。 -->
+      <button
+        type="button"
+        data-tour="galaxy-hover-demo"
+        aria-hidden="true"
+        tabindex="-1"
+        class="sr-only"
+        onclick={() => (demoHoverId = topDegreeNodeId)}
+      ></button>
 
       {#if graphData.nodes.length === 0}
         <div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center">

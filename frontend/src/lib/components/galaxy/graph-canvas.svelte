@@ -15,12 +15,15 @@
     onNodeClick,
     onNodeHover,
     bindControls,
+    demoHoverId = null,
   }: {
     nodes: GraphNode[];
     links: GraphLink[];
     onNodeClick?: (node: GraphNode) => void;
     onNodeHover?: (node: GraphNode | null) => void;
     bindControls?: (controls: ZoomControls) => void; // ズーム操作を親へ公開（親のボタンから呼ぶ）
+    // オンボーディング用: 指定 id をホバー中として強調（隣接ファイルの強調表示ステップ）。null で通常。
+    demoHoverId?: string | null;
   } = $props();
 
   let container: HTMLDivElement;
@@ -205,6 +208,15 @@
   // リサイズ反映。
   $effect(() => {
     if (cw > 0 && ch > 0) graph?.width(cw).height(ch);
+  });
+
+  // オンボーディング: demoHoverId 指定時、そのノードをホバー中として強調（隣接を明るく・他を減光）し再描画。
+  $effect(() => {
+    const id = demoHoverId;
+    if (!graph || !id) return;
+    hoveredId = id;
+    recomputeNeighbors();
+    graph.graphData(graph.graphData()); // 同一データ再投入で再描画をトリガ（配色/強調を反映）
   });
 </script>
 
