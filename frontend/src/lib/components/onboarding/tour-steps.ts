@@ -217,20 +217,15 @@ export const pageTours: Record<string, TourStep[]> = {
   // ファイルツリー＋ファイル閲覧＋指摘箇所。指摘のあるファイルを事前選択して閲覧欄を空にしない。
   matrix: [
     {
-      // 概要（中央表示）。当ページへ遷移し、指摘のあるファイルを事前選択して閲覧欄を空にしない。
-      id: "repos-overview",
-      title: m.tour_rp_overview_title,
-      body: m.tour_rp_overview_body,
-      placement: "bottom",
-      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
-      search: () => "?path=src/checkout/payment.py",
-    },
-    {
+      // 概要はページ上部の説明文に載せるため、ガイドはファイルツリーから開始する。
+      // 当ページへ遷移し、指摘のあるファイルを事前選択して閲覧欄を空にしない。
       id: "repos-tree",
       target: "repos-tree",
       title: m.tour_rp_tree_title,
       body: m.tour_rp_tree_body,
       placement: "right",
+      route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+      search: () => "?path=src/checkout/payment.py",
     },
     {
       id: "repos-viewer",
