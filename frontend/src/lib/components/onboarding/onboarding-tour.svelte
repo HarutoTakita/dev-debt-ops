@@ -3,6 +3,7 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
+  import { shellMenus } from "$lib/stores/shell-menus.svelte";
   import { pageTours, type TourPlacement } from "./tour-steps";
   import * as m from "$lib/paraglide/messages";
 
@@ -104,6 +105,16 @@
       window.removeEventListener("resize", recompute);
       window.removeEventListener("scroll", recompute, true);
     };
+  });
+
+  // シェル上部メニュー/パネルの開閉をステップに同期する（各種設定・言語・解析・ヘルプのハイライト用）。
+  // 該当ステップのときだけ開き、それ以外・ツアー終了時は閉じる。
+  $effect(() => {
+    const id = onboarding.active ? (step?.id ?? null) : null;
+    shellMenus.analysisPanel = id === "analysis";
+    shellMenus.userMenu = id === "user-settings" || id === "language";
+    shellMenus.userLanguage = id === "language";
+    shellMenus.helpMenu = id === "help";
   });
 
   // キーボード操作: Esc で終了、Enter / → / Space で次へ、← で戻る（入力欄フォーカス中は無効）。

@@ -6,6 +6,7 @@
   import { repo } from "$lib/stores/repo-store.svelte";
   import { auth } from "$lib/stores/auth.svelte";
   import { analysisRun, type RunContext } from "$lib/stores/analysis-run-store.svelte";
+  import { shellMenus } from "$lib/stores/shell-menus.svelte";
   import AnalysisRunCockpit from "$lib/components/overview/analysis-run-cockpit.svelte";
   import * as m from "$lib/paraglide/messages";
 
@@ -30,12 +31,12 @@
   const needsFirstRun = $derived(
     repo.connected != null && !auth.isDemo && !analysisRun.started && !analysisRun.running,
   );
-  let popoverOpen = $state(false);
-  const showGuide = $derived(needsFirstRun && !popoverOpen);
+  // 開閉状態は shellMenus と共有（オンボーディングガイドが「解析」ステップでこのパネルを開いて説明する）。
+  const showGuide = $derived(needsFirstRun && !shellMenus.analysisPanel);
 </script>
 
 <div class="relative flex items-center">
-  <Popover.Root bind:open={popoverOpen}>
+  <Popover.Root bind:open={shellMenus.analysisPanel}>
     <Popover.Trigger>
       {#snippet child({ props })}
         <button
@@ -59,7 +60,7 @@
         </button>
       {/snippet}
     </Popover.Trigger>
-    <Popover.Content align="end" sideOffset={6} class="w-96 max-w-[calc(100vw-1rem)] p-2">
+    <Popover.Content align="end" sideOffset={6} data-tour="analysis-panel" class="w-96 max-w-[calc(100vw-1rem)] p-2">
       <AnalysisRunCockpit {ctx} />
     </Popover.Content>
   </Popover.Root>

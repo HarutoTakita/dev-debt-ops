@@ -32,6 +32,7 @@
   import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
+  import { shellMenus } from "$lib/stores/shell-menus.svelte";
   import { tourSteps } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
   import ChangelogDialog from "./changelog-dialog.svelte";
@@ -323,7 +324,7 @@
 
     <!-- 一番下: ヘルプ。「...」と同様のドロップダウンで「ガイド確認」「LP（今後）」を選ぶ（issue 066）。 -->
     <div class="mt-1">
-      <DropdownMenu.Root>
+      <DropdownMenu.Root bind:open={shellMenus.helpMenu}>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
             {#if sidebar.collapsed}
@@ -347,7 +348,7 @@
             {/if}
           {/snippet}
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content side="top" align="start" class="w-56">
+        <DropdownMenu.Content side="top" align="start" class="w-56" data-tour="help-menu">
           <DropdownMenu.Label>{m.help_title()}</DropdownMenu.Label>
           <DropdownMenu.Item onSelect={startGuide}>
             <CircleHelp class="size-4" />
