@@ -9,6 +9,7 @@
   import Hash from "@lucide/svelte/icons/hash";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import CircleHelp from "@lucide/svelte/icons/circle-help";
+  import BookOpen from "@lucide/svelte/icons/book-open";
   import History from "@lucide/svelte/icons/history";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
@@ -32,7 +33,7 @@
   import type { Project } from "$lib/api/schemas";
   import * as m from "$lib/paraglide/messages";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
-  import { tourSteps } from "$lib/components/onboarding/tour-steps";
+  import { tourSteps, pageTours } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
   import ChangelogDialog from "./changelog-dialog.svelte";
 
@@ -48,6 +49,26 @@
       if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
     }
     onboarding.start(tourSteps);
+  }
+
+  // 各ページの詳細オンボーディングガイドへの直接ショートカット（issue 066 追補）。
+  // pageTours のキー（nav id）と、ヘルプメニューに出すラベルの対応。左サイドバーの並び順。
+  const AREA_GUIDES: { key: string; label: () => string }[] = [
+    { key: "overview", label: m.nav_overview }, // ダッシュボード
+    { key: "galaxy", label: m.nav_galaxy }, // 理解度マップ
+    { key: "knowledge-hub", label: m.nav_knowledge_hub }, // クイズと学習
+    { key: "matrix", label: m.nav_matrix }, // コード品質マップ
+    { key: "repos", label: m.nav_repos }, // コード改善
+  ];
+  // 指定エリアのページ別ガイドを単体で開始（メイン手順を経由せず直接）。プロジェクト未選択なら先頭を選ぶ。
+  async function startAreaGuide(key: string) {
+    const steps = pageTours[key];
+    if (!steps) return;
+    if (!project.current) {
+      const top = project.list[0];
+      if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
+    }
+    onboarding.start(steps);
   }
   // LP は別ホスト（別デプロイ）なのでビルド時の公開 env で URL を渡す。未設定なら項目は無効のまま。
   const lpUrl = import.meta.env.VITE_LP_URL as string | undefined;
@@ -358,6 +379,19 @@
             <CircleHelp class="size-4" />
             <span>{m.help_view_guide()}</span>
           </DropdownMenu.Item>
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger>
+              <BookOpen class="size-4" />
+              <span>{m.help_area_guides()}</span>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.SubContent class="w-52">
+              {#each AREA_GUIDES as area (area.key)}
+                <DropdownMenu.Item onSelect={() => startAreaGuide(area.key)}>
+                  <span>{area.label()}</span>
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.SubContent>
+          </DropdownMenu.Sub>
           <DropdownMenu.Item disabled={!lpUrl} onSelect={openLp}>
             <span>{m.help_view_lp()}</span>
           </DropdownMenu.Item>
