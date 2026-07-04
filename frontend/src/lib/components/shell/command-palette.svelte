@@ -59,7 +59,7 @@
   ];
   function startGuide(key: string) {
     const steps = pageTours[key];
-    if (steps) run(() => onboarding.start(steps));
+    if (steps) run(() => onboarding.start(steps, key));
   }
 </script>
 
