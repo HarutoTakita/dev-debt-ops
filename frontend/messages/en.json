@@ -102,6 +102,7 @@
   "units_empty": "No features clustered yet. Run \"Analyze this repository\" first.",
   "unit_status_unstarted": "Not started",
   "unit_status_in_progress": "In progress",
+  "unit_status_learned": "Learned · confirm",
   "unit_status_verified": "Verified",
   "unit_status_needs_review": "Needs review",
   "unit_files_count": "{count} files",

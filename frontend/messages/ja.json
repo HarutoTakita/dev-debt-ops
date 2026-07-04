@@ -102,6 +102,7 @@
   "units_empty": "機能がまだクラスタリングされていません。先に「このリポジトリを解析する」を実行してください。",
   "unit_status_unstarted": "未学習",
   "unit_status_in_progress": "学習中",
+  "unit_status_learned": "学習完了・確認へ",
   "unit_status_verified": "理解済み",
   "unit_status_needs_review": "要復習",
   "unit_files_count": "{count} ファイル",

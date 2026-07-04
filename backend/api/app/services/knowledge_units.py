@@ -21,11 +21,14 @@ _STAR = 0.7  # KC ≥ star → 理解済み（ADR 0003）
 _BLACK_HOLE = 0.4
 
 
-def _status(kc: float, has_plan: bool, quiz_status: str | None) -> str:
+def _status(kc: float, has_plan: bool, quiz_status: str | None, learning_complete: bool) -> str:
     if kc >= _STAR:
         return "verified"
     if quiz_status == "completed" and kc < _BLACK_HOLE:
         return "needs_review"
+    # 学習プランを全ステップ完了（進捗 100%）で、まだ確認クイズで検証されていない → 学習完了（確認へ）。
+    if learning_complete:
+        return "learned"
     if has_plan or quiz_status is not None:
         return "in_progress"
     return "unstarted"
@@ -106,7 +109,12 @@ async def build_knowledge_units(
                 knowledge_coverage=kc,
                 code_debt_score=node.code_debt_score if node is not None else 0.0,
                 file_count=node.file_count if node is not None else 0,
-                status=_status(kc, plan is not None, qs.status if qs is not None else None),
+                status=_status(
+                    kc,
+                    plan is not None,
+                    qs.status if qs is not None else None,
+                    learning_complete=steps_total > 0 and steps_done == steps_total,
+                ),
                 learning_plan_id=str(plan.id) if plan is not None else None,
                 quiz_session_id=str(qs.id) if qs is not None else None,
                 quiz_status=qs.status if qs is not None else None,
