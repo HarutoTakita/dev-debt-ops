@@ -3,6 +3,7 @@
   import Search from "@lucide/svelte/icons/search";
   import Folder from "@lucide/svelte/icons/folder";
   import SunMoon from "@lucide/svelte/icons/sun-moon";
+  import BookOpen from "@lucide/svelte/icons/book-open";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
@@ -11,6 +12,8 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { allNavItems, type NavContext } from "$lib/config/nav";
   import { project } from "$lib/stores/project-store.svelte";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
+  import { pageTours } from "$lib/components/onboarding/tour-steps";
   import * as m from "$lib/paraglide/messages";
 
   // ⌘K で開くコマンドパレット。ページ移動（現在プロジェクトのセクション）・プロジェクト切替・
@@ -43,6 +46,20 @@
 
   function navTo(path: Pathname) {
     run(() => void goto(resolve(path)));
+  }
+
+  // 各ページの詳細オンボーディングガイド（pageTours のキー = nav id）をコマンドとして起動する。
+  // 左サイドバーの並び順。onboarding.start が先頭ステップの route へ遷移してハイライトする。
+  const GUIDE_COMMANDS: { key: string; label: () => string }[] = [
+    { key: "overview", label: m.nav_overview }, // ダッシュボード
+    { key: "galaxy", label: m.nav_galaxy }, // 理解度マップ
+    { key: "knowledge-hub", label: m.nav_knowledge_hub }, // クイズと学習
+    { key: "matrix", label: m.nav_matrix }, // コード品質マップ
+    { key: "repos", label: m.nav_repos }, // コード改善
+  ];
+  function startGuide(key: string) {
+    const steps = pageTours[key];
+    if (steps) run(() => onboarding.start(steps));
   }
 </script>
 
@@ -79,6 +96,26 @@
                 >
                   <item.icon class="size-4 shrink-0 text-muted-foreground" />
                   <span class="truncate">{item.label()}</span>
+                </Command.Item>
+              {/each}
+            </Command.GroupItems>
+          </Command.Group>
+
+          <Command.Separator class="my-1 h-px bg-border" />
+          <Command.Group>
+            <Command.GroupHeading class="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              {m.help_area_guides()}
+            </Command.GroupHeading>
+            <Command.GroupItems>
+              {#each GUIDE_COMMANDS as g (g.key)}
+                <Command.Item
+                  value={`guide:${g.key}`}
+                  keywords={[g.label(), "guide", "ガイド", "tour", "ツアー", "help", "ヘルプ"]}
+                  onSelect={() => startGuide(g.key)}
+                  class="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm outline-none data-selected:bg-accent data-selected:text-accent-foreground"
+                >
+                  <BookOpen class="size-4 shrink-0 text-muted-foreground" />
+                  <span class="truncate">{g.label()}</span>
                 </Command.Item>
               {/each}
             </Command.GroupItems>
