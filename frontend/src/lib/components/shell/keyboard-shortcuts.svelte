@@ -7,6 +7,8 @@
   import { allNavItems, type NavContext } from "$lib/config/nav";
   import { commandPalette } from "$lib/stores/command-palette.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
+  import { onboarding } from "$lib/stores/onboarding-store.svelte";
+  import { pageTours } from "$lib/components/onboarding/tour-steps";
   import * as m from "$lib/paraglide/messages";
 
   // アプリ全体のキーボードショートカットを 1 か所で処理する（issue: ショートカット充実 Tier 1）。
@@ -30,14 +32,33 @@
     { key: "s", id: "settings", label: m.nav_settings },
   ];
 
-  // g を押した直後 1.2 秒だけ「2 打鍵目待ち」状態にする（Linear と同様のタイムアウト）。
+  // ガイドを直接開く 2 打鍵（t → 文字）。ページ移動（g）と同じ 2 打鍵目キーで対応づける。
+  // 対象は 5 つのみ（ダッシュボード / 理解度マップ / クイズと学習 / コード品質マップ / コード改善）。
+  const GUIDE_KEYS = NAV_KEYS.filter((n) => pageTours[n.id]);
+
+  // g / t を押した直後 1.2 秒だけ「2 打鍵目待ち」状態にする（Linear と同様のタイムアウト）。
   let gPending = false;
+  let tPending = false;
   let gTimer: ReturnType<typeof setTimeout> | undefined;
+  let tTimer: ReturnType<typeof setTimeout> | undefined;
 
   function resetG() {
     gPending = false;
     if (gTimer) clearTimeout(gTimer);
     gTimer = undefined;
+  }
+  function resetT() {
+    tPending = false;
+    if (tTimer) clearTimeout(tTimer);
+    tTimer = undefined;
+  }
+
+  // 指定キーの詳細ガイドを開く（プロジェクト選択時のみ。ガイドは各ページへ遷移してハイライトするため）。
+  function openGuide(key: string) {
+    if (!page.params.project) return;
+    const g = GUIDE_KEYS.find((n) => n.key === key);
+    const steps = g && pageTours[g.id];
+    if (steps) onboarding.start(steps);
   }
 
   // 入力要素にフォーカス中はナビ系ショートカットを発火させない（検索窓での "/" 入力等を邪魔しない）。
@@ -79,9 +100,25 @@
       return;
     }
 
+    if (tPending) {
+      const key = e.key.toLowerCase();
+      resetT();
+      if (GUIDE_KEYS.some((n) => n.key === key)) {
+        e.preventDefault();
+        openGuide(key);
+      }
+      return;
+    }
+
     if (e.key === "g") {
       gPending = true;
       gTimer = setTimeout(resetG, 1200);
+      return;
+    }
+
+    if (e.key === "t") {
+      tPending = true;
+      tTimer = setTimeout(resetT, 1200);
       return;
     }
     if (e.key === "?") {
@@ -145,6 +182,16 @@
             {@render row(n.label(), ["G", "→", n.key.toUpperCase()])}
           {/each}
           {@render row(m.project_home_title(), ["G", "→", "P"])}
+        </ul>
+      </section>
+      <section>
+        <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {m.shortcuts_section_guides()}
+        </h3>
+        <ul class="space-y-2">
+          {#each GUIDE_KEYS as n (n.key)}
+            {@render row(n.label(), ["T", "→", n.key.toUpperCase()])}
+          {/each}
         </ul>
       </section>
     </div>
