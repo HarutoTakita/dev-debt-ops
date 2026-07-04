@@ -39,13 +39,17 @@
     return r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;
   }
 
-  // ステップ変化: route 遷移 → 対象出現待ち → 計測。
+  // 新規開始/詳細切替/全体復帰でのみハイライト位置を初期化（中央→計測）。一時停止(resume)では初期化せず、
+  // 中断時の位置を保持したまま再表示するため、再開時に中央へ一瞬跳ねない。
+  $effect(() => {
+    void onboarding.viewNonce;
+    rect = null;
+  });
+
+  // ステップ変化: route 遷移 → 対象出現待ち → 計測。一時停止中(step=null)は rect を保持（resume で即復帰）。
   $effect(() => {
     const s = step;
-    if (!s) {
-      rect = null;
-      return;
-    }
+    if (!s) return;
     let cancelled = false;
     (async () => {
       if (s.route) {
