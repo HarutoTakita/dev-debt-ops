@@ -517,7 +517,7 @@
   "tour_gx_views_title": "Switch views (map / list)",
   "tour_gx_views_body": "Toggle between map view and list view here, depending on what you need.",
   "tour_gx_map_title": "Map view",
-  "tour_gx_map_body": "Each node is a file and its color shows understanding; lines are dependencies and calls between files. Drag, zoom and pan to explore.",
+  "tour_gx_map_body": "In the map view, each node is a file and the lines show dependencies between files. A node's color represents its understanding.",
   "tour_gx_filter_title": "Filter by feature",
   "tour_gx_filter_body": "Pick a feature chip to show only the files related to that feature.",
   "tour_gx_highlight_title": "Highlight related files",
