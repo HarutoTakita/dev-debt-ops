@@ -106,11 +106,33 @@
     };
   });
 
-  // Esc でスキップ。
+  // キーボード操作: Esc で終了、Enter / → / Space で次へ、← で戻る（入力欄フォーカス中は無効）。
   $effect(() => {
     if (!onboarding.active) return;
+    const isTyping = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      return (
+        !!el &&
+        (el.isContentEditable || el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")
+      );
+    };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onboarding.finish(orgSlug);
+      if (e.key === "Escape") {
+        onboarding.finish(orgSlug);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      // Enter / Space はボタン/リンクにフォーカスがあるとネイティブの click も発火するため、
+      // その場合はネイティブに委ねて二重進行を防ぐ（矢印キーはボタンで作用しないので対象外）。
+      const el = e.target as HTMLElement | null;
+      const onControl = !!el && (el.tagName === "BUTTON" || el.tagName === "A");
+      if (e.key === "ArrowRight" || ((e.key === "Enter" || e.key === " ") && !onControl)) {
+        e.preventDefault();
+        onNext();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onboarding.prev();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -237,7 +259,10 @@
       </button>
     {/if}
     <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <span class="text-xs text-muted-foreground tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
+      <span class="flex items-center gap-2 text-xs text-muted-foreground">
+        <span class="tabular-nums">{onboarding.stepIndex + 1} / {total}</span>
+        <span class="hidden sm:inline text-muted-foreground/70">{m.tour_kbd_hint()}</span>
+      </span>
       <div class="flex flex-wrap items-center gap-1.5">
         <button
           type="button"

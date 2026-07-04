@@ -492,6 +492,7 @@
   "changelog_error": "Could not load the changelog.",
   "tour_prev": "Back",
   "tour_next": "Next",
+  "tour_kbd_hint": "Enter / → to continue",
   "tour_skip": "Skip",
   "tour_finish": "Done",
   "tour_detail": "View details",
