@@ -641,11 +641,28 @@
 
     <!-- 課題 -->
     <section class="mx-auto max-w-6xl px-6 py-20">
-      <div class="mx-auto max-w-2xl text-center">
-        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">課題は「コード」だけじゃない</h2>
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="text-sm font-medium text-know">CHALLENGE</p>
+        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">AI 時代に急速に積み上がる「理解負債」</h2>
         <p class="mt-4 leading-relaxed text-slate-400">
-          動くが誰も中身を理解していないコードは、コード品質の問題とは別の<strong class="text-white">理解ギャップ</strong>。
-          変更速度・レビュー品質・オンボーディングを静かに蝕みます。
+          Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、<strong class="text-white"
+            >AI が生成したコードが何をしているか・なぜそう書かれているかを説明できない状態</strong
+          >——「理解負債」が静かに蓄積しています。設計の甘さを自覚している技術負債とは異なり、<strong class="text-white"
+            >コードは動くのに、その意図やリスクを誰も把握していない</strong
+          >のが厄介です。既存の技術負債検知は複雑度や参照関係から「危ない場所」を推測できても、<strong class="text-white"
+            >人が実際に理解しているか</strong
+          >までは測れません。
+        </p>
+      </div>
+      <div class="mx-auto mt-8 flex max-w-3xl flex-col items-center rounded-2xl border border-know/25 bg-know/5 p-6 text-center">
+        <p class="text-sm leading-relaxed text-slate-300">
+          Anthropic のエンジニアのスキル形成に関する研究では、AI の支援を受けた開発者は自力で書いたグループより<br
+            class="hidden sm:block"
+          />「コード理解度テスト」のスコアが
+        </p>
+        <p class="mt-3 text-5xl font-bold text-know">17%<span class="ml-1 text-2xl font-semibold">低下</span></p>
+        <p class="mt-3 text-xs leading-relaxed text-slate-500">
+          コードは期日通りにデプロイされる一方で、開発者の「理解」だけが置き去りにされていることが示されています。
         </p>
       </div>
       <div class="mt-12 grid gap-5 md:grid-cols-3">
@@ -668,6 +685,28 @@
           <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
             品質の低いコードは山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 想定ユーザー -->
+    <section class="mx-auto max-w-6xl px-6 py-16">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">FOR</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">こんな方に</h2>
+      </div>
+      <div class="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <h3 class="font-semibold text-white">テックリード / マネージャー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            チームメンバーの理解度が低い箇所を把握し、レビューや学習の優先順位を決めたい。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <h3 class="font-semibold text-white">オンボーディング担当 / 新規参画メンバー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            どこから理解すべきかを、学習ユニットとクイズで体系的に追いたい。
           </p>
         </div>
       </div>
@@ -730,6 +769,52 @@
           <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に修正 PR を作成する。</p>
         </li>
       </ol>
+    </section>
+
+    <!-- 3つのコア機能 -->
+    <section class="mx-auto max-w-6xl px-6 py-16">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">CORE</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">3 つのコア機能</h2>
+      </div>
+      <div class="mt-10 grid gap-5 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-know/15 text-sm font-bold text-know">01</span>
+          <h3 class="mt-4 font-semibold text-white">AI エージェントによる高度なリポジトリ解析</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            Google ADK で構築したエージェントが MCP（Serena / CodeGraphContext / Semgrep / GitHub）を駆使してリポジトリを探索。機能ごとの学習プラン・クイズの生成、低品質コードの検知と修正計画の作成までを自動化します。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-know/15 text-sm font-bold text-know">02</span>
+          <h3 class="mt-4 font-semibold text-white">理解負債の可視化 × クイズと学習で改善</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            ソースコードを機能単位にクラスタリングし、機能ごとに学習プランと理解度確認テストを生成。グラフで理解負債を可視化し、クイズ → 学習の閉ループで能動的に返済します。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
+          <h3 class="mt-4 font-semibold text-white">低品質コードへの推奨提案と自動修正</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            解析で検出した低品質コードに対し、推奨事項を GitHub Issue として起票。担当者の割り当てや、修正 PR の自動作成まで行えます。
+          </p>
+        </div>
+      </div>
+
+      <!-- 実運用を見据えた機能 -->
+      <div class="mt-8 rounded-2xl border border-white/10 bg-[#131a22] p-6">
+        <h3 class="font-semibold text-white">実運用を見据えた機能</h3>
+        <div class="mt-4 flex flex-wrap gap-2 text-sm">
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">GitHub SSO 認証・認可</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">プロジェクト管理</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">オンボーディングガイド</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">豊富なショートカット</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">管理者によるユーザー管理</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">クレジット付与による課金制御</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">i18n 多言語対応</span>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">リリース履歴の確認</span>
+        </div>
+      </div>
     </section>
 
     <!-- 機能詳細 -->
