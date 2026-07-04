@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
+from service.pipelines.run_cleanup import prune_superseded_runs
 from service.services import code_analysis, feature_authoring, feature_communities
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
@@ -256,6 +257,10 @@ async def process(
     run.status = JobStatus.COMPLETED
     session.add(run)
     await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
+    # 再解析で古い run の feature/feature_file が溜まるのを防ぐ（最新 run のみ残す）。
+    await prune_superseded_runs(
+        session, project_id=run.project_id, kind=JobType.FEATURE_CLUSTERING.value, keep_run_id=run.id
+    )
     trace.append(f"clustered {feature_count} features over {file_count} file memberships")
 
     logger.info(

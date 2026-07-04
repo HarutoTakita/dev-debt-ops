@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
+from service.pipelines.run_cleanup import prune_superseded_runs
 from service.services import code_analysis, gemini_stack_service, knowledge_analysis
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -337,6 +338,10 @@ async def process(
     run.status = JobStatus.COMPLETED
     session.add(run)
     await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
+    # 再解析で古い run の knowledge_debts が溜まるのを防ぐ（最新 run のみ残す）。
+    await prune_superseded_runs(
+        session, project_id=run.project_id, kind=JobType.KNOWLEDGE_DEBT_DETECTION.value, keep_run_id=run.id
+    )
     trace.append(f"detected {detected} knowledge debts")
 
     logger.info("knowledge_debt_detection: %s debts for %s/%s@%s", detected, request.owner, request.repo, commit_sha)

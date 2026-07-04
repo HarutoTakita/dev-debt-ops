@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
+from service.pipelines.run_cleanup import prune_superseded_runs
 from service.services.authorship import AuthorIdentity, resolve_author_user_id
 from service.services.code_analysis import is_vendored_path
 from service.services.dependency_extraction import extract_dependencies
@@ -354,6 +355,8 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
     run.status = JobStatus.COMPLETED
     session.add(run)
     await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
+    # 再解析で古い run のファイル行が溜まり「同一ファイルが複数登録」になるのを防ぐ（最新 run のみ残す）。
+    await prune_superseded_runs(session, project_id=run.project_id, kind=JobType.KC_ANALYSIS.value, keep_run_id=run.id)
     trace.append(f"upserted {file_kc_count} file_kc rows, {len(edges)} dependencies")
 
     logger.info(
