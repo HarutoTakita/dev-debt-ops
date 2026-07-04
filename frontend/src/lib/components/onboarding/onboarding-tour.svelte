@@ -22,6 +22,9 @@
 
   type Rect = { x: number; y: number; w: number; h: number };
   let rect = $state<Rect | null>(null);
+  // 対象を計測し終える（=位置が確定する）まで吹き出し/ハイライトを出さない。中央→対象位置への
+  // 一瞬のちらつきを防ぐため、位置が決まってから表示する。ターゲット無しの中央説明ステップは即 true。
+  let positioned = $state(false);
 
   function measure(target: string) {
     const el = document.querySelector(`[data-tour="${target}"]`);
@@ -39,17 +42,12 @@
     return r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;
   }
 
-  // 新規開始/詳細切替/全体復帰でのみハイライト位置を初期化（中央→計測）。一時停止(resume)では初期化せず、
-  // 中断時の位置を保持したまま再表示するため、再開時に中央へ一瞬跳ねない。
-  $effect(() => {
-    void onboarding.viewNonce;
-    rect = null;
-  });
-
-  // ステップ変化: route 遷移 → 対象出現待ち → 計測。一時停止中(step=null)は rect を保持（resume で即復帰）。
+  // ステップ変化: route 遷移 → 対象出現待ち → 計測。計測が終わるまで positioned=false にして表示を抑止し、
+  // 位置が確定してから出す（中央に一瞬出てから移動する挙動を防ぐ）。
   $effect(() => {
     const s = step;
     if (!s) return;
+    positioned = false;
     let cancelled = false;
     (async () => {
       if (s.route) {
@@ -72,7 +70,8 @@
         await new Promise((r) => setTimeout(r, 120));
       }
       if (!s.target) {
-        rect = null; // ターゲット無し（ページ別ガイドの詳細）は中央に説明だけ出す
+        rect = null; // ターゲット無し（中央に説明だけ出すステップ）
+        positioned = true;
         return;
       }
       const target = s.target;
@@ -93,7 +92,10 @@
         el.scrollIntoView({ block: "center", behavior: "smooth" });
         await new Promise((r) => setTimeout(r, 300));
       }
-      if (!cancelled) measure(target);
+      if (!cancelled) {
+        measure(target);
+        positioned = true; // 位置確定 → ここで初めて表示（rect 無し=見つからなかった場合は中央フォールバック）
+      }
       // ロード後にコンテンツが差し込まれてレイアウトが動く対象（クイズのコードパネル等）に追従するため、
       // 出現直後だけでなく少し時間を置いて再計測し、最終位置へハイライトを合わせる。
       for (const delay of [200, 500, 900]) {
@@ -242,7 +244,7 @@
   }
 </script>
 
-{#if onboarding.active && step}
+{#if onboarding.active && step && positioned}
   <!-- 背景。クリックはツアー外への誤操作を防ぐため吸収（何もしない）。 -->
   <div class="fixed inset-0 z-[200]" aria-hidden="true">
     {#if rect}
