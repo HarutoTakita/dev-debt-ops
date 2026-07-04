@@ -19,9 +19,6 @@ class OnboardingStore {
   inDetail = $state(false);
   // 現在ロード中のガイド識別子（pageTours のキー等）。同じショートカットでの一時停止/再開判定に使う。
   startKey = $state<string | null>(null);
-  // 新規開始のたびに増える。ツアー UI 側はこれを見てハイライト位置を初期化する（resume では増えない＝
-  // 中断位置を保持したまま再表示できる）。
-  viewNonce = $state(0);
   // 「詳細を確認する」で抜ける前のメイン手順の位置（全体ガイドへ戻すため）。
   #mainReturn: { steps: TourStep[]; stepIndex: number } | null = null;
 
@@ -72,7 +69,6 @@ class OnboardingStore {
     this.steps = steps;
     this.stepIndex = 0;
     this.startKey = key;
-    this.viewNonce += 1; // 新規開始 → ハイライト位置を初期化させる
     this.active = true;
   }
 
@@ -86,7 +82,6 @@ class OnboardingStore {
     if (this.steps.length === 0) return;
     if (this.stepIndex < this.steps.length - 1) {
       this.stepIndex += 1;
-      this.viewNonce += 1; // 次のステップ＝別対象なので位置を初期化して再計測
       this.active = true;
     } else {
       this.active = false;
@@ -102,7 +97,6 @@ class OnboardingStore {
     this.inDetail = true;
     this.steps = steps;
     this.stepIndex = 0;
-    this.viewNonce += 1;
     this.active = true;
   }
 
@@ -114,7 +108,6 @@ class OnboardingStore {
       this.#mainReturn = null;
     }
     this.inDetail = false;
-    this.viewNonce += 1;
   }
 
   next() {
