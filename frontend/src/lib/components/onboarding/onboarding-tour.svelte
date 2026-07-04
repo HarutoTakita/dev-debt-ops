@@ -72,10 +72,11 @@
         return;
       }
       const target = s.target;
-      // 遷移直後・レイアウト確定前を考慮し、可視（サイズあり）になるまで待つ（最大 ~2s）。
+      // 遷移直後・レイアウト確定前を考慮し、可視（サイズあり）になるまで待つ（最大 ~6s）。reveal で
+      // クイズ受験画面など「クリック → ページ遷移 → API ロード → 描画」の対象は出現が遅いため長めに待つ。
       // 出現しなければ measure() が中央フォールバックする（変な位置に出さない）。
       let el: Element | null = null;
-      for (let i = 0; i < 40 && !cancelled; i++) {
+      for (let i = 0; i < 120 && !cancelled; i++) {
         el = document.querySelector(`[data-tour="${target}"]`);
         if (el && el.getBoundingClientRect().width > 0) break;
         await new Promise((r) => setTimeout(r, 50));
@@ -89,6 +90,13 @@
         await new Promise((r) => setTimeout(r, 300));
       }
       if (!cancelled) measure(target);
+      // ロード後にコンテンツが差し込まれてレイアウトが動く対象（クイズのコードパネル等）に追従するため、
+      // 出現直後だけでなく少し時間を置いて再計測し、最終位置へハイライトを合わせる。
+      for (const delay of [200, 500, 900]) {
+        await new Promise((r) => setTimeout(r, delay));
+        if (cancelled) return;
+        if (document.querySelector(`[data-tour="${target}"]`)) measure(target);
+      }
     })();
     return () => {
       cancelled = true;
