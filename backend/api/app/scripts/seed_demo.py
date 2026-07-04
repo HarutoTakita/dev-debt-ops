@@ -713,7 +713,7 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "            if reserve_stock(order):\n"
         "                if charge(order.total, user.card):\n"
         "                    if not mark_paid(order):\n"
-        "                        rollback_charge(order)  # 6 段ネスト / 循環的複雑度 31\n"
+        "                        rollback_charge(order)  # ネストが深く循環的複雑度が高い\n"
         "                        return False\n"
         "                else:\n"
         "                    release_stock(order)\n"
@@ -735,7 +735,7 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "        if item.qty <= 0:\n"
         "            continue\n"
         "        if item.sku in RESERVED and not backorder_allowed(item):\n"
-        "            raise OutOfStock(item.sku)  # 分岐過多（複雑度 18）\n"
+        "            raise OutOfStock(item.sku)  # 分岐が多く複雑度が高い\n"
         "        reserve(item)\n"
     ),
     "src/auth/session.py": (
@@ -3108,7 +3108,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "5"  # v5: 認証 session.py を優先度高(P0)化 + oauth/jwt/password も学習/テスト対象に
+DEMO_SEED_VERSION = "6"  # v6: 品質理由から具体的数値を除去（複雑度の数値等）
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)

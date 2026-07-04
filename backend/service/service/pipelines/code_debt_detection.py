@@ -87,29 +87,28 @@ def _enrich_findings(findings: list[Finding], agent_notes: dict[str, str]) -> No
             f.archaeology_notes = f"{f.archaeology_notes}\n\n【エージェント所見】{note}"
 
 
-# 「なぜ品質が低いか」の説明文（解析時に生成）。指標値だけでなく、理由・影響・改善の方向まで
-# 1 つの文章で示し、コード改善ビューでそのまま読めるようにする（issue 210）。
-def _complexity_notes(cc: int) -> str:
+# 「なぜ品質が低いか」の説明文（解析時に生成）。基準が伝わりにくい具体的な指標値（循環的複雑度の数値・
+# 重複率・行数など）は載せず、理由・影響・改善の方向を定性的に示す（コード改善ビューでそのまま読める）。
+def _complexity_notes() -> str:
     return (
-        f"循環的複雑度が {cc} と高く、条件分岐やネストが深いため処理の流れを追いにくくなっています。"
+        "条件分岐やネストが深く、循環的複雑度が高いため処理の流れを追いにくくなっています。"
         "変更時に想定外の経路を見落としてバグを埋め込みやすい状態です。"
         "責務ごとに関数を分割したりガード節を導入したりすることで複雑度を下げられます。"
     )
 
 
-def _duplicate_notes(ratio: float) -> str:
-    pct = round(ratio * 100)
+def _duplicate_notes() -> str:
     return (
-        f"ほぼ同じコードブロックがこのファイルの約 {pct}% を占めています。"
+        "ほぼ同じコードブロックがこのファイルの広い範囲を占めています。"
         "重複は修正漏れの温床になり、1 箇所の変更を複数箇所へ反映する保守コストを生みます。"
         "共通処理を関数やモジュールへ抽出して一本化することを推奨します。"
     )
 
 
-def _dead_notes(loc: int) -> str:
+def _dead_notes() -> str:
     return (
-        f"このファイル（約 {loc} 行）はどのモジュールからも import されておらず、"
-        "到達不能な未使用コードの可能性が高いです。残置すると読み手の認知負荷や誤った改修のリスクになるため、"
+        "このファイルはどのモジュールからも import されておらず、到達不能な未使用コードの可能性が高いです。"
+        "残置すると読み手の認知負荷や誤った改修のリスクになるため、"
         "参照の有無を確認のうえ削除を検討してください。"
     )
 
@@ -133,7 +132,7 @@ def detect(files: dict[str, str]) -> list[Finding]:
                     file_path=path,
                     type="complexity",
                     score=code_analysis.complexity_score(cc),
-                    archaeology_notes=_complexity_notes(cc),
+                    archaeology_notes=_complexity_notes(),
                     code_snippet=_snippet(content),
                     metrics={"cyclomatic_complexity": cc},
                     estimated_repay_hours=round(cc / 4, 1),
@@ -149,7 +148,7 @@ def detect(files: dict[str, str]) -> list[Finding]:
                     file_path=path,
                     type="duplicate",
                     score=score,
-                    archaeology_notes=_duplicate_notes(ratio),
+                    archaeology_notes=_duplicate_notes(),
                     code_snippet=_snippet(files[path]),
                     metrics={"duplicate_ratio": round(ratio, 3)},
                     estimated_repay_hours=round(score * 6, 1),
@@ -164,7 +163,7 @@ def detect(files: dict[str, str]) -> list[Finding]:
                 file_path=path,
                 type="dead",
                 score=_DEAD_SCORE,
-                archaeology_notes=_dead_notes(loc),
+                archaeology_notes=_dead_notes(),
                 code_snippet=_snippet(files[path]),
                 metrics={"inbound_imports": 0, "loc": loc},
                 estimated_repay_hours=round(loc / 100, 1),
