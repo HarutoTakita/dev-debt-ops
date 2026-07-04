@@ -63,17 +63,6 @@
   function onsort(s: DebtSort) {
     sort = s;
   }
-
-  function cellLabel(cell: string | null): string {
-    if (!cell) return m.matrix_all_quadrants();
-    const map: Record<string, string> = {
-      danger: m.overview_quadrant_danger(),
-      ideal: m.overview_quadrant_ideal(),
-      code_repay: m.overview_quadrant_code_repay(),
-      refactor: m.overview_quadrant_refactor(),
-    };
-    return map[cell] ?? m.matrix_all_quadrants();
-  }
 </script>
 
 <svelte:head>
@@ -81,12 +70,7 @@
 </svelte:head>
 
 <div class="mx-auto flex max-w-6xl flex-col gap-3 p-4">
-  <div class="flex flex-wrap items-baseline justify-between gap-2">
-    <PageHeading title={m.nav_repos()} description={m.page_matrix_desc()} />
-    <span class="text-xs text-muted-foreground">
-      {m.matrix_target_quadrant()}: <span class="text-foreground">{cellLabel(data.cell)}</span>
-    </span>
-  </div>
+  <PageHeading title={m.nav_repos()} description={m.page_matrix_desc()} />
 
   <div class="flex flex-col gap-2" data-tour="matrix-search">
     <FilteredSearchBar {filter} {onfilter} />
