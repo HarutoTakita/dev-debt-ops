@@ -112,7 +112,7 @@ _CORE_FILES: list[tuple[str, str, int, float, float]] = [
     ("src/checkout/coupon.py", "Python", 96, 0.66, 0.30),
     ("src/ui/checkout-form.svelte", "Svelte", 98, 0.81, 0.14),  # 理想: 高 KC × クリーン
     # auth（認証）
-    ("src/auth/session.py", "Python", 188, 0.27, 0.50),  # 知識ホットスポット
+    ("src/auth/session.py", "Python", 188, 0.27, 0.72),  # 知識ホットスポット かつ 高リスク（P0）
     ("src/auth/oauth.py", "Python", 145, 0.62, 0.34),
     ("src/auth/password.py", "Python", 88, 0.49, 0.56),
     ("src/auth/jwt.py", "Python", 76, 0.71, 0.20),
@@ -648,12 +648,15 @@ _CODE_DEBTS: list[tuple[str, str, str, float, float, float, str]] = [
     ),
     (
         "src/auth/session.py",
-        "dead",
-        "medium",
-        0.50,
-        0.12,
-        1.5,
-        "どこからも呼ばれていない古いセッション検証のコードが残ったままになっています。",
+        "complexity",
+        "high",
+        0.72,
+        0.28,
+        5.0,
+        (
+            "認証の中核。トークンの検証・失効・スライディング更新の分岐が入り組み、旧セッション経路の"
+            "デッドコードも残存。理解が薄いまま変更するとログイン不能や失効漏れにつながる高リスク箇所です。"
+        ),
     ),
     (
         "src/lib/db.py",
@@ -843,26 +846,57 @@ _DEMO_SNIPPETS: dict[str, str] = {
         "    return order.total\n"
     ),
     "src/auth/oauth.py": (
+        "def build_authorize_url(redirect_uri):\n"
+        '    """OAuth 認可画面へ送る URL を組み立てる。"""\n'
+        "    state = new_state()        # 本来はセッションに保存し、callback で照合する\n"
+        '    return f"{AUTHORIZE}?client_id={CLIENT_ID}&redirect_uri={redirect_uri}&state={state}"\n'
+        "\n"
+        "\n"
         "def handle_callback(request):\n"
-        "    code = request.args['code']\n"
-        "    token = exchange_code(code)  # state を検証しておらず CSRF の余地\n"
+        '    """認可サーバからのコールバックを受け、ログイン/アカウント作成する。"""\n'
+        '    code = request.args["code"]\n'
+        "    token = exchange_code(code)   # state を検証しておらず CSRF の余地\n"
         "    profile = fetch_profile(token)\n"
-        "    return login_or_create(profile.email)  # メール検証前にアカウント連携\n"
+        "    return login_or_create(profile.email)  # メール検証前に連携 → なりすましの恐れ\n"
     ),
     "src/auth/password.py": (
         "import hashlib\n"
         "\n"
+        "\n"
         "def hash_password(raw):\n"
+        '    """パスワードをハッシュ化して保存用の文字列を返す。"""\n'
         "    return hashlib.md5(raw.encode()).hexdigest()  # ソルトなし・高速ハッシュで総当たりに弱い\n"
         "\n"
+        "\n"
         "def verify_password(raw, stored):\n"
-        "    return hash_password(raw) == stored\n"
+        '    """入力パスワードのハッシュが保存値と一致するか検証する。"""\n'
+        "    return hash_password(raw) == stored  # 短絡比較でタイミング攻撃に弱い\n"
+        "\n"
+        "\n"
+        "def needs_rehash(stored):\n"
+        '    """保存済みハッシュが旧形式(32桁hex=MD5)なら作り直しが必要と判断する。"""\n'
+        "    return len(stored) == 32  # 次回ログイン時に安全な方式へ移行したい（未配線）\n"
     ),
     "src/auth/jwt.py": (
+        "import json\n"
+        "from base64 import urlsafe_b64decode as b64decode\n"
+        "\n"
+        "\n"
         "def decode_token(token):\n"
-        "    header, payload, sig = token.split('.')\n"
-        "    claims = json.loads(b64decode(payload))\n"
+        '    """トークンを分解し、ペイロード(クレーム)を取り出す。"""\n'
+        '    header, payload, sig = token.split(".")   # ヘッダ.ペイロード.署名 に分解\n'
+        "    claims = json.loads(b64decode(_pad(payload)))\n"
         "    return claims  # 署名(sig) も exp も検証せず → 改ざん・期限切れを見逃す\n"
+        "\n"
+        "\n"
+        "def _pad(segment):\n"
+        '    """base64url のパディング(=)を補完する補助関数。"""\n'
+        '    return segment + "=" * (-len(segment) % 4)\n'
+        "\n"
+        "\n"
+        "def encode(claims):\n"
+        '    """クレームを署名付きトークンにして発行する。"""\n'
+        "    return sign(_b64(claims))  # decode 側でこの署名を検証すべき\n"
     ),
     "src/catalog/product.ts": (
         "export async function getProduct(id: string): Promise<Product> {\n"
@@ -1297,6 +1331,19 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 ],
                 "difficulty": "L4",
             },
+            {
+                "id": "q7",
+                "kind": "multiple_choice",
+                "prompt": "oauth.py の handle_callback に潜むセキュリティ上の問題はどれ？",
+                "code_snippet": _code_snippet("src/auth/oauth.py"),
+                "choices": [
+                    {"id": "a", "label": "state を検証しておらず CSRF、さらにメール検証前に連携している"},
+                    {"id": "b", "label": "認可コードを使っている点"},
+                    {"id": "c", "label": "プロフィールを取得している点"},
+                    {"id": "d", "label": "問題はない"},
+                ],
+                "difficulty": "L4",
+            },
         ],
         "quiz_answer_key": {
             "q1": {
@@ -1319,6 +1366,10 @@ _FEATURE_CONTENT: dict[str, dict] = {
             },
             "q5": {"answer": "a", "rubric": "ソルト付きの遅いハッシュ（bcrypt/argon2）が定石。MD5 は不可。"},
             "q6": {"answer": "a", "rubric": "署名と exp を検証しないと改ざん・期限切れトークンを受理してしまう。"},
+            "q7": {
+                "answer": "a",
+                "rubric": "state 検証で CSRF を防ぎ、メール検証済みか確認してから連携するのが正解。",
+            },
         },
         "gap_concepts": [
             "セッション発行と Cookie の安全属性",
@@ -1329,7 +1380,7 @@ _FEATURE_CONTENT: dict[str, dict] = {
         ],
         "resources": [
             {
-                "key": "code",
+                "key": "code_session",
                 "origin": "team",
                 "section": "code",
                 "kind": "code",
@@ -1340,6 +1391,45 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 "minutes": 15,
                 "priority": "required",
                 "source_ref": "src/auth/session.py",
+            },
+            {
+                "key": "code_oauth",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "OAuth ログイン: oauth.py を読む",
+                "summary": "認可 URL の組み立てと state、コールバックでのトークン交換・アカウント連携の流れを追う。",
+                "tech": "",
+                "url": None,
+                "minutes": 12,
+                "priority": "required",
+                "source_ref": "src/auth/oauth.py",
+            },
+            {
+                "key": "code_jwt",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "トークン: jwt.py を読む",
+                "summary": "JWT の分解・デコードと、署名/有効期限の検証がどこで行われるべきかを理解する。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "recommended",
+                "source_ref": "src/auth/jwt.py",
+            },
+            {
+                "key": "code_password",
+                "origin": "team",
+                "section": "code",
+                "kind": "code",
+                "title": "資格情報: password.py を読む",
+                "summary": "パスワードのハッシュ化・照合・旧形式からの移行判定の流れを読み解く。",
+                "tech": "",
+                "url": None,
+                "minutes": 10,
+                "priority": "recommended",
+                "source_ref": "src/auth/password.py",
             },
             {
                 "key": "adr_expiry",
@@ -1390,19 +1480,6 @@ _FEATURE_CONTENT: dict[str, dict] = {
                 "tech": "JWT",
                 "url": "https://jwt.io/introduction",
                 "minutes": 15,
-                "priority": "recommended",
-                "source_ref": None,
-            },
-            {
-                "key": "oauth",
-                "origin": "external",
-                "section": "stack",
-                "kind": "docs",
-                "title": "OAuth 2.0 概要",
-                "summary": "認可コードフローとコールバック検証の要点。",
-                "tech": "OAuth",
-                "url": "https://oauth.net/2/",
-                "minutes": 20,
                 "priority": "supplementary",
                 "source_ref": None,
             },
@@ -2138,6 +2215,90 @@ _WALKTHROUGHS: dict[str, list[dict]] = {
             "explanation": (
                 "以前 sid_v1 Cookie でセッションを判定していた頃の名残で、現在はどこからも呼ばれていません"
                 "（到達しないコード）。移行後に削除し忘れているもので、読む人を惑わせるため整理の候補です。"
+            ),
+        },
+    ],
+    "src/auth/oauth.py": [
+        {
+            "start_line": 1,
+            "end_line": 4,
+            "title": "build_authorize_url — 認可画面への送り出し",
+            "explanation": (
+                "OAuth ログインの入口です。new_state() で毎回ランダムな state を作り(3 行目)、client_id・"
+                "redirect_uri とともに認可 URL に載せて外部の認可サーバへ利用者を送ります(4 行目)。この state は"
+                "『あとで戻ってきたリクエストが自分が始めたものか』を照合するための合言葉で、本来はセッションに"
+                "保存しておき、コールバックで突き合わせます。"
+            ),
+        },
+        {
+            "start_line": 7,
+            "end_line": 12,
+            "title": "handle_callback — コールバックの受け取りとログイン",
+            "explanation": (
+                "認可サーバから戻ってきたリクエストを処理します。認可コードを取り出し(9 行目)、トークンと交換して"
+                "(10 行目)、プロフィールを取得し(11 行目)、メールアドレスでログイン/アカウント作成します(12 行目)。"
+                "ここでは送り出し時の state を照合していないため CSRF の余地があり、メール検証前に連携している点も"
+                "なりすまし登録につながり得る、認証フローの要注意箇所です。"
+            ),
+        },
+    ],
+    "src/auth/password.py": [
+        {
+            "start_line": 4,
+            "end_line": 6,
+            "title": "hash_password — 保存用ハッシュの生成",
+            "explanation": (
+                "受け取った生パスワードをハッシュ化し、DB 保存用の文字列にして返します。生パスワードをそのまま"
+                "保存しないための処理ですが、ここでは MD5 を使っており、ソルトも無いため総当たりやレインボー"
+                "テーブルに弱い実装になっています（本来は bcrypt/argon2 などの遅いハッシュが定石）。"
+            ),
+        },
+        {
+            "start_line": 9,
+            "end_line": 11,
+            "title": "verify_password — ログイン時の照合",
+            "explanation": (
+                "ログイン時に、入力パスワードを同じ方式でハッシュ化し、保存値と一致するかを確認します。一致すれば"
+                "本人とみなします。== による短絡比較は、厳密にはタイミング攻撃に弱い点も知っておきたいところです。"
+            ),
+        },
+        {
+            "start_line": 14,
+            "end_line": 16,
+            "title": "needs_rehash — 旧形式ハッシュの移行判定",
+            "explanation": (
+                "保存済みハッシュが旧形式（32 桁 hex = MD5）かどうかを長さで判定します。ログイン成功時に安全な"
+                "方式へ静かに作り直す『段階的移行』のための入口ですが、この判定を使う配線はまだ未実装です。"
+            ),
+        },
+    ],
+    "src/auth/jwt.py": [
+        {
+            "start_line": 5,
+            "end_line": 9,
+            "title": "decode_token — トークンの分解とクレーム取得",
+            "explanation": (
+                "JWT は『ヘッダ.ペイロード.署名』の 3 部構成です。7 行目で分解し、8 行目でペイロードを base64url "
+                "デコードして JSON のクレーム（sub や exp など）を取り出します。ただし取り出した署名(sig)を検証"
+                "しておらず、有効期限(exp)も見ていないため、改ざんや期限切れのトークンを受理してしまいます。"
+            ),
+        },
+        {
+            "start_line": 12,
+            "end_line": 14,
+            "title": "_pad — base64url パディングの補完",
+            "explanation": (
+                "base64url ではパディングの = が省略されることがあるため、長さを 4 の倍数に整える補助関数です。"
+                "decode_token がペイロードを正しくデコードできるようにするための下ごしらえです。"
+            ),
+        },
+        {
+            "start_line": 17,
+            "end_line": 19,
+            "title": "encode — 署名付きトークンの発行",
+            "explanation": (
+                "クレームを base64url 化し、署名を付けてトークンを発行します。ここで付けた署名を、本来は "
+                "decode_token 側で検証して改ざんを検出すべき、という対になる処理です。"
             ),
         },
     ],
@@ -2947,7 +3108,7 @@ logger = logging.getLogger(__name__)
 # Bump this whenever the demo dataset's CONTENT changes (learning plans / quizzes / walkthroughs /
 # graph / code debts …). The startup guard reseeds the demo only when the applied version differs,
 # so edits show up on the next deploy without wiping an in-progress demo on every boot.
-DEMO_SEED_VERSION = "4"  # v4: 認証(auth)の session.py 拡充 + 学習プラン/クイズ充実（デモ動画向け）
+DEMO_SEED_VERSION = "5"  # v5: 認証 session.py を優先度高(P0)化 + oauth/jwt/password も学習/テスト対象に
 
 _SEED_VERSION_KEY = "demo_seed_version"  # app_metadata row key
 _SEED_LOCK_KEY = 690690690  # fixed pg advisory-lock key for this script (serialize replicas)
