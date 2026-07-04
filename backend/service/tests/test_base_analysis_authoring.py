@@ -59,6 +59,22 @@ class TestBuildAnalysisAgent:
         # author has exactly one tool: save_base_analysis (no MCP / no exploration tools)
         assert [getattr(t, "__name__", "") for t in by_name["base_author"].tools] == ["save_base_analysis"]
 
+    def test_explorer_instruction_omits_unavailable_tool_steps(self) -> None:
+        """未接続ツールの手順は提示しない（呼ばせて "Tool not found" で失敗するのを防ぐ）。"""
+        from service.agents.base_analysis_tools import _explorer_instruction
+
+        full = _explorer_instruction(has_serena=True, has_github=True, has_code_graph=True)
+        assert "analyze_code_relationships" in full
+        assert "Serena" in full
+        assert "GitHub" in full
+
+        # CGC/GitHub 未接続なら、それらのツールを使う手順は本文から消える。
+        minimal = _explorer_instruction(has_serena=True, has_github=False, has_code_graph=False)
+        assert "analyze_code_relationships" not in minimal
+        assert "GitHub" not in minimal
+        assert "Serena" in minimal
+        assert "list_repo_source_files" in minimal
+
     def test_save_tool_captures(self) -> None:
         """save_base_analysis records the agent output into ``captured`` (filtering malformed items)."""
         captured: dict[str, Any] = {}

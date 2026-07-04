@@ -37,18 +37,30 @@ from shared.schemas.base_analysis import (
     BaseKnowledgeFinding,
 )
 
-_EXPLORER_INSTRUCTION = """\
+_EXPLORER_HEADER = """\
 あなたはリポジトリ全体を理解する「解析エージェント」です。後続処理（理解度マップ / コード品質 /
 学習プラン / クイズ）の土台となる定性的な元データを作るために、まずリポジトリを調べてください。
 
 手順:
-1. list_repo_source_files で対象ファイルを把握する。
-2. 構造把握には【必ず】Serena（get_symbols_overview → find_symbol / find_referencing_symbols）を
-   シンボル単位で使い、全文読みを最小化する（補助的に必要なときだけ read_file）。
-3. GitHub ツール（list_pull_requests / pull_request_read / list_commits）でレビュー有無・著者の偏り
-   （属人化）など、理解が危うい箇所の根拠を集める。
-4. CodeGraphContext（analyze_code_relationships）で module 依存・呼び出し連鎖・影響範囲・dead code を
-   把握し、深掘りすべき箇所の当たりを付ける。
+"""
+
+# 各ステップは対応するツールセットが実際に接続されているときだけ提示する（未接続のツールを呼ばせて
+# "Tool not found" で解析全体が失敗するのを防ぐ）。read_file / list_repo_source_files は常時利用可。
+_STEP_LIST_FILES = "list_repo_source_files で対象ファイルを把握する。"
+_STEP_SERENA = (
+    "構造把握には【必ず】Serena（get_symbols_overview → find_symbol / find_referencing_symbols）を"
+    "シンボル単位で使い、全文読みを最小化する（補助的に必要なときだけ read_file）。"
+)
+_STEP_GITHUB = (
+    "GitHub ツール（list_pull_requests / pull_request_read / list_commits）でレビュー有無・著者の偏り"
+    "（属人化）など、理解が危うい箇所の根拠を集める。"
+)
+_STEP_CODE_GRAPH = (
+    "CodeGraphContext（analyze_code_relationships）で module 依存・呼び出し連鎖・影響範囲・dead code を"
+    "把握し、深掘りすべき箇所の当たりを付ける。"
+)
+
+_EXPLORER_FOOTER = """\
 
 次のことを日本語で簡潔に整理して出力してください（保存はまだしない）:
 - 意味的な「機能（feature）」の候補と所属ファイル、各機能の学習上の重要概念（key concepts）。
@@ -56,6 +68,20 @@ _EXPLORER_INSTRUCTION = """\
 - 理解が属人化/陳腐化/未レビューで危ういファイルとその理由。
 数値（複雑度スコアや理解度など）は算出しなくてよい（後段の決定的処理が計測する）。判断と根拠に集中すること。
 """
+
+
+def _explorer_instruction(*, has_serena: bool, has_github: bool, has_code_graph: bool) -> str:
+    """Assemble the explorer instruction, listing only steps whose toolset is actually connected."""
+    steps = [_STEP_LIST_FILES]
+    if has_serena:
+        steps.append(_STEP_SERENA)
+    if has_github:
+        steps.append(_STEP_GITHUB)
+    if has_code_graph:
+        steps.append(_STEP_CODE_GRAPH)
+    numbered = "\n".join(f"{i}. {s}" for i, s in enumerate(steps, start=1))
+    return _EXPLORER_HEADER + numbered + "\n" + _EXPLORER_FOOTER
+
 
 _AUTHOR_INSTRUCTION = """\
 あなたは解析結果を確定するエージェントです。直前の探索でまとめた所見が以下にあります:
@@ -172,7 +198,12 @@ def build_analysis_agent(
     explorer = LlmAgent(
         model=build_agent_model(),
         name="analysis_explorer",
-        instruction=_EXPLORER_INSTRUCTION,
+        # 接続済みのツールに対応する手順だけを提示する（未接続ツールの呼び出し=解析失敗を防ぐ）。
+        instruction=_explorer_instruction(
+            has_serena=serena_toolset is not None,
+            has_github=github_toolset is not None,
+            has_code_graph=code_graph_toolset is not None,
+        ),
         tools=explorer_tools,
         output_key="exploration",
         before_tool_callback=make_before_tool_callback(budget),
