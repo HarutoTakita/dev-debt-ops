@@ -471,6 +471,12 @@
       body.flow-solo #top .flow-eyebrow {
         display: none !important;
       }
+      /* 一時機能: 「3 つのコア機能」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.core-solo > header,
+      body.core-solo > footer,
+      body.core-solo > section:not(#core) {
+        display: none !important;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -843,7 +849,7 @@
     </section>
 
     <!-- 3つのコア機能 -->
-    <section class="mx-auto max-w-6xl px-6 py-16">
+    <section id="core" class="mx-auto max-w-6xl px-6 py-16">
       <div class="text-center">
         <p class="text-sm font-medium text-know">CORE</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">3 つのコア機能</h2>
@@ -1403,12 +1409,24 @@
           });
         }
 
+        // (5) 「3 つのコア機能」セクションのみ表示（領域クリック）
+        const exitCore = () => document.body.classList.remove("core-solo");
+        const core = document.querySelector("#core");
+        if (core) {
+          core.addEventListener("click", (e) => {
+            if (e.target.closest("a, button")) return;
+            const on = document.body.classList.toggle("core-solo");
+            if (on) window.scrollTo({ top: 0 });
+          });
+        }
+
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape") {
             exitSolo();
             exitDuo();
             exitHero();
             exitFlow();
+            exitCore();
           }
         });
       })();
