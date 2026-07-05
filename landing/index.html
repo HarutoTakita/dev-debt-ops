@@ -477,6 +477,27 @@
       body.core-solo > section:not(#core) {
         display: none !important;
       }
+      /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
+      @keyframes lp-slide-up {
+        from {
+          transform: translateY(52px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      @keyframes lp-slide-down {
+        from {
+          transform: translateY(-52px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -1351,24 +1372,82 @@
     </script>
 
     <!-- ===== 一時機能: 動画素材撮影用の表示切り替え（不要になったら削除） =====
-         (1) 「アプリにできること」の機能ブロック画像クリックで、そのブロックだけを背景の上に表示。
-         (2) CHALLENGE / FOR の領域クリックで、その 2 セクションのみを背景の上に表示。
-         いずれも同じ場所の再クリック、または Esc で解除。 -->
+         クリックで各ブロックを単独表示:
+           ・アプリアイコン → hero（コピー＋PC/モバイル画像）
+           ・フロー図       → 処理フロー図
+           ・CHALLENGE/FOR  → 課題＋想定ユーザー
+           ・CORE 領域      → 3 つのコア機能
+           ・「アプリにできること」の画像 → その機能ブロック
+         いずれかを単独表示中に ↑ / ↓ で上記 4 ブロック（hero → フロー図 → 課題+FOR → コア機能）を
+         LP の上→下の順にスライド切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        const exitSolo = () => {
-          document.body.classList.remove("solo-mode");
-          document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
-        };
-        const exitDuo = () => document.body.classList.remove("duo-mode");
+        // 上→下の並び順（↑/↓ ナビ対象）
+        const ORDER = ["hero-solo", "flow-solo", "duo-mode", "core-solo"];
+        // ↑/↓ 切り替え時にスライドさせる、各モードで表示される要素
+        const SLIDE_TARGETS = "#top .hero-grid, #top .flow-diagram, #challenge, #audience, #core";
 
-        // (1) 機能ブロックのソロ表示
+        const clearSlide = () => {
+          document.querySelectorAll(SLIDE_TARGETS).forEach((el) => (el.style.animation = ""));
+        };
+        const clearAll = () => {
+          document.body.classList.remove(...ORDER, "solo-mode");
+          document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
+          clearSlide();
+        };
+        const currentIndex = () => ORDER.findIndex((c) => document.body.classList.contains(c));
+
+        // スライドエフェクト（dir: "fwd" = 下方向へ / "back" = 上方向へ）
+        const slide = (dir) => {
+          const name = dir === "back" ? "lp-slide-down" : "lp-slide-up";
+          const els = document.querySelectorAll(SLIDE_TARGETS);
+          els.forEach((el) => (el.style.animation = "none"));
+          void document.body.offsetWidth; // reflow でアニメを再トリガー
+          els.forEach((el) => (el.style.animation = name + " 0.5s cubic-bezier(0.22, 1, 0.36, 1) both"));
+        };
+
+        // 指定モードだけを有効化（他は解除）。再クリック時はトグルオフ。
+        const activate = (cls, dir) => {
+          const wasActive = document.body.classList.contains(cls);
+          clearAll();
+          if (!wasActive) {
+            document.body.classList.add(cls);
+            window.scrollTo({ top: 0 });
+            if (dir) slide(dir);
+          }
+        };
+
+        // クリックのトリガー
+        const heroIcon = document.querySelector(".hero-brand-icon");
+        if (heroIcon) heroIcon.addEventListener("click", () => activate("hero-solo"));
+
+        const flow = document.querySelector("#top .flow-diagram");
+        if (flow)
+          flow.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("flow-solo");
+          });
+
+        ["#challenge", "#audience"].forEach((sel) => {
+          const sec = document.querySelector(sel);
+          if (sec)
+            sec.addEventListener("click", (e) => {
+              if (!e.target.closest("a, button")) activate("duo-mode");
+            });
+        });
+
+        const core = document.querySelector("#core");
+        if (core)
+          core.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("core-solo");
+          });
+
+        // 「アプリにできること」の機能ブロック個別ソロ（↑/↓ ナビ対象外の別系統）
         document.querySelectorAll("#features .space-y-20 img").forEach((img) => {
           img.addEventListener("click", () => {
             const block = img.closest(".grid");
             if (!block) return;
             const wasActive = block.classList.contains("solo-active");
-            exitSolo();
+            clearAll();
             if (!wasActive) {
               block.classList.add("solo-active");
               document.body.classList.add("solo-mode");
@@ -1377,56 +1456,18 @@
           });
         });
 
-        // (2) CHALLENGE + FOR のみ表示
-        ["#challenge", "#audience"].forEach((sel) => {
-          const sec = document.querySelector(sel);
-          if (!sec) return;
-          sec.addEventListener("click", (e) => {
-            if (e.target.closest("a, button")) return;
-            const on = document.body.classList.toggle("duo-mode");
-            if (on) window.scrollTo({ top: 0 });
-          });
-        });
-
-        // (3) hero のコピー＋PC/モバイル画像のみ表示（アプリアイコンのクリック）
-        const exitHero = () => document.body.classList.remove("hero-solo");
-        const heroIcon = document.querySelector(".hero-brand-icon");
-        if (heroIcon) {
-          heroIcon.addEventListener("click", () => {
-            const on = document.body.classList.toggle("hero-solo");
-            if (on) window.scrollTo({ top: 0 });
-          });
-        }
-
-        // (4) 処理フロー図のみ表示（フロー図領域のクリック）
-        const exitFlow = () => document.body.classList.remove("flow-solo");
-        const flow = document.querySelector("#top .flow-diagram");
-        if (flow) {
-          flow.addEventListener("click", (e) => {
-            if (e.target.closest("a, button")) return;
-            const on = document.body.classList.toggle("flow-solo");
-            if (on) window.scrollTo({ top: 0 });
-          });
-        }
-
-        // (5) 「3 つのコア機能」セクションのみ表示（領域クリック）
-        const exitCore = () => document.body.classList.remove("core-solo");
-        const core = document.querySelector("#core");
-        if (core) {
-          core.addEventListener("click", (e) => {
-            if (e.target.closest("a, button")) return;
-            const on = document.body.classList.toggle("core-solo");
-            if (on) window.scrollTo({ top: 0 });
-          });
-        }
-
+        // キーボード: Esc で解除、↑/↓ で前後ブロックへスライド切り替え
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape") {
-            exitSolo();
-            exitDuo();
-            exitHero();
-            exitFlow();
-            exitCore();
+            clearAll();
+            return;
+          }
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            const i = currentIndex();
+            if (i === -1) return; // 4 ブロックのいずれも単独表示していなければ通常スクロール
+            e.preventDefault();
+            const next = e.key === "ArrowDown" ? Math.min(ORDER.length - 1, i + 1) : Math.max(0, i - 1);
+            if (next !== i) activate(ORDER[next], e.key === "ArrowDown" ? "fwd" : "back");
           }
         });
       })();
