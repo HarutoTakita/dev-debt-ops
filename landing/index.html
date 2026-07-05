@@ -471,6 +471,14 @@
       body.flow-solo #top .flow-eyebrow {
         display: none !important;
       }
+      /* フロー図タイトルは拡大表示（flow-solo）時のみ表示。 */
+      .flow-solo-title {
+        display: none;
+        margin-bottom: 1.75rem;
+      }
+      body.flow-solo .flow-solo-title {
+        display: block;
+      }
       /* 一時機能: 「3 つのコア機能」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
       body.core-solo > header,
       body.core-solo > footer,
@@ -621,6 +629,15 @@
             decoding="async"
           />
         </div>
+      </div>
+
+      <!-- 拡大表示（flow-solo）時のみ表示するフロー図タイトル。通常は非表示。 -->
+      <div class="flow-solo-title text-center">
+        <p class="text-sm font-medium text-know">HOW IT WORKS</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">DevDebtOps の全体フロー</h2>
+        <p class="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
+          解析から、理解の実測・品質の検知、学習・改善までを一気通貫。「実測 → 学習」と「検知 → 改善」の両輪で返済します。
+        </p>
       </div>
 
       <!-- 下部: AI エージェントの処理フロー（分岐図）。01 で解析→ 理解負債(2-1→3-1)と技術負債(2-2→3-2)へ
@@ -1404,36 +1421,81 @@
       (function () {
         // 上→下の並び順（↑/↓ ナビ対象）
         const ORDER = ["hero-solo", "flow-solo", "duo-mode", "core-solo"];
-        // ↑/↓ 切り替え時にスライドさせる、各モードで表示される要素
-        const SLIDE_TARGETS = "#top .hero-grid, #top .flow-diagram, #challenge, #audience, #core";
-
-        const clearSlide = () => {
-          document.querySelectorAll(SLIDE_TARGETS).forEach((el) => (el.style.animation = ""));
+        // 各モードで実際に表示される要素（スクロール演出の対象）
+        const TARGET_MAP = {
+          "hero-solo": ["#top .hero-grid"],
+          "flow-solo": ["#top .flow-diagram"],
+          "duo-mode": ["#challenge", "#audience"],
+          "core-solo": ["#core"],
         };
+        const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
+
+        const clearClones = () => document.querySelectorAll(".lp-clone").forEach((c) => c.remove());
         const clearAll = () => {
           document.body.classList.remove(...ORDER, "solo-mode");
           document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
-          clearSlide();
+          clearClones();
         };
         const currentIndex = () => ORDER.findIndex((c) => document.body.classList.contains(c));
 
-        // スライドエフェクト（dir: "fwd" = 下方向へ / "back" = 上方向へ）
-        const slide = (dir) => {
-          const name = dir === "back" ? "lp-slide-down" : "lp-slide-up";
-          const els = document.querySelectorAll(SLIDE_TARGETS);
-          els.forEach((el) => (el.style.animation = "none"));
-          void document.body.offsetWidth; // reflow でアニメを再トリガー
-          els.forEach((el) => (el.style.animation = name + " 0.5s cubic-bezier(0.22, 1, 0.36, 1) both"));
+        // 縦スクロール風トランジション: 旧ブロックを画面外へ流し去りつつ、新ブロックを反対の端から
+        // 同速で流し込む（1 枚の縦長ページをスクロールしている見え方）。dir: "fwd"=下へ / "back"=上へ。
+        const scrollTransition = (oldEls, newCls, dir) => {
+          const dist = window.innerHeight;
+          const sign = dir === "fwd" ? -1 : 1; // fwd(↓): 旧は上へ抜け、新は下から入る
+          const dur = 620;
+          const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
+          // 旧ブロックを固定配置のクローンにして流し去る（実要素はこのあと非表示になる）
+          const clones = oldEls.map((el) => {
+            const r = el.getBoundingClientRect();
+            const c = el.cloneNode(true);
+            c.classList.add("lp-clone");
+            Object.assign(c.style, {
+              position: "fixed",
+              left: r.left + "px",
+              top: r.top + "px",
+              width: r.width + "px",
+              margin: "0",
+              zIndex: "40",
+              pointerEvents: "none",
+            });
+            document.body.appendChild(c);
+            return c;
+          });
+          clearAll();
+          document.body.classList.add(newCls);
+          window.scrollTo({ top: 0 });
+          clones.forEach((c) =>
+            c.animate([{ transform: "translateY(0)" }, { transform: "translateY(" + sign * dist + "px)" }], {
+              duration: dur,
+              easing: ease,
+              fill: "forwards",
+            }),
+          );
+          targetEls(newCls).forEach((el) =>
+            el.animate([{ transform: "translateY(" + -sign * dist + "px)" }, { transform: "translateY(0)" }], {
+              duration: dur,
+              easing: ease,
+            }),
+          );
+          setTimeout(clearClones, dur + 80);
         };
 
-        // 指定モードだけを有効化（他は解除）。再クリック時はトグルオフ。
+        // 指定モードだけを有効化（他は解除）。dir 指定時（↑/↓）はスクロール演出、クリック時は即時。
         const activate = (cls, dir) => {
           const wasActive = document.body.classList.contains(cls);
+          if (dir && !wasActive) {
+            const i = currentIndex();
+            const oldEls = i !== -1 ? targetEls(ORDER[i]) : [];
+            if (oldEls.length) {
+              scrollTransition(oldEls, cls, dir);
+              return;
+            }
+          }
           clearAll();
           if (!wasActive) {
             document.body.classList.add(cls);
             window.scrollTo({ top: 0 });
-            if (dir) slide(dir);
           }
         };
 
