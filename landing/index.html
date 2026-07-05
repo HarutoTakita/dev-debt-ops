@@ -458,6 +458,19 @@
       body.hero-solo #top .flow-diagram {
         display: none !important;
       }
+      /* 一時機能: 処理フロー図のみ表示（動画用）。フロー図領域のクリックでトグル、Esc で解除。 */
+      .flow-diagram {
+        cursor: pointer;
+      }
+      body.flow-solo > header,
+      body.flow-solo > footer,
+      body.flow-solo > section:not(#top) {
+        display: none !important;
+      }
+      body.flow-solo #top .hero-grid,
+      body.flow-solo #top .flow-eyebrow {
+        display: none !important;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -1379,11 +1392,23 @@
           });
         }
 
+        // (4) 処理フロー図のみ表示（フロー図領域のクリック）
+        const exitFlow = () => document.body.classList.remove("flow-solo");
+        const flow = document.querySelector("#top .flow-diagram");
+        if (flow) {
+          flow.addEventListener("click", (e) => {
+            if (e.target.closest("a, button")) return;
+            const on = document.body.classList.toggle("flow-solo");
+            if (on) window.scrollTo({ top: 0 });
+          });
+        }
+
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape") {
             exitSolo();
             exitDuo();
             exitHero();
+            exitFlow();
           }
         });
       })();
