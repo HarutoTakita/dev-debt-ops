@@ -485,6 +485,12 @@
       body.core-solo > section:not(#core) {
         display: none !important;
       }
+      body.core-solo #core {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -937,7 +943,8 @@
       <!-- 実運用を見据えた機能（コア機能のサブ要素。アイコン＋色付き枠の小さめタグ） -->
       <div class="mt-10 text-center">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">実運用を見据えた機能</p>
-        <div class="mt-4 flex flex-wrap justify-center gap-2">
+        <div class="mt-4 flex flex-col items-center gap-2">
+          <div class="flex flex-wrap justify-center gap-2">
           <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" x2="3" y1="12" y2="12" /></svg>GitHub SSO 認証・認可
           </span>
@@ -950,6 +957,8 @@
           <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M6 8h.01" /><path d="M10 8h.01" /><path d="M14 8h.01" /><path d="M18 8h.01" /><path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" /><path d="M7 16h10" /></svg>豊富なショートカット
           </span>
+          </div>
+          <div class="flex flex-wrap justify-center gap-2">
           <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>管理者によるユーザー管理
           </span>
@@ -962,6 +971,7 @@
           <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>リリース履歴の確認
           </span>
+          </div>
         </div>
       </div>
     </section>
