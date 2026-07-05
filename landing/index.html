@@ -635,7 +635,7 @@
       <div class="flow-solo-title text-center">
         <p class="text-sm font-medium text-know">HOW IT WORKS</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">開発・運用のサイクルに、技術負債・理解負債の解消を取り込む</h2>
-        <p class="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
+        <p class="mt-2 whitespace-nowrap text-sm text-slate-400">
           解析から、理解の実測・品質の検知、学習・改善までを一気通貫。「実測 → 学習」と「検知 → 改善」の両輪で返済します。
         </p>
       </div>
@@ -1431,9 +1431,12 @@
         const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
 
         const clearClones = () => document.querySelectorAll(".lp-clone").forEach((c) => c.remove());
-        const clearAll = () => {
+        const clearModes = () => {
           document.body.classList.remove(...ORDER, "solo-mode");
           document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
+        };
+        const clearAll = () => {
+          clearModes();
           clearClones();
         };
         const currentIndex = () => ORDER.findIndex((c) => document.body.classList.contains(c));
@@ -1462,7 +1465,7 @@
             document.body.appendChild(c);
             return c;
           });
-          clearAll();
+          clearModes(); // 旧モードは解除するが、流し去るクローンは残す
           document.body.classList.add(newCls);
           window.scrollTo({ top: 0 });
           clones.forEach((c) =>
