@@ -404,6 +404,38 @@
         background: rgba(224, 162, 58, 0.1);
         color: #eabd76;
       }
+      /* ===== 一時機能: 動画素材撮影用ソロ表示 =====
+         「アプリにできること」の各機能ブロックの画像をクリックすると、その 1 ブロックだけを
+         背景の上に表示する（ヘッダー・他セクション・見出しを隠す）。もう一度クリック / Esc で解除。
+         撮影用のため、不要になったらこの CSS ブロックと末尾の soloMode スクリプトを削除すればよい。 */
+      #features .space-y-20 img {
+        cursor: zoom-in;
+      }
+      body.solo-mode > header,
+      body.solo-mode > footer,
+      body.solo-mode > section:not(#features) {
+        display: none !important;
+      }
+      body.solo-mode #features {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      body.solo-mode #features > .text-center {
+        display: none;
+      }
+      body.solo-mode #features .space-y-20 {
+        margin-top: 0;
+      }
+      body.solo-mode #features .space-y-20 > div:not(.solo-active) {
+        display: none;
+      }
+      body.solo-mode #features .space-y-20 img {
+        cursor: zoom-out;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -1256,6 +1288,34 @@
         const el = document.getElementById(id);
         if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
       }
+    </script>
+
+    <!-- ===== 一時機能: 動画素材撮影用ソロ表示（不要になったら削除） =====
+         「アプリにできること」の機能ブロック画像クリックで、そのブロックだけを背景の上に表示。
+         同じ画像を再クリック、または Esc で解除。 -->
+    <script>
+      (function () {
+        const exit = () => {
+          document.body.classList.remove("solo-mode");
+          document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
+        };
+        document.querySelectorAll("#features .space-y-20 img").forEach((img) => {
+          img.addEventListener("click", () => {
+            const block = img.closest(".grid");
+            if (!block) return;
+            const wasActive = block.classList.contains("solo-active");
+            exit();
+            if (!wasActive) {
+              block.classList.add("solo-active");
+              document.body.classList.add("solo-mode");
+              window.scrollTo({ top: 0 });
+            }
+          });
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") exit();
+        });
+      })();
     </script>
   </body>
 </html>
