@@ -445,6 +445,19 @@
       body.duo-mode #challenge {
         padding-top: 4rem;
       }
+      /* 一時機能: hero のコピー＋PC/モバイル画像のみ表示（動画用）。アプリアイコンのクリックでトグル、Esc で解除。 */
+      .hero-brand-icon {
+        cursor: pointer;
+      }
+      body.hero-solo > header,
+      body.hero-solo > footer,
+      body.hero-solo > section:not(#top) {
+        display: none !important;
+      }
+      body.hero-solo #top .flow-eyebrow,
+      body.hero-solo #top .flow-diagram {
+        display: none !important;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -1356,10 +1369,21 @@
           });
         });
 
+        // (3) hero のコピー＋PC/モバイル画像のみ表示（アプリアイコンのクリック）
+        const exitHero = () => document.body.classList.remove("hero-solo");
+        const heroIcon = document.querySelector(".hero-brand-icon");
+        if (heroIcon) {
+          heroIcon.addEventListener("click", () => {
+            const on = document.body.classList.toggle("hero-solo");
+            if (on) window.scrollTo({ top: 0 });
+          });
+        }
+
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape") {
             exitSolo();
             exitDuo();
+            exitHero();
           }
         });
       })();
