@@ -436,6 +436,15 @@
       body.solo-mode #features .space-y-20 img {
         cursor: zoom-out;
       }
+      /* 一時機能: CHALLENGE + FOR のみを表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.duo-mode > header,
+      body.duo-mode > footer,
+      body.duo-mode > section:not(#challenge):not(#audience) {
+        display: none !important;
+      }
+      body.duo-mode #challenge {
+        padding-top: 4rem;
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -672,43 +681,56 @@
     </section>
 
     <!-- 課題 -->
-    <section class="mx-auto max-w-6xl px-6 py-20">
+    <section id="challenge" class="mx-auto max-w-6xl px-6 pb-8 pt-20">
       <div class="mx-auto max-w-3xl text-center">
         <p class="text-sm font-medium text-know">CHALLENGE</p>
         <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">AI 時代に急速に積み上がる「理解負債」</h2>
         <p class="mt-4 leading-relaxed text-slate-400">
-          Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、<strong class="text-white"
-            >AI が生成したコードが何をしているか・なぜそう書かれているかを説明できない状態</strong
-          >——「理解負債」が急速に蓄積しています。
+          Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、その速さの中で<strong
+            class="text-white"
+            >コードを「理解する」ことが後回しにされ</strong
+          >、AI が生成したコードが何をしているか・なぜそう書かれているかを説明できない「理解負債」が急速に蓄積しています。
         </p>
       </div>
       <div class="mt-12 grid gap-5 md:grid-cols-3">
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">01</span>
-          <h3 class="mt-4 font-semibold text-white">書いた人しか分からない</h3>
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-code">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
+            </svg>
+          </span>
+          <h3 class="mt-4 font-semibold text-white">「動けばよい」で理解が置き去り</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            担当者の異動・退職でコードが事実上ブラックボックスに。レビューも改修も止まる。
+            納期とデプロイ速度が優先され、コードを理解するステップが省かれる。書いた人以外は中身が分からないまま進む。
           </p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">02</span>
-          <h3 class="mt-4 font-semibold text-white">AI 生成コードの増殖</h3>
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-code">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+            </svg>
+          </span>
+          <h3 class="mt-4 font-semibold text-white">AI 任せで思考がスキップされる</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            生成量が増えるほど、誰にも理解されないまま本番へ。レビューが追いつかない。
+            もっともらしい生成コードをそのまま信頼し、「なぜそう書くのか」を問わないまま本番へ。理解されないコードが増え続ける。
           </p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-sm font-bold text-code">03</span>
-          <h3 class="mt-4 font-semibold text-white">優先順位がつかない</h3>
+          <span class="inline-grid size-8 place-items-center rounded-lg bg-code/15 text-code">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
+            </svg>
+          </span>
+          <h3 class="mt-4 font-semibold text-white">「理解しているか」は測られない</h3>
           <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            品質の低いコードは山積みでも「どこから手をつけるか」が主観頼み。緊急度を測れない。
+            レビューやテストは品質を測っても、人の理解度は測らない。どこから手を付けるべきか、緊急度も分からない。
           </p>
         </div>
       </div>
     </section>
 
     <!-- 想定ユーザー -->
-    <section class="mx-auto max-w-6xl px-6 py-16">
+    <section id="audience" class="mx-auto max-w-6xl px-6 pb-16 pt-8">
       <div class="text-center">
         <p class="text-sm font-medium text-know">FOR</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">こんな方に</h2>
@@ -1290,21 +1312,25 @@
       }
     </script>
 
-    <!-- ===== 一時機能: 動画素材撮影用ソロ表示（不要になったら削除） =====
-         「アプリにできること」の機能ブロック画像クリックで、そのブロックだけを背景の上に表示。
-         同じ画像を再クリック、または Esc で解除。 -->
+    <!-- ===== 一時機能: 動画素材撮影用の表示切り替え（不要になったら削除） =====
+         (1) 「アプリにできること」の機能ブロック画像クリックで、そのブロックだけを背景の上に表示。
+         (2) CHALLENGE / FOR の領域クリックで、その 2 セクションのみを背景の上に表示。
+         いずれも同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        const exit = () => {
+        const exitSolo = () => {
           document.body.classList.remove("solo-mode");
           document.querySelectorAll("#features .solo-active").forEach((el) => el.classList.remove("solo-active"));
         };
+        const exitDuo = () => document.body.classList.remove("duo-mode");
+
+        // (1) 機能ブロックのソロ表示
         document.querySelectorAll("#features .space-y-20 img").forEach((img) => {
           img.addEventListener("click", () => {
             const block = img.closest(".grid");
             if (!block) return;
             const wasActive = block.classList.contains("solo-active");
-            exit();
+            exitSolo();
             if (!wasActive) {
               block.classList.add("solo-active");
               document.body.classList.add("solo-mode");
@@ -1312,8 +1338,23 @@
             }
           });
         });
+
+        // (2) CHALLENGE + FOR のみ表示
+        ["#challenge", "#audience"].forEach((sel) => {
+          const sec = document.querySelector(sel);
+          if (!sec) return;
+          sec.addEventListener("click", (e) => {
+            if (e.target.closest("a, button")) return;
+            const on = document.body.classList.toggle("duo-mode");
+            if (on) window.scrollTo({ top: 0 });
+          });
+        });
+
         document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") exit();
+          if (e.key === "Escape") {
+            exitSolo();
+            exitDuo();
+          }
         });
       })();
     </script>
