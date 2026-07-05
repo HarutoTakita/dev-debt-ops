@@ -934,18 +934,34 @@
         </div>
       </div>
 
-      <!-- 実運用を見据えた機能 -->
-      <div class="mt-8 rounded-2xl border border-white/10 bg-[#131a22] p-6">
-        <h3 class="font-semibold text-white">実運用を見据えた機能</h3>
-        <div class="mt-4 flex flex-wrap gap-2 text-sm">
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">GitHub SSO 認証・認可</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">プロジェクト管理</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">オンボーディングガイド</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">豊富なショートカット</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">管理者によるユーザー管理</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">クレジット付与による課金制御</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">i18n 多言語対応</span>
-          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-slate-300">リリース履歴の確認</span>
+      <!-- 実運用を見据えた機能（コア機能のサブ要素。アイコン＋色付き枠の小さめタグ） -->
+      <div class="mt-10 text-center">
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">実運用を見据えた機能</p>
+        <div class="mt-4 flex flex-wrap justify-center gap-2">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" x2="3" y1="12" y2="12" /></svg>GitHub SSO 認証・認可
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>プロジェクト管理
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>オンボーディングガイド
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M6 8h.01" /><path d="M10 8h.01" /><path d="M14 8h.01" /><path d="M18 8h.01" /><path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" /><path d="M7 16h10" /></svg>豊富なショートカット
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>管理者によるユーザー管理
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-code/30 bg-code/10 px-3 py-1 text-xs font-medium text-code">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>クレジット付与による課金制御
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></svg>i18n 多言語対応
+          </span>
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>リリース履歴の確認
+          </span>
         </div>
       </div>
     </section>
