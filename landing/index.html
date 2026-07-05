@@ -634,7 +634,7 @@
       <!-- 拡大表示（flow-solo）時のみ表示するフロー図タイトル。通常は非表示。 -->
       <div class="flow-solo-title text-center">
         <p class="text-sm font-medium text-know">HOW IT WORKS</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">DevDebtOps の全体フロー</h2>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">開発・運用のサイクルに、技術負債・理解負債の解消を取り込む</h2>
         <p class="mx-auto mt-2 max-w-2xl text-sm text-slate-400">
           解析から、理解の実測・品質の検知、学習・改善までを一気通貫。「実測 → 学習」と「検知 → 改善」の両輪で返済します。
         </p>
@@ -1415,12 +1415,12 @@
            ・CHALLENGE/FOR  → 課題＋想定ユーザー
            ・CORE 領域      → 3 つのコア機能
            ・「アプリにできること」の画像 → その機能ブロック
-         いずれかを単独表示中に ↑ / ↓ で上記 4 ブロック（hero → フロー図 → 課題+FOR → コア機能）を
-         LP の上→下の順にスライド切り替え。同じ場所の再クリック、または Esc で解除。 -->
+         いずれかを単独表示中に ↑ / ↓ で 4 ブロック（hero → 課題+FOR → フロー図 → コア機能）を
+         スクロール風に切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        // 上→下の並び順（↑/↓ ナビ対象）
-        const ORDER = ["hero-solo", "flow-solo", "duo-mode", "core-solo"];
+        // ↑/↓ ナビの送り順（例外的に LP の並びとは別で、hero → 課題+FOR → フロー図 → コア機能）
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
