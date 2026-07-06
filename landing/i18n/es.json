@@ -4,7 +4,6 @@
   "nav.infra": "Infraestructura",
   "nav.security": "Seguridad",
   "nav.cta": "Probar la demo",
-
   "hero.sub": "La plataforma de desarrollo que mide e impulsa la comprensión de tu código",
   "hero.h1": "Mide la <span class='text-know'>comprensión</span> con cuestionarios y visualízala en un <span class='text-know'>mapa de comprensión</span>.<br class='hidden sm:block' />Mejora el código de baja calidad con <span class='text-code'>PR de corrección automática por IA</span>.",
   "hero.lead": "Los agentes de IA aprovechan <strong class='font-semibold text-white'>subagentes, MCP y Hooks</strong> para analizar el repositorio desde múltiples ángulos.<br class='hidden lg:block' />Automatizan de principio a fin la extracción de funciones, la medición de la comprensión, la detección de la calidad del código y las propuestas de corrección.",
@@ -13,7 +12,6 @@
   "hero.chip3": "Enmascaramiento automático de PII y secretos",
   "hero.chip4": "Compatible con móviles",
   "hero.chip5": "Arquitectura de infraestructura escalable",
-
   "challenge.h2": "La «deuda de comprensión» que se acumula a toda velocidad en la era de la IA",
   "challenge.lead": "Con la difusión de Claude Code, Codex, Gemini CLI y otros, el ciclo de «desarrollo» y «operación» se acelera, pero en medio de esa velocidad <strong class='text-white'>comprender el código queda relegado a un segundo plano</strong>, y se acumula rápidamente una «deuda de comprensión»: la incapacidad de explicar qué hace el código generado por la IA o por qué está escrito así.",
   "challenge.c1t": "«Con que funcione basta»: la comprensión se queda atrás",
@@ -22,13 +20,11 @@
   "challenge.c2d": "Se confía tal cual en código generado que parece plausible y llega a producción sin preguntarse «por qué se escribe así». El código no comprendido sigue creciendo.",
   "challenge.c3t": "«Si se comprende o no» no se mide",
   "challenge.c3d": "Las revisiones y las pruebas miden la calidad, pero no la comprensión de las personas. No se sabe por dónde empezar ni cuál es la urgencia.",
-
   "audience.h2": "Ideal para",
   "audience.a1t": "Líderes técnicos / Managers",
   "audience.a1d": "Quieren identificar dónde es baja la comprensión del equipo y priorizar las revisiones y el aprendizaje.",
   "audience.a2t": "Responsables de onboarding / Nuevos integrantes",
   "audience.a2d": "Quieren seguir de forma sistemática por dónde empezar a comprender, mediante unidades de aprendizaje y cuestionarios.",
-
   "flow.h2": "Incorpora la resolución de la deuda técnica y la deuda de comprensión al ciclo de desarrollo y operación",
   "flow.sub": "De extremo a extremo, desde el análisis hasta la medición de la comprensión, la detección de la calidad y el aprendizaje y la mejora. Se salda con los dos motores: «medir → aprender» y «detectar → mejorar».",
   "flow.s0t": "Análisis del repositorio",
@@ -45,7 +41,6 @@
   "flow.s4d": "La IA crea automáticamente PR de corrección para el código de baja calidad. También admite la apertura de Issues con responsables asignados.",
   "flow.s5t": "Mejora de la comprensión y la calidad",
   "flow.s5d": "Con los dos motores «medir → aprender» y «detectar → mejorar», elimina la dependencia de personas concretas y mejora de forma continua la comprensión y la calidad del código.",
-
   "core.h2": "3 funciones principales",
   "core.c1t": "Análisis avanzado del repositorio con agentes de IA",
   "core.c1d": "Un agente construido con Google ADK explora el repositorio aprovechando MCP (Serena / CodeGraphContext / Semgrep / GitHub). Automatiza la generación de planes de aprendizaje y cuestionarios por función, así como la detección de código de baja calidad y la elaboración de planes de corrección.",
@@ -62,7 +57,6 @@
   "core.pill6": "Control de facturación mediante asignación de créditos",
   "core.pill7": "Soporte multilingüe i18n",
   "core.pill8": "Consulta del historial de versiones",
-
   "features.h2": "Lo que puede hacer la aplicación",
   "features.sub": "Del análisis al Dashboard, la visualización y la mejora, todo en un solo espacio de trabajo.",
   "features.f1t": "Dashboard — la visión general de un vistazo",
@@ -106,10 +100,8 @@
   "features.f5tag1": "La IA genera el parche de corrección",
   "features.f5tag2": "Generación automática de PR de corrección",
   "features.f5tag3": "Apertura de GitHub Issue",
-
   "infra.h2": "Arquitectura de infraestructura",
   "infra.lead": "Aprovecha Cloud Tasks para separar el análisis en workers asíncronos. Cloud Run escala automáticamente según la carga.<br class='hidden sm:block' />El análisis logra una exploración exhaustiva y eficiente del repositorio gracias a los agentes construidos con ADK y al uso de MCP.<br class='hidden sm:block' />La seguridad se garantiza con la limitación de tasa de Cloud Armor y con Secret Manager y Cloud DLP. La infraestructura se define como IaC con Terraform.<br class='hidden sm:block' />Durante el desarrollo, el CI/CD no solo cubre desde las pruebas hasta el despliegue, sino que también aplica automáticamente linters y formateadores y ejecuta la revisión automática de código con Gemini, manteniendo alta la calidad del código.",
-
   "security.h2": "En qué ponemos especial cuidado en materia de seguridad",
   "security.s1t": "Autenticación y sesión",
   "security.s1d": "GitHub SSO mediante tokens JWT. Gestión segura de la sesión con tokens de acceso y de refresco. Tiempo de espera de sesión tras 30 minutos sin actividad.",
@@ -123,7 +115,6 @@
   "security.s5d": "Al proporcionar información al agente, se enmascaran las PII y los secretos con Cloud DLP (Sensitive Data Protection) y detect-secrets antes de enviarlos.",
   "security.s6t": "Escaneo de vulnerabilidades",
   "security.s6d": "Se realiza el escaneo de vulnerabilidades de la aplicación conforme a OWASP, así como el escaneo de vulnerabilidades de las imágenes de contenedor con Trivy.",
-
   "mobile.h2": "Comprueba tu comprensión en cualquier momento, también desde el móvil",
   "mobile.sub": "Gracias al diseño responsive, las funciones principales se pueden usar tal cual desde el smartphone.<br class='hidden sm:block' />Incluso mientras te desplazas o entre revisiones, puedes consultar el mapa de comprensión, captar la calidad del código y realizar cuestionarios.",
   "mobile.l1": "Dashboard",
@@ -131,15 +122,11 @@
   "mobile.l3": "Mapa de calidad del código",
   "mobile.l4": "Cuestionarios y aprendizaje",
   "mobile.l5": "Mejora del código",
-
   "stack.h2": "Pila tecnológica",
-
   "cta.h2": "Haz visible la comprensión de tu equipo desde hoy mismo",
   "cta.p": "Solo tienes que conectar y analizar tu repositorio de GitHub. Puedes abordar tanto la deuda de comprensión como la deuda técnica e integrarlo directamente en el ciclo diario de desarrollo y operación (DevOps).",
   "cta.btn": "Conectar el repositorio y empezar",
-
   "footer.privacy": "Política de privacidad",
-
   "privacy.title": "Política de privacidad",
   "privacy.intro": "DevDebtOps (en adelante, «el Servicio») establece la presente política de privacidad (en adelante, «esta Política») sobre el tratamiento de los datos personales de los usuarios del Servicio (en adelante, «el Usuario») y de los datos que el Usuario proporciona, en los términos que se indican a continuación.",
   "privacy.1t": "1. Información que recopilamos",
@@ -174,5 +161,41 @@
   "privacy.12p": "Esta Política puede modificarse en función de cambios en la legislación o en el contenido del Servicio. Cuando haya cambios importantes, se comunicarán en el Servicio.",
   "privacy.13t": "13. Contacto",
   "privacy.13p": "Para consultas relativas a esta Política, póngase en contacto con el operador del Servicio.",
-  "privacy.updated": "Última actualización: 6 de julio de 2026"
+  "privacy.updated": "Última actualización: 6 de julio de 2026",
+  "footer.terms": "Términos de servicio",
+  "terms.title": "Términos de servicio",
+  "terms.intro": "Los presentes Términos de servicio (en adelante, los «Términos») establecen las condiciones de uso de DevDebtOps (en adelante, el «Servicio»). Se considerará que el usuario acepta estos Términos por el hecho de utilizar el Servicio.",
+  "terms.1t": "1. Aceptación y aplicación de los Términos",
+  "terms.1p": "Para utilizar el Servicio, el usuario debe aceptar estos Términos y la Política de privacidad. En caso de no aceptarlos, el usuario no podrá utilizar el Servicio.",
+  "terms.2t": "2. Cuenta e integración con GitHub",
+  "terms.2p": "El uso del Servicio requiere autenticación mediante una cuenta de GitHub. El usuario es responsable de la gestión de su propia cuenta y de sus credenciales de autenticación, y deberá notificar sin demora cualquier uso indebido que detecte.",
+  "terms.3t": "3. Cumplimiento de la normativa legal",
+  "terms.3p": "El usuario es responsable de cumplir, al utilizar el Servicio, con todas las leyes y regulaciones aplicables, así como con estos Términos.",
+  "terms.4t": "4. Conductas prohibidas",
+  "terms.4p": "El usuario no podrá llevar a cabo las siguientes conductas en el Servicio.",
+  "terms.4li1": "Actos ilegales o actos que fomenten conductas ilegales.",
+  "terms.4li2": "Acoso, difamación, discriminación o amenazas hacia terceros, así como la incitación a la violencia.",
+  "terms.4li3": "La difusión de información falsa o intencionadamente engañosa.",
+  "terms.4li4": "Suplantar la identidad de terceros o falsear la propia identidad.",
+  "terms.5t": "5. Propiedad intelectual, autenticidad e información personal",
+  "terms.5p": "El usuario no deberá vulnerar los derechos de propiedad intelectual de terceros (derechos de autor, patentes, marcas, secretos comerciales, etc.) ni su privacidad. No deberá registrar ni transmitir información personal de terceros sin su consentimiento.",
+  "terms.6t": "6. Prohibición de spam y uso indebido",
+  "terms.6p": "Quedan prohibidos el acceso automatizado excesivo o masivo, el envío de spam, la manipulación indebida de rankings o resultados de análisis, el phishing y cualquier otra conducta que menoscabe la integridad del Servicio.",
+  "terms.7t": "7. Acceso y seguridad",
+  "terms.7p": "Quedan prohibidos los actos que causen daños técnicos, tales como el acceso no autorizado o la interferencia en el Servicio, los servidores o la red, la distribución de malware y el uso del Servicio como infraestructura de ataques.",
+  "terms.8t": "8. Repositorios objeto de análisis y permisos",
+  "terms.8p": "El usuario garantiza que dispone de los permisos necesarios sobre los repositorios que analiza o integra mediante el Servicio. La responsabilidad sobre el código y los datos objeto de análisis corresponde al usuario.",
+  "terms.9t": "9. Tratamiento de los contenidos generados por IA",
+  "terms.9p": "El Servicio genera mediante IA contenidos de aprendizaje, cuestionarios, propuestas de corrección de código (PR), Issues, entre otros. Los contenidos generados pueden contener errores, y el usuario es responsable de revisar y verificar su contenido antes de adoptarlos.",
+  "terms.10t": "10. Restricciones de uso y créditos",
+  "terms.10p": "Los procesos de análisis de alto coste, entre otros, podrán estar sujetos a créditos o límites de uso. La empresa podrá restringir o suspender el uso cuando considere que existe una carga excesiva o un uso indebido.",
+  "terms.11t": "11. Exención y limitación de responsabilidad",
+  "terms.11p": "El Servicio se ofrece «tal cual», sin garantía alguna de idoneidad para un propósito determinado ni de otra índole. En la máxima medida permitida por la legislación aplicable, la empresa no será responsable de los daños derivados del uso del Servicio.",
+  "terms.12t": "12. Modificación e interrupción del Servicio",
+  "terms.12p": "La empresa podrá modificar, interrumpir o dar por finalizado el contenido del Servicio sin previo aviso.",
+  "terms.13t": "13. Modificación de los presentes Términos",
+  "terms.13p": "La empresa podrá modificar estos Términos cuando lo considere necesario. En caso de cambios relevantes, se informará de ello a través del Servicio. Si el usuario utiliza el Servicio tras la modificación, se considerará que ha aceptado los cambios.",
+  "terms.14t": "14. Legislación aplicable y contacto",
+  "terms.14p": "Los presentes Términos se rigen por la legislación japonesa. Para cualquier consulta relativa a estos Términos, póngase en contacto con el operador del Servicio.",
+  "terms.updated": "Última actualización: 6 de julio de 2026"
 }

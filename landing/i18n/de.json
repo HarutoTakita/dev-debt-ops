@@ -4,7 +4,6 @@
   "nav.infra": "Infrastruktur",
   "nav.security": "Sicherheit",
   "nav.cta": "Demo ausprobieren",
-
   "hero.sub": "Die Entwicklungsplattform, die das Codebasis-Verständnis misst und fördert",
   "hero.h1": "Messe das <span class='text-know'>Verständnis</span> per Quiz und visualisiere es mit der <span class='text-know'>Verständniskarte</span>.<br class='hidden sm:block' />Verbessere Code von geringer Qualität mit <span class='text-code'>automatischen KI-Korrektur-PRs</span>.",
   "hero.lead": "Ein KI-Agent nutzt <strong class='font-semibold text-white'>Subagenten, MCP und Hooks</strong>, um das Repository aus vielen Blickwinkeln zu analysieren.<br class='hidden lg:block' />Von der Extraktion der Funktionen über die Messung des Verständnisses und die Erkennung der Codequalität bis hin zu Korrekturvorschlägen wird alles durchgängig automatisiert.",
@@ -13,7 +12,6 @@
   "hero.chip3": "Automatisches Maskieren von PII und Secrets",
   "hero.chip4": "Mobil optimiert",
   "hero.chip5": "Skalierbare Infrastruktur",
-
   "challenge.h2": "„Verständnisschulden“, die sich im KI-Zeitalter rasant aufbauen",
   "challenge.lead": "Mit der Verbreitung von Claude Code, Codex, Gemini CLI und Co. beschleunigt sich der Zyklus aus „Entwicklung“ und „Betrieb“ immer weiter. In dieser Geschwindigkeit wird das <strong class='text-white'>„Verstehen“ von Code hintangestellt</strong>, und es häufen sich rasant „Verständnisschulden“ an – man kann nicht mehr erklären, was von KI generierter Code tut oder warum er so geschrieben ist.",
   "challenge.c1t": "„Hauptsache es läuft“ – das Verständnis bleibt auf der Strecke",
@@ -22,13 +20,11 @@
   "challenge.c2d": "Plausibel wirkender generierter Code wird unverändert vertraut und ohne die Frage „Warum wird das so geschrieben?“ in Produktion gebracht. Nicht verstandener Code nimmt immer weiter zu.",
   "challenge.c3t": "„Ob man es verstanden hat“ wird nicht gemessen",
   "challenge.c3d": "Reviews und Tests messen die Qualität, aber nicht das Verständnis der Menschen. Wo man ansetzen soll und wie dringend es ist, bleibt unklar.",
-
   "audience.h2": "Für wen sich das eignet",
   "audience.a1t": "Tech-Lead / Manager",
   "audience.a1d": "Erfassen, an welchen Stellen das Verständnis der Teammitglieder gering ist, und die Prioritäten für Reviews und Lernen festlegen.",
   "audience.a2t": "Onboarding-Verantwortliche / neu hinzugekommene Mitglieder",
   "audience.a2d": "Mit Lerneinheiten und Quizzen systematisch verfolgen, wo man mit dem Verstehen beginnen sollte.",
-
   "flow.h2": "Den Abbau von technischen Schulden und Verständnisschulden in den Entwicklungs- und Betriebszyklus integrieren",
   "flow.sub": "Von der Analyse über die Messung des Verständnisses und die Erkennung der Qualität bis hin zu Lernen und Verbesserung – alles durchgängig. Die Rückzahlung erfolgt über die beiden Achsen „Messen → Lernen“ und „Erkennen → Verbessern“.",
   "flow.s0t": "Repository-Analyse",
@@ -45,7 +41,6 @@
   "flow.s4d": "Für Code geringer Qualität erstellt die KI automatisch Korrektur-PRs. Auch das Anlegen von Issues mit zugewiesenen Verantwortlichen wird unterstützt.",
   "flow.s5t": "Verständnis und Qualität steigen",
   "flow.s5d": "Über die beiden Achsen „Messen → Lernen“ und „Erkennen → Verbessern“ wird die Abhängigkeit von Einzelpersonen aufgelöst und das Verständnis der Codebasis sowie die Codequalität kontinuierlich verbessert.",
-
   "core.h2": "Drei Kernfunktionen",
   "core.c1t": "Fortgeschrittene Repository-Analyse durch KI-Agenten",
   "core.c1d": "Ein mit Google ADK erstellter Agent durchsucht das Repository unter Einsatz von MCP (Serena / CodeGraphContext / Semgrep / GitHub). Von der Generierung von Lernplänen und Quizzen pro Funktion bis zur Erkennung von Code geringer Qualität und der Erstellung von Korrekturplänen wird alles automatisiert.",
@@ -62,7 +57,6 @@
   "core.pill6": "Abrechnungssteuerung über Credits",
   "core.pill7": "i18n Mehrsprachigkeit",
   "core.pill8": "Einsicht in den Versionsverlauf",
-
   "features.h2": "Was die App kann",
   "features.sub": "Von der Analyse über Dashboard, Visualisierung bis zur Verbesserung – alles in einem einzigen Workspace.",
   "features.f1t": "Dashboard – das Gesamtbild auf einen Blick",
@@ -106,10 +100,8 @@
   "features.f5tag1": "KI generiert Korrektur-Patch",
   "features.f5tag2": "Automatische Erstellung von Korrektur-PRs",
   "features.f5tag3": "Anlegen von GitHub Issue",
-
   "infra.h2": "Infrastruktur",
   "infra.lead": "Mithilfe von Cloud Tasks wird die Analyse in asynchrone Worker ausgelagert. Je nach Last skaliert Cloud Run automatisch.<br class='hidden sm:block' />Durch den Einsatz von mit ADK erstellten Agenten und MCP erreicht die Analyse eine umfassende und effiziente Repository-Erkundung.<br class='hidden sm:block' />Ratenbegrenzung durch Cloud Armor sowie Secret Manager und Cloud DLP gewährleisten die Sicherheit. Die Infrastruktur wird mit Terraform als IaC umgesetzt.<br class='hidden sm:block' />Bei der Entwicklung durchläuft CI/CD neben Test bis Deployment auch die automatische Anwendung von Linter/Formatter sowie automatische Code-Reviews durch Gemini und hält so die Codequalität hoch.",
-
   "security.h2": "Worauf wir bei der Sicherheit Wert legen",
   "security.s1t": "Authentifizierung und Sitzung",
   "security.s1d": "GitHub SSO mit JWT-Tokens. Sichere Sitzungsverwaltung mit Access- und Refresh-Token. Sitzungs-Timeout nach 30 Minuten ohne Aktivität.",
@@ -123,7 +115,6 @@
   "security.s5d": "Bevor dem Agenten Informationen übergeben werden, werden PII und Secrets mit Cloud DLP (Sensitive Data Protection) und detect-secrets maskiert und erst dann gesendet.",
   "security.s6t": "Schwachstellen-Scan",
   "security.s6d": "Es werden ein OWASP-konformer Schwachstellen-Scan der Anwendung sowie ein Schwachstellen-Scan der Container-Images mit Trivy durchgeführt.",
-
   "mobile.h2": "Auch am Smartphone jederzeit das Verständnis prüfen",
   "mobile.sub": "Dank responsivem Design lassen sich die wichtigsten Funktionen auch vom Smartphone aus unverändert nutzen.<br class='hidden sm:block' />Ob unterwegs oder zwischen zwei Reviews – die Verständniskarte prüfen, die Codequalität erfassen und Quizze absolvieren ist überall möglich.",
   "mobile.l1": "Dashboard",
@@ -131,15 +122,11 @@
   "mobile.l3": "Codequalitätskarte",
   "mobile.l4": "Quiz und Lernen",
   "mobile.l5": "Codeverbesserung",
-
   "stack.h2": "Technologie-Stack",
-
   "cta.h2": "Mach das Verständnis deines Teams ab heute sichtbar",
   "cta.p": "Einfach das GitHub-Repository verbinden und analysieren. Man kann sowohl Verständnisschulden als auch technische Schulden angehen und es unverändert in den täglichen Entwicklungs- und Betriebszyklus (DevOps) einbinden.",
   "cta.btn": "Repository verbinden und starten",
-
   "footer.privacy": "Datenschutzrichtlinie",
-
   "privacy.title": "Datenschutzrichtlinie",
   "privacy.intro": "DevDebtOps (nachfolgend „der Dienst“) legt hinsichtlich des Umgangs mit personenbezogenen Daten der Nutzer des Dienstes (nachfolgend „Nutzer“) sowie der von Nutzern bereitgestellten Daten die folgende Datenschutzrichtlinie (nachfolgend „diese Richtlinie“) fest.",
   "privacy.1t": "1. Erhobene Informationen",
@@ -174,5 +161,41 @@
   "privacy.12p": "Diese Richtlinie kann bei Gesetzesänderungen oder Änderungen der Dienstinhalte überarbeitet werden. Bei wesentlichen Änderungen weisen wir im Dienst darauf hin.",
   "privacy.13t": "13. Kontakt",
   "privacy.13p": "Bei Fragen zu dieser Richtlinie wenden Sie sich bitte an den Betreiber des Dienstes.",
-  "privacy.updated": "Zuletzt aktualisiert: 6. Juli 2026"
+  "privacy.updated": "Zuletzt aktualisiert: 6. Juli 2026",
+  "footer.terms": "Nutzungsbedingungen",
+  "terms.title": "Nutzungsbedingungen",
+  "terms.intro": "Diese Nutzungsbedingungen (nachfolgend „diese Bedingungen“ genannt) legen die Bedingungen für die Nutzung von DevDebtOps (nachfolgend „der Dienst“ genannt) fest. Durch die Nutzung des Dienstes gilt die Zustimmung des Nutzers zu diesen Bedingungen als erteilt.",
+  "terms.1t": "1. Zustimmung zu den Bedingungen und Geltungsbereich",
+  "terms.1p": "Für die Nutzung des Dienstes muss der Nutzer diesen Bedingungen sowie der Datenschutzrichtlinie zustimmen. Ohne diese Zustimmung ist eine Nutzung des Dienstes nicht möglich.",
+  "terms.2t": "2. Konto und GitHub-Anbindung",
+  "terms.2p": "Für die Nutzung des Dienstes ist eine Authentifizierung über ein GitHub-Konto erforderlich. Der Nutzer ist für die Verwaltung seines Kontos und seiner Zugangsdaten verantwortlich und verpflichtet sich, im Falle einer festgestellten missbräuchlichen Nutzung unverzüglich Mitteilung zu machen.",
+  "terms.3t": "3. Einhaltung von Gesetzen und Vorschriften",
+  "terms.3p": "Der Nutzer ist verpflichtet, bei der Nutzung des Dienstes alle geltenden Gesetze und Vorschriften sowie diese Bedingungen einzuhalten.",
+  "terms.4t": "4. Verbotene Handlungen",
+  "terms.4p": "Der Nutzer darf im Rahmen des Dienstes die folgenden Handlungen nicht vornehmen.",
+  "terms.4li1": "Rechtswidrige Handlungen oder Handlungen, die rechtswidriges Verhalten fördern.",
+  "terms.4li2": "Belästigung, Verleumdung, Diskriminierung oder Bedrohung anderer sowie die Förderung von Gewalt.",
+  "terms.4li3": "Die Verbreitung falscher oder vorsätzlich irreführender Informationen.",
+  "terms.4li4": "Das Vortäuschen einer anderen Identität oder das Fälschen der eigenen Identität.",
+  "terms.5t": "5. Geistiges Eigentum, Authentizität und personenbezogene Daten",
+  "terms.5p": "Der Nutzer darf keine geistigen Eigentumsrechte Dritter (Urheberrechte, Patente, Marken, Geschäftsgeheimnisse usw.) oder deren Privatsphäre verletzen. Personenbezogene Daten Dritter dürfen nicht ohne deren Zustimmung erfasst oder übermittelt werden.",
+  "terms.6t": "6. Verbot von Spam und missbräuchlicher Nutzung",
+  "terms.6p": "Automatisierte übermäßige oder massenhafte Zugriffe, der Versand von Spam, die unzulässige Manipulation von Rankings oder Analyseergebnissen, Phishing sowie sonstige Handlungen, die die Integrität des Dienstes beeinträchtigen, sind untersagt.",
+  "terms.7t": "7. Zugriff und Sicherheit",
+  "terms.7p": "Handlungen, die technischen Schaden verursachen, wie unbefugter Zugriff auf oder Störung des Dienstes, der Server oder des Netzwerks, die Verbreitung von Schadsoftware oder die Nutzung als Angriffsinfrastruktur, sind untersagt.",
+  "terms.8t": "8. Zu analysierende Repositorys und Berechtigungen",
+  "terms.8p": "Der Nutzer sichert zu, dass er über die erforderlichen Berechtigungen für die Repositorys verfügt, die mit dem Dienst analysiert oder verbunden werden. Die Verantwortung für den zu analysierenden Code und die Daten liegt beim Nutzer.",
+  "terms.9t": "9. Umgang mit KI-generierten Inhalten",
+  "terms.9p": "Der Dienst generiert mithilfe von AI Lerninhalte, Quizze, Code-Korrekturvorschläge (PR), Issues und dergleichen. Die generierten Inhalte können Fehler enthalten; der Nutzer ist dafür verantwortlich, die Inhalte zu prüfen und zu verifizieren, bevor er sie übernimmt.",
+  "terms.10t": "10. Nutzungsbeschränkungen und Guthaben",
+  "terms.10p": "Für kostenintensive Analysevorgänge und Ähnliches können Guthaben oder Nutzungsobergrenzen festgelegt werden. Wir behalten uns vor, die Nutzung einzuschränken oder auszusetzen, wenn wir eine übermäßige Belastung oder eine missbräuchliche Nutzung feststellen.",
+  "terms.11t": "11. Haftungsausschluss und Haftungsbeschränkung",
+  "terms.11p": "Der Dienst wird „wie besehen“ bereitgestellt, und es wird keine Gewähr für die Eignung für einen bestimmten Zweck oder Ähnliches übernommen. Im größtmöglichen nach geltendem Recht zulässigen Umfang haften wir nicht für Schäden, die aus der Nutzung des Dienstes entstehen.",
+  "terms.12t": "12. Änderung und Unterbrechung des Dienstes",
+  "terms.12p": "Wir behalten uns vor, den Inhalt des Dienstes ohne Vorankündigung zu ändern, zu unterbrechen oder einzustellen.",
+  "terms.13t": "13. Änderung dieser Bedingungen",
+  "terms.13p": "Wir behalten uns vor, diese Bedingungen bei Bedarf zu ändern. Bei wesentlichen Änderungen werden wir dies über den Dienst bekannt geben. Bei einer Nutzung des Dienstes nach einer Änderung gilt die Zustimmung zu der Änderung als erteilt.",
+  "terms.14t": "14. Anwendbares Recht und Kontakt",
+  "terms.14p": "Diese Bedingungen unterliegen japanischem Recht. Bei Fragen zu diesen Bedingungen wenden Sie sich bitte an den Betreiber des Dienstes.",
+  "terms.updated": "Zuletzt aktualisiert: 6. Juli 2026"
 }
