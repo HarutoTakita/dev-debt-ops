@@ -192,6 +192,7 @@ jobs:
           terraform apply -auto-approve \
             -var-file="environments/${TFVARS_FILE}" \
             -target=google_secret_manager_secret_version.secrets \
+            -target=google_project_iam_member.runtime_cloudsql \
             -target=google_cloud_run_v2_job.migrate
 
       # (2) Run DB migrations as a one-off, waiting for completion. Fails the deploy
