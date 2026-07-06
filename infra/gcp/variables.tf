@@ -65,6 +65,12 @@ variable "analysis_credits_enabled" {
   default     = false
 }
 
+variable "demo_mode_enabled" {
+  description = "Enable the guest demo entry (「お試しはこちら」on login) + seeded sample data (issue 069). Surfaced via GET /api/v1/config so the login page shows the demo CTA. Default false; enable for the public hackathon demo."
+  type        = bool
+  default     = false
+}
+
 variable "admin_emails" {
   description = "Comma-separated admin emails (issue 300). The only accounts granted superuser / admin-screen access; reconciled on every login. Empty = no admins."
   type        = string
