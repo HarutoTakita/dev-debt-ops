@@ -1168,40 +1168,19 @@
           <figcaption class="mt-3 text-center text-xs text-slate-500">Google Cloud 上の全体アーキテクチャ</figcaption>
         </figure>
 
-        <div class="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">アプリ実行 — Cloud Run</h3>
-            <p class="mt-2 text-sm text-slate-400">api（外部公開・SPA 同梱）と service（内部・重い解析の Cloud Tasks ターゲット）を分離。</p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">データ — Cloud SQL</h3>
-            <p class="mt-2 text-sm text-slate-400">PostgreSQL ＋ pgvector。Alembic でスキーマ管理。</p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">非同期ジョブ — Cloud Tasks</h3>
-            <p class="mt-2 text-sm text-slate-400">検知・理解度・クラスタリング等の重処理をワーカーへ委譲。冪等・再配送前提の設計。</p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">公開・防御 — LB / Cloud Armor</h3>
-            <p class="mt-2 text-sm text-slate-400">外部 HTTPS ロードバランサ＋マネージド証明書。レート制限はエッジで強制。</p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">機密・レジストリ</h3>
-            <p class="mt-2 text-sm text-slate-400">Secret Manager（平文環境変数は不可）／Artifact Registry でコンテナ管理。</p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">IaC — Terraform</h3>
-            <p class="mt-2 text-sm text-slate-400">
-              全リソースをコード化。デプロイは Workload Identity Federation（長期鍵レス）で GitHub Actions から実行。
-            </p>
-          </div>
-          <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-            <h3 class="font-semibold text-white">CI/CD — 品質の自動化</h3>
-            <p class="mt-2 text-sm text-slate-400">
-              GitHub Actions でテスト・デプロイを自動化。Ruff／Prettier／ESLint の自動適用、Gitleaks・CodeQL・OWASP ZAP
-              スキャン、そして Gemini による自動コードレビューでコード品質を担保。
-            </p>
-          </div>
+        <div class="tag-row mt-10 justify-center">
+          <span class="tag">Cloud Run で api / service を分離（SPA 同梱）</span>
+          <span class="tag">Cloud SQL（PostgreSQL）+ Alembic 管理</span>
+          <span class="tag">Cloud Tasks で重処理を非同期化</span>
+          <span class="tag">冪等・再配送前提の設計</span>
+          <span class="tag">HTTPS LB + Cloud Armor でエッジ防御・レート制限</span>
+          <span class="tag">Secret Manager / Artifact Registry で機密・イメージ管理</span>
+          <span class="tag">Terraform で全リソースを IaC 化</span>
+          <span class="tag">Workload Identity で鍵レスデプロイ</span>
+          <span class="tag">GitHub Actions で CI/CD を自動化</span>
+          <span class="tag">Ruff / Prettier / ESLint を自動適用</span>
+          <span class="tag">Gitleaks・CodeQL・OWASP ZAP スキャン</span>
+          <span class="tag">Gemini による自動コードレビュー</span>
         </div>
       </div>
     </section>
