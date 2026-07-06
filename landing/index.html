@@ -515,6 +515,18 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「エージェントによるリポジトリ解析」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.agent-solo > header,
+      body.agent-solo > footer,
+      body.agent-solo > section:not(#agent-analysis) {
+        display: none !important;
+      }
+      body.agent-solo #agent-analysis {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -1911,22 +1923,24 @@
            ・フロー図       → 処理フロー図
            ・CHALLENGE/FOR  → 課題＋想定ユーザー
            ・CORE 領域      → 3 つのコア機能
+           ・エージェント解析領域 → エージェントによるリポジトリ解析セクション
            ・インフラ構成図 → インフラ構成セクション
            ・SECURITY 領域  → セキュリティセクション
            ・モバイル対応領域 → モバイル対応セクション
            ・「アプリにできること」の画像 → その機能ブロック
-         いずれかを単独表示中に ↑ / ↓ で 7 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）を
+         いずれかを単独表示中に ↑ / ↓ で 8 ブロック（hero → 課題+FOR → フロー図 → コア機能 → エージェント解析 → インフラ → セキュリティ → モバイル）を
          スクロール風に切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo", "security-solo", "mobile-solo"];
+        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → エージェント解析 → インフラ → セキュリティ → モバイル）
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "agent-solo", "infra-solo", "security-solo", "mobile-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
           "flow-solo": ["#flow .flow-title", "#flow .flow-diagram"],
           "duo-mode": ["#challenge", "#audience"],
           "core-solo": ["#core"],
+          "agent-solo": ["#agent-analysis"],
           "infra-solo": ["#infra"],
           "security-solo": ["#security"],
           "mobile-solo": ["#mobile"],
@@ -2031,6 +2045,13 @@
         if (core)
           core.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("core-solo");
+          });
+
+        // エージェント解析領域クリックで #agent-analysis のみ表示
+        const agent = document.querySelector("#agent-analysis");
+        if (agent)
+          agent.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("agent-solo");
           });
 
         // インフラ構成図（figure）クリックでインフラセクションのみ表示
