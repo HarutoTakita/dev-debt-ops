@@ -1275,13 +1275,28 @@
         <p class="text-sm font-medium text-know">MOBILE</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">スマホでも、いつでも理解度をチェック</h2>
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
-          レスポンシブ対応で、スマートフォンからも主要機能をそのまま利用可能。移動中やレビューの合間でも、理解度マップの確認・コード品質の把握・クイズの受験ができます。
+          レスポンシブ対応で、スマートフォンからも主要機能をそのまま利用可能。ダッシュボードから理解度マップ・コード品質マップ・クイズと学習・コード改善まで、移動中やレビューの合間でも操作できます。
         </p>
       </div>
-      <div class="mx-auto mt-10 grid max-w-xl grid-cols-3 gap-4">
+      <div class="mx-auto mt-10 grid max-w-5xl grid-cols-5 gap-3">
+        <!-- ダッシュボード -->
+        <figure class="text-center">
+          <div class="rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
+            <img
+              src="assets/screens/mobile/03-overview.png"
+              alt="スマートフォンで表示したダッシュボード（理解度と品質の全体像）"
+              class="w-full rounded-[0.95rem]"
+              width="1170"
+              height="2532"
+              loading="lazy"
+            />
+          </div>
+          <figcaption class="mt-3 text-sm font-semibold text-white">ダッシュボード</figcaption>
+          <p class="mt-1 text-xs leading-relaxed text-slate-400">理解度と品質の全体像。</p>
+        </figure>
         <!-- 理解度マップ -->
         <figure class="text-center">
-          <div class="mx-auto max-w-[140px] rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
+          <div class="rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
             <img
               src="assets/screens/mobile/06-galaxy.png"
               alt="スマートフォンで表示した理解度マップ（銀河ビュー）"
@@ -1291,31 +1306,27 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-4 font-semibold text-know">理解度マップ</figcaption>
-          <p class="mx-auto mt-1 max-w-[220px] text-xs leading-relaxed text-slate-400">
-            ファイル単位の理解度をグラフで俯瞰。
-          </p>
+          <figcaption class="mt-3 text-sm font-semibold text-know">理解度マップ</figcaption>
+          <p class="mt-1 text-xs leading-relaxed text-slate-400">誰がどこを理解しているか。</p>
         </figure>
         <!-- コード品質マップ -->
         <figure class="text-center">
-          <div class="mx-auto max-w-[140px] rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
+          <div class="rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
             <img
-              src="assets/screens/mobile/04-matrix.png"
-              alt="スマートフォンで表示したコード品質マップ（二軸マトリクス）"
+              src="assets/screens/mobile/11-repos.png"
+              alt="スマートフォンで表示したコード品質マップ（ファイル単位の閲覧）"
               class="w-full rounded-[0.95rem]"
               width="1170"
               height="2532"
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-4 font-semibold text-code">コード品質マップ</figcaption>
-          <p class="mx-auto mt-1 max-w-[220px] text-xs leading-relaxed text-slate-400">
-            品質の低いコードの分布をひと目で把握。
-          </p>
+          <figcaption class="mt-3 text-sm font-semibold text-code">コード品質マップ</figcaption>
+          <p class="mt-1 text-xs leading-relaxed text-slate-400">ファイル単位で品質を確認。</p>
         </figure>
         <!-- クイズと学習 -->
         <figure class="text-center">
-          <div class="mx-auto max-w-[140px] rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
+          <div class="rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
             <img
               src="assets/screens/mobile/07-learning.png"
               alt="スマートフォンで表示したクイズと学習プラン"
@@ -1325,10 +1336,23 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-4 font-semibold text-know">クイズと学習</figcaption>
-          <p class="mx-auto mt-1 max-w-[220px] text-xs leading-relaxed text-slate-400">
-            クイズで実測し、学習プランで理解を深める。
-          </p>
+          <figcaption class="mt-3 text-sm font-semibold text-know">クイズと学習</figcaption>
+          <p class="mt-1 text-xs leading-relaxed text-slate-400">実測して理解を深める。</p>
+        </figure>
+        <!-- コード改善 -->
+        <figure class="text-center">
+          <div class="rounded-[1.2rem] border border-white/10 bg-[#131a22] p-1 shadow-xl ring-1 ring-white/5">
+            <img
+              src="assets/screens/mobile/04-matrix.png"
+              alt="スマートフォンで表示したコード改善（技術負債の一覧・修正 PR / Issue）"
+              class="w-full rounded-[0.95rem]"
+              width="1170"
+              height="2532"
+              loading="lazy"
+            />
+          </div>
+          <figcaption class="mt-3 text-sm font-semibold text-code">コード改善</figcaption>
+          <p class="mt-1 text-xs leading-relaxed text-slate-400">AI が修正 PR / Issue 化。</p>
         </figure>
       </div>
     </section>
