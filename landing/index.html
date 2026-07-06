@@ -1238,50 +1238,71 @@
       </div>
       <div class="mt-10 grid gap-4 md:grid-cols-2">
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">認証・セッション</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+            </svg>
+            <h3 class="font-semibold text-white">認証・セッション</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            JWT トークンを用いた GitHub SSO。アクセストークンとリフレッシュトークンを用いた<strong
-              class="text-slate-200">安全なセッション管理</strong>（ローテーション・再利用検出、<code
-              class="text-slate-300">token_epoch</code> による即時失効）。<strong class="text-slate-200"
-              >30 分間操作がないときのセッションタイムアウト</strong>。
+            JWT トークンを用いた GitHub SSO。アクセストークンとリフレッシュトークンを用いた安全なセッション管理（ローテーション・再利用検出、token_epoch
+            による即時失効）。30 分間操作がないときのセッションタイムアウト。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">同一オリジン配信と Web 脆弱性対策</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+            </svg>
+            <h3 class="font-semibold text-white">同一オリジン配信と Web 脆弱性対策</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            UI（<code class="text-slate-300">/</code>）と API（<code class="text-slate-300">/api</code>）を<strong
-              class="text-slate-200">同一オリジンで配信</strong>するため CORS 設定が不要で、攻撃面を削減。加えて
-            <strong class="text-slate-200">XSS</strong>（フレームワークの自動エスケープ）・<strong
-              class="text-slate-200">CSRF</strong>（SameSite=Lax Cookie ＋ Origin 検証）・<strong
-              class="text-slate-200">SSRF</strong>（外部通信を GitHub API 等の信頼済みエンドポイントに限定）といった Web
-            アプリで必要な対策を実施。
+            UIとAPIを同一オリジンで配信することでCORS 設定不要。加えて、XSS・CSRF・SSRF等の Web アプリで必要な対策を実施。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">鍵を持たない設計</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <h3 class="font-semibold text-white">鍵を持たない設計</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            Workload Identity Federation で長期クレデンシャルを排除。秘密は Secret Manager に集約（平文環境変数なし）。
+            Workload Identity Federation で長期クレデンシャルを排除。デプロイ時のシークレットは GitHub Secrets で注入し、実行時は
+            Secret Manager に集約して管理します。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">エッジおよびアプリ内でのレート制限</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
+            </svg>
+            <h3 class="font-semibold text-white">エッジおよびアプリ内でのレート制限</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            <strong class="text-slate-200">Cloud Armor</strong> によりアプリ手前で過剰なリクエストを制限。アプリ内では
-            <strong class="text-slate-200">管理者がリポジトリ解析のクレジットを付与・管理</strong>でき、コストの大きい解析処理の乱用を防ぎます。
+            Cloud Armor によりアプリ手前で過剰なリクエストを制限。アプリ内では管理者がリポジトリ解析のクレジットを付与・管理でき、コストの大きい解析処理の乱用を防ぎます。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">エージェント入力のマスキング</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
+            </svg>
+            <h3 class="font-semibold text-white">エージェント入力のマスキング</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            エージェントに情報を与える際は、<strong class="text-slate-200">Cloud DLP</strong>（Sensitive Data
-            Protection）と detect-secrets で <strong class="text-slate-200">PII・シークレットをマスキング</strong>してから送信します。
+            エージェントに情報を与える際は、Cloud DLP（Sensitive Data Protection）と detect-secrets で PII・シークレットをマスキングしてから送信します。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">脆弱性スキャン</h3>
+          <div class="flex items-center gap-2">
+            <svg class="size-5 shrink-0 text-know" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><circle cx="12" cy="12" r="3" /><path d="m16 16-1.9-1.9" />
+            </svg>
+            <h3 class="font-semibold text-white">脆弱性スキャン</h3>
+          </div>
           <p class="mt-2 text-sm text-slate-400">
-            <strong class="text-slate-200">OWASP に準拠したアプリケーションの脆弱性スキャン</strong>および、<strong
-              class="text-slate-200">Trivy を用いたコンテナイメージの脆弱性スキャン</strong>を実施。
+            OWASP に準拠したアプリケーションの脆弱性スキャンおよび、Trivy を用いたコンテナイメージの脆弱性スキャンを実施。
           </p>
         </div>
       </div>
