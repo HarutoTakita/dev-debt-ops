@@ -8,7 +8,6 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { toggleMode } from "mode-watcher";
-  import { apiFetch } from "$lib/api/client";
   import { auth } from "$lib/stores/auth.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
   import { cn } from "$lib/utils";
@@ -32,9 +31,7 @@
   const currentLocale = getLocale();
 
   async function logout() {
-    await apiFetch("/api/v1/auth/access/logout", { method: "POST" });
-    auth.clear();
-    goto(resolve("/login"));
+    await auth.logout();
   }
 </script>
 

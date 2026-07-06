@@ -45,14 +45,62 @@
   - コード改善の説明
   - 
 3. どのように実装しているかの仕組みを共有する
-  - リポジトリ解析のAgenticパイプラインの説明をメインで行う
-    - github のリポジトリをアプリ内に clone し、解析を行う
-    - mcp を使用している
-    - シークレットや個人情報のマスキングをしている
-  - インフラ構成の話
-    - Cloud Run と タスクキューによるスケーラブルな構成
-    - Cloud Armor や Google DLP によるセキュリティ
-4. 開発の進め方
+
+  #### 3-1. リポジトリ解析の Agentic パイプライン（メインで説明）
+
+  全体像：Cloud Tasks から内部 Cloud Run の worker（service）が 1 つの Job として起動し、
+  **「探索 → 確定」の 2 段エージェント（ADK / Gemini）** と **決定的な解析バックボーン** を組み合わせた
+  ハイブリッド構成で解析する。LLM に「探索・意味づけ」を任せ、計測・検知は決定的ツールで再現性を担保する設計。
+
+  - **① GitHub リポジトリをアプリ内に取り込む**
+    - **GitHub App の installation token**（Secret Manager の秘密鍵から RS256 JWT で都度発行）で認証。
+    - 対象ブランチを **`git clone --depth 1 --single-branch`（浅いクローン）** で一時ディレクトリに取得。
+      → Serena(LSP) や CodeGraphContext が **ディスク上の実プロジェクトツリー** を必要とするため。
+    - トークンは URL に埋めず `http.extraHeader` で渡し、on-disk の git 設定に残さない。
+      clone できない場合は **GitHub REST API にフォールバック**（graceful degradation）。処理後は一時ディレクトリを削除。
+
+  - **② ADK エージェントによる自律探索（探索 → 確定の 2 段）**
+    - `analysis_explorer`（LlmAgent）が repo ツール＋MCP で **コード構造・履歴・ホットスポットを自律的に探索** し所見を作成。
+    - `base_author`（LlmAgent）がその所見を **構造化スキーマ**（機能・コード所見・理解所見・技術スタック）に確定。
+    - モデルは **Vertex AI 経由の Gemini（ADC 認証・API キー不要）**。
+    - **予算ガード**（ツール/モデル/ファイル呼び出しの上限を callbacks で強制）と、
+      **全イベントのトレース永続化**（判断根拠を Job に記録）で、暴走やコスト膨張を抑えつつ挙動を追跡可能に。
+
+  - **③ MCP を使用（3 サーバーを stdio サブプロセスで起動し、ADK の McpToolset で接続）**
+    - **Serena（LSP）**：シンボルの定義・参照・実装を辿る **意味的コードナビ**（ミクロな理解）。
+    - **CodeGraphContext**：呼び出し連鎖・モジュール依存・影響範囲・dead code・複雑度（**マクロな構造把握**。埋め込み KuzuDB）。
+    - **GitHub MCP（read-only）**：PR/レビュー履歴・著者の偏り・セキュリティアラート（**プロセス軸**）。
+    - ※ Semgrep / Trivy は MCP ではなく **決定的な CLI 解析** として別途実行（再現性・確定的な検知結果のため）。
+    - → ミクロ（LSP）× マクロ（グラフ）× プロセス（GitHub）の 3 視点を横断して探索できるのがエージェントの強み。
+
+  - **④ 決定的な解析バックボーン**
+    - 機能クラスタリング → コード品質検知（重複・複雑度・dead code・Trivy/Semgrep）→ 理解負債検知 →
+      学習プラン・クイズ生成 を順に実行し、結果を DB に upsert。エージェントの定性所見と決定的な計測を重ねて精度を確保。
+
+  - **⑤ シークレット・個人情報（PII）のマスキング**
+    - **保護対象は「LLM（Gemini）へ渡す直前のプロンプト全文」**（外部モデルへ機密を送らないための多層防御）。
+    - **シークレット**：正規表現（各種 API キー・トークン・PEM 秘密鍵 等）＋ **detect-secrets（エントロピー検知）** の 2 層で常時マスキング。
+    - **PII**：標準は正規表現（メール・電話・クレカ・IP 等）でマスキング。さらに **Google Cloud DLP（Sensitive Data Protection）**
+      に切り替え可能（infra で API 有効化・SA 権限付与済み。infoType 単位で匿名化。DLP 失敗時は正規表現へ自動フォールバック）。
+
+  #### 3-2. インフラ構成
+
+  - **Cloud Run ＋ タスクキューによるスケーラブルな構成**
+    - **api（外部公開）** と **service（内部専用・重い解析 worker）** を **Cloud Run の別サービス** に分離。
+    - 重い解析は **Cloud Tasks**（キュー `job-requests`）経由で **非同期ディスパッチ**。api は **OIDC トークン**で service を認証、
+      **リトライ（最大 5 回・指数バックオフ）** で信頼性を確保。負荷に応じて自動スケール（api 0–5 / service 0–10 インスタンス）。
+    - service は解析向けに CPU/メモリ・タイムアウトを厚く（例：2 vCPU / 2 GiB / 30 分）確保。
+
+  - **Cloud Armor・Google DLP によるセキュリティ**
+    - **Cloud Armor**：外部 HTTPS ロードバランサのエッジで **レート制限**（ログイン 5/min・リフレッシュ 30/min 等、超過は `429`）。
+    - **Google Cloud DLP**：機密データ匿名化を組み込み（有効化可能。上記 3-1 ⑤）。
+    - 併せて **Secret Manager**（平文の環境変数を持たない）、**Workload Identity Federation**（CI は長期鍵レス）、
+      **VPC ＋ Serverless VPC Access**、本番 Cloud SQL は **Private IP**、最小権限 SA の分離で多層防御。
+4. 実運用に向けた取り組み
+    - 
+
+
+（4. 開発の進め方）
   - GitHub Actions で Terraform Deploy
   - PR に対して、静的解析に加え、Gemini によるレビューを行い、質の高い開発ループを心がけた
 
