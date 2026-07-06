@@ -333,11 +333,6 @@
         line-height: 1.4;
         color: #94a3b8;
       }
-      @media (min-width: 1024px) {
-        .brand-sub {
-          white-space: nowrap;
-        }
-      }
       /* 上部タブの CTA。アプリの「デモ環境」バッジと同じアンバー配色（暗色地向け dark バリアント）。 */
       .btn-demo {
         display: inline-flex;
@@ -897,7 +892,7 @@
                 <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><circle cx="12" cy="12" r="3" /><path d="m16 16-1.9-1.9" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c1t">AI エージェントによる高度なリポジトリ解析</h3>
+            <h3 class="text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c1t">AI エージェントによる高度なリポジトリ解析</h3>
           </div>
           <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c1d">
             Google ADK で構築したエージェントが MCP（Serena / CodeGraphContext / Semgrep / GitHub）を駆使してリポジトリを探索。機能ごとの学習プラン・クイズの生成、低品質コードの検知と修正計画の作成までを自動化します。
@@ -910,7 +905,7 @@
                 <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c2t">理解負債の可視化 × クイズと学習で改善</h3>
+            <h3 class="text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c2t">理解負債の可視化 × クイズと学習で改善</h3>
           </div>
           <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c2d">
             ソースコードを機能単位にクラスタリングし、機能ごとに学習プランと理解度確認テストを生成。グラフで理解負債を可視化し、クイズ → 学習の閉ループで能動的に返済します。
@@ -923,7 +918,7 @@
                 <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" x2="6" y1="9" y2="21" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c3t">低品質コードへの推奨提案と自動修正</h3>
+            <h3 class="text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c3t">低品質コードへの推奨提案と自動修正</h3>
           </div>
           <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c3d">
             解析で検出した低品質コードに対し、推奨事項を GitHub Issue として起票。担当者の割り当てや、修正 PR の自動作成まで行えます。
@@ -1321,7 +1316,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-white" data-i18n="mobile.l1">ダッシュボード</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold leading-tight break-words text-white" data-i18n="mobile.l1">ダッシュボード</figcaption>
         </figure>
         <!-- 理解度マップ -->
         <figure class="text-center">
@@ -1335,7 +1330,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-know" data-i18n="mobile.l2">理解度マップ</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold leading-tight break-words text-know" data-i18n="mobile.l2">理解度マップ</figcaption>
         </figure>
         <!-- コード品質マップ -->
         <figure class="text-center">
@@ -1349,7 +1344,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-code" data-i18n="mobile.l3">コード品質マップ</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold leading-tight break-words text-code" data-i18n="mobile.l3">コード品質マップ</figcaption>
         </figure>
         <!-- クイズと学習 -->
         <figure class="text-center">
@@ -1363,7 +1358,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-know" data-i18n="mobile.l4">クイズと学習</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold leading-tight break-words text-know" data-i18n="mobile.l4">クイズと学習</figcaption>
         </figure>
         <!-- コード改善 -->
         <figure class="text-center">
@@ -1377,7 +1372,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-code" data-i18n="mobile.l5">コード改善</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold leading-tight break-words text-code" data-i18n="mobile.l5">コード改善</figcaption>
         </figure>
       </div>
     </section>
