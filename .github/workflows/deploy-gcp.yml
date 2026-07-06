@@ -185,8 +185,13 @@ jobs:
           TF_VAR_container_image_api: ${{ steps.refs.outputs.api_image }}
           TF_VAR_container_image_service: ${{ steps.refs.outputs.service_image }}
         run: |
+          # migrate Job は secret の「コンテナ」にしか依存しない（version="latest" は実行時解決）。
+          # cold-start では secret の「バージョン」が未作成のまま Job を作ろうとして
+          # "secrets/.../versions/latest was not found" で失敗するため、バージョンも同時に target する
+          # （version → container → Cloud SQL の順で作成される。db-url の値は SQL 接続名に依存）。
           terraform apply -auto-approve \
             -var-file="environments/${TFVARS_FILE}" \
+            -target=google_secret_manager_secret_version.secrets \
             -target=google_cloud_run_v2_job.migrate
 
       # (2) Run DB migrations as a one-off, waiting for completion. Fails the deploy
