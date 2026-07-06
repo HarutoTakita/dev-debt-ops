@@ -165,6 +165,9 @@ jobs:
           exit-code: "1"
           vuln-type: os,library
           ignore-unfixed: true
+          # 第三者コンポーネント（upstream Go バイナリ + ツール同梱の推移的 Node/Python 依存）の
+          # 修正不可 HIGH を根拠付きで許容（.trivyignore に CVE-ID と理由を明記）。
+          trivyignores: .trivyignore
 
       # ── Blue/green (staged canary) rollout (issue 072) ──────────────────────
       # Migrations are NO LONGER run on api boot. Instead: (1) update the migrate
