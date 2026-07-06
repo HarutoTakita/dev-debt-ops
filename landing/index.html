@@ -1111,8 +1111,9 @@
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
           <h2 class="mt-2 text-2xl font-bold sm:text-3xl">インフラ構成</h2>
           <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400">
-            Google Cloud 上のコンテナ構成。重い解析は非同期ワーカーへ分離し、負荷に応じて Cloud Run
-            が自動スケール。解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
+            Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。<br
+              class="hidden sm:block"
+            />解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
               class="hidden sm:block"
             />Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC
             化。<br class="hidden sm:block" />開発時には、CI/CD がテスト〜デプロイに加えてリンター/フォーマッターの自動適用と
