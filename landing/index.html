@@ -466,6 +466,12 @@
       body.flow-solo > section:not(#flow) {
         display: none !important;
       }
+      body.flow-solo #flow {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* 一時機能: 「3 つのコア機能」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
       body.core-solo > header,
       body.core-solo > footer,
