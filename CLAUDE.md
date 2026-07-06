@@ -44,6 +44,7 @@
 - **リント:** `cd backend && uv run ruff check shared/shared api/app service/service && uv run ruff format --check shared/shared api/app service/service`
 - **型チェック:** `cd backend && uv run ty check shared/shared api/app service/service`
 - **DB 所有権:** Alembic マイグレーションと DB エンジン/セッション生成は **api が所有**（`api/app/core/db.py` / `api/alembic.ini`）。`service` は薄い `service/service/db.py` で共有 ORM モデルに DML するのみ（マイグレーションは持たない）。
+- **マイグレーションは boot で実行しない・expand-contract 必須（issue 072）:** api コンテナは起動時に `alembic upgrade head` を実行しない。マイグレーションはデプロイ内の独立ステップ（本番 = Cloud Run Job `migrate`、ローカル本番相当 = `compose.prod.yml` の `migrate` サービス、dev = `docker compose watch` 起動時の retry ループ）で**リビジョン配信前に**適用する。ブルーグリーン/カナリアで旧(blue)・新(green)リビジョンが**単一 Cloud SQL を同時利用**するため、スキーマ変更は **N-1 後方互換（expand-contract）**にする: 列追加は nullable/default 付き、削除・改名・NOT NULL 化・型変更は**単一リリースで完結させない**（追加 → 両対応 → blue 退役後の別リリースで縮約）。破壊的変更を1リリースに入れると切替中に必ず片系が壊れる。
 - **APIプレフィックス:** `/api/v1/`
 - **API ドキュメント:** `/api/docs` の Scalar (本番では無効)、`scalar-fastapi` を使用
 - **Annotated DI param 順序は重要:** `Annotated[T, Depends(f)]` deps を編集する際（例：`api/app/api/deps.py`）、パラメーターの順序を変更しない。FastAPIはAnnotated下でも宣言順序で依存性を解決する；順序変更により pytest teardown 中にプールスロットの競合 → DROP TABLE で `DeadlockDetectedError` が発生する。構文移行時は元の順序を保持する。

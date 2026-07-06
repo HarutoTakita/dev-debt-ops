@@ -28,6 +28,16 @@ output "service_url" {
   value       = google_cloud_run_v2_service.service.uri
 }
 
+output "api_service_name" {
+  description = "api Cloud Run service name — deploy workflow drives canary revisions/traffic via gcloud."
+  value       = google_cloud_run_v2_service.api.name
+}
+
+output "migrate_job_name" {
+  description = "Cloud Run Job that runs `alembic upgrade head` — executed by the deploy workflow before cutover."
+  value       = google_cloud_run_v2_job.migrate.name
+}
+
 output "db_connection_name" {
   description = "Cloud SQL connection name (project:region:instance) for the Cloud SQL connector."
   value       = google_sql_database_instance.main.connection_name

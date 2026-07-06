@@ -59,10 +59,16 @@ FROM base AS dev
 # idempotent, so this is a no-op once the schema is current.
 CMD ["sh", "-c", "for i in $(seq 1 30); do alembic upgrade head && break; echo \"alembic upgrade head failed (attempt $i/30); waiting for db...\"; sleep 2; done; exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
-# ── Stage: runtime (prod; default target) — bake SPA, migrate on boot ─────────
+# ── Stage: runtime (prod; default target) — bake SPA; NO migrate on boot ──────
 FROM base AS runtime
 ENV ENVIRONMENT=prod
 COPY --from=frontend /app/build /app/app/static
-# `alembic upgrade head` is idempotent and takes an advisory lock, so concurrent
-# replicas serialize safely.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Migrations are intentionally NOT run on boot here: blue/green (canary) deploys run
+# multiple api revisions against the SAME Cloud SQL instance, so a green revision must
+# never mutate the shared schema at startup. Migrations run as a dedicated step before
+# the revision is served — the `migrate` Cloud Run Job in prod (infra/gcp/cloud-run.tf,
+# executed by the deploy workflow) and the `migrate` compose service locally
+# (compose.prod.yml). The same image ships alembic, so the Job/compose service just
+# overrides the command to `alembic upgrade head`. See docs/issue/072 + CLAUDE.md
+# (expand-contract migration convention).
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

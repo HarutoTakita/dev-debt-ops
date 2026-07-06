@@ -8,6 +8,18 @@ resource "google_logging_metric" "api_5xx" {
   metric_descriptor {
     metric_kind = "DELTA"
     value_type  = "INT64"
+
+    # カナリア中に green/blue のどちらのリビジョンで 5xx が出ているかを切り分けるためのラベル
+    # （切替判断・将来の自動ロールバックの下地。issue 072・Phase 1）。
+    labels {
+      key         = "revision_name"
+      value_type  = "STRING"
+      description = "Cloud Run revision serving the request"
+    }
+  }
+
+  label_extractors = {
+    "revision_name" = "EXTRACT(resource.labels.revision_name)"
   }
 }
 
