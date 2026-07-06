@@ -1,3 +1,5 @@
+import { goto } from "$app/navigation";
+import { resolve } from "$app/paths";
 import { apiFetch, getPublicConfig } from "$lib/api/client";
 import { userSchema, type User } from "$lib/api/schemas";
 
@@ -64,6 +66,18 @@ class AuthStore {
 
   clear() {
     this.user = null;
+  }
+
+  /** ログアウト共通処理: サーバの refresh 失効＋token_epoch 更新＋Cookie 削除 → 状態クリア → ログイン画面へ。
+   *  ユーザーメニュー / セッションタイムアウトの両方から使う。API 失敗でもローカルはクリアして遷移する。 */
+  async logout() {
+    try {
+      await apiFetch("/api/v1/auth/access/logout", { method: "POST" });
+    } catch {
+      /* best-effort: サーバ失効に失敗してもローカルは必ずクリアしてログイン画面へ戻す */
+    }
+    this.clear();
+    await goto(resolve("/login"));
   }
 }
 
