@@ -496,6 +496,18 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「セキュリティ」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.security-solo > header,
+      body.security-solo > footer,
+      body.security-solo > section:not(#security) {
+        display: none !important;
+      }
+      body.security-solo #security {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -1427,13 +1439,14 @@
            ・CHALLENGE/FOR  → 課題＋想定ユーザー
            ・CORE 領域      → 3 つのコア機能
            ・インフラ構成図 → インフラ構成セクション
+           ・SECURITY 領域  → セキュリティセクション
            ・「アプリにできること」の画像 → その機能ブロック
-         いずれかを単独表示中に ↑ / ↓ で 5 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ）を
+         いずれかを単独表示中に ↑ / ↓ で 6 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ）を
          スクロール風に切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo"];
+        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ）
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo", "security-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
@@ -1441,6 +1454,7 @@
           "duo-mode": ["#challenge", "#audience"],
           "core-solo": ["#core"],
           "infra-solo": ["#infra"],
+          "security-solo": ["#security"],
         };
         const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
 
@@ -1545,6 +1559,13 @@
         if (infra)
           infra.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("infra-solo");
+          });
+
+        // セキュリティ領域クリックでセキュリティセクションのみ表示
+        const security = document.querySelector("#security");
+        if (security)
+          security.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("security-solo");
           });
 
         // 「アプリにできること」の機能ブロック個別ソロ（↑/↓ ナビ対象外の別系統）
