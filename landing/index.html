@@ -454,30 +454,17 @@
       body.hero-solo > section:not(#top) {
         display: none !important;
       }
-      body.hero-solo #top .flow-eyebrow,
-      body.hero-solo #top .flow-diagram {
+      body.hero-solo #top .flow-eyebrow {
         display: none !important;
       }
-      /* 一時機能: 処理フロー図のみ表示（動画用）。フロー図領域のクリックでトグル、Esc で解除。 */
+      /* 一時機能: 処理フロー図のみ表示（動画用）。#flow セクションのみ残す。クリックでトグル、Esc で解除。 */
       .flow-diagram {
         cursor: pointer;
       }
       body.flow-solo > header,
       body.flow-solo > footer,
-      body.flow-solo > section:not(#top) {
+      body.flow-solo > section:not(#flow) {
         display: none !important;
-      }
-      body.flow-solo #top .hero-grid,
-      body.flow-solo #top .flow-eyebrow {
-        display: none !important;
-      }
-      /* フロー図タイトルは拡大表示（flow-solo）時のみ表示。 */
-      .flow-solo-title {
-        display: none;
-        margin-bottom: 1.75rem;
-      }
-      body.flow-solo .flow-solo-title {
-        display: block;
       }
       /* 一時機能: 「3 つのコア機能」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
       body.core-solo > header,
@@ -636,17 +623,97 @@
           />
         </div>
       </div>
+    </section>
 
-      <!-- 拡大表示（flow-solo）時のみ表示するフロー図タイトル。通常は非表示。 -->
-      <div class="flow-solo-title text-center">
+    <!-- 課題 -->
+    <section id="challenge" class="mx-auto max-w-6xl px-6 pb-8 pt-20">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="text-sm font-medium text-know">CHALLENGE</p>
+        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">AI 時代に急速に積み上がる「理解負債」</h2>
+        <p class="mt-4 leading-relaxed text-slate-400">
+          Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、その速さの中で<strong
+            class="text-white"
+            >コードを「理解する」ことが後回しにされ</strong
+          >、AI が生成したコードが何をしているか・なぜそう書かれているかを説明できない「理解負債」が急速に蓄積しています。
+        </p>
+      </div>
+      <div class="mt-12 grid gap-5 md:grid-cols-3">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <div class="flex items-center gap-3">
+            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
+              </svg>
+            </span>
+            <h3 class="font-semibold text-white">「動けばよい」で理解が置き去り</h3>
+          </div>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            納期とデプロイ速度が優先され、コードを理解するステップが省かれる。書いた人以外は中身が分からないまま進む。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <div class="flex items-center gap-3">
+            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+              </svg>
+            </span>
+            <h3 class="font-semibold text-white">AI 任せで思考がスキップされる</h3>
+          </div>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            もっともらしい生成コードをそのまま信頼し、「なぜそう書くのか」を問わないまま本番へ。理解されないコードが増え続ける。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <div class="flex items-center gap-3">
+            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
+              </svg>
+            </span>
+            <h3 class="font-semibold text-white">「理解しているか」は測られない</h3>
+          </div>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            レビューやテストは品質を測っても、人の理解度は測らない。どこから手を付けるべきか、緊急度も分からない。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 想定ユーザー -->
+    <section id="audience" class="mx-auto max-w-6xl px-6 pb-16 pt-8">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">FOR</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">こんな方に</h2>
+      </div>
+      <div class="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <h3 class="font-semibold text-white">テックリード / マネージャー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            チームメンバーの理解度が低い箇所を把握し、レビューや学習の優先順位を決めたい。
+          </p>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
+          <h3 class="font-semibold text-white">オンボーディング担当 / 新規参画メンバー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+            どこから理解すべきかを、学習ユニットとクイズで体系的に追いたい。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS: 解析→実測/検知→学習/改善の両輪フロー。#top から対象セクション直後へ移設。
+         見出し（旧 flow-solo-title）は単独セクション化に伴い通常表示にした。 -->
+    <section id="flow" class="mx-auto max-w-6xl px-6 py-20">
+      <div class="flow-title mb-8 text-center">
         <p class="text-sm font-medium text-know">HOW IT WORKS</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">開発・運用のサイクルに、技術負債・理解負債の解消を取り込む</h2>
-        <p class="mt-2 whitespace-nowrap text-sm text-slate-400">
+        <p class="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-slate-400">
           解析から、理解の実測・品質の検知、学習・改善までを一気通貫。「実測 → 学習」と「検知 → 改善」の両輪で返済します。
         </p>
       </div>
 
-      <!-- 下部: AI エージェントの処理フロー（分岐図）。01 で解析→ 理解負債(2-1→3-1)と技術負債(2-2→3-2)へ
+      <!-- AI エージェントの処理フロー（分岐図）。01 で解析→ 理解負債(2-1→3-1)と技術負債(2-2→3-2)へ
            分岐し、04 でコードベースの理解度・品質向上へ合流する様子を示す。 -->
       <div class="flow-diagram">
         <!-- 起点: リポジトリ解析 -->
@@ -754,118 +821,6 @@
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- 課題 -->
-    <section id="challenge" class="mx-auto max-w-6xl px-6 pb-8 pt-20">
-      <div class="mx-auto max-w-3xl text-center">
-        <p class="text-sm font-medium text-know">CHALLENGE</p>
-        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">AI 時代に急速に積み上がる「理解負債」</h2>
-        <p class="mt-4 leading-relaxed text-slate-400">
-          Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、その速さの中で<strong
-            class="text-white"
-            >コードを「理解する」ことが後回しにされ</strong
-          >、AI が生成したコードが何をしているか・なぜそう書かれているかを説明できない「理解負債」が急速に蓄積しています。
-        </p>
-      </div>
-      <div class="mt-12 grid gap-5 md:grid-cols-3">
-        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <div class="flex items-center gap-3">
-            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
-              </svg>
-            </span>
-            <h3 class="font-semibold text-white">「動けばよい」で理解が置き去り</h3>
-          </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            納期とデプロイ速度が優先され、コードを理解するステップが省かれる。書いた人以外は中身が分からないまま進む。
-          </p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <div class="flex items-center gap-3">
-            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
-              </svg>
-            </span>
-            <h3 class="font-semibold text-white">AI 任せで思考がスキップされる</h3>
-          </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            もっともらしい生成コードをそのまま信頼し、「なぜそう書くのか」を問わないまま本番へ。理解されないコードが増え続ける。
-          </p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <div class="flex items-center gap-3">
-            <span class="inline-grid size-8 shrink-0 place-items-center rounded-lg bg-code/15 text-code">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
-              </svg>
-            </span>
-            <h3 class="font-semibold text-white">「理解しているか」は測られない</h3>
-          </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            レビューやテストは品質を測っても、人の理解度は測らない。どこから手を付けるべきか、緊急度も分からない。
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 想定ユーザー -->
-    <section id="audience" class="mx-auto max-w-6xl px-6 pb-16 pt-8">
-      <div class="text-center">
-        <p class="text-sm font-medium text-know">FOR</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">こんな方に</h2>
-      </div>
-      <div class="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
-        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <h3 class="font-semibold text-white">テックリード / マネージャー</h3>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            チームメンバーの理解度が低い箇所を把握し、レビューや学習の優先順位を決めたい。
-          </p>
-        </div>
-        <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <h3 class="font-semibold text-white">オンボーディング担当 / 新規参画メンバー</h3>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
-            どこから理解すべきかを、学習ユニットとクイズで体系的に追いたい。
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 2×2 解決 -->
-    <!-- 閉ループ -->
-    <section class="mx-auto max-w-6xl px-6 py-20">
-      <div class="mx-auto max-w-2xl text-center">
-        <h2 class="text-2xl font-bold tracking-tight sm:text-3xl">実測 → 改善の閉ループ</h2>
-        <p class="mt-4 leading-relaxed text-slate-400">
-          検知は出発点ではなく「どの理解ギャップが緊急か」を示すホットスポット信号。主役は<strong class="text-white"
-            >理解度の実測と向上</strong
-          >です。
-        </p>
-      </div>
-      <ol class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <li class="rounded-2xl border border-white/10 bg-[#131a22] p-5">
-          <span class="text-xs font-bold text-slate-500">01</span>
-          <h3 class="mt-1 font-semibold text-white">解析する</h3>
-          <p class="mt-1 text-sm leading-relaxed text-slate-400">検知・理解度・機能クラスタリングをまとめて実行。</p>
-        </li>
-        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
-          <span class="text-xs font-bold text-know">02</span>
-          <h3 class="mt-1 font-semibold text-white">クイズで実測</h3>
-          <p class="mt-1 text-sm leading-relaxed text-slate-400">git blame に頼らず、理解度を能動的に計測する。</p>
-        </li>
-        <li class="rounded-2xl border border-know/20 bg-[#131a22] p-5">
-          <span class="text-xs font-bold text-know">03</span>
-          <h3 class="mt-1 font-semibold text-white">学習で深める</h3>
-          <p class="mt-1 text-sm leading-relaxed text-slate-400">チーム資産を優先した学習プランで理解度を引き上げる。</p>
-        </li>
-        <li class="rounded-2xl border border-code/20 bg-[#131a22] p-5">
-          <span class="text-xs font-bold text-code">04</span>
-          <h3 class="mt-1 font-semibold text-white">修正 PR</h3>
-          <p class="mt-1 text-sm leading-relaxed text-slate-400">AI が改善案を生成し、GitHub に修正 PR を作成する。</p>
-        </li>
-      </ol>
     </section>
 
     <!-- 3つのコア機能 -->
@@ -1452,7 +1407,7 @@
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
-          "flow-solo": ["#top .flow-solo-title", "#top .flow-diagram"],
+          "flow-solo": ["#flow .flow-title", "#flow .flow-diagram"],
           "duo-mode": ["#challenge", "#audience"],
           "core-solo": ["#core"],
         };
@@ -1534,7 +1489,7 @@
         const heroIcon = document.querySelector(".hero-brand-icon");
         if (heroIcon) heroIcon.addEventListener("click", () => activate("hero-solo"));
 
-        const flow = document.querySelector("#top .flow-diagram");
+        const flow = document.querySelector("#flow .flow-diagram");
         if (flow)
           flow.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("flow-solo");
