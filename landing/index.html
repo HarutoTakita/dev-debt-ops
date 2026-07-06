@@ -526,6 +526,7 @@
           <span>DevDebtOps</span>
         </a>
         <div class="hidden gap-7 text-sm text-slate-300 md:flex">
+          <a href="#flow" class="transition hover:text-white">仕組み</a>
           <a href="#features" class="transition hover:text-white">機能</a>
           <a href="#infra" class="transition hover:text-white">インフラ</a>
           <a href="#security" class="transition hover:text-white">セキュリティ</a>
@@ -1268,11 +1269,16 @@
     <!-- CTA -->
     <section id="cta" class="mx-auto max-w-6xl px-6 py-20 text-center">
       <h2 class="text-3xl font-bold">チームの理解度を、今日から見える化</h2>
-      <p class="mx-auto mt-4 max-w-xl text-slate-400">GitHub リポジトリを接続して解析するだけ。理解度とコード品質の両輪を回し始めましょう。</p>
+      <p class="mx-auto mt-4 max-w-2xl text-slate-400">
+        GitHub リポジトリを接続して解析するだけ。理解負債と技術負債のどちらにもアプローチでき、日々の開発・運用（DevOps）のサイクルにそのまま組み込めます。
+      </p>
+      <!-- アプリ右上「解析」ボタンと同じティール（--color-debt-knowledge = oklch(0.72 0.11 195)）に統一。
+           bg-know(#22b8c4) は彩度が高く蛍光的なため、落ち着いた同系色へ。 -->
       <a
         id="foot-cta"
         href="/login"
-        class="mt-8 inline-block rounded-md bg-know px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
+        style="background-color: oklch(0.72 0.11 195)"
+        class="mt-8 inline-block rounded-md px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
         >リポジトリを接続して始める</a
       >
     </section>
@@ -1281,6 +1287,7 @@
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-8 text-sm text-slate-500">
         <span>© <span id="year"></span> DevDebtOps</span>
         <nav class="flex gap-4">
+          <a href="#flow" class="hover:text-slate-300">仕組み</a>
           <a href="#features" class="hover:text-slate-300">機能</a>
           <a href="#infra" class="hover:text-slate-300">インフラ</a>
           <a href="#security" class="hover:text-slate-300">セキュリティ</a>
