@@ -478,6 +478,18 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「インフラ構成」セクションのみ表示（動画用）。構成図クリックでトグル、Esc で解除。 */
+      body.infra-solo > header,
+      body.infra-solo > footer,
+      body.infra-solo > section:not(#infra) {
+        display: none !important;
+      }
+      body.infra-solo #infra {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -1094,23 +1106,23 @@
 
     <!-- インフラ構成 -->
     <section id="infra" class="border-t border-white/10 bg-[#0b1016]">
-      <div class="mx-auto max-w-6xl px-6 py-16">
+      <div class="mx-auto max-w-6xl px-6 py-12">
         <div class="text-center">
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
           <h2 class="mt-2 text-2xl font-bold sm:text-3xl">インフラ構成</h2>
-          <p class="mx-auto mt-3 max-w-4xl text-slate-400">
+          <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400">
             Google Cloud 上のコンテナ構成。重い解析は非同期ワーカーへ分離し、負荷に応じて Cloud Run
-            が自動スケールします。解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
+            が自動スケール。解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
               class="hidden sm:block"
-            />Cloud Armor によるレート制限・Secret Manager および Workload Identity でセキュリティを担保し、インフラは Terraform で IaC
-            化しています。<br class="hidden sm:block" />開発時には、CI/CD がテスト〜デプロイに加えてリンター／フォーマッターの自動適用と
+            />Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC
+            化。<br class="hidden sm:block" />開発時には、CI/CD がテスト〜デプロイに加えてリンター/フォーマッターの自動適用と
             Gemini による自動コードレビューまで回して、コード品質を高く保ちます。
           </p>
         </div>
 
         <!-- インフラ構成図（白基調の図版。暗色 LP でも「意図した図版」として馴染むよう、
              角丸・余白・リング・ドロップシャドウで額装し、キャプションを添える）。 -->
-        <figure class="mx-auto mt-10 max-w-5xl">
+        <figure class="mx-auto mt-8 max-w-4xl">
           <div class="rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-white/10 sm:p-5">
             <img
               src="assets/infra-architecture.png"
@@ -1123,7 +1135,7 @@
           </div>
         </figure>
 
-        <div class="tag-row mt-10 justify-center">
+        <div class="tag-row mt-8 justify-center">
           <!-- 水色(know): クラウド基盤・実行・データ + AI エージェント -->
           <span class="tag know">Cloud Run</span>
           <span class="tag know">Cloud SQL</span>
@@ -1406,19 +1418,21 @@
            ・フロー図       → 処理フロー図
            ・CHALLENGE/FOR  → 課題＋想定ユーザー
            ・CORE 領域      → 3 つのコア機能
+           ・インフラ構成図 → インフラ構成セクション
            ・「アプリにできること」の画像 → その機能ブロック
-         いずれかを単独表示中に ↑ / ↓ で 4 ブロック（hero → 課題+FOR → フロー図 → コア機能）を
+         いずれかを単独表示中に ↑ / ↓ で 5 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ）を
          スクロール風に切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        // ↑/↓ ナビの送り順（例外的に LP の並びとは別で、hero → 課題+FOR → フロー図 → コア機能）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo"];
+        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ）
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
           "flow-solo": ["#flow .flow-title", "#flow .flow-diagram"],
           "duo-mode": ["#challenge", "#audience"],
           "core-solo": ["#core"],
+          "infra-solo": ["#infra"],
         };
         const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
 
@@ -1516,6 +1530,13 @@
         if (core)
           core.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("core-solo");
+          });
+
+        // インフラ構成図（figure）クリックでインフラセクションのみ表示
+        const infra = document.querySelector("#infra figure");
+        if (infra)
+          infra.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("infra-solo");
           });
 
         // 「アプリにできること」の機能ブロック個別ソロ（↑/↓ ナビ対象外の別系統）
