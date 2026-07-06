@@ -541,10 +541,22 @@
           opacity: 1;
         }
       }
-      /* プライバシーポリシー モーダルの背景（暗幕）。 */
+      /* プライバシーポリシー モーダル。Tailwind preflight が dialog の margin を打ち消し
+         左上に寄るため、margin:auto を明示して画面中央に配置する。 */
+      #privacy-modal {
+        margin: auto;
+      }
       #privacy-modal::backdrop {
         background: rgba(0, 0, 0, 0.7);
         backdrop-filter: blur(2px);
+      }
+      /* スクロール可能な本文のスクロールバーを非表示（スクロール自体は可能）。 */
+      #privacy-modal > div {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* 旧 Edge/IE */
+      }
+      #privacy-modal > div::-webkit-scrollbar {
+        display: none; /* WebKit（Chrome/Safari） */
       }
     </style>
   </head>
