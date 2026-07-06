@@ -159,6 +159,66 @@ resource "google_cloud_run_v2_service" "api" {
     }
   }
 
+  # 画像とトラフィックはデプロイ時に gcloud で段階カナリア切替する（Phase 1）。TF が最新リビジョンへ
+  # 100% 差し替えたりトラフィックを上書きしないよう無視する。env/scaling/probe/secret 等の config は
+  # TF が真実。詳細は docs/issue/072。
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image, traffic]
+  }
+
+  depends_on = [google_secret_manager_secret_iam_member.accessors]
+}
+
+# DB マイグレーション専用の Cloud Run Job（issue 072・Phase 0）。api イメージには alembic が同梱される
+# ため、同じイメージで command を `alembic upgrade head` に差し替えて実行する。api コンテナは起動時に
+# マイグレーションしない（blue/green が単一 Cloud SQL を共有するため）。デプロイワークフローが
+# 新イメージで本 Job を更新 → `gcloud run jobs execute --wait` で expand マイグレーションを先行適用する。
+resource "google_cloud_run_v2_job" "migrate" {
+  name     = "${local.name_prefix}-migrate"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.api.email
+      # マイグレーションは長引きうるので短すぎない上限に。
+      timeout     = "900s"
+      max_retries = 1
+
+      vpc_access {
+        connector = google_vpc_access_connector.main.id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
+
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.main.connection_name]
+        }
+      }
+
+      containers {
+        image   = var.container_image_api
+        command = ["alembic", "upgrade", "head"]
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+
+        # alembic は DATABASE_URL のみ必要（env.py が settings.DATABASE_URL を読む）。
+        env {
+          name = "DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets["database-url"].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+    }
+  }
+
   depends_on = [google_secret_manager_secret_iam_member.accessors]
 }
 

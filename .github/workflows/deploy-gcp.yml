@@ -166,33 +166,91 @@ jobs:
           vuln-type: os,library
           ignore-unfixed: true
 
-      # Full apply deploys both Cloud Run services on the freshly pushed images;
-      # the api revision migrates the DB on boot.
-      - name: Terraform Apply
+      # ── Blue/green (staged canary) rollout (issue 072) ──────────────────────
+      # Migrations are NO LONGER run on api boot. Instead: (1) update the migrate
+      # Cloud Run Job to the new image via a targeted apply, (2) execute it to apply
+      # the (expand-only, backward-compatible) migration BEFORE any new revision
+      # serves, (3) deploy the new api revision (green) at 0% and shift traffic
+      # 0→10→100 with a health gate + instant rollback, (4) full apply to reconcile
+      # the worker + LB + monitoring (the api service ignores image/traffic changes,
+      # so Terraform never fights the gcloud-managed revision/traffic).
+
+      # (1) Ensure the migrate Job exists on the freshly pushed api image.
+      - name: Update migrate Job
+        working-directory: infra/gcp
+        env:
+          TF_VAR_container_image_api: ${{ steps.refs.outputs.api_image }}
+          TF_VAR_container_image_service: ${{ steps.refs.outputs.service_image }}
+        run: |
+          terraform apply -auto-approve \
+            -var-file="environments/${TFVARS_FILE}" \
+            -target=google_cloud_run_v2_job.migrate
+
+      # (2) Run DB migrations as a one-off, waiting for completion. Fails the deploy
+      # if the migration errors (nothing has been cut over yet, so blue is untouched).
+      - name: Run DB migrations (Cloud Run Job)
+        working-directory: infra/gcp
+        env:
+          REGION: ${{ vars.GCP_REGION }}
+        run: |
+          REGION="${REGION:-asia-northeast1}"
+          JOB="$(terraform output -raw migrate_job_name)"
+          gcloud run jobs execute "$JOB" --region "$REGION" --wait
+
+      # (3) Canary: deploy green at 0%, then shift 10% → (health) → 100% via the LB.
+      # Rolls back to the previously-serving revision on any health failure.
+      - name: Deploy api (staged canary)
+        working-directory: infra/gcp
+        env:
+          REGION: ${{ vars.GCP_REGION }}
+          API_IMAGE: ${{ steps.refs.outputs.api_image }}
+          APP_URL_OVERRIDE: ${{ vars.APP_URL }}
+        run: |
+          set -euo pipefail
+          REGION="${REGION:-asia-northeast1}"
+          API="$(terraform output -raw api_service_name)"
+
+          # Health-check URL: LB HTTPS endpoint (vars.APP_URL or api_url when it's https).
+          URL="$APP_URL_OVERRIDE"
+          [ -n "$URL" ] || URL="$(terraform output -raw api_url)"
+          check() {
+            case "$URL" in
+              https://*) curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors "${URL}/api/v1/health" > /dev/null ;;
+              *) echo "::warning::No HTTPS endpoint (api_url=$URL); skipping health gate." ;;
+            esac
+          }
+
+          # Remember the currently-serving revision for rollback.
+          OLD_REVISION="$(gcloud run revisions list --service "$API" --region "$REGION" \
+            --sort-by='~metadata.creationTimestamp' --limit=1 --format='value(metadata.name)' || true)"
+          echo "current revision: ${OLD_REVISION:-<none>}"
+
+          rollback() {
+            echo "::error::canary health check failed — rolling back"
+            if [ -n "$OLD_REVISION" ]; then
+              gcloud run services update-traffic "$API" --region "$REGION" --to-revisions "${OLD_REVISION}=100"
+            fi
+            exit 1
+          }
+
+          # Deploy green at 0% traffic (tagged). Inherits all other config from the
+          # service (Terraform-owned); only the image changes.
+          gcloud run deploy "$API" --region "$REGION" --image "$API_IMAGE" --no-traffic --tag green --quiet
+
+          # 10% → health → 100%. Old revision retained for instant rollback.
+          gcloud run services update-traffic "$API" --region "$REGION" --to-tags green=10 --quiet
+          check || rollback
+          sleep 20
+          check || rollback
+          gcloud run services update-traffic "$API" --region "$REGION" --to-tags green=100 --quiet
+          check || rollback
+
+      # (4) Reconcile the rest (worker image, LB, monitoring, ...). api image/traffic
+      # are ignore_changes so this does not disturb the canary cutover above.
+      - name: Terraform Apply (reconcile)
         working-directory: infra/gcp
         env:
           TF_VAR_container_image_api: ${{ steps.refs.outputs.api_image }}
           TF_VAR_container_image_service: ${{ steps.refs.outputs.service_image }}
         run: |
           terraform apply -auto-approve -var-file="environments/${TFVARS_FILE}"
-
-      # api_url is the LB HTTPS endpoint when var.domain is set, otherwise a bare
-      # LB IP with no listener — so the hard health check runs only when a usable
-      # HTTPS URL exists (vars.APP_URL override or an https domain). Otherwise we
-      # surface the endpoint as a warning instead of failing the deploy on an
-      # optional DNS/cert setup.
-      - name: Health check
-        working-directory: infra/gcp
-        env:
-          APP_URL_OVERRIDE: ${{ vars.APP_URL }}
-        run: |
-          URL="$APP_URL_OVERRIDE"
-          [ -n "$URL" ] || URL="$(terraform output -raw api_url)"
-          case "$URL" in
-            https://*)
-              curl --fail --retry 10 --retry-delay 10 --retry-all-errors "${URL}/api/v1/health"
-              ;;
-            *)
-              echo "::warning::No HTTPS endpoint resolved (api_url=$URL). Set var.domain or vars.APP_URL to enable the health check."
-              ;;
-          esac
