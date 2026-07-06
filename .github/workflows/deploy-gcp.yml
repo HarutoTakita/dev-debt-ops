@@ -208,7 +208,17 @@ jobs:
         run: |
           set -euo pipefail
           REGION="${REGION:-asia-northeast1}"
-          API="$(terraform output -raw api_service_name)"
+          # Cold start: the api service is not in Terraform state / Cloud Run yet
+          # (only the migrate Job + its deps were applied above). The canary shifts
+          # traffic on an ALREADY-serving service, so on a fresh environment skip it
+          # and let the reconcile apply below create the api at 100% with the pushed
+          # image (`ignore_changes=[image,traffic]` still honours the initial value on
+          # create). Canary applies only when updating an existing service.
+          API="$(terraform output -raw api_service_name 2>/dev/null || true)"
+          if [ -z "$API" ] || ! gcloud run services describe "$API" --region "$REGION" >/dev/null 2>&1; then
+            echo "::notice::api service not found (cold start) — skipping canary; the reconcile apply will create it."
+            exit 0
+          fi
 
           # Health-check URL: LB HTTPS endpoint (vars.APP_URL or api_url when it's https).
           URL="$APP_URL_OVERRIDE"
