@@ -177,6 +177,10 @@ resource "google_cloud_run_v2_job" "migrate" {
   name     = "${local.name_prefix}-migrate"
   location = var.region
 
+  # 移行 Job は ephemeral（デプロイ毎に新イメージへ更新・再適用する）。deletion_protection が既定 true だと
+  # リビジョン置換時に「cannot destroy job without deletion_protection=false」で apply が止まるため無効化する。
+  deletion_protection = false
+
   template {
     template {
       service_account = google_service_account.api.email
