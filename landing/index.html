@@ -508,6 +508,18 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「モバイル対応」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.mobile-solo > header,
+      body.mobile-solo > footer,
+      body.mobile-solo > section:not(#mobile) {
+        display: none !important;
+      }
+      body.mobile-solo #mobile {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -1275,7 +1287,8 @@
         <p class="text-sm font-medium text-know">MOBILE</p>
         <h2 class="mt-2 text-2xl font-bold sm:text-3xl">スマホでも、いつでも理解度をチェック</h2>
         <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
-          レスポンシブ対応で、スマートフォンからも主要機能をそのまま利用可能。ダッシュボードから理解度マップ・コード品質マップ・クイズと学習・コード改善まで、移動中やレビューの合間でも操作できます。
+          レスポンシブ対応で、スマートフォンからも主要機能をそのまま利用可能。<br class="hidden sm:block" />
+          移動中やレビューの合間でも、理解度マップの確認・コード品質の把握・クイズの受験ができます。
         </p>
       </div>
       <div class="mx-auto mt-10 grid max-w-5xl grid-cols-5 gap-3">
@@ -1292,7 +1305,6 @@
             />
           </div>
           <figcaption class="mt-3 text-sm font-semibold text-white">ダッシュボード</figcaption>
-          <p class="mt-1 text-xs leading-relaxed text-slate-400">理解度と品質の全体像。</p>
         </figure>
         <!-- 理解度マップ -->
         <figure class="text-center">
@@ -1307,7 +1319,6 @@
             />
           </div>
           <figcaption class="mt-3 text-sm font-semibold text-know">理解度マップ</figcaption>
-          <p class="mt-1 text-xs leading-relaxed text-slate-400">誰がどこを理解しているか。</p>
         </figure>
         <!-- コード品質マップ -->
         <figure class="text-center">
@@ -1322,7 +1333,6 @@
             />
           </div>
           <figcaption class="mt-3 text-sm font-semibold text-code">コード品質マップ</figcaption>
-          <p class="mt-1 text-xs leading-relaxed text-slate-400">ファイル単位で品質を確認。</p>
         </figure>
         <!-- クイズと学習 -->
         <figure class="text-center">
@@ -1337,7 +1347,6 @@
             />
           </div>
           <figcaption class="mt-3 text-sm font-semibold text-know">クイズと学習</figcaption>
-          <p class="mt-1 text-xs leading-relaxed text-slate-400">実測して理解を深める。</p>
         </figure>
         <!-- コード改善 -->
         <figure class="text-center">
@@ -1352,7 +1361,6 @@
             />
           </div>
           <figcaption class="mt-3 text-sm font-semibold text-code">コード改善</figcaption>
-          <p class="mt-1 text-xs leading-relaxed text-slate-400">AI が修正 PR / Issue 化。</p>
         </figure>
       </div>
     </section>
@@ -1531,13 +1539,14 @@
            ・CORE 領域      → 3 つのコア機能
            ・インフラ構成図 → インフラ構成セクション
            ・SECURITY 領域  → セキュリティセクション
+           ・モバイル対応領域 → モバイル対応セクション
            ・「アプリにできること」の画像 → その機能ブロック
-         いずれかを単独表示中に ↑ / ↓ で 6 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ）を
+         いずれかを単独表示中に ↑ / ↓ で 7 ブロック（hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）を
          スクロール風に切り替え。同じ場所の再クリック、または Esc で解除。 -->
     <script>
       (function () {
-        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo", "security-solo"];
+        // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo", "security-solo", "mobile-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
@@ -1546,6 +1555,7 @@
           "core-solo": ["#core"],
           "infra-solo": ["#infra"],
           "security-solo": ["#security"],
+          "mobile-solo": ["#mobile"],
         };
         const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
 
@@ -1661,6 +1671,13 @@
         if (security)
           security.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("security-solo");
+          });
+
+        // モバイル対応領域クリックでモバイルセクションのみ表示
+        const mobile = document.querySelector("#mobile");
+        if (mobile)
+          mobile.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("mobile-solo");
           });
 
         // 「アプリにできること」の機能ブロック個別ソロ（↑/↓ ナビ対象外の別系統）
