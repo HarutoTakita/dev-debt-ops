@@ -1476,24 +1476,28 @@
           const sign = dir === "fwd" ? -1 : 1; // fwd(↓): 旧は上へ抜け、新は下から入る
           const dur = 620;
           const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
-          // 旧ブロックを固定配置のクローンにして流し去る（実要素はこのあと非表示になる）
+          // 旧ブロックを固定レイヤ上のクローンにして枠外へ流し去る。レイヤは body 直下の <section> では
+          // ないため、新モードの `body.*-solo > section:not(#X){display:none}` に巻き込まれない
+          // （＝旧要素が即座に消えず、上方向へスクロールアウトして見える）。id も除去して重複を防ぐ。
+          const layer = document.createElement("div");
+          layer.className = "lp-clone";
+          Object.assign(layer.style, { position: "fixed", inset: "0", zIndex: "40", pointerEvents: "none" });
           const clones = oldEls.map((el) => {
             const r = el.getBoundingClientRect();
             const c = el.cloneNode(true);
-            c.classList.add("lp-clone");
+            c.removeAttribute("id");
             Object.assign(c.style, {
               position: "fixed",
               left: r.left + "px",
               top: r.top + "px",
               width: r.width + "px",
               margin: "0",
-              zIndex: "40",
-              pointerEvents: "none",
             });
-            document.body.appendChild(c);
+            layer.appendChild(c);
             return c;
           });
-          clearModes(); // 旧モードは解除するが、流し去るクローンは残す
+          document.body.appendChild(layer);
+          clearModes(); // 旧モードは解除するが、流し去るクローンレイヤは残す
           document.body.classList.add(newCls);
           window.scrollTo({ top: 0 });
           clones.forEach((c) =>
