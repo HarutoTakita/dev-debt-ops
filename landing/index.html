@@ -538,19 +538,23 @@
       }
       /* プライバシーポリシー モーダル。Tailwind preflight が dialog の margin を打ち消し
          左上に寄るため、margin:auto を明示して画面中央に配置する。 */
-      #privacy-modal {
+      #privacy-modal,
+      #terms-modal {
         margin: auto;
       }
-      #privacy-modal::backdrop {
+      #privacy-modal::backdrop,
+      #terms-modal::backdrop {
         background: rgba(0, 0, 0, 0.7);
         backdrop-filter: blur(2px);
       }
       /* スクロール可能な本文のスクロールバーを非表示（スクロール自体は可能）。 */
-      #privacy-modal > div {
+      #privacy-modal > div,
+      #terms-modal > div {
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* 旧 Edge/IE */
       }
-      #privacy-modal > div::-webkit-scrollbar {
+      #privacy-modal > div::-webkit-scrollbar,
+      #terms-modal > div::-webkit-scrollbar {
         display: none; /* WebKit（Chrome/Safari） */
       }
     </style>
@@ -1439,6 +1443,14 @@
            data-i18n="footer.privacy">
             プライバシーポリシー
           </button>
+          <button
+            type="button"
+            id="terms-link"
+            class="text-slate-300 underline-offset-2 transition hover:text-white hover:underline"
+            data-i18n="footer.terms"
+          >
+            利用規約
+          </button>
         </div>
         <div class="flex items-center gap-4">
           <!-- TODO: YouTube 公開後に href を実 URL へ差し替え -->
@@ -1454,19 +1466,34 @@
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></svg>
           </a>
-          <!-- 言語切り替え（アプリと同じ 6 言語）。選択は PARAGLIDE_LOCALE cookie に保存しアプリへ引き継ぐ。 -->
-          <select
-            id="lang-select"
-            aria-label="言語 / Language"
-            class="ml-1 cursor-pointer rounded-md border border-white/10 bg-[#131a22] px-2 py-1 text-sm text-slate-300 transition hover:text-white focus:outline-none"
-          >
-            <option value="ja">日本語</option>
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-            <option value="ko">한국어</option>
-            <option value="es">Español</option>
-            <option value="de">Deutsch</option>
-          </select>
+          <!-- 言語切り替え（アプリと同じ 6 言語・shadcn DropdownMenu 風のカスタムメニュー）。
+               選択は PARAGLIDE_LOCALE cookie に保存しアプリへ引き継ぐ。挙動は i18n.js。 -->
+          <div class="relative" id="lang-dd">
+            <button
+              type="button"
+              id="lang-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-label="言語 / Language"
+              class="ml-1 flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-[#131a22] px-2.5 py-1.5 text-sm text-slate-300 transition hover:text-white focus:outline-none"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></svg>
+              <span id="lang-current">日本語</span>
+              <svg class="opacity-60" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            <div
+              id="lang-menu"
+              role="listbox"
+              class="absolute right-0 bottom-full z-50 mb-2 hidden w-40 rounded-md border border-white/10 bg-[#0e141b] p-1 text-slate-200 shadow-xl"
+            >
+              <button type="button" role="option" data-locale="ja" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>日本語</span></button>
+              <button type="button" role="option" data-locale="en" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>English</span></button>
+              <button type="button" role="option" data-locale="zh" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>中文</span></button>
+              <button type="button" role="option" data-locale="ko" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>한국어</span></button>
+              <button type="button" role="option" data-locale="es" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>Español</span></button>
+              <button type="button" role="option" data-locale="de" class="lang-opt flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition hover:bg-white/10 hover:text-white"><svg class="lang-check size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg><span>Deutsch</span></button>
+            </div>
+          </div>
         </div>
       </div>
     </footer>
@@ -1567,6 +1594,92 @@
             <p class="mt-2" data-i18n="privacy.13p">本ポリシーに関するお問い合わせは、本サービスの運営者までご連絡ください。</p>
           </section>
           <p class="text-xs text-slate-500" data-i18n="privacy.updated">最終更新日：2026 年 7 月 6 日</p>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 利用規約 モーダル（プライバシーポリシーと同じ挙動）。 -->
+    <dialog
+      id="terms-modal"
+      class="w-[calc(100%-2rem)] max-w-2xl rounded-2xl border border-white/10 bg-[#0e141b] p-0 text-slate-200 shadow-2xl"
+    >
+      <div class="max-h-[80vh] overflow-y-auto p-6 sm:p-8">
+        <div class="mb-5 flex items-start justify-between gap-4">
+          <h2 class="text-xl font-bold text-white" data-i18n="terms.title">利用規約</h2>
+          <button
+            type="button"
+            id="terms-close"
+            aria-label="閉じる"
+            class="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-white"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+          </button>
+        </div>
+        <div class="space-y-5 text-sm leading-relaxed text-slate-300">
+          <p data-i18n="terms.intro">本利用規約（以下「本規約」といいます）は、DevDebtOps（以下「本サービス」といいます）の利用条件を定めるものです。利用者は、本サービスを利用することで本規約に同意したものとみなされます。</p>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.1t">1. 規約への同意と適用</h3>
+            <p class="mt-2" data-i18n="terms.1p">利用者は、本サービスの利用にあたり本規約およびプライバシーポリシーに同意する必要があります。同意いただけない場合、本サービスを利用できません。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.2t">2. アカウントと GitHub 連携</h3>
+            <p class="mt-2" data-i18n="terms.2p">本サービスの利用には GitHub アカウントによる認証が必要です。利用者は、自身のアカウントおよび認証情報の管理について責任を負い、不正利用が判明した場合は速やかに通知するものとします。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.3t">3. 法令の遵守</h3>
+            <p class="mt-2" data-i18n="terms.3p">利用者は、本サービスの利用にあたり、適用されるすべての法令・規制および本規約を遵守する責任を負います。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.4t">4. 禁止事項</h3>
+            <p class="mt-2" data-i18n="terms.4p">利用者は、本サービスにおいて以下の行為を行ってはなりません。</p>
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+              <li data-i18n="terms.4li1">違法な行為、または違法行為を助長する行為。</li>
+              <li data-i18n="terms.4li2">他者への嫌がらせ・誹謗中傷・差別・脅迫、暴力の助長。</li>
+              <li data-i18n="terms.4li3">虚偽または意図的に誤解を招く情報の流布。</li>
+              <li data-i18n="terms.4li4">他者になりすます行為、または身元を偽る行為。</li>
+            </ul>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.5t">5. 知的財産・真正性・個人情報</h3>
+            <p class="mt-2" data-i18n="terms.5p">利用者は、第三者の知的財産権（著作権・特許・商標・営業秘密等）やプライバシーを侵害してはなりません。第三者の個人情報を同意なく登録・送信してはなりません。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.6t">6. スパム・不正利用の禁止</h3>
+            <p class="mt-2" data-i18n="terms.6p">自動化された過度・一括のアクセス、スパム送信、ランキングや解析結果の不正操作、フィッシング、その他サービスの健全性を損なう行為を禁止します。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.7t">7. アクセスと安全性</h3>
+            <p class="mt-2" data-i18n="terms.7p">サービス・サーバー・ネットワークへの不正アクセスや妨害、マルウェアの配布、攻撃インフラとしての利用など、技術的な危害を及ぼす行為を禁止します。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.8t">8. 解析対象リポジトリと権限</h3>
+            <p class="mt-2" data-i18n="terms.8p">利用者は、本サービスで解析・連携するリポジトリについて、必要な権限を有していることを保証します。解析対象のコードやデータに関する責任は利用者に帰属します。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.9t">9. AI 生成物の取り扱い</h3>
+            <p class="mt-2" data-i18n="terms.9p">本サービスは AI により学習コンテンツ・クイズ・コード修正案（PR）・Issue 等を生成します。生成物には誤りが含まれる可能性があり、利用者は内容を確認・検証したうえで採用する責任を負います。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.10t">10. 利用制限・クレジット</h3>
+            <p class="mt-2" data-i18n="terms.10p">コストの大きい解析処理等には、クレジットや利用上限が設定される場合があります。当社は、過度な負荷や不正利用と判断した場合、利用を制限・停止することがあります。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.11t">11. 免責事項・責任の制限</h3>
+            <p class="mt-2" data-i18n="terms.11p">本サービスは現状有姿で提供され、特定目的への適合性等について保証しません。適用法令が認める最大限の範囲で、当社は本サービスの利用に起因する損害について責任を負いません。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.12t">12. サービスの変更・中断</h3>
+            <p class="mt-2" data-i18n="terms.12p">当社は、本サービスの内容を予告なく変更・中断・終了することがあります。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.13t">13. 本規約の変更</h3>
+            <p class="mt-2" data-i18n="terms.13p">当社は、必要に応じて本規約を変更することがあります。重要な変更がある場合は、本サービス上で周知します。変更後に本サービスを利用した場合、変更に同意したものとみなされます。</p>
+          </section>
+          <section>
+            <h3 class="font-semibold text-white" data-i18n="terms.14t">14. 準拠法・お問い合わせ</h3>
+            <p class="mt-2" data-i18n="terms.14p">本規約は日本法に準拠します。本規約に関するお問い合わせは、本サービスの運営者までご連絡ください。</p>
+          </section>
+          <p class="text-xs text-slate-500" data-i18n="terms.updated">最終更新日：2026 年 7 月 6 日</p>
         </div>
       </div>
     </dialog>
@@ -1673,17 +1786,20 @@
         if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
       }
 
-      // プライバシーポリシー モーダル: リンクで開き、✕ / 背景クリック / Esc（<dialog> 既定）で閉じる。
+      // ポリシー/規約モーダル: リンクで開き、✕ / 背景クリック / Esc（<dialog> 既定）で閉じる。
       (function () {
-        const link = document.getElementById("privacy-link");
-        const modal = document.getElementById("privacy-modal");
-        const close = document.getElementById("privacy-close");
-        if (!link || !modal) return;
-        link.addEventListener("click", () => modal.showModal());
-        if (close) close.addEventListener("click", () => modal.close());
-        // 背景（dialog 自身の余白＝backdrop 相当領域）クリックで閉じる。
-        modal.addEventListener("click", (e) => {
-          if (e.target === modal) modal.close();
+        [
+          ["privacy-link", "privacy-modal", "privacy-close"],
+          ["terms-link", "terms-modal", "terms-close"],
+        ].forEach(function (ids) {
+          var link = document.getElementById(ids[0]);
+          var modal = document.getElementById(ids[1]);
+          var close = document.getElementById(ids[2]);
+          if (!link || !modal) return;
+          link.addEventListener("click", function () { modal.showModal(); });
+          if (close) close.addEventListener("click", function () { modal.close(); });
+          // 背景（dialog 自身の余白＝backdrop 相当領域）クリックで閉じる。
+          modal.addEventListener("click", function (e) { if (e.target === modal) modal.close(); });
         });
       })();
     </script>

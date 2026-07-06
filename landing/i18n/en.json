@@ -4,7 +4,6 @@
   "nav.infra": "Infrastructure",
   "nav.security": "Security",
   "nav.cta": "Try the demo",
-
   "hero.sub": "A development platform that measures and drives your codebase understanding",
   "hero.h1": "Measure <span class='text-know'>understanding</span> with quizzes and visualize it on an <span class='text-know'>understanding map</span>.<br class='hidden sm:block' />Improve low-quality code with <span class='text-code'>AI-generated fix PRs</span>.",
   "hero.lead": "AI agents leverage <strong class='font-semibold text-white'>sub-agents, MCP, and Hooks</strong> to analyze your repository from every angle.<br class='hidden lg:block' />From extracting features and measuring understanding to detecting code quality issues and proposing fixes, everything is automated end to end.",
@@ -13,7 +12,6 @@
   "hero.chip3": "Automatic masking of PII and secrets",
   "hero.chip4": "Mobile-friendly",
   "hero.chip5": "Scalable infrastructure",
-
   "challenge.h2": "\"Understanding debt\" is piling up fast in the AI era",
   "challenge.lead": "As tools like Claude Code, Codex, and Gemini CLI become widespread, the \"development\" and \"operations\" cycle keeps accelerating, but in that rush <strong class='text-white'>understanding the code gets pushed aside</strong>, and \"understanding debt\"—the inability to explain what AI-generated code does or why it was written that way—accumulates rapidly.",
   "challenge.c1t": "Understanding left behind by \"just make it work\"",
@@ -22,13 +20,11 @@
   "challenge.c2d": "Plausible-looking generated code is trusted as-is and shipped to production without ever asking \"why is it written this way?\" Unexplained code keeps growing.",
   "challenge.c3t": "\"Do you understand it?\" goes unmeasured",
   "challenge.c3d": "Reviews and tests measure quality, but not people's understanding. There's no telling where to start or how urgent it is.",
-
   "audience.h2": "Who it's for",
   "audience.a1t": "Tech leads / Managers",
   "audience.a1d": "Identify where team members' understanding is weak, and prioritize reviews and learning.",
   "audience.a2t": "Onboarding leads / New joiners",
   "audience.a2d": "Systematically track where to start understanding, with learning units and quizzes.",
-
   "flow.h2": "Build the resolution of technical debt and understanding debt into your development and operations cycle",
   "flow.sub": "End to end, from analysis to measuring understanding, detecting quality issues, and learning and improvement. Repay debt with the twin engines of \"measure → learn\" and \"detect → improve\".",
   "flow.s0t": "Repository analysis",
@@ -45,7 +41,6 @@
   "flow.s4d": "For low-quality code, AI automatically creates fix PRs. It can also open Issues with assignees.",
   "flow.s5t": "Understanding and quality improve",
   "flow.s5d": "With the twin engines of \"measure → learn\" and \"detect → improve\", eliminate knowledge silos and continuously improve your codebase's understanding and code quality.",
-
   "core.h2": "Three core capabilities",
   "core.c1t": "Advanced repository analysis by AI agents",
   "core.c1d": "Agents built with Google ADK explore the repository using MCP (Serena / CodeGraphContext / Semgrep / GitHub). They automate generating per-feature learning plans and quizzes, detecting low-quality code, and creating fix plans.",
@@ -62,7 +57,6 @@
   "core.pill6": "Billing control via credit grants",
   "core.pill7": "i18n multilingual support",
   "core.pill8": "View release history",
-
   "features.h2": "What the app can do",
   "features.sub": "From analysis to dashboards, visualization, and improvement—all in a single workspace.",
   "features.f1t": "Dashboard — the big picture at a glance",
@@ -106,10 +100,8 @@
   "features.f5tag1": "AI generates the fix patch",
   "features.f5tag2": "Automatic fix PR generation",
   "features.f5tag3": "GitHub Issue creation",
-
   "infra.h2": "Infrastructure",
   "infra.lead": "Using Cloud Tasks, analysis is offloaded to asynchronous workers. Cloud Run auto-scales with load.<br class='hidden sm:block' />Analysis achieves comprehensive, efficient repository exploration by leveraging agents built with ADK and MCP.<br class='hidden sm:block' />Security is ensured with rate limiting via Cloud Armor, plus Secret Manager and Cloud DLP. Infrastructure is codified as IaC with Terraform.<br class='hidden sm:block' />During development, CI/CD runs everything from testing to deployment, plus automatic application of linters/formatters and automated code review by Gemini, keeping code quality high.",
-
   "security.h2": "What we care about in security",
   "security.s1t": "Authentication and sessions",
   "security.s1d": "GitHub SSO using JWT tokens. Secure session management using access and refresh tokens. Session timeout after 30 minutes of inactivity.",
@@ -123,7 +115,6 @@
   "security.s5d": "When feeding information to agents, we mask PII and secrets with Cloud DLP (Sensitive Data Protection) and detect-secrets before sending.",
   "security.s6t": "Vulnerability scanning",
   "security.s6d": "We perform OWASP-compliant application vulnerability scanning as well as container image vulnerability scanning using Trivy.",
-
   "mobile.h2": "Check understanding anytime, even on your phone",
   "mobile.sub": "With responsive design, you can use the main features as-is from a smartphone.<br class='hidden sm:block' />On the go or between reviews, you can check the understanding map, grasp code quality, and take quizzes.",
   "mobile.l1": "Dashboard",
@@ -131,15 +122,11 @@
   "mobile.l3": "Code quality map",
   "mobile.l4": "Quizzes and learning",
   "mobile.l5": "Code improvement",
-
   "stack.h2": "Tech stack",
-
   "cta.h2": "Make your team's understanding visible, starting today",
   "cta.p": "Just connect a GitHub repository and analyze it. You can tackle both understanding debt and technical debt, and slot it right into your daily development and operations (DevOps) cycle.",
   "cta.btn": "Connect a repository to get started",
-
   "footer.privacy": "Privacy Policy",
-
   "privacy.title": "Privacy Policy",
   "privacy.intro": "DevDebtOps (hereinafter the \"Service\") establishes the following privacy policy (hereinafter this \"Policy\") regarding the handling of the personal information of users of the Service (hereinafter \"users\") and the data that users provide.",
   "privacy.1t": "1. Information we collect",
@@ -174,5 +161,41 @@
   "privacy.12p": "This Policy may be revised in response to changes in law or in the content of the Service. In the event of a significant change, we will provide notice on the Service.",
   "privacy.13t": "13. Contact",
   "privacy.13p": "For inquiries regarding this Policy, please contact the operator of the Service.",
-  "privacy.updated": "Last updated: July 6, 2026"
+  "privacy.updated": "Last updated: July 6, 2026",
+  "footer.terms": "Terms of Service",
+  "terms.title": "Terms of Service",
+  "terms.intro": "These Terms of Service (hereinafter referred to as the \"Terms\") set forth the conditions of use for DevDebtOps (hereinafter referred to as the \"Service\"). By using the Service, users are deemed to have agreed to these Terms.",
+  "terms.1t": "1. Acceptance and Application of the Terms",
+  "terms.1p": "Users must agree to these Terms and the Privacy Policy in order to use the Service. If you do not agree, you may not use the Service.",
+  "terms.2t": "2. Accounts and GitHub Integration",
+  "terms.2p": "Use of the Service requires authentication via a GitHub account. Users are responsible for managing their own accounts and authentication credentials, and shall promptly notify us if any unauthorized use is discovered.",
+  "terms.3t": "3. Compliance with Laws",
+  "terms.3p": "Users are responsible for complying with all applicable laws and regulations, as well as these Terms, when using the Service.",
+  "terms.4t": "4. Prohibited Conduct",
+  "terms.4p": "Users must not engage in any of the following conduct in connection with the Service:",
+  "terms.4li1": "Illegal acts, or acts that facilitate illegal activity.",
+  "terms.4li2": "Harassment, defamation, discrimination, threats against others, or the promotion of violence.",
+  "terms.4li3": "Dissemination of false or intentionally misleading information.",
+  "terms.4li4": "Impersonating others or falsifying one's identity.",
+  "terms.5t": "5. Intellectual Property, Authenticity, and Personal Information",
+  "terms.5p": "Users must not infringe upon the intellectual property rights (copyrights, patents, trademarks, trade secrets, etc.) or privacy of third parties. Users must not register or transmit the personal information of third parties without their consent.",
+  "terms.6t": "6. Prohibition of Spam and Misuse",
+  "terms.6p": "Excessive or bulk automated access, sending spam, manipulating rankings or analysis results, phishing, and any other conduct that undermines the integrity of the Service are prohibited.",
+  "terms.7t": "7. Access and Security",
+  "terms.7p": "Conduct that causes technical harm is prohibited, including unauthorized access to or interference with the Service, servers, or networks, the distribution of malware, and use of the Service as attack infrastructure.",
+  "terms.8t": "8. Repositories Subject to Analysis and Permissions",
+  "terms.8p": "Users warrant that they have the necessary permissions for any repositories analyzed or integrated through the Service. Responsibility for the code and data subject to analysis rests with the user.",
+  "terms.9t": "9. Handling of AI-Generated Content",
+  "terms.9p": "The Service uses AI to generate learning content, quizzes, code fix proposals (PRs), Issues, and more. Generated content may contain errors, and users are responsible for reviewing and verifying the content before adopting it.",
+  "terms.10t": "10. Usage Limits and Credits",
+  "terms.10p": "Credits or usage limits may be applied to costly analysis processes and similar operations. We may restrict or suspend use if we determine that there is excessive load or misuse.",
+  "terms.11t": "11. Disclaimers and Limitation of Liability",
+  "terms.11p": "The Service is provided on an \"as is\" basis, without warranty of fitness for a particular purpose or otherwise. To the maximum extent permitted by applicable law, we shall not be liable for any damages arising from the use of the Service.",
+  "terms.12t": "12. Changes to and Suspension of the Service",
+  "terms.12p": "We may change, suspend, or terminate the content of the Service without prior notice.",
+  "terms.13t": "13. Changes to the Terms",
+  "terms.13p": "We may revise these Terms as necessary. In the event of significant changes, we will provide notice within the Service. If you use the Service after such changes, you are deemed to have agreed to the changes.",
+  "terms.14t": "14. Governing Law and Contact",
+  "terms.14p": "These Terms are governed by the laws of Japan. For inquiries regarding these Terms, please contact the operator of the Service.",
+  "terms.updated": "Last updated: July 6, 2026"
 }
