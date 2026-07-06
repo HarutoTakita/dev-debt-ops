@@ -205,10 +205,8 @@
   "terms.17t": "17. 准据法与咨询",
   "terms.17p": "本条款以日本法律为准据法。有关本条款的咨询，请联系本服务的运营者。",
   "agent.h2": "由智能体进行的仓库解析",
-  "agent.sub": "从代码拉取到探索确认、确定性度量、直至存储，全流程由一条流水线自动完成。将「探索与语义解读」交由 LLM，而度量与检测则由确定性工具保障可复现性。",
-  "agent.s1t": "① 拉取",
-  "agent.s1d": "对目标分支执行浅克隆（使用 GitHub App 令牌认证，失败时回退至 REST API）。",
-  "agent.orch": "② 编排器（ADK SequentialAgent）",
+  "agent.sub": "ADK 的 SequentialAgent（编排器）协调探索与确认子代理，随后一路执行到确定性的分析主干，将整个流程作为一条完整的代理工作流运行。探索与语义解读由 LLM 负责，度量与检测则由确定性工具承担，从而确保可复现性。",
+  "agent.orch": "编排器（ADK SequentialAgent）",
   "agent.explorer_t": "探索子智能体（analysis_explorer）",
   "agent.explorer_d": "自主判断需要深入分析哪些文件以及分析到何种程度，自律探索代码结构、历史记录与热点区域。",
   "agent.mcp_label": "MCP 工具集",
@@ -217,9 +215,6 @@
   "agent.mcp_github": "GitHub（历史记录，代码审查）",
   "agent.author_t": "确认子智能体（base_author）",
   "agent.author_d": "将探索所得的观察结果确定为结构化模式（功能／代码观察／理解观察／技术栈）。",
-  "agent.s3t": "③ 确定性解析主干",
-  "agent.s3d": "功能聚类 → 代码质量检测（Semgrep / Trivy）→ 理解负债检测 → 学习计划与测验生成。将定性观察与确定性度量相叠加，以确保精度。",
-  "agent.s4t": "④ 存储 → 可视化",
-  "agent.s4d": "将结果存储至 PostgreSQL，并反映到仪表盘、理解度地图、代码质量地图与测验中。",
-  "agent.mask": "在传递给 LLM（Gemini）之前，先使用 detect-secrets / Cloud DLP 对 PII 与密钥进行脱敏处理，然后再发送。"
+  "agent.s3t": "确定性解析主干",
+  "agent.s3d": "功能聚类 → 代码质量检测（Semgrep / Trivy）→ 理解负债检测 → 学习计划与测验生成。将定性观察与确定性度量相叠加，以确保精度。"
 }
