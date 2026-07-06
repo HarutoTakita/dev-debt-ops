@@ -49,8 +49,9 @@
   #### 3-1. リポジトリ解析の Agentic パイプライン（メインで説明）
 
   全体像：Cloud Tasks から内部 Cloud Run の worker（service）が 1 つの Job として起動し、
-  **「探索 → 確定」の 2 段エージェント（ADK / Gemini）** と **決定的な解析バックボーン** を組み合わせた
-  ハイブリッド構成で解析する。LLM に「探索・意味づけ」を任せ、計測・検知は決定的ツールで再現性を担保する設計。
+  **ADK の `SequentialAgent`（オーケストレーター）が「探索 → 確定」の 2 つのサブエージェントを協調させる構成**（ADK / Gemini）と
+  **決定的な解析バックボーン** を組み合わせたハイブリッドで解析する。LLM に「探索・意味づけ」を任せ、計測・検知は決定的ツールで
+  再現性を担保する設計。
 
   - **① GitHub リポジトリをアプリ内に取り込む**
     - **GitHub App の installation token**（Secret Manager の秘密鍵から RS256 JWT で都度発行）で認証。
@@ -59,9 +60,14 @@
     - トークンは URL に埋めず `http.extraHeader` で渡し、on-disk の git 設定に残さない。
       clone できない場合は **GitHub REST API にフォールバック**（graceful degradation）。処理後は一時ディレクトリを削除。
 
-  - **② ADK エージェントによる自律探索（探索 → 確定の 2 段）**
-    - `analysis_explorer`（LlmAgent）が repo ツール＋MCP で **コード構造・履歴・ホットスポットを自律的に探索** し所見を作成。
-    - `base_author`（LlmAgent）がその所見を **構造化スキーマ**（機能・コード所見・理解所見・技術スタック）に確定。
+  - **② オーケストレーター × サブエージェントによる自律探索（探索 → 確定の 2 段）**
+    - **オーケストレーター**：ADK の **`SequentialAgent`（`base_analysis_pipeline`）** が、役割の異なる 2 つの
+      **サブエージェント（`sub_agents=[explorer, author]`）** を順に協調実行する。
+    - **① 探索サブエージェント `analysis_explorer`（LlmAgent）** — repo ツール＋MCP で **コード構造・履歴・ホットスポットを
+      自律的に探索**（どのファイルをどこまで深掘りするかをエージェント自身が判断）し、所見をセッション状態に書き出す。
+    - **② 確定サブエージェント `base_author`（LlmAgent）** — その所見を **構造化スキーマ**（機能・コード所見・理解所見・技術スタック）へ確定。
+    - さらにパイプライン全体が上位オーケストレーターとして、**用途特化のサブエージェント**（機能クラスタリング / 確認クイズ生成 /
+      学習ウォークスルー / リファクタ提案 / 技術スタック検出 の各 ADK エージェント）を役割ごとに起動する。
     - モデルは **Vertex AI 経由の Gemini（ADC 認証・API キー不要）**。
     - **予算ガード**（ツール/モデル/ファイル呼び出しの上限を callbacks で強制）と、
       **全イベントのトレース永続化**（判断根拠を Job に記録）で、暴走やコスト膨張を抑えつつ挙動を追跡可能に。
@@ -126,6 +132,7 @@ Google Cloud をフル活用したフルスタック・サーバーレス構成�
   **Cloud Armor**（エッジでレート制限）/ Artifact Registry / Cloud Monitoring・Logging（5xx メトリクス・uptime チェック）。
 - **IaC** — **Terraform**（`infra/gcp` 本体 + `infra/bootstrap/gcp`）。環境分離（staging / production）。
 - i18n（国際化）まで考慮
+
 ### AI エージェントの中核（“AI エージェントである必然性”）
 
 解析の中核に、**オーケストレーターエージェント × サブエージェント × hooks** を組み合わせた **Agentic アーキテクチャ**（Google ADK）を据えています。
@@ -161,23 +168,22 @@ Google Cloud をフル活用したフルスタック・サーバーレス構成�
 ## 開発素材（使用した開発ツール）〔必須〕
 
 **Google Cloud**
-- Cloud Run / Cloud SQL (PostgreSQL) / Cloud Tasks / Secret Manager / Cloud Armor / Artifact Registry /
+- Cloud Run / Cloud SQL / Cloud Tasks / Secret Manager / Cloud Armor / Artifact Registry /
   Cloud Monitoring・Logging / Workload Identity Federation
 - **Vertex AI（Gemini）** / **Google ADK（Agent Development Kit）**
 
 **フロントエンド**
-- SvelteKit 2 / Svelte 5 / shadcn-svelte / Tailwind CSS v4 / Zod / Paraglide / bun / Vite
+- SvelteKit / Svelte / shadcn-svelte / Tailwind CSS v4 / Zod / bun / Vite
 
 **バックエンド**
-- Python 3.13 / FastAPI / SQLModel / SQLAlchemy 2.0 (async) / Alembic / uv / pytest
+- Python / FastAPI / SQLAlchemy / Alembic / uv / pytest
 - google-genai（Gemini SDK）/ google-adk
 
 **インフラ・DevOps**
 - Terraform / Docker / GitHub Actions / Trivy / gitleaks / lefthook
-- Gemini PR レビュー（`google-github-actions/run-gemini-cli`）
 
 **データベース**
-- PostgreSQL 17（pgvector 拡張）
+- PostgreSQL
 
 **開発支援**
 - Claude Code（実装・レビュー支援）/ VS Code / gh CLI
