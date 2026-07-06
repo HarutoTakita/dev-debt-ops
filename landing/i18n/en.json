@@ -205,10 +205,8 @@
   "terms.17t": "17. Governing Law and Inquiries",
   "terms.17p": "These Terms are governed by the laws of Japan. Inquiries regarding these Terms should be directed to the operator of the Service.",
   "agent.h2": "Repository Analysis by the Agent",
-  "agent.sub": "Everything from ingestion, exploration, and finalization to deterministic measurement and storage is automated in a single pipeline. The LLM handles \"exploration and interpretation,\" while measurement and detection rely on deterministic tools to guarantee reproducibility.",
-  "agent.s1t": "① Ingestion",
-  "agent.s1d": "Shallow-clones the target branch (authenticating with a GitHub App token, falling back to the REST API on failure).",
-  "agent.orch": "② Orchestrator (ADK SequentialAgent)",
+  "agent.sub": "ADK's SequentialAgent (the orchestrator) coordinates the exploration and confirmation sub-agents, then carries execution through to the deterministic analysis backbone as a single agent workflow. Exploration and interpretation are handled by the LLM, while measurement and detection rely on deterministic tools to ensure reproducibility.",
+  "agent.orch": "Orchestrator (ADK SequentialAgent)",
   "agent.explorer_t": "Exploration sub-agent (analysis_explorer)",
   "agent.explorer_d": "Decides on its own which files to dig into and how deeply, autonomously exploring code structure, history, and hotspots.",
   "agent.mcp_label": "MCP tools",
@@ -217,9 +215,6 @@
   "agent.mcp_github": "GitHub (history / reviews)",
   "agent.author_t": "Finalization sub-agent (base_author)",
   "agent.author_d": "Finalizes the exploration findings into a structured schema (features / code findings / understanding findings / tech stack).",
-  "agent.s3t": "③ Deterministic Analysis Backbone",
-  "agent.s3d": "Feature clustering → code quality detection (Semgrep / Trivy) → understanding-debt detection → learning plan and quiz generation. Qualitative findings are layered with deterministic measurement to ensure accuracy.",
-  "agent.s4t": "④ Storage → Visualization",
-  "agent.s4d": "Results are stored in PostgreSQL and reflected in the dashboard, understanding map, code quality map, and quizzes.",
-  "agent.mask": "Just before passing data to the LLM (Gemini), PII and secrets are masked with detect-secrets / Cloud DLP before it is sent."
+  "agent.s3t": "Deterministic Analysis Backbone",
+  "agent.s3d": "Feature clustering → code quality detection (Semgrep / Trivy) → understanding-debt detection → learning plan and quiz generation. Qualitative findings are layered with deterministic measurement to ensure accuracy."
 }

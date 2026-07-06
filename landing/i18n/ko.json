@@ -205,10 +205,8 @@
   "terms.17t": "17. 준거법·문의",
   "terms.17p": "본 약관은 일본법을 준거법으로 합니다. 본 약관에 관한 문의는 본 서비스의 운영자에게 연락해 주시기 바랍니다.",
   "agent.h2": "에이전트를 통한 리포지토리 분석",
-  "agent.sub": "수집부터 탐색·확정, 결정적 측정, 저장까지를 하나의 파이프라인으로 자동화합니다. LLM에는 '탐색과 의미 부여'를 맡기고, 측정·탐지는 결정적 도구로 재현성을 보장합니다.",
-  "agent.s1t": "① 수집",
-  "agent.s1d": "대상 브랜치를 얕게 클론합니다(GitHub App 토큰으로 인증, 실패 시 REST API로 폴백).",
-  "agent.orch": "② 오케스트레이터(ADK SequentialAgent)",
+  "agent.sub": "ADK의 SequentialAgent(오케스트레이터)가 탐색·확정 서브에이전트를 조율하고, 이어서 결정론적 분석 백본까지 하나의 에이전트 워크플로로 실행합니다. 탐색·의미 부여는 LLM이, 계측·탐지는 결정론적 도구가 담당하여 재현성을 확보합니다.",
+  "agent.orch": "오케스트레이터(ADK SequentialAgent)",
   "agent.explorer_t": "탐색 서브에이전트(analysis_explorer)",
   "agent.explorer_d": "어떤 파일을 어디까지 깊이 파고들지 스스로 판단하여, 코드 구조·이력·핫스팟을 자율적으로 탐색합니다.",
   "agent.mcp_label": "MCP 도구 모음",
@@ -217,9 +215,6 @@
   "agent.mcp_github": "GitHub(이력·리뷰)",
   "agent.author_t": "확정 서브에이전트(base_author)",
   "agent.author_d": "탐색 결과를 구조화된 스키마(기능／코드 소견／이해 소견／기술 스택)로 확정합니다.",
-  "agent.s3t": "③ 결정적 분석 백본",
-  "agent.s3d": "기능 클러스터링 → 코드 품질 탐지(Semgrep / Trivy) → 이해 부채 탐지 → 학습 플랜·퀴즈 생성. 정성적 소견과 결정적 측정을 겹쳐 정확도를 확보합니다.",
-  "agent.s4t": "④ 저장 → 시각화",
-  "agent.s4d": "결과를 PostgreSQL에 저장하고, 대시보드·이해도 맵·코드 품질 맵·퀴즈에 반영합니다.",
-  "agent.mask": "LLM(Gemini)에 전달하기 직전에 PII·시크릿을 detect-secrets / Cloud DLP로 마스킹한 후 전송합니다."
+  "agent.s3t": "결정적 분석 백본",
+  "agent.s3d": "기능 클러스터링 → 코드 품질 탐지(Semgrep / Trivy) → 이해 부채 탐지 → 학습 플랜·퀴즈 생성. 정성적 소견과 결정적 측정을 겹쳐 정확도를 확보합니다."
 }

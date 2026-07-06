@@ -205,10 +205,8 @@
   "terms.17t": "17. Anwendbares Recht und Kontakt",
   "terms.17p": "Diese Bedingungen unterliegen japanischem Recht. Anfragen zu diesen Bedingungen richten Sie bitte an den Betreiber des Dienstes.",
   "agent.h2": "Repository-Analyse durch den Agenten",
-  "agent.sub": "Von der Erfassung über Exploration und Festlegung bis hin zur deterministischen Messung und Speicherung – alles automatisiert in einer einzigen Pipeline. Dem LLM wird die „Exploration und Bedeutungszuweisung“ überlassen, während Messung und Erkennung durch deterministische Werkzeuge reproduzierbar bleiben.",
-  "agent.s1t": "① Erfassung",
-  "agent.s1d": "Der Ziel-Branch wird flach geklont (Authentifizierung über GitHub-App-Token, bei Fehlschlag Fallback auf die REST API).",
-  "agent.orch": "② Orchestrator (ADK SequentialAgent)",
+  "agent.sub": "Der SequentialAgent (Orchestrator) von ADK koordiniert die Subagenten für Exploration und Festlegung und führt anschließend bis zum deterministischen Analyse-Backbone alles als einen einzigen Agenten-Workflow aus. Exploration und Bedeutungszuweisung übernimmt das LLM, Messung und Erkennung leisten deterministische Werkzeuge und sichern so die Reproduzierbarkeit.",
+  "agent.orch": "Orchestrator (ADK SequentialAgent)",
   "agent.explorer_t": "Explorations-Subagent (analysis_explorer)",
   "agent.explorer_d": "Entscheidet selbstständig, welche Dateien wie tief untersucht werden, und exploriert Codestruktur, Historie und Hotspots autonom.",
   "agent.mcp_label": "MCP-Werkzeuge",
@@ -217,9 +215,6 @@
   "agent.mcp_github": "GitHub (Historie, Reviews)",
   "agent.author_t": "Festlegungs-Subagent (base_author)",
   "agent.author_d": "Legt die Explorationsbefunde in einem strukturierten Schema fest (Funktion / Code-Befunde / Verständnis-Befunde / Technologie-Stack).",
-  "agent.s3t": "③ Deterministisches Analyse-Backbone",
-  "agent.s3d": "Funktions-Clustering → Erkennung der Codequalität (Semgrep / Trivy) → Erkennung von Verständnisschulden → Erstellung von Lernplänen und Quiz. Qualitative Befunde und deterministische Messungen werden kombiniert, um die Genauigkeit sicherzustellen.",
-  "agent.s4t": "④ Speicherung → Visualisierung",
-  "agent.s4d": "Die Ergebnisse werden in PostgreSQL gespeichert und in Dashboard, Verständnis-Karte, Codequalitäts-Karte und Quiz übernommen.",
-  "agent.mask": "Unmittelbar vor der Übergabe an das LLM (Gemini) werden PII und Geheimnisse mit detect-secrets / Cloud DLP maskiert, bevor sie gesendet werden."
+  "agent.s3t": "Deterministisches Analyse-Backbone",
+  "agent.s3d": "Funktions-Clustering → Erkennung der Codequalität (Semgrep / Trivy) → Erkennung von Verständnisschulden → Erstellung von Lernplänen und Quiz. Qualitative Befunde und deterministische Messungen werden kombiniert, um die Genauigkeit sicherzustellen."
 }

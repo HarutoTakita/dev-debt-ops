@@ -205,10 +205,8 @@
   "terms.17t": "17. Legislación aplicable y contacto",
   "terms.17p": "Estos Términos se rigen por la legislación japonesa. Para cualquier consulta relativa a estos Términos, póngase en contacto con el operador del Servicio.",
   "agent.h2": "Análisis de repositorios mediante agentes",
-  "agent.sub": "Automatiza en un único pipeline la ingesta, la exploración y consolidación, la medición determinista y el almacenamiento. Delega en el LLM la «exploración e interpretación» y garantiza la reproducibilidad de la medición y la detección con herramientas deterministas.",
-  "agent.s1t": "① Ingesta",
-  "agent.s1d": "Clonado superficial de la rama objetivo (autenticación con token de GitHub App; en caso de fallo, recurre a la REST API).",
-  "agent.orch": "② Orquestador (ADK SequentialAgent)",
+  "agent.sub": "El SequentialAgent (orquestador) de ADK coordina subagentes de exploración y confirmación, y a continuación ejecuta hasta el backbone de análisis determinista como un único flujo de trabajo de agentes. La exploración y la interpretación semántica corren a cargo del LLM, mientras que la medición y la detección las realizan herramientas deterministas, garantizando la reproducibilidad.",
+  "agent.orch": "Orquestador (ADK SequentialAgent)",
   "agent.explorer_t": "Subagente de exploración (analysis_explorer)",
   "agent.explorer_d": "Decide por sí mismo qué archivos analizar y hasta qué profundidad, y explora de forma autónoma la estructura del código, el historial y los hotspots.",
   "agent.mcp_label": "Conjunto de herramientas MCP",
@@ -217,9 +215,6 @@
   "agent.mcp_github": "GitHub (historial · revisiones)",
   "agent.author_t": "Subagente de consolidación (base_author)",
   "agent.author_d": "Consolida los hallazgos de la exploración en un esquema estructurado (funcionalidad / hallazgos de código / hallazgos de comprensión / stack tecnológico).",
-  "agent.s3t": "③ Backbone de análisis determinista",
-  "agent.s3d": "Agrupamiento de funcionalidades → detección de calidad del código (Semgrep / Trivy) → detección de deuda de comprensión → generación de planes de aprendizaje y cuestionarios. Combina hallazgos cualitativos con mediciones deterministas para asegurar la precisión.",
-  "agent.s4t": "④ Almacenamiento → Visualización",
-  "agent.s4d": "Almacena los resultados en PostgreSQL y los refleja en el panel de control, el mapa de comprensión, el mapa de calidad del código y los cuestionarios.",
-  "agent.mask": "Justo antes de enviar los datos al LLM (Gemini), enmascara la PII y los secretos con detect-secrets / Cloud DLP antes de la transmisión."
+  "agent.s3t": "Backbone de análisis determinista",
+  "agent.s3d": "Agrupamiento de funcionalidades → detección de calidad del código (Semgrep / Trivy) → detección de deuda de comprensión → generación de planes de aprendizaje y cuestionarios. Combina hallazgos cualitativos con mediciones deterministas para asegurar la precisión."
 }
