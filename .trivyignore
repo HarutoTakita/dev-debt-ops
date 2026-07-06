@@ -43,3 +43,5 @@ CVE-2026-0994
 CVE-2026-53539
 CVE-2026-48818
 CVE-2026-54283
+# cryptography 46.0.7 の wheel 同梱 OpenSSL（fixed: 48.0.1）。GHSA-ID で報告される推移的依存。
+GHSA-537c-gmf6-5ccf
