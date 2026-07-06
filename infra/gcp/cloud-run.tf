@@ -209,7 +209,26 @@ resource "google_cloud_run_v2_job" "migrate" {
           mount_path = "/cloudsql"
         }
 
-        # alembic は DATABASE_URL のみ必要（env.py が settings.DATABASE_URL を読む）。
+        # alembic の env.py は `app.core.config.settings`（全設定）を import するため、DATABASE_URL だけでなく
+        # 非-dev の必須検証（SECRET_KEY が既定値でない・COOKIE_SECURE=true）も満たす必要がある。ENVIRONMENT 未指定だと
+        # 既定 prod で厳格検証に落ちるため、api と同じ ENVIRONMENT / COOKIE_SECURE / SECRET_KEY を渡す。
+        env {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        }
+        env {
+          name  = "COOKIE_SECURE"
+          value = "true"
+        }
+        env {
+          name = "SECRET_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets["secret-key"].secret_id
+              version = "latest"
+            }
+          }
+        }
         env {
           name = "DATABASE_URL"
           value_source {
