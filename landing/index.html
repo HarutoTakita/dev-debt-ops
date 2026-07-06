@@ -1272,13 +1272,12 @@
       <p class="mx-auto mt-4 max-w-2xl text-slate-400">
         GitHub リポジトリを接続して解析するだけ。理解負債と技術負債のどちらにもアプローチでき、日々の開発・運用（DevOps）のサイクルにそのまま組み込めます。
       </p>
-      <!-- アプリ右上「解析」ボタンと同じティール（--color-debt-knowledge = oklch(0.72 0.11 195)）に統一。
-           bg-know(#22b8c4) は彩度が高く蛍光的なため、落ち着いた同系色へ。 -->
+      <!-- アプリの水色ボタン（bg-debt-knowledge/15 + text-debt-knowledge + 枠線）と同じ、
+           水色・半透明の背景に統一。ソリッド塗りの bg-know(#22b8c4) は蛍光的なため使わない。 -->
       <a
         id="foot-cta"
         href="/login"
-        style="background-color: oklch(0.72 0.11 195)"
-        class="mt-8 inline-block rounded-md px-8 py-4 text-lg font-semibold text-ink hover:brightness-110"
+        class="mt-8 inline-block rounded-md border border-know/30 bg-know/15 px-8 py-4 text-lg font-semibold text-know transition hover:brightness-110"
         >リポジトリを接続して始める</a
       >
     </section>
