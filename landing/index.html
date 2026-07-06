@@ -1451,6 +1451,10 @@
           >
             利用規約
           </button>
+          <!-- お問い合わせ（メール）。アドレスは i18n.js/末尾スクリプトで組み立て、平文を HTML に出さない（スパム収集対策）。 -->
+          <a id="mail-link" aria-label="お問い合わせ（メール）" class="text-slate-400 transition hover:text-white">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+          </a>
         </div>
         <div class="flex items-center gap-4">
           <!-- TODO: YouTube 公開後に href を実 URL へ差し替え -->
@@ -1797,6 +1801,15 @@
         const el = document.getElementById(id);
         if (el && window.__APP_URL__) el.setAttribute("href", window.__APP_URL__);
       }
+
+      // お問い合わせメール: アドレスを実行時に組み立て（平文を HTML に置かずスパム収集を抑止）。
+      // クリックでメールクライアントが起動し、件名「DevDebtOps お問い合わせ」が入る。
+      (function () {
+        const mail = document.getElementById("mail-link");
+        if (!mail) return;
+        const addr = ["haruto.takita", "gmail.com"].join("@");
+        mail.setAttribute("href", "mailto:" + addr + "?subject=" + encodeURIComponent("DevDebtOps お問い合わせ"));
+      })();
 
       // ポリシー/規約モーダル: リンクで開き、✕ / 背景クリック / Esc（<dialog> 既定）で閉じる。
       (function () {
