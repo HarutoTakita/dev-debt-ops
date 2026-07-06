@@ -13,3 +13,5 @@ infra/
 .github/
 lefthook.yml
 *.md
+# CHANGELOG.md は api.Dockerfile が変更履歴ビューア用に static へ同梱するため、*.md 除外から復帰させる。
+!CHANGELOG.md
