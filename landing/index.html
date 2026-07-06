@@ -1240,14 +1240,21 @@
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">認証・セッション</h3>
           <p class="mt-2 text-sm text-slate-400">
-            アクセス JWT（5 分）とリフレッシュ（7 日・DB 管理）の Cookie を分離。ローテーション＋再利用検出、`token_epoch`
-            による即時ログアウト無効化。
+            JWT トークンを用いた GitHub SSO。アクセストークンとリフレッシュトークンを用いた<strong
+              class="text-slate-200">安全なセッション管理</strong>（ローテーション・再利用検出、<code
+              class="text-slate-300">token_epoch</code> による即時失効）。<strong class="text-slate-200"
+              >30 分間操作がないときのセッションタイムアウト</strong>。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">CSRF / オリジン</h3>
+          <h3 class="font-semibold text-white">同一オリジン配信と Web 脆弱性対策</h3>
           <p class="mt-2 text-sm text-slate-400">
-            SameSite=Lax ＋ Origin 検証ミドルウェア、トークンに固有 audience を付与して用途を分離。
+            UI（<code class="text-slate-300">/</code>）と API（<code class="text-slate-300">/api</code>）を<strong
+              class="text-slate-200">同一オリジンで配信</strong>するため CORS 設定が不要で、攻撃面を削減。加えて
+            <strong class="text-slate-200">XSS</strong>（フレームワークの自動エスケープ）・<strong
+              class="text-slate-200">CSRF</strong>（SameSite=Lax Cookie ＋ Origin 検証）・<strong
+              class="text-slate-200">SSRF</strong>（外部通信を GitHub API 等の信頼済みエンドポイントに限定）といった Web
+            アプリで必要な対策を実施。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
@@ -1257,32 +1264,24 @@
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">ジョブ分離（方式 B）</h3>
+          <h3 class="font-semibold text-white">エッジおよびアプリ内でのレート制限</h3>
           <p class="mt-2 text-sm text-slate-400">
-            キューには秘密を載せず、ワーカーが実行時に Secret Manager から GitHub トークンを mint。キュー無効時はフェイルクローズ。
-          </p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">エッジでのレート制限</h3>
-          <p class="mt-2 text-sm text-slate-400">Cloud Armor によりアプリ手前で制限。アプリ内のレート制御に依存しません。</p>
-        </div>
-        <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">LLM の安全策</h3>
-          <p class="mt-2 text-sm text-slate-400">
-            リポジトリ内容は「データ（指示ではない）」として境界を明示。生成物を検証（空・巨大な改変を拒否）し、PR は未レビュー明示。
+            <strong class="text-slate-200">Cloud Armor</strong> によりアプリ手前で過剰なリクエストを制限。アプリ内では
+            <strong class="text-slate-200">管理者がリポジトリ解析のクレジットを付与・管理</strong>でき、コストの大きい解析処理の乱用を防ぎます。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
           <h3 class="font-semibold text-white">エージェント入力のマスキング</h3>
           <p class="mt-2 text-sm text-slate-400">
-            エージェント（LLM）に情報を与える際は、<strong class="text-slate-200">Cloud DLP</strong>（Sensitive
-            Data Protection）と detect-secrets で <strong class="text-slate-200">PII・シークレットをマスキング</strong>してから送信します。
+            エージェントに情報を与える際は、<strong class="text-slate-200">Cloud DLP</strong>（Sensitive Data
+            Protection）と detect-secrets で <strong class="text-slate-200">PII・シークレットをマスキング</strong>してから送信します。
           </p>
         </div>
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
-          <h3 class="font-semibold text-white">脆弱性スキャン（OWASP 準拠）</h3>
+          <h3 class="font-semibold text-white">脆弱性スキャン</h3>
           <p class="mt-2 text-sm text-slate-400">
-            <strong class="text-slate-200">OWASP に準拠した脆弱性スキャンを実施済み</strong>。認証・入力・依存関係など主要なリスク観点を点検しています。
+            <strong class="text-slate-200">OWASP に準拠したアプリケーションの脆弱性スキャン</strong>および、<strong
+              class="text-slate-200">Trivy を用いたコンテナイメージの脆弱性スキャン</strong>を実施。
           </p>
         </div>
       </div>
