@@ -585,13 +585,13 @@
           <span>DevDebtOps</span>
         </a>
         <div class="hidden gap-7 text-sm text-slate-300 md:flex">
-          <a href="#flow" class="transition hover:text-white">仕組み</a>
-          <a href="#features" class="transition hover:text-white">機能</a>
-          <a href="#infra" class="transition hover:text-white">インフラ</a>
-          <a href="#security" class="transition hover:text-white">セキュリティ</a>
+          <a href="#flow" class="transition hover:text-white" data-i18n="nav.how">仕組み</a>
+          <a href="#features" class="transition hover:text-white" data-i18n="nav.features">機能</a>
+          <a href="#infra" class="transition hover:text-white" data-i18n="nav.infra">インフラ</a>
+          <a href="#security" class="transition hover:text-white" data-i18n="nav.security">セキュリティ</a>
         </div>
         <a id="nav-cta" href="/login" class="btn-demo rounded-lg px-4 py-2 text-sm font-semibold transition"
-          >デモを体験する</a
+           data-i18n="nav.cta">デモを体験する</a
         >
       </nav>
     </header>
@@ -611,16 +611,16 @@
             </svg>
             <div class="text-left">
               <div class="brand-name">DevDebtOps</div>
-              <p class="brand-sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
+              <p class="brand-sub" data-i18n="hero.sub">コードベースの理解度を実測・促進する開発プラットフォーム</p>
             </div>
           </div>
-          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[22px]">
+          <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight sm:text-3xl lg:text-[22px]" data-i18n="hero.h1">
             クイズで<span class="text-know">理解度</span>を実測し、<span class="text-know">理解度マップ</span>で可視化。<br
               class="hidden sm:block"
             />
             低品質コードを <span class="text-code">AI の自動修正 PR</span>で改善。
           </h1>
-          <p class="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 lg:mx-0 lg:max-w-[30rem]">
+          <p class="mx-auto mt-6 max-w-2xl text-sm leading-relaxed text-slate-300 lg:mx-0 lg:max-w-[30rem]" data-i18n="hero.lead">
             AI エージェントが<strong class="font-semibold text-white">サブエージェント・MCP・Hook</strong>を活用してリポジトリを多角的に解析。<br
               class="hidden lg:block"
             />
@@ -629,31 +629,31 @@
 
           <!-- 機能ハイライト（売り文句）のアイコンチップ群。 -->
           <div class="mt-8 flex max-w-2xl flex-wrap justify-center gap-2 lg:max-w-[30rem] lg:justify-start">
-            <span class="chip">
+            <span class="chip" data-i18n="hero.chip1">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
               </svg>
               AIエージェント × MCP で高度なリポジトリ探索
             </span>
-            <span class="chip">
+            <span class="chip" data-i18n="hero.chip2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" />
               </svg>
               GitHub 連携でかんたんログイン
             </span>
-            <span class="chip">
+            <span class="chip" data-i18n="hero.chip3">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" />
               </svg>
               PII・シークレットを自動マスキング
             </span>
-            <span class="chip">
+            <span class="chip" data-i18n="hero.chip4">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" />
               </svg>
               モバイル対応
             </span>
-            <span class="chip">
+            <span class="chip" data-i18n="hero.chip5">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
               </svg>
@@ -689,8 +689,8 @@
     <section id="challenge" class="mx-auto max-w-6xl px-6 pb-8 pt-20">
       <div class="mx-auto max-w-3xl text-center">
         <p class="text-sm font-medium text-know">CHALLENGE</p>
-        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">AI 時代に急速に積み上がる「理解負債」</h2>
-        <p class="mt-4 leading-relaxed text-slate-400">
+        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl" data-i18n="challenge.h2">AI 時代に急速に積み上がる「理解負債」</h2>
+        <p class="mt-4 leading-relaxed text-slate-400" data-i18n="challenge.lead">
           Claude Code・Codex・Gemini CLI などの普及で「開発」と「運用」のサイクルは加速する一方、その速さの中で<strong
             class="text-white"
             >コードを「理解する」ことが後回しにされ</strong
@@ -705,9 +705,9 @@
                 <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">「動けばよい」で理解が置き去り</h3>
+            <h3 class="font-semibold text-white" data-i18n="challenge.c1t">「動けばよい」で理解が置き去り</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="challenge.c1d">
             納期とデプロイ速度が優先され、コードを理解するステップが省かれる。書いた人以外は中身が分からないまま進む。
           </p>
         </div>
@@ -718,9 +718,9 @@
                 <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">AI 任せで思考がスキップされる</h3>
+            <h3 class="font-semibold text-white" data-i18n="challenge.c2t">AI 任せで思考がスキップされる</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="challenge.c2d">
             もっともらしい生成コードをそのまま信頼し、「なぜそう書くのか」を問わないまま本番へ。理解されないコードが増え続ける。
           </p>
         </div>
@@ -731,9 +731,9 @@
                 <path d="m12 14 4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">「理解しているか」は測られない</h3>
+            <h3 class="font-semibold text-white" data-i18n="challenge.c3t">「理解しているか」は測られない</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="challenge.c3d">
             レビューやテストは品質を測っても、人の理解度は測らない。どこから手を付けるべきか、緊急度も分からない。
           </p>
         </div>
@@ -744,18 +744,18 @@
     <section id="audience" class="mx-auto max-w-6xl px-6 pb-16 pt-8">
       <div class="text-center">
         <p class="text-sm font-medium text-know">FOR</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">こんな方に</h2>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="audience.h2">こんな方に</h2>
       </div>
       <div class="mx-auto mt-10 grid max-w-4xl gap-5 md:grid-cols-2">
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <h3 class="font-semibold text-white">テックリード / マネージャー</h3>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <h3 class="font-semibold text-white" data-i18n="audience.a1t">テックリード / マネージャー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="audience.a1d">
             チームメンバーの理解度が低い箇所を把握し、レビューや学習の優先順位を決めたい。
           </p>
         </div>
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
-          <h3 class="font-semibold text-white">オンボーディング担当 / 新規参画メンバー</h3>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <h3 class="font-semibold text-white" data-i18n="audience.a2t">オンボーディング担当 / 新規参画メンバー</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="audience.a2d">
             どこから理解すべきかを、学習ユニットとクイズで体系的に追いたい。
           </p>
         </div>
@@ -767,8 +767,8 @@
     <section id="flow" class="mx-auto max-w-6xl px-6 py-20">
       <div class="flow-title mb-8 text-center">
         <p class="text-sm font-medium text-know">HOW IT WORKS</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">開発・運用のサイクルに、技術負債・理解負債の解消を取り込む</h2>
-        <p class="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-slate-400">
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="flow.h2">開発・運用のサイクルに、技術負債・理解負債の解消を取り込む</h2>
+        <p class="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-slate-400" data-i18n="flow.sub">
           解析から、理解の実測・品質の検知、学習・改善までを一気通貫。「実測 → 学習」と「検知 → 改善」の両輪で返済します。
         </p>
       </div>
@@ -782,8 +782,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </span>
           <div>
-            <div class="step-title">リポジトリ解析</div>
-            <div class="step-desc">
+            <div class="step-title" data-i18n="flow.s0t">リポジトリ解析</div>
+            <div class="step-desc" data-i18n="flow.s0d">
               AI エージェントが MCP を使ってコードベースを横断探索。ファイル群を機能単位にクラスタリングし、技術スタックや依存関係も把握。
             </div>
           </div>
@@ -801,14 +801,14 @@
         <!-- 2 本のトラック: 理解負債 / 技術負債 -->
         <div class="flow-tracks">
           <div class="flow-track">
-            <span class="track-tag know">理解負債</span>
+            <span class="track-tag know" data-i18n="flow.track_know">理解負債</span>
             <div class="step">
               <span class="step-badge know">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="m9 14 2 2 4-4" /></svg>
               </span>
               <div>
-                <div class="step-title">クイズを生成・実測</div>
-                <div class="step-desc">
+                <div class="step-title" data-i18n="flow.s1t">クイズを生成・実測</div>
+                <div class="step-desc" data-i18n="flow.s1d">
                   機能ごとに理解度クイズを自動生成。回答から「誰がどこを理解しているか」をファイル単位で客観的に実測。
                 </div>
               </div>
@@ -821,8 +821,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></svg>
               </span>
               <div>
-                <div class="step-title">学習プランを生成</div>
-                <div class="step-desc">
+                <div class="step-title" data-i18n="flow.s2t">学習プランを生成</div>
+                <div class="step-desc" data-i18n="flow.s2d">
                   理解が浅い機能に合わせ、該当コードのウォークスルーや技術ドキュメントを含む学習プランをエージェントが自動で組み立て。
                 </div>
               </div>
@@ -830,14 +830,14 @@
           </div>
 
           <div class="flow-track">
-            <span class="track-tag code">技術負債</span>
+            <span class="track-tag code" data-i18n="flow.track_code">技術負債</span>
             <div class="step">
               <span class="step-badge code">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
               </span>
               <div>
-                <div class="step-title">低品質コードの検知</div>
-                <div class="step-desc">
+                <div class="step-title" data-i18n="flow.s3t">低品質コードの検知</div>
+                <div class="step-desc" data-i18n="flow.s3d">
                   重複・複雑度・デッドコード・AI 生成痕跡などを解析し、品質が低く優先度の高いファイルを特定。
                 </div>
               </div>
@@ -850,8 +850,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" x2="6" y1="9" y2="21" /></svg>
               </span>
               <div>
-                <div class="step-title">コード改善を提案</div>
-                <div class="step-desc">
+                <div class="step-title" data-i18n="flow.s4t">コード改善を提案</div>
+                <div class="step-desc" data-i18n="flow.s4d">
                   低品質コードに対し AI が自動で修正 PR を作成。担当者を割り当てた Issue の起票にも対応。
                 </div>
               </div>
@@ -874,8 +874,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h6v6" /><path d="m22 7-8.5 8.5-5-5L2 17" /></svg>
           </span>
           <div>
-            <div class="step-title">理解度・品質が向上</div>
-            <div class="step-desc">
+            <div class="step-title" data-i18n="flow.s5t">理解度・品質が向上</div>
+            <div class="step-desc" data-i18n="flow.s5d">
               「実測 → 学習」と「検知 → 改善」の両輪で属人化を解消し、コードベースの理解度とコード品質を継続的に向上。
             </div>
           </div>
@@ -887,7 +887,7 @@
     <section id="core" class="mx-auto max-w-7xl px-6 py-16">
       <div class="text-center">
         <p class="text-sm font-medium text-know">CORE</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">3 つのコア機能</h2>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="core.h2">3 つのコア機能</h2>
       </div>
       <div class="mt-10 grid gap-5 md:grid-cols-3">
         <div class="rounded-2xl border border-white/10 bg-[#131a22] p-6">
@@ -897,9 +897,9 @@
                 <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><circle cx="12" cy="12" r="3" /><path d="m16 16-1.9-1.9" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white">AI エージェントによる高度なリポジトリ解析</h3>
+            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c1t">AI エージェントによる高度なリポジトリ解析</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c1d">
             Google ADK で構築したエージェントが MCP（Serena / CodeGraphContext / Semgrep / GitHub）を駆使してリポジトリを探索。機能ごとの学習プラン・クイズの生成、低品質コードの検知と修正計画の作成までを自動化します。
           </p>
         </div>
@@ -910,9 +910,9 @@
                 <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white">理解負債の可視化 × クイズと学習で改善</h3>
+            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c2t">理解負債の可視化 × クイズと学習で改善</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c2d">
             ソースコードを機能単位にクラスタリングし、機能ごとに学習プランと理解度確認テストを生成。グラフで理解負債を可視化し、クイズ → 学習の閉ループで能動的に返済します。
           </p>
         </div>
@@ -923,9 +923,9 @@
                 <circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M13 6h3a2 2 0 0 1 2 2v7" /><line x1="6" x2="6" y1="9" y2="21" />
               </svg>
             </span>
-            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white">低品質コードへの推奨提案と自動修正</h3>
+            <h3 class="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white" data-i18n="core.c3t">低品質コードへの推奨提案と自動修正</h3>
           </div>
-          <p class="mt-2 text-sm leading-relaxed text-slate-400">
+          <p class="mt-2 text-sm leading-relaxed text-slate-400" data-i18n="core.c3d">
             解析で検出した低品質コードに対し、推奨事項を GitHub Issue として起票。担当者の割り当てや、修正 PR の自動作成まで行えます。
           </p>
         </div>
@@ -933,33 +933,33 @@
 
       <!-- 実運用を見据えた機能（コア機能のサブ要素。アイコン＋色付き枠の小さめタグ） -->
       <div class="mt-10 text-center">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">実運用を見据えた機能</p>
+        <p class="text-xs font-medium uppercase tracking-wide text-slate-500" data-i18n="core.oplabel">実運用を見据えた機能</p>
         <div class="mt-4 flex flex-col items-center gap-2">
           <div class="flex flex-wrap justify-center gap-2">
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill1">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><polyline points="10 17 15 12 10 7" /><line x1="15" x2="3" y1="12" y2="12" /></svg>GitHub SSO 認証・認可
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill2">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>プロジェクト管理
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill3">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>オンボーディングガイド
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill4">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M6 8h.01" /><path d="M10 8h.01" /><path d="M14 8h.01" /><path d="M18 8h.01" /><path d="M8 12h.01" /><path d="M12 12h.01" /><path d="M16 12h.01" /><path d="M7 16h10" /></svg>豊富なショートカット
           </span>
           </div>
           <div class="flex flex-wrap justify-center gap-2">
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill5">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>管理者によるユーザー管理
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-code/30 bg-code/10 px-3 py-1 text-xs font-medium text-code">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-code/30 bg-code/10 px-3 py-1 text-xs font-medium text-code" data-i18n="core.pill6">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" /></svg>クレジット付与による課金制御
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill7">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></svg>i18n 多言語対応
           </span>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know">
+          <span class="inline-flex items-center gap-1.5 rounded-full border border-know/30 bg-know/10 px-3 py-1 text-xs font-medium text-know" data-i18n="core.pill8">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>リリース履歴の確認
           </span>
           </div>
@@ -971,8 +971,8 @@
     <section id="features" class="mx-auto max-w-6xl px-6 py-16">
       <div class="text-center">
         <p class="text-sm font-medium text-know">FEATURES</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">アプリにできること</h2>
-        <p class="mx-auto mt-3 max-w-2xl text-slate-400">解析からダッシュボード、可視化、改善までを 1 つのワークスペースで。</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="features.h2">アプリにできること</h2>
+        <p class="mx-auto mt-3 max-w-2xl text-slate-400" data-i18n="features.sub">解析からダッシュボード、可視化、改善までを 1 つのワークスペースで。</p>
       </div>
 
       <div class="mt-14 space-y-20">
@@ -980,21 +980,21 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div>
             <p class="text-xs font-semibold tracking-wide text-know uppercase">Dashboard</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">ダッシュボード — 全体像を一目で</h3>
-            <p class="mt-3 text-slate-300">リポジトリの理解度とコード品質を一枚で確認できます。</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl" data-i18n="features.f1t">ダッシュボード — 全体像を一目で</h3>
+            <p class="mt-3 text-slate-300" data-i18n="features.f1lead">リポジトリの理解度とコード品質を一枚で確認できます。</p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
-              <li>
+              <li data-i18n="features.f1li1">
                 ・<strong class="text-white">マトリクス</strong>はファイルを「理解度 ×
                 コード品質」の二軸で整理。どちらも低いファイルが優先して改善すべき領域。
               </li>
-              <li>・<strong class="text-white">指標</strong>は理解度・低品質ファイル件数・修正済み件数を変化量つきで表示。</li>
-              <li>・<strong class="text-white">推移グラフ</strong>でコード品質と理解度の時間変化を確認。</li>
-              <li>・<strong class="text-white">優先対応リスト</strong>で対応すべきファイルを一覧。</li>
+              <li data-i18n="features.f1li2">・<strong class="text-white">指標</strong>は理解度・低品質ファイル件数・修正済み件数を変化量つきで表示。</li>
+              <li data-i18n="features.f1li3">・<strong class="text-white">推移グラフ</strong>でコード品質と理解度の時間変化を確認。</li>
+              <li data-i18n="features.f1li4">・<strong class="text-white">優先対応リスト</strong>で対応すべきファイルを一覧。</li>
             </ul>
             <div class="tag-row">
-              <span class="tag know">理解度 × 品質の二軸</span>
-              <span class="tag code">ホットスポット可視化</span>
-              <span class="tag know">優先対応スコア</span>
+              <span class="tag know" data-i18n="features.f1tag1">理解度 × 品質の二軸</span>
+              <span class="tag code" data-i18n="features.f1tag2">ホットスポット可視化</span>
+              <span class="tag know" data-i18n="features.f1tag3">優先対応スコア</span>
             </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
@@ -1013,20 +1013,20 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div class="md:order-2">
             <p class="text-xs font-semibold tracking-wide text-know uppercase">Understanding Map</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">理解度マップ — 誰がどこを分かっているか</h3>
-            <p class="mt-3 text-slate-300">
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl" data-i18n="features.f2t">理解度マップ — 誰がどこを分かっているか</h3>
+            <p class="mt-3 text-slate-300" data-i18n="features.f2lead">
               機能・ファイル別に、ユーザーの理解度をグラフで可視化します。表示は<strong class="font-semibold text-white">マップ</strong>と<strong class="font-semibold text-white">リスト</strong>の 2 種類。<strong class="font-semibold text-white">機能チップ</strong>で特定機能に関わるファイル群だけに絞り込めます。マップ表示はノード＝ファイル、線＝依存関係、色＝理解度で、ノードを選ぶと隣接ファイルを強調表示。
             </p>
             <ul class="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-slate-400">
-              <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #14b8a6"></span>理解済み</li>
-              <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #5eead4"></span>部分理解</li>
-              <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #ef4444"></span>未理解</li>
-              <li class="flex items-center gap-1.5"><span class="size-2.5 rounded-full" style="background: #94a3b8"></span>未着手</li>
+              <li class="flex items-center gap-1.5" data-i18n="features.f2leg1"><span class="size-2.5 rounded-full" style="background: #14b8a6"></span>理解済み</li>
+              <li class="flex items-center gap-1.5" data-i18n="features.f2leg2"><span class="size-2.5 rounded-full" style="background: #5eead4"></span>部分理解</li>
+              <li class="flex items-center gap-1.5" data-i18n="features.f2leg3"><span class="size-2.5 rounded-full" style="background: #ef4444"></span>未理解</li>
+              <li class="flex items-center gap-1.5" data-i18n="features.f2leg4"><span class="size-2.5 rounded-full" style="background: #94a3b8"></span>未着手</li>
             </ul>
             <div class="tag-row">
-              <span class="tag know">CodeGraphContext によるグラフ可視化</span>
-              <span class="tag know">ファイル間の依存関係解析</span>
-              <span class="tag know">機能クラスタリング</span>
+              <span class="tag know" data-i18n="features.f2tag1">CodeGraphContext によるグラフ可視化</span>
+              <span class="tag know" data-i18n="features.f2tag2">ファイル間の依存関係解析</span>
+              <span class="tag know" data-i18n="features.f2tag3">機能クラスタリング</span>
             </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
@@ -1045,23 +1045,23 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div>
             <p class="text-xs font-semibold tracking-wide text-code uppercase">Code Quality Map</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード品質マップ — 品質の分布を俯瞰</h3>
-            <p class="mt-3 text-slate-300">
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl" data-i18n="features.f3t">コード品質マップ — 品質の分布を俯瞰</h3>
+            <p class="mt-3 text-slate-300" data-i18n="features.f3lead">
               ソースコードをファイル単位で閲覧し、どのファイルにどのような改善余地があるかを確認できます。
             </p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
-              <li>
+              <li data-i18n="features.f3li1">
                 ・左の<strong class="text-white">ファイルツリー</strong>からファイルを選択。改善余地があるファイルには<strong
                   class="text-white"
                   >バッジ</strong
                 >が付きます。
               </li>
-              <li>・右側に選んだファイルの中身を表示。<strong class="text-white">指摘箇所がハイライト</strong>され、その場で確認できます。</li>
+              <li data-i18n="features.f3li2">・右側に選んだファイルの中身を表示。<strong class="text-white">指摘箇所がハイライト</strong>され、その場で確認できます。</li>
             </ul>
             <div class="tag-row">
-              <span class="tag code">Serena MCP（LSP）による解析</span>
-              <span class="tag code">Semgrep による静的解析</span>
-              <span class="tag code">デッドコード検知</span>
+              <span class="tag code" data-i18n="features.f3tag1">Serena MCP（LSP）による解析</span>
+              <span class="tag code" data-i18n="features.f3tag2">Semgrep による静的解析</span>
+              <span class="tag code" data-i18n="features.f3tag3">デッドコード検知</span>
             </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
@@ -1080,26 +1080,26 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div class="md:order-2">
             <p class="text-xs font-semibold tracking-wide text-know uppercase">Quizzes &amp; Learning</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">クイズと学習 — 実測して理解を深める</h3>
-            <p class="mt-3 text-slate-300">機能ごとの学習プランを受講し、確認クイズで理解度をチェックします。</p>
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl" data-i18n="features.f4t">クイズと学習 — 実測して理解を深める</h3>
+            <p class="mt-3 text-slate-300" data-i18n="features.f4lead">機能ごとの学習プランを受講し、確認クイズで理解度をチェックします。</p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
-              <li>
+              <li data-i18n="features.f4li1">
                 <strong class="text-white">・学習プラン一覧</strong> —
                 各プランのステータスと理解度、全体の学習進捗を確認。復習したい単元にはフラグを付け、一覧上部にまとめられます。
               </li>
-              <li>
+              <li data-i18n="features.f4li2">
                 <strong class="text-white">・学習を開く</strong> —
                 リポジトリ特有の機能をウォークスルーで学び、関連技術の公式ドキュメントも参照。重要な処理を段階的に理解。
               </li>
-              <li>
+              <li data-i18n="features.f4li3">
                 <strong class="text-white">・理解度を確認する</strong> —
                 確認クイズを受験。あとで復習したい問題にフラグを付けられ、フラグ／誤答に絞った再テストで弱点を繰り返し復習できます。
               </li>
             </ul>
             <div class="tag-row">
-              <span class="tag know">ADK エージェントが学習プラン・クイズを生成</span>
-              <span class="tag know">リポジトリ特有 × 技術スタックの両輪で学習</span>
-              <span class="tag know">フラグ付け・誤答の再テスト</span>
+              <span class="tag know" data-i18n="features.f4tag1">ADK エージェントが学習プラン・クイズを生成</span>
+              <span class="tag know" data-i18n="features.f4tag2">リポジトリ特有 × 技術スタックの両輪で学習</span>
+              <span class="tag know" data-i18n="features.f4tag3">フラグ付け・誤答の再テスト</span>
             </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl md:order-1">
@@ -1118,23 +1118,23 @@
         <div class="grid items-center gap-8 md:grid-cols-2">
           <div>
             <p class="text-xs font-semibold tracking-wide text-code uppercase">Code Improvement</p>
-            <h3 class="mt-2 text-xl font-bold sm:text-2xl">コード改善 — PR / Issue で返す</h3>
-            <p class="mt-3 text-slate-300">
+            <h3 class="mt-2 text-xl font-bold sm:text-2xl" data-i18n="features.f5t">コード改善 — PR / Issue で返す</h3>
+            <p class="mt-3 text-slate-300" data-i18n="features.f5lead">
               ファイル単位で改善箇所を確認し、AI による修正 Pull Request の自動生成や Issue の作成が行えます。
             </p>
             <ul class="mt-4 space-y-2 text-sm text-slate-400">
-              <li>・<strong class="text-white">フィルタ</strong>で絞り込み、<strong class="text-white">優先度順</strong>に並び替え。改善対象をクリックで詳細画面へ。</li>
-              <li>・詳細画面では問題のコード箇所がハイライトされ、<strong class="text-white">品質が低い理由・優先度・推定工数</strong>を確認。</li>
-              <li>
+              <li data-i18n="features.f5li1">・<strong class="text-white">フィルタ</strong>で絞り込み、<strong class="text-white">優先度順</strong>に並び替え。改善対象をクリックで詳細画面へ。</li>
+              <li data-i18n="features.f5li2">・詳細画面では問題のコード箇所がハイライトされ、<strong class="text-white">品質が低い理由・優先度・推定工数</strong>を確認。</li>
+              <li data-i18n="features.f5li3">
                 ・改善方法は<strong class="text-white">「AI に修正 PR を自動作成」</strong>か<strong class="text-white"
                   >「担当者を割り当てて Issue を作成」</strong
                 >から選択。
               </li>
             </ul>
             <div class="tag-row">
-              <span class="tag code">AI が修正パッチを生成</span>
-              <span class="tag code">修正 PR 自動生成</span>
-              <span class="tag code">GitHub Issue 起票</span>
+              <span class="tag code" data-i18n="features.f5tag1">AI が修正パッチを生成</span>
+              <span class="tag code" data-i18n="features.f5tag2">修正 PR 自動生成</span>
+              <span class="tag code" data-i18n="features.f5tag3">GitHub Issue 起票</span>
             </div>
           </div>
           <div class="overflow-hidden rounded-xl border border-white/10 shadow-2xl">
@@ -1156,8 +1156,8 @@
       <div class="mx-auto max-w-6xl px-6 py-12">
         <div class="text-center">
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
-          <h2 class="mt-2 text-2xl font-bold sm:text-3xl">インフラ構成</h2>
-          <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400">
+          <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="infra.h2">インフラ構成</h2>
+          <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400" data-i18n="infra.lead">
             Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。<br
               class="hidden sm:block"
             />解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
@@ -1212,7 +1212,7 @@
     <section id="security" class="mx-auto max-w-6xl px-6 py-16">
       <div class="text-center">
         <p class="text-sm font-medium text-know">SECURITY</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">セキュリティでこだわっていること</h2>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="security.h2">セキュリティでこだわっていること</h2>
       </div>
       <div class="mt-10 grid gap-4 md:grid-cols-2">
         <div class="rounded-xl border border-white/10 bg-[#131a22] p-5">
@@ -1222,9 +1222,9 @@
               <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">認証・セッション</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s1t">認証・セッション</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s1d">
             JWT トークンを用いた GitHub SSO。アクセストークンとリフレッシュトークンを用いた安全なセッション管理。30
             分間操作がないときのセッションタイムアウト。
           </p>
@@ -1236,9 +1236,9 @@
               <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">同一オリジン配信と Web 脆弱性対策</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s2t">同一オリジン配信と Web 脆弱性対策</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s2d">
             UIとAPIを同一オリジンで配信することでCORS 設定不要。加えて、XSS・CSRF・SSRF等の Web アプリで必要な対策を実施。
           </p>
         </div>
@@ -1249,9 +1249,9 @@
               <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">鍵を持たない設計</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s3t">鍵を持たない設計</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s3d">
             Workload Identity Federation で長期クレデンシャルを排除。デプロイ時のシークレットは GitHub Secrets で注入し、実行時は
             Secret Manager に集約して管理します。
           </p>
@@ -1263,9 +1263,9 @@
               <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">エッジおよびアプリ内でのレート制限</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s4t">エッジおよびアプリ内でのレート制限</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s4d">
             Cloud Armor によりアプリ手前で過剰なリクエストを制限。アプリ内では管理者がリポジトリ解析のクレジットを付与・管理でき、コストの大きい解析処理の乱用を防ぎます。
           </p>
         </div>
@@ -1276,9 +1276,9 @@
               <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" x2="22" y1="2" y2="22" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">エージェント入力のマスキング</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s5t">エージェント入力のマスキング</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s5d">
             エージェントに情報を与える際は、Cloud DLP（Sensitive Data Protection）と detect-secrets で PII・シークレットをマスキングしてから送信します。
           </p>
         </div>
@@ -1289,9 +1289,9 @@
               <path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><circle cx="12" cy="12" r="3" /><path d="m16 16-1.9-1.9" />
               </svg>
             </span>
-            <h3 class="font-semibold text-white">脆弱性スキャン</h3>
+            <h3 class="font-semibold text-white" data-i18n="security.s6t">脆弱性スキャン</h3>
           </div>
-          <p class="mt-2 text-sm text-slate-400">
+          <p class="mt-2 text-sm text-slate-400" data-i18n="security.s6d">
             OWASP に準拠したアプリケーションの脆弱性スキャンおよび、Trivy を用いたコンテナイメージの脆弱性スキャンを実施。
           </p>
         </div>
@@ -1302,8 +1302,8 @@
     <section id="mobile" class="mx-auto max-w-6xl px-6 py-16">
       <div class="text-center">
         <p class="text-sm font-medium text-know">MOBILE</p>
-        <h2 class="mt-2 text-2xl font-bold sm:text-3xl">スマホでも、いつでも理解度をチェック</h2>
-        <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="mobile.h2">スマホでも、いつでも理解度をチェック</h2>
+        <p class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-400" data-i18n="mobile.sub">
           レスポンシブ対応で、スマートフォンからも主要機能をそのまま利用可能。<br class="hidden sm:block" />
           移動中やレビューの合間でも、理解度マップの確認・コード品質の把握・クイズの受験ができます。
         </p>
@@ -1321,7 +1321,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-white">ダッシュボード</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold text-white" data-i18n="mobile.l1">ダッシュボード</figcaption>
         </figure>
         <!-- 理解度マップ -->
         <figure class="text-center">
@@ -1335,7 +1335,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-know">理解度マップ</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold text-know" data-i18n="mobile.l2">理解度マップ</figcaption>
         </figure>
         <!-- コード品質マップ -->
         <figure class="text-center">
@@ -1349,7 +1349,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-code">コード品質マップ</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold text-code" data-i18n="mobile.l3">コード品質マップ</figcaption>
         </figure>
         <!-- クイズと学習 -->
         <figure class="text-center">
@@ -1363,7 +1363,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-know">クイズと学習</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold text-know" data-i18n="mobile.l4">クイズと学習</figcaption>
         </figure>
         <!-- コード改善 -->
         <figure class="text-center">
@@ -1377,7 +1377,7 @@
               loading="lazy"
             />
           </div>
-          <figcaption class="mt-3 text-sm font-semibold text-code">コード改善</figcaption>
+          <figcaption class="mt-3 text-sm font-semibold text-code" data-i18n="mobile.l5">コード改善</figcaption>
         </figure>
       </div>
     </section>
@@ -1385,7 +1385,7 @@
     <!-- 技術スタック -->
     <section class="border-t border-white/10 bg-[#0b1016]">
       <div class="mx-auto max-w-6xl px-6 py-12 text-center">
-        <h2 class="text-lg font-semibold text-slate-300">技術スタック</h2>
+        <h2 class="text-lg font-semibold text-slate-300" data-i18n="stack.h2">技術スタック</h2>
         <div class="mt-5 flex flex-wrap justify-center gap-2 text-xs text-slate-400">
           <span class="rounded-full border border-white/10 px-3 py-1">SvelteKit / Svelte</span>
           <span class="rounded-full border border-white/10 px-3 py-1">bun</span>
@@ -1419,8 +1419,8 @@
 
     <!-- CTA -->
     <section id="cta" class="mx-auto max-w-6xl px-6 py-20 text-center">
-      <h2 class="text-3xl font-bold">チームの理解度を、今日から見える化</h2>
-      <p class="mx-auto mt-4 max-w-2xl text-slate-400">
+      <h2 class="text-3xl font-bold" data-i18n="cta.h2">チームの理解度を、今日から見える化</h2>
+      <p class="mx-auto mt-4 max-w-2xl text-slate-400" data-i18n="cta.p">
         GitHub リポジトリを接続して解析するだけ。理解負債と技術負債のどちらにもアプローチでき、日々の開発・運用（DevOps）のサイクルにそのまま組み込めます。
       </p>
       <!-- アプリの水色ボタン（bg-debt-knowledge/15 + text-debt-knowledge + 枠線）と同じ、
@@ -1429,7 +1429,7 @@
         id="foot-cta"
         href="/login"
         class="mt-8 inline-block rounded-md border border-know/30 bg-know/15 px-8 py-4 text-lg font-semibold text-know transition hover:brightness-110"
-        >リポジトリを接続して始める</a
+         data-i18n="cta.btn">リポジトリを接続して始める</a
       >
     </section>
 
@@ -1441,7 +1441,7 @@
             type="button"
             id="privacy-link"
             class="text-slate-300 underline-offset-2 transition hover:text-white hover:underline"
-          >
+           data-i18n="footer.privacy">
             プライバシーポリシー
           </button>
         </div>
@@ -1459,6 +1459,19 @@
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" /><path d="M9 18c-4.51 2-5-2-7-2" /></svg>
           </a>
+          <!-- 言語切り替え（アプリと同じ 6 言語）。選択は PARAGLIDE_LOCALE cookie に保存しアプリへ引き継ぐ。 -->
+          <select
+            id="lang-select"
+            aria-label="言語 / Language"
+            class="ml-1 cursor-pointer rounded-md border border-white/10 bg-[#131a22] px-2 py-1 text-sm text-slate-300 transition hover:text-white focus:outline-none"
+          >
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="es">Español</option>
+            <option value="de">Deutsch</option>
+          </select>
         </div>
       </div>
     </footer>
@@ -1470,7 +1483,7 @@
     >
       <div class="max-h-[80vh] overflow-y-auto p-6 sm:p-8">
         <div class="mb-5 flex items-start justify-between gap-4">
-          <h2 class="text-xl font-bold text-white">プライバシーポリシー</h2>
+          <h2 class="text-xl font-bold text-white" data-i18n="privacy.title">プライバシーポリシー</h2>
           <button
             type="button"
             id="privacy-close"
@@ -1481,84 +1494,84 @@
           </button>
         </div>
         <div class="space-y-5 text-sm leading-relaxed text-slate-300">
-          <p>
+          <p data-i18n="privacy.intro">
             DevDebtOps（以下「本サービス」といいます）は、本サービスの利用者（以下「利用者」といいます）の個人情報および利用者が提供するデータの取り扱いについて、以下のとおりプライバシーポリシー（以下「本ポリシー」といいます）を定めます。
           </p>
           <section>
-            <h3 class="font-semibold text-white">1. 取得する情報</h3>
+            <h3 class="font-semibold text-white" data-i18n="privacy.1t">1. 取得する情報</h3>
             <ul class="mt-2 list-disc space-y-1 pl-5">
-              <li><span class="text-white">アカウント情報</span>：GitHub 連携によるログイン時に取得するユーザー名・メールアドレス・公開プロフィール等。</li>
-              <li><span class="text-white">解析対象データ</span>：利用者が接続した GitHub リポジトリのソースコードおよびメタデータ（ファイル構成・コミット履歴・依存関係等）。</li>
-              <li><span class="text-white">利用データ</span>：クイズの回答・学習の進捗、操作ログ、アクセスログ（IP アドレス・ブラウザ情報・アクセス日時等）。</li>
+              <li data-i18n="privacy.1li1"><span class="text-white">アカウント情報</span>：GitHub 連携によるログイン時に取得するユーザー名・メールアドレス・公開プロフィール等。</li>
+              <li data-i18n="privacy.1li2"><span class="text-white">解析対象データ</span>：利用者が接続した GitHub リポジトリのソースコードおよびメタデータ（ファイル構成・コミット履歴・依存関係等）。</li>
+              <li data-i18n="privacy.1li3"><span class="text-white">利用データ</span>：クイズの回答・学習の進捗、操作ログ、アクセスログ（IP アドレス・ブラウザ情報・アクセス日時等）。</li>
             </ul>
           </section>
           <section>
-            <h3 class="font-semibold text-white">2. 利用目的</h3>
+            <h3 class="font-semibold text-white" data-i18n="privacy.2t">2. 利用目的</h3>
             <ul class="mt-2 list-disc space-y-1 pl-5">
-              <li>本サービスの提供・運営（理解度の実測、コード解析、学習プラン・クイズの生成、コード改善提案等）。</li>
-              <li>本サービスの品質向上、機能改善および不具合への対応。</li>
-              <li>不正利用の防止、セキュリティの確保および利用状況の分析。</li>
+              <li data-i18n="privacy.2li1">本サービスの提供・運営（理解度の実測、コード解析、学習プラン・クイズの生成、コード改善提案等）。</li>
+              <li data-i18n="privacy.2li2">本サービスの品質向上、機能改善および不具合への対応。</li>
+              <li data-i18n="privacy.2li3">不正利用の防止、セキュリティの確保および利用状況の分析。</li>
             </ul>
           </section>
           <section>
-            <h3 class="font-semibold text-white">3. 外部サービスとの連携</h3>
-            <p class="mt-2">本サービスは、機能提供のため以下の外部サービスと連携します。連携先での情報の取り扱いは各サービスの定めに従います。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.3t">3. 外部サービスとの連携</h3>
+            <p class="mt-2" data-i18n="privacy.3p">本サービスは、機能提供のため以下の外部サービスと連携します。連携先での情報の取り扱いは各サービスの定めに従います。</p>
             <ul class="mt-2 list-disc space-y-1 pl-5">
-              <li><span class="text-white">GitHub</span>：認証およびリポジトリ連携のため。</li>
-              <li><span class="text-white">AI 解析基盤（Google Vertex AI / Gemini 等）</span>：コード解析・学習コンテンツ生成のため、必要な範囲でコード等を送信します。送信前に個人情報（PII）およびシークレットのマスキングを実施します。</li>
+              <li data-i18n="privacy.3li1"><span class="text-white">GitHub</span>：認証およびリポジトリ連携のため。</li>
+              <li data-i18n="privacy.3li2"><span class="text-white">AI 解析基盤（Google Vertex AI / Gemini 等）</span>：コード解析・学習コンテンツ生成のため、必要な範囲でコード等を送信します。送信前に個人情報（PII）およびシークレットのマスキングを実施します。</li>
             </ul>
           </section>
           <section>
-            <h3 class="font-semibold text-white">4. 第三者提供</h3>
-            <p class="mt-2">法令に基づく場合その他正当な理由がある場合を除き、利用者の同意なく個人情報を第三者へ提供しません。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.4t">4. 第三者提供</h3>
+            <p class="mt-2" data-i18n="privacy.4p">法令に基づく場合その他正当な理由がある場合を除き、利用者の同意なく個人情報を第三者へ提供しません。</p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">5. 組織アカウント経由の利用</h3>
-            <p class="mt-2">
+            <h3 class="font-semibold text-white" data-i18n="privacy.5t">5. 組織アカウント経由の利用</h3>
+            <p class="mt-2" data-i18n="privacy.5p">
               利用者が所属する組織（チーム・企業等）を通じて本サービスを利用する場合、その組織の管理者は、メンバーのアカウント設定や、解析結果・理解度・学習状況等のデータにアクセスできることがあります。組織単位の利用における取り扱いは、当該組織の方針にも従います。
             </p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">6. 保管とセキュリティ</h3>
-            <p class="mt-2">取得した情報は、暗号化・アクセス制御等の適切な技術的・組織的措置を講じたうえで、クラウド基盤（Google Cloud）上で管理します。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.6t">6. 保管とセキュリティ</h3>
+            <p class="mt-2" data-i18n="privacy.6p">取得した情報は、暗号化・アクセス制御等の適切な技術的・組織的措置を講じたうえで、クラウド基盤（Google Cloud）上で管理します。</p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">7. 保持期間と削除</h3>
-            <p class="mt-2">情報は利用目的の達成に必要な期間保持し、期間経過後または利用者からの求めに応じて、適切に削除または匿名化します。アカウントの削除に伴い、関連するデータは削除されます。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.7t">7. 保持期間と削除</h3>
+            <p class="mt-2" data-i18n="privacy.7p">情報は利用目的の達成に必要な期間保持し、期間経過後または利用者からの求めに応じて、適切に削除または匿名化します。アカウントの削除に伴い、関連するデータは削除されます。</p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">8. 越境データ移転</h3>
-            <p class="mt-2">
+            <h3 class="font-semibold text-white" data-i18n="privacy.8t">8. 越境データ移転</h3>
+            <p class="mt-2" data-i18n="privacy.8p">
               本サービスはクラウド基盤（Google Cloud）および AI 解析基盤を利用しており、利用者のデータが日本国外（米国等）のサーバーで保管・処理される場合があります。この場合も、適用される法令に従い適切な保護措置を講じます。
             </p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">9. 処理の法的根拠（EEA / 英国の利用者向け）</h3>
-            <p class="mt-2">
+            <h3 class="font-semibold text-white" data-i18n="privacy.9t">9. 処理の法的根拠（EEA / 英国の利用者向け）</h3>
+            <p class="mt-2" data-i18n="privacy.9p">
               欧州経済領域（EEA）または英国の利用者について、当社は GDPR 等に基づき、(1) 契約の履行、(2) 法的義務の遵守、(3) 正当な利益（サービスの安全確保・改善等）、(4) 利用者の同意 のいずれかを法的根拠として個人データを処理します。同意に基づく処理は、いつでも撤回できます。
             </p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">10. 利用者の権利</h3>
-            <p class="mt-2">
+            <h3 class="font-semibold text-white" data-i18n="privacy.10t">10. 利用者の権利</h3>
+            <p class="mt-2" data-i18n="privacy.10p">
               利用者は、自己の個人情報について、開示・訂正・削除・利用停止等を求めることができます。ご請求にあたっては、本人確認のため追加情報の提供をお願いする場合があります。お住まいの地域の法令（GDPR・CCPA 等）により、データポータビリティや処理への異議など追加の権利が認められる場合があります。お問い合わせ窓口までご連絡ください。
             </p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">11. Cookie の利用</h3>
-            <p class="mt-2">
+            <h3 class="font-semibold text-white" data-i18n="privacy.11t">11. Cookie の利用</h3>
+            <p class="mt-2" data-i18n="privacy.11p">
               本サービスは、ログイン状態の維持およびセキュリティ確保に必要な Cookie（必須 Cookie）を使用します。広告・トラッキング目的の Cookie は使用しません。ブラウザ設定や DNT / GPC シグナルにより Cookie を制御できますが、必須 Cookie を無効化すると一部機能が利用できなくなる場合があります。
             </p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">12. 本ポリシーの改定</h3>
-            <p class="mt-2">本ポリシーは、法令の変更やサービス内容の変更に応じて改定することがあります。重要な変更がある場合は、本サービス上で周知します。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.12t">12. 本ポリシーの改定</h3>
+            <p class="mt-2" data-i18n="privacy.12p">本ポリシーは、法令の変更やサービス内容の変更に応じて改定することがあります。重要な変更がある場合は、本サービス上で周知します。</p>
           </section>
           <section>
-            <h3 class="font-semibold text-white">13. お問い合わせ</h3>
-            <p class="mt-2">本ポリシーに関するお問い合わせは、本サービスの運営者までご連絡ください。</p>
+            <h3 class="font-semibold text-white" data-i18n="privacy.13t">13. お問い合わせ</h3>
+            <p class="mt-2" data-i18n="privacy.13p">本ポリシーに関するお問い合わせは、本サービスの運営者までご連絡ください。</p>
           </section>
-          <p class="text-xs text-slate-500">最終更新日：2026 年 7 月 6 日</p>
+          <p class="text-xs text-slate-500" data-i18n="privacy.updated">最終更新日：2026 年 7 月 6 日</p>
         </div>
       </div>
     </dialog>
@@ -1860,5 +1873,7 @@
         });
       })();
     </script>
+    <!-- 多言語切り替え（アプリと同じ 6 言語）。翻訳辞書＋適用ロジック。 -->
+    <script src="i18n.js"></script>
   </body>
 </html>
