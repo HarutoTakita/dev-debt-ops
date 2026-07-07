@@ -530,6 +530,18 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「CTA（今日から見える化）」セクションのみ表示（動画用）。領域クリックでトグル、Esc で解除。 */
+      body.cta-solo > header,
+      body.cta-solo > footer,
+      body.cta-solo > section:not(#cta) {
+        display: none !important;
+      }
+      body.cta-solo #cta {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -2415,7 +2427,7 @@
     <script>
       (function () {
         // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "agent-solo", "infra-solo", "security-solo", "mobile-solo"];
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "agent-solo", "infra-solo", "security-solo", "mobile-solo", "cta-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
@@ -2426,6 +2438,7 @@
           "infra-solo": ["#infra"],
           "security-solo": ["#security"],
           "mobile-solo": ["#mobile"],
+          "cta-solo": ["#cta"],
         };
         const targetEls = (cls) => (TARGET_MAP[cls] || []).flatMap((s) => Array.from(document.querySelectorAll(s)));
 
@@ -2555,6 +2568,13 @@
         if (mobile)
           mobile.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("mobile-solo");
+          });
+
+        // CTA（今日から見える化）領域クリックで #cta セクションのみ表示（ボタンのクリックは除外）
+        const cta = document.querySelector("#cta");
+        if (cta)
+          cta.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("cta-solo");
           });
 
         // 「アプリにできること」の機能ブロック個別ソロ（↑/↓ ナビ対象外の別系統）
