@@ -580,6 +580,8 @@
   "tour_help_changelog_body": "「バージョン」から、これまでのアプリの変更やリリース履歴（チェンジログ）を確認できます。",
   "tour_shortcuts_title": "キーボードショートカット",
   "tour_shortcuts_body": "⌘/Ctrl + K でコマンドメニューを開けます。? を押すとショートカットの一覧が表示されます。",
+  "tour_no_project_title": "まずはプロジェクトを作成しましょう",
+  "tour_no_project_body": "解析を始めるには、GitHub リポジトリを接続したプロジェクトが必要です。「新規プロジェクト」からリポジトリとブランチを選んで作成してください。作成後にもう一度このガイドを開くと、各機能を順番にご案内します。",
   "overview_load_error": "概要の取得に失敗しました。",
   "granularity_label": "粒度",
   "granularity_feature": "機能",

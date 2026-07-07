@@ -116,6 +116,19 @@ export const tourSteps: TourStep[] = [
   },
 ];
 
+// プロジェクトが 1 つも無いときのガイド。tourSteps は全ステップがプロジェクト配下 route（/{org}/{project}/…）へ
+// 遷移するため、projectSlug が空だと不正遷移でフリーズする。0 件時はこの route なしガイドで
+// 「新規プロジェクト」作成へ誘導する（作成後に本ガイドを開き直すと各機能を案内する）。
+export const noProjectSteps: TourStep[] = [
+  {
+    id: "no-project",
+    target: "new-project",
+    title: m.tour_no_project_title,
+    body: m.tour_no_project_body,
+    placement: "right",
+  },
+];
+
 // 各メニューの「詳細を確認する」で開くページ別ガイド（issue 066）。メイン手順の id をキーにする。
 // 先頭ステップで当該ページへ遷移（route）し、各ページの主要 UI 要素を順にハイライトして詳しく説明する。
 // タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
