@@ -684,6 +684,13 @@
         font-size: 0.75rem;
         color: #cbd5e1;
       }
+      /* 日本語の説明文を、sm 以上では文の途中で折り返さない（横に長くなっても可）。
+         スパンは JA の DOM ベースラインのみに存在し、他言語は innerHTML 差し替えで通常折り返しになる。 */
+      @media (min-width: 640px) {
+        .nowrap-sm {
+          white-space: nowrap;
+        }
+      }
       /* 中央=処理: オーケストレーター＋サブエージェント＋MCP を before/after Hooks で挟む */
       .aa-hookrail {
         display: flex;
@@ -1218,28 +1225,6 @@
       </div>
     </section>
 
-    <!-- デモ動画 -->
-    <section id="demo" class="mx-auto max-w-4xl px-6 pb-4 pt-16">
-      <div class="mx-auto max-w-3xl text-center">
-        <p class="text-sm font-medium text-know">DEMO</p>
-        <h2 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl" data-i18n="demo.h2">デモ動画</h2>
-        <p class="mt-4 leading-relaxed text-slate-400" data-i18n="demo.lead">
-          DevDebtOps の使い方と、それを支える仕組みを 1 本の動画で紹介します。
-        </p>
-      </div>
-      <div class="mt-8 overflow-hidden rounded-xl border border-white/10 shadow-xl" style="aspect-ratio: 16 / 9;">
-        <iframe
-          class="h-full w-full"
-          src="https://www.youtube.com/embed/j3r0Ybvz9Js"
-          title="DevDebtOps デモ動画"
-          loading="lazy"
-          referrerpolicy="strict-origin-when-cross-origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-        ></iframe>
-      </div>
-    </section>
-
     <!-- 課題 -->
     <section id="challenge" class="mx-auto max-w-6xl px-6 pb-8 pt-20">
       <div class="mx-auto max-w-3xl text-center">
@@ -1761,14 +1746,8 @@
         <div class="text-center">
           <p class="text-sm font-medium text-know">INFRASTRUCTURE</p>
           <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="infra.h2">インフラ構成</h2>
-          <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400" data-i18n="infra.lead">
-            Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。<br
-              class="hidden sm:block"
-            />解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br
-              class="hidden sm:block"
-            />Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC
-            化。<br class="hidden sm:block" />開発時には、CI/CD がテスト〜デプロイに加えてリンター/フォーマッターの自動適用と
-            Gemini による自動コードレビューまで回して、コード品質を高く保ちます。
+          <p class="mx-auto mt-3 text-sm leading-relaxed text-slate-400" data-i18n="infra.lead">
+            <span class="nowrap-sm">Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。</span><br class="hidden sm:block" /><span class="nowrap-sm">新バージョンはブルーグリーン方式でデプロイし、段階的なカナリアリリースでトラフィックを移すことで、無停止かつ安全な切り替えを実現。</span><br class="hidden sm:block" /><span class="nowrap-sm">Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC 化。</span><br class="hidden sm:block" /><span class="nowrap-sm">CI/CD がテストからデプロイに加えてリンター/フォーマッターの自動適用、セキュリティスキャン、Gemini による自動コードレビューまで回して、コード品質を高く保ちます。</span>
           </p>
         </div>
 
@@ -1777,11 +1756,11 @@
         <figure class="mx-auto mt-8 max-w-4xl">
           <div class="rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-white/10 sm:p-5">
             <img
-              src="assets/infra-architecture.png"
-              alt="DevDebtOps のインフラ構成図 — GitHub 連携、Cloud Armor＋HTTPS ロードバランサ、api／service を分離した Cloud Run、Cloud Tasks による非同期処理、Cloud SQL・Cloud Storage、Secret Manager、Artifact Registry、Terraform、GitHub Actions（Gemini Code Review／各種スキャン）、Google ADK と各種 MCP、Gemini"
+              src="assets/infra-architecture.webp"
+              alt="DevDebtOps のインフラ構成図 — GitHub Apps・SSO による連携、Cloud Armor＋HTTPS ロードバランサ、SPA（SvelteKit）と API（FastAPI）を配信する API Cloud Run と Agent Development Kit を実行する Service Cloud Run、Cloud Tasks・Cloud Storage による非同期処理、VPC 内の Cloud SQL、Secret Manager、Artifact Registry、Cloud DLP、Gemini Enterprise Agent Platform、Terraform、GitHub Actions（Gemini Code Review・Ruff/pytest・Prettier/ESLint/Vitest・Gitleaks・CodeQL・OWASP ZAP）、各種 MCP（Serena・Semgrep・GitHub・CodeGraphContext）"
               class="w-full rounded-lg"
-              width="1482"
-              height="674"
+              width="1600"
+              height="901"
               loading="lazy"
             />
           </div>

@@ -102,7 +102,7 @@
   "features.f5tag2": "Automatic fix PR generation",
   "features.f5tag3": "GitHub Issue creation",
   "infra.h2": "Infrastructure",
-  "infra.lead": "Using Cloud Tasks, analysis is offloaded to asynchronous workers. Cloud Run auto-scales with load.<br class='hidden sm:block' />Analysis achieves comprehensive, efficient repository exploration by leveraging agents built with ADK and MCP.<br class='hidden sm:block' />Security is ensured with rate limiting via Cloud Armor, plus Secret Manager and Cloud DLP. Infrastructure is codified as IaC with Terraform.<br class='hidden sm:block' />During development, CI/CD runs everything from testing to deployment, plus automatic application of linters/formatters and automated code review by Gemini, keeping code quality high.",
+  "infra.lead": "Using Cloud Tasks, analysis is offloaded to asynchronous workers. Cloud Run auto-scales with load.<br class='hidden sm:block' />New versions are deployed blue-green and rolled out via gradual canary releases, shifting traffic incrementally for zero-downtime, safe switchovers.<br class='hidden sm:block' />Security is ensured with rate limiting via Cloud Armor, plus Secret Manager and Cloud DLP. Infrastructure is codified as IaC with Terraform.<br class='hidden sm:block' />CI/CD runs everything from testing to deployment, plus automatic application of linters/formatters, security scanning, and automated code review by Gemini, keeping code quality high.",
   "security.h2": "What we care about in security",
   "security.s1t": "Authentication and sessions",
   "security.s1d": "GitHub SSO using JWT tokens. Secure session management using access and refresh tokens. Session timeout after 30 minutes of inactivity.",
