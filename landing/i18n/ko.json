@@ -102,7 +102,7 @@
   "features.f5tag2": "수정 PR 자동 생성",
   "features.f5tag3": "GitHub Issue 발행",
   "infra.h2": "인프라 구성",
-  "infra.lead": "Cloud Tasks를 활용해 분석은 비동기 워커로 분리. 부하에 따라 Cloud Run이 자동 스케일. <br class='hidden sm:block' />분석은 ADK로 구축한 에이전트와 MCP의 활용을 통해, 망라적이고 효율적인 리포지토리 탐색을 실현. <br class='hidden sm:block' />Cloud Armor를 통한 레이트 제한·Secret Manager 및 Cloud DLP로 보안을 확보. 인프라는 Terraform으로 IaC화. <br class='hidden sm:block' />개발 시에는 CI/CD가 테스트부터 배포에 더해 린터/포매터의 자동 적용과 Gemini를 통한 자동 코드 리뷰까지 돌려, 코드 품질을 높게 유지합니다.",
+  "infra.lead": "Cloud Tasks를 활용해 분석은 비동기 워커로 분리. 부하에 따라 Cloud Run이 자동 스케일. <br class='hidden sm:block' />새 버전은 블루-그린 방식으로 배포하고, 단계적 카나리 릴리스로 트래픽을 점진적으로 전환해 무중단·안전한 전환을 실현. <br class='hidden sm:block' />Cloud Armor를 통한 레이트 제한·Secret Manager 및 Cloud DLP로 보안을 확보. 인프라는 Terraform으로 IaC화. <br class='hidden sm:block' />CI/CD가 테스트부터 배포에 더해 린터/포매터의 자동 적용, 보안 스캔, Gemini를 통한 자동 코드 리뷰까지 돌려, 코드 품질을 높게 유지합니다.",
   "security.h2": "보안에서 중점을 두는 것",
   "security.s1t": "인증·세션",
   "security.s1d": "JWT 토큰을 사용한 GitHub SSO. 액세스 토큰과 리프레시 토큰을 사용한 안전한 세션 관리. 30분간 조작이 없을 때의 세션 타임아웃.",

@@ -102,7 +102,7 @@
   "features.f5tag2": "自动生成修复 PR",
   "features.f5tag3": "创建 GitHub Issue",
   "infra.h2": "基础设施架构",
-  "infra.lead": "运用 Cloud Tasks 将解析分离至异步 worker。Cloud Run 根据负载自动扩缩。<br class='hidden sm:block' />解析借助以 ADK 构建的智能体与 MCP，实现全面且高效的仓库探索。<br class='hidden sm:block' />通过 Cloud Armor 进行限流，并以 Secret Manager 及 Cloud DLP 保障安全。基础设施以 Terraform 实现 IaC 化。<br class='hidden sm:block' />开发时，CI/CD 除完成测试至部署外，还会自动应用 linter / formatter 并由 Gemini 进行自动代码评审，从而将代码质量维持在高水准。",
+  "infra.lead": "运用 Cloud Tasks 将解析分离至异步 worker。Cloud Run 根据负载自动扩缩。<br class='hidden sm:block' />新版本采用蓝绿部署，并通过分阶段的金丝雀发布逐步切换流量，实现零停机、安全的版本切换。<br class='hidden sm:block' />通过 Cloud Armor 进行限流，并以 Secret Manager 及 Cloud DLP 保障安全。基础设施以 Terraform 实现 IaC 化。<br class='hidden sm:block' />CI/CD 除完成从测试到部署外，还会自动应用 linter / formatter、进行安全扫描，并由 Gemini 进行自动代码评审，从而将代码质量维持在高水准。",
   "security.h2": "在安全方面的坚持",
   "security.s1t": "认证与会话",
   "security.s1d": "使用 JWT 令牌的 GitHub SSO。使用访问令牌与刷新令牌的安全会话管理。30 分钟无操作时的会话超时。",

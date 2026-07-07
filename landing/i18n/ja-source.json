@@ -102,7 +102,7 @@
   "features.f5tag2": "修正 PR 自動生成",
   "features.f5tag3": "GitHub Issue 起票",
   "infra.h2": "インフラ構成",
-  "infra.lead": "Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。<br class='hidden sm:block' />解析は ADK で構築したエージェントと MCP の活用により、網羅的かつ効率的なリポジトリ探索を実現。<br class='hidden sm:block' />Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC 化。<br class='hidden sm:block' />開発時には、CI/CD がテスト〜デプロイに加えてリンター/フォーマッターの自動適用と Gemini による自動コードレビューまで回して、コード品質を高く保ちます。",
+  "infra.lead": "Cloud Tasks を活用して解析は非同期ワーカーへ分離。負荷に応じて Cloud Run が自動スケール。<br class='hidden sm:block' />新バージョンはブルーグリーン方式でデプロイし、段階的なカナリアリリースでトラフィックを移すことで、無停止かつ安全な切り替えを実現。<br class='hidden sm:block' />Cloud Armor によるレート制限・Secret Manager および Cloud DLP でセキュリティを担保。インフラは Terraform で IaC 化。<br class='hidden sm:block' />CI/CD がテストからデプロイに加えてリンター/フォーマッターの自動適用、セキュリティスキャン、Gemini による自動コードレビューまで回して、コード品質を高く保ちます。",
   "security.h2": "セキュリティでこだわっていること",
   "security.s1t": "認証・セッション",
   "security.s1d": "JWT トークンを用いた GitHub SSO。アクセストークンとリフレッシュトークンを用いた安全なセッション管理。30 分間操作がないときのセッションタイムアウト。",
