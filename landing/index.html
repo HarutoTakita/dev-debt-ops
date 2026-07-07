@@ -515,6 +515,27 @@
         flex-direction: column;
         justify-content: center;
       }
+      /* 一時機能: 「AI エージェント解析」セクションのみ表示（動画用）。図クリックでトグル、Esc で解除。 */
+      #agent .agent-arch {
+        cursor: pointer;
+      }
+      body.agent-solo > header,
+      body.agent-solo > footer,
+      body.agent-solo > section:not(#agent) {
+        display: none !important;
+      }
+      body.agent-solo #agent {
+        min-height: 100svh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        max-width: 100rem; /* 拡大表示では画面幅を活かして図を大きく見せる */
+      }
+      /* 拡大表示では図の 78rem 上限を 92rem まで緩め、画面幅を活かして大きくする。 */
+      body.agent-solo .agent-arch {
+        width: 100%;
+        max-width: 92rem;
+      }
       /* ↑/↓ でブロックを切り替える際のスライドエフェクト（LP を上→下に見ていく感覚）。 */
       @keyframes lp-slide-up {
         from {
@@ -557,6 +578,512 @@
       #terms-modal > div::-webkit-scrollbar {
         display: none; /* WebKit（Chrome/Safari） */
       }
+
+      /* エージェント解析アーキテクチャ図（入力 → エージェント + MCP → 出力、下段にハーネス帯）。
+         flow-diagram と同じトーン。モバイルは縦積み、md 以上で横並び＋矢印を「→」に。 */
+      .agent-arch {
+        max-width: 78rem;
+        margin: 2rem auto 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        align-items: stretch;
+      }
+      .aa-stage,
+      .aa-core {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 13, 26, 0.5);
+        border-radius: 1rem;
+        padding: 1rem 1.1rem;
+        display: flex;
+        flex-direction: column;
+      }
+      .aa-core {
+        border-color: rgba(34, 184, 196, 0.35);
+        background: rgba(34, 184, 196, 0.06);
+        min-width: 0;
+      }
+      .aa-label {
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #64748b;
+      }
+      .aa-label.know {
+        color: #22b8c4;
+      }
+      .aa-label.code {
+        color: #e0a23a;
+      }
+      .aa-box {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-top: 0.55rem;
+      }
+      .aa-box-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.5rem;
+        background: rgba(34, 184, 196, 0.15);
+        color: #22b8c4;
+        flex-shrink: 0;
+      }
+      .aa-box-icon svg {
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+      .aa-box-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #f1f5f9;
+      }
+      .aa-core-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #fff;
+        margin-top: 0.45rem;
+      }
+      .aa-mcp-label {
+        margin-top: 0.7rem;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+      }
+      /* コア内のサブ区画（MCP / エージェント連携 / Hooks を1つの図に統合） */
+      .aa-core-section {
+        margin-top: 0.85rem;
+      }
+      .aa-core-section + .aa-core-section {
+        border-top: 1px dashed rgba(255, 255, 255, 0.12);
+        padding-top: 0.85rem;
+      }
+      .aa-section-label {
+        display: block;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: #94a3b8;
+      }
+      .aa-section-sub {
+        margin-top: 0.15rem;
+        font-size: 0.7rem;
+        color: #94a3b8;
+      }
+      .aa-harness-sub {
+        font-size: 0.75rem;
+        color: #cbd5e1;
+      }
+      /* 中央=処理: オーケストレーター＋サブエージェント＋MCP を before/after Hooks で挟む */
+      .aa-hookrail {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border: 1px solid rgba(224, 162, 58, 0.4);
+        background: rgba(224, 162, 58, 0.09);
+        border-radius: 0.6rem;
+        padding: 0.5rem 0.65rem;
+      }
+      .aa-hookrail.before {
+        margin-top: 0.7rem;
+      }
+      .aa-hook-tag {
+        flex-shrink: 0;
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #0b1016;
+        background: #e0a23a;
+        border-radius: 0.35rem;
+        padding: 0.12rem 0.4rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .aa-hookrail-ico {
+        display: inline-grid;
+        place-items: center;
+        color: #e0a23a;
+        flex-shrink: 0;
+      }
+      .aa-hookrail-ico svg {
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+      .aa-hookrail-txt {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+      .aa-agentsys {
+        overflow-x: auto;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .aa-agentsys svg {
+        display: block;
+        width: 100%;
+        min-width: 34rem;
+        height: auto;
+      }
+      .aa-orch-nodetext {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        text-align: left;
+        min-width: 0;
+      }
+      .aa-orch-role {
+        font-size: 0.68rem;
+        color: #94a3b8;
+      }
+      .aa-mcprow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.45rem;
+      }
+      .aa-mcp {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        text-align: center;
+      }
+      .aa-mcp-name {
+        font-size: 0.66rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        line-height: 1.2;
+        word-break: break-word;
+      }
+      .aa-vconn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        color: rgba(148, 163, 184, 0.6);
+        padding: 0.2rem 0;
+      }
+      .aa-vconn::before {
+        content: "↓";
+        font-size: 1.05rem;
+        line-height: 1;
+      }
+      .aa-vconn-txt {
+        font-size: 0.66rem;
+        color: #94a3b8;
+        text-align: center;
+      }
+      .aa-tools {
+        margin-top: 0.4rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.4rem;
+      }
+      .aa-tool {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 13, 26, 0.6);
+        border-radius: 0.6rem;
+        padding: 0.45rem 0.55rem;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      /* MCP ツールのロゴアイコン（landing/assets）。白背景は使わず、暗色になじむ半透明チップに大きく載せる。 */
+      .aa-tool-ico {
+        width: 2.5rem;
+        height: 2.5rem;
+        flex-shrink: 0;
+        display: inline-grid;
+        place-items: center;
+        border-radius: 0.6rem;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: hidden;
+      }
+      .aa-tool-ico img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .aa-tool-ico svg {
+        width: 1.55rem;
+        height: 1.55rem;
+        color: #cbd5e1;
+      }
+      .aa-tool-txt {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        min-width: 0;
+      }
+      .aa-tool-name {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #e2e8f0;
+      }
+      .aa-tool-role {
+        font-size: 0.68rem;
+        color: #94a3b8;
+      }
+      .aa-sub {
+        margin-top: 0.7rem;
+        font-size: 0.72rem;
+        color: #94a3b8;
+        border-top: 1px dashed rgba(255, 255, 255, 0.12);
+        padding-top: 0.5rem;
+      }
+      .aa-outs {
+        margin-top: 0.55rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .aa-out {
+        border: 1px solid rgba(224, 162, 58, 0.3);
+        background: rgba(224, 162, 58, 0.08);
+        border-radius: 0.6rem;
+        padding: 0.5rem 0.6rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+      .aa-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(148, 163, 184, 0.6);
+        font-size: 1.25rem;
+        line-height: 1;
+      }
+      .aa-arrow::before {
+        content: "↓";
+      }
+      .aa-harness {
+        max-width: 78rem;
+        margin: 0.9rem auto 0;
+        border: 1px dashed rgba(224, 162, 58, 0.4);
+        background: rgba(224, 162, 58, 0.06);
+        border-radius: 1rem;
+        padding: 0.9rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        align-items: center;
+        text-align: center;
+      }
+      .aa-harness-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #e0a23a;
+      }
+      .aa-harness-label svg {
+        width: 1rem;
+        height: 1rem;
+      }
+      .aa-harness-chips {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.4rem;
+      }
+      @media (min-width: 768px) {
+        /* 左=入力 / 中央=処理 / 右=出力 の横並び。マクロの矢印は「→」、コア内は「↓」。 */
+        .agent-arch {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .aa-stage {
+          flex: 0 0 11rem;
+        }
+        .aa-out-stage {
+          flex-basis: 15rem;
+        }
+        .aa-core {
+          flex: 1 1 auto;
+        }
+        .aa-arrow {
+          flex: 0 0 1.4rem;
+        }
+        .aa-arrow::before {
+          content: "→";
+        }
+      }
+
+      /* --- サブエージェント連携 / Hooks パイプライン（#agent の追加図） --- */
+      .aa-orch,
+      .aa-hooks {
+        max-width: 78rem;
+        margin: 0.9rem auto 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(8, 13, 26, 0.5);
+        border-radius: 1rem;
+        padding: 1rem 1.1rem;
+      }
+      .aa-panel-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #f1f5f9;
+      }
+      .aa-panel-sub {
+        margin-top: 0.15rem;
+        font-size: 0.72rem;
+        color: #94a3b8;
+      }
+      /* 統括エージェント → サブエージェント（モバイル縦積み / md で横並び） */
+      .aa-orch-body {
+        margin-top: 0.8rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        align-items: stretch;
+      }
+      .aa-orch-node {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        border: 1px solid rgba(34, 184, 196, 0.4);
+        background: rgba(34, 184, 196, 0.08);
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.85rem;
+        align-self: center;
+      }
+      .aa-orch-node .aa-box-icon {
+        background: rgba(34, 184, 196, 0.2);
+      }
+      .aa-orch-node-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #fff;
+      }
+      .aa-orch-branch {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(148, 163, 184, 0.55);
+      }
+      .aa-orch-branch::before {
+        content: "↓";
+        font-size: 1.2rem;
+      }
+      .aa-subs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+      .aa-subagent {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-left-width: 3px;
+        background: rgba(8, 13, 26, 0.6);
+        border-radius: 0.6rem;
+        padding: 0.55rem 0.65rem;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #e2e8f0;
+      }
+      .aa-subagent svg {
+        width: 1.05rem;
+        height: 1.05rem;
+        flex-shrink: 0;
+      }
+      /* Hooks 決定論パイプライン（歯車ステップ → 矢印） */
+      .aa-hooks-flow {
+        margin-top: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      .aa-hook {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.25rem;
+        flex: 1 1 0;
+      }
+      .aa-hook-gear {
+        display: inline-grid;
+        place-items: center;
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 9999px;
+        background: rgba(34, 184, 196, 0.1);
+        border: 1px solid rgba(34, 184, 196, 0.35);
+        color: #22b8c4;
+      }
+      .aa-hook.code .aa-hook-gear {
+        background: rgba(224, 162, 58, 0.1);
+        border-color: rgba(224, 162, 58, 0.35);
+        color: #e0a23a;
+      }
+      .aa-hook-gear svg {
+        width: 1.3rem;
+        height: 1.3rem;
+      }
+      .aa-hook-name {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #e2e8f0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .aa-hook-desc {
+        font-size: 0.66rem;
+        color: #94a3b8;
+        line-height: 1.3;
+        max-width: 9rem;
+      }
+      .aa-hook-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(148, 163, 184, 0.55);
+        font-size: 1.1rem;
+      }
+      .aa-hook-arrow::before {
+        content: "↓";
+      }
+      @media (min-width: 768px) {
+        .aa-orch-body {
+          flex-direction: row;
+          align-items: center;
+          gap: 0.85rem;
+        }
+        .aa-orch-node {
+          flex: 0 0 auto;
+        }
+        .aa-orch-branch {
+          flex: 0 0 1.6rem;
+        }
+        .aa-orch-branch::before {
+          content: "→";
+        }
+        .aa-subs {
+          flex: 1 1 auto;
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .aa-hooks-flow {
+          flex-direction: row;
+          align-items: flex-start;
+        }
+        .aa-hook-arrow {
+          flex: 0 0 1.4rem;
+          margin-top: 0.9rem;
+        }
+        .aa-hook-arrow::before {
+          content: "→";
+        }
+      }
     </style>
   </head>
   <body class="bg-ink text-slate-100 antialiased">
@@ -586,6 +1113,7 @@
         <div class="hidden gap-7 text-sm text-slate-300 md:flex">
           <a href="#flow" class="transition hover:text-white" data-i18n="nav.how">仕組み</a>
           <a href="#features" class="transition hover:text-white" data-i18n="nav.features">機能</a>
+          <a href="#agent" class="transition hover:text-white" data-i18n="nav.analysis">解析</a>
           <a href="#infra" class="transition hover:text-white" data-i18n="nav.infra">インフラ</a>
           <a href="#security" class="transition hover:text-white" data-i18n="nav.security">セキュリティ</a>
         </div>
@@ -1151,6 +1679,55 @@
     </section>
 
     <!-- インフラ構成 -->
+    <!-- エージェント解析アーキテクチャ（テキストではなく図で示す） -->
+    <section id="agent" class="mx-auto max-w-7xl px-6 py-16">
+      <div class="text-center">
+        <p class="text-sm font-medium text-know">ARCHITECTURE</p>
+        <h2 class="mt-2 text-2xl font-bold sm:text-3xl" data-i18n="core.c1t">AI エージェントによる高度なリポジトリ解析</h2>
+        <p class="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-400" data-i18n="agent.lead">
+          Google ADK で構築したエージェントが、MCP・サブエージェント・Hook を駆使してリポジトリを自律的に探索。<br class="hidden sm:block" />機能ごとの学習プラン・クイズの生成、低品質コードの検知と修正計画の作成までを自動化します。
+        </p>
+      </div>
+
+      <div class="agent-arch">
+        <!-- 左: 入力 -->
+        <div class="aa-stage">
+          <span class="aa-label">INPUT</span>
+          <div class="aa-box">
+            <span class="aa-box-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" x2="6" y1="3" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></svg>
+            </span>
+            <span class="aa-box-title" data-i18n="agent.repo">リポジトリ</span>
+          </div>
+        </div>
+
+        <div class="aa-arrow" aria-hidden="true"></div>
+
+        <!-- 中央: 処理（オーケストレーター＋サブエージェント＋MCP を before/after Hooks で挟む） -->
+        <div class="aa-core">
+          <span class="aa-label know">PROCESSING</span>
+          <span class="aa-core-title" data-i18n="agent.core">AI エージェント</span>
+
+          <!-- エージェント本体: before/after Hook でオーケストレーターを挟む一枚図 -->
+          <div class="aa-agentsys">
+            <svg viewBox="0 0 720 326" role="img" aria-label="before/after Hook を適用したオーケストレーターとサブエージェント、MCP の関係図" xmlns="http://www.w3.org/2000/svg"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#64748b"/></marker></defs><path d="M360 78 C 360 104 90 106 90 126" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M360 78 C 360 104 270 106 270 126" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M360 78 C 360 104 450 106 450 126" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M360 78 C 360 104 630 106 630 126" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M90 174 L 90 206" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M270 174 L 270 206" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M450 174 L 450 206" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M630 174 L 630 206" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M234 46 L 246 46" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><path d="M472 46 L 488 46" fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/><rect x="2" y="14" width="232" height="64" rx="13" fill="none" stroke="#e0a23a" stroke-opacity="0.55" stroke-width="1.3" stroke-dasharray="5 4"/><text x="18" y="33" font-size="12" font-weight="700" letter-spacing="1.2" fill="#e0a23a">Pre Hook</text><text x="118" y="62" text-anchor="middle" font-size="13" font-weight="600" fill="#f1f5f9" data-i18n="agent.h_mask">個人情報・シークレットのマスキング</text><rect x="490" y="14" width="228" height="64" rx="13" fill="none" stroke="#e0a23a" stroke-opacity="0.55" stroke-width="1.3" stroke-dasharray="5 4"/><text x="506" y="33" font-size="12" font-weight="700" letter-spacing="1.2" fill="#e0a23a">Post Hook</text><text x="604" y="62" text-anchor="middle" font-size="13" font-weight="600" fill="#f1f5f9" data-i18n="agent.h_trace">トレース記録</text><rect x="248" y="14" width="224" height="64" rx="13" fill="#0b1622" stroke="#22b8c4" stroke-width="1.5"/><g transform="translate(261,32)" fill="none" stroke="#22b8c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></g><text x="294" y="41" font-size="15" font-weight="700" fill="#ffffff" data-i18n="agent.orch">オーケストレーター</text><text x="294" y="60" font-size="11" fill="#94a3b8" data-i18n="agent.orch_role">全体を統括し、振り分け</text><rect x="10" y="130" width="160" height="44" rx="11" fill="#0b1119" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/><rect x="12" y="136" width="4" height="32" rx="2" fill="#22b8c4"/><g transform="translate(25,141) scale(0.78)" fill="none" stroke="#22b8c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></g><text x="50" y="157" font-size="14" font-weight="600" fill="#e2e8f0" data-i18n="agent.sa_feature">機能分析</text><rect x="190" y="130" width="160" height="44" rx="11" fill="#0b1119" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/><rect x="192" y="136" width="4" height="32" rx="2" fill="#e0a23a"/><g transform="translate(205,141) scale(0.78)" fill="none" stroke="#e0a23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></g><text x="230" y="157" font-size="14" font-weight="600" fill="#e2e8f0" data-i18n="agent.sa_learn">学習プラン作成</text><rect x="370" y="130" width="160" height="44" rx="11" fill="#0b1119" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/><rect x="372" y="136" width="4" height="32" rx="2" fill="#34d399"/><g transform="translate(385,141) scale(0.78)" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></g><text x="410" y="157" font-size="14" font-weight="600" fill="#e2e8f0" data-i18n="agent.sa_quiz">クイズ生成</text><rect x="550" y="130" width="160" height="44" rx="11" fill="#0b1119" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1"/><rect x="552" y="136" width="4" height="32" rx="2" fill="#a78bfa"/><g transform="translate(565,141) scale(0.78)" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></g><text x="590" y="157" font-size="14" font-weight="600" fill="#e2e8f0" data-i18n="agent.sa_fix">コード改善</text><rect x="15" y="210" width="690" height="106" rx="13" fill="none" stroke="#556472" stroke-opacity="0.55" stroke-width="1.3" stroke-dasharray="5 4"/><text x="32" y="232" font-size="12" font-weight="700" letter-spacing="1.5" fill="#94a3b8">MCP</text><image href="assets/serena.png" x="68" y="242" width="44" height="44" /><text x="90" y="304" text-anchor="middle" font-size="12" font-weight="600" fill="#cbd5e1">Serena</text><image href="assets/code-graph-context.png" x="248" y="242" width="44" height="44" /><text x="270" y="304" text-anchor="middle" font-size="12" font-weight="600" fill="#cbd5e1">CodeGraphContext</text><image href="assets/semgrep.png" x="428" y="242" width="44" height="44" /><text x="450" y="304" text-anchor="middle" font-size="12" font-weight="600" fill="#cbd5e1">Semgrep</text><g transform="translate(608,243) scale(1.83)" fill="#cbd5e1"><path d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.33-1.76-1.33-1.76-1.09-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.241.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.62-5.48 5.92.43.37.81 1.1.81 2.220 1.6-.01 2.9-.01 3.29 0 .32.22.7.83.58A12.01 12.01 0 0 0 24 12.5C24 5.87 18.63.5 12 .5z"/></g><text x="630" y="304" text-anchor="middle" font-size="12" font-weight="600" fill="#cbd5e1">GitHub</text></svg>
+          </div>
+        </div>
+
+        <div class="aa-arrow" aria-hidden="true"></div>
+
+        <!-- 右: 出力 -->
+        <div class="aa-stage aa-out-stage">
+          <span class="aa-label code">OUTPUT</span>
+          <div class="aa-outs">
+            <div class="aa-out" data-i18n="agent.o_cluster">機能クラスタリング</div>
+            <div class="aa-out" data-i18n="agent.o_learn">クイズ・学習プランの生成</div>
+            <div class="aa-out" data-i18n="agent.o_fix">低品質コードの検知・修正計画</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="infra" class="border-t border-white/10 bg-[#0b1016]">
       <div class="mx-auto max-w-6xl px-6 py-12">
         <div class="text-center">
@@ -1844,13 +2421,14 @@
     <script>
       (function () {
         // ↑/↓ ナビの送り順（LP の並びに沿って hero → 課題+FOR → フロー図 → コア機能 → インフラ → セキュリティ → モバイル）
-        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "infra-solo", "security-solo", "mobile-solo"];
+        const ORDER = ["hero-solo", "duo-mode", "flow-solo", "core-solo", "agent-solo", "infra-solo", "security-solo", "mobile-solo"];
         // 各モードで実際に表示される要素（スクロール演出の対象）
         const TARGET_MAP = {
           "hero-solo": ["#top .hero-grid"],
           "flow-solo": ["#flow .flow-title", "#flow .flow-diagram"],
           "duo-mode": ["#challenge", "#audience"],
           "core-solo": ["#core"],
+          "agent-solo": ["#agent"],
           "infra-solo": ["#infra"],
           "security-solo": ["#security"],
           "mobile-solo": ["#mobile"],
@@ -1955,6 +2533,13 @@
         if (core)
           core.addEventListener("click", (e) => {
             if (!e.target.closest("a, button")) activate("core-solo");
+          });
+
+        // AI エージェント解析図（.agent-arch）クリックで #agent セクションのみ表示
+        const agent = document.querySelector("#agent .agent-arch");
+        if (agent)
+          agent.addEventListener("click", (e) => {
+            if (!e.target.closest("a, button")) activate("agent-solo");
           });
 
         // インフラ構成図（figure）クリックでインフラセクションのみ表示
