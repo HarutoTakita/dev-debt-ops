@@ -33,7 +33,7 @@
   import * as m from "$lib/paraglide/messages";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
-  import { tourSteps } from "$lib/components/onboarding/tour-steps";
+  import { tourSteps, noProjectSteps } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
   import ChangelogDialog from "./changelog-dialog.svelte";
 
@@ -44,6 +44,12 @@
   // が存在せずガイドブロックが全て中央表示になり、詳細ガイドの route も projectSlug 空で 404 になる。
   // そのため、未選択ならトップのプロジェクトを 1 つ選んでから開始する（issue 066 追補）。
   async function startGuide() {
+    // プロジェクトが 1 つも無い場合、tourSteps は全ステップがプロジェクト配下 route へ遷移するため
+    // projectSlug 空で不正遷移しフリーズする。0 件時は「新規プロジェクト作成」へ誘導するガイドを出す。
+    if (!project.current && project.list.length === 0) {
+      onboarding.start(noProjectSteps);
+      return;
+    }
     if (!project.current) {
       const top = project.list[0];
       if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
@@ -292,7 +298,7 @@
     </div>
 
     <!-- 一番下: 新規プロジェクト作成 -->
-    <div class="mt-1 border-t border-sidebar-border pt-2">
+    <div class="mt-1 border-t border-sidebar-border pt-2" data-tour="new-project">
       {#if sidebar.collapsed}
         <Tooltip.Root>
           <Tooltip.Trigger>

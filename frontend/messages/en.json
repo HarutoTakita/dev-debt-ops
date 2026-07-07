@@ -580,6 +580,8 @@
   "tour_help_changelog_body": "Open \"Version\" to see the app's change and release history (changelog).",
   "tour_shortcuts_title": "Keyboard shortcuts",
   "tour_shortcuts_body": "Press ⌘/Ctrl + K to open the command menu, and ? to see the full list of shortcuts.",
+  "tour_no_project_title": "First, create a project",
+  "tour_no_project_body": "To start analyzing you need a project connected to a GitHub repository. Use “New project” to pick a repository and branch. Once it's created, reopen this guide for a walkthrough of each feature.",
   "overview_load_error": "Failed to load the overview.",
   "granularity_label": "Granularity",
   "granularity_feature": "Feature",
