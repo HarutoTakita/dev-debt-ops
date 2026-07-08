@@ -60,11 +60,10 @@ test("管理ダッシュボード", async ({ page }) => {
 test("キーボードショートカット一覧", async ({ page }) => {
   await startDemo(page);
   try {
-    await page.keyboard.press("Shift+/"); // US 配列で "?" を送出（handler は e.key === "?"）
+    // ? のハンドラは `<svelte:window onkeydown>` で window の keydown を購読する（e.key === "?"）。
+    // ヘッドレスではキーボード配列由来で "?" が届かないことがあるため、window に直接 keydown を dispatch する。
+    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", bubbles: true })));
     const dialog = page.locator('[data-tour="shortcut-list"]');
-    if (!(await dialog.count())) {
-      await page.keyboard.type("?"); // フォールバック
-    }
     await dialog.first().waitFor({ timeout: 10_000 });
     await page.waitForTimeout(300);
     await shot(page, "24-shortcuts", { title: "キーボードショートカット一覧" });
