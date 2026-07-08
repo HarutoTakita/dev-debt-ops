@@ -8,7 +8,7 @@ DevDebtOps の主要フローを Mermaid シーケンス図で示す。すべて
 - [4. 認証（GitHub OAuth ログイン + リフレッシュ回転）](#4-認証github-oauth-ログイン--リフレッシュ回転)
 - [5. リポジトリ接続（GitHub App インストール）](#5-リポジトリ接続github-app-インストール)
 - [6. ローカル開発のモック経路](#6-ローカル開発のモック経路)
-- [7. CI/CD デプロイ（WIF → Terraform）](#7-cicd-デプロイwif--terraform)
+- [7. CI/CD デプロイ（WIF → migrate Job → 段階カナリア）](#7-cicd-デプロイwif--migrate-job--段階カナリア)
 
 ---
 
@@ -229,28 +229,51 @@ sequenceDiagram
 
 ---
 
-## 7. CI/CD デプロイ（WIF → Terraform）
+## 7. CI/CD デプロイ（WIF → migrate Job → 段階カナリア）
 
-long-lived 鍵を使わず、GitHub Actions が **WIF** で deploy SA を impersonate して
-`terraform apply` する想定（bootstrap が WIF/SA/ロールを用意。deploy ワークフロー自体は issue-025・未配置）。
+`deploy-stg.yml`（`develop`。現在は**手動 `workflow_dispatch`** のみ ── コスト削減のため自動 push デプロイは停止中）と
+`deploy-prod.yml`（タグ `v*.*.*`。`v0.0.x` プレリリースはスキップ、GitHub environment の required reviewers でゲート）が、
+再利用ワークフロー `deploy-gcp.yml` を呼ぶ。long-lived 鍵は使わず **WIF** で deploy SA を impersonate する。
+**マイグレーションは api 起動時に実行しない**（issue 072）。独立した **migrate Cloud Run Job** で expand-only（N-1 後方互換）
+マイグレーションを**切替前に**適用し、api は **段階カナリア**（green を 0%→10%→100%・各段でヘルス確認・旧リビジョン保持で即ロールバック）
+で切り替える。api service の image/traffic は Terraform の `ignore_changes` とし、リビジョン/トラフィックは gcloud 主導。
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Dev as 開発者
-    participant GHA as GitHub Actions
+    participant GHA as GitHub Actions (deploy-gcp.yml)
     participant WIF as Workload Identity Federation
-    participant SA as deploy SA (gh-deploy)
     participant AR as Artifact Registry
     participant TF as Terraform (gcs backend)
-    participant CR as Cloud Run (api / service)
+    participant MJ as Cloud Run Job: migrate
+    participant DB as Cloud SQL
+    participant API as Cloud Run: api (blue/green)
 
-    Dev->>GHA: push / tag（environment: staging|production）
-    GHA->>WIF: OIDC トークン提示（repo + environment）
-    WIF->>SA: 短命credential を発行（impersonation）
-    GHA->>AR: docker build & push（api / service image）
-    GHA->>TF: terraform apply -var-file=environments/{env}.tfvars
-    TF->>CR: Cloud Run リビジョン更新（container_image_* 注入）
-    Note over GHA,CR: production は GitHub environment の<br/>required reviewers がデプロイをゲート
+    Note over Dev,GHA: stg=手動 workflow_dispatch（自動 push は停止中）<br/>prod=タグ v*.*.*（v0.0.x スキップ・required reviewers でゲート）
+    Dev->>GHA: 手動実行 / タグ push
+    GHA->>WIF: OIDC 提示（repo + environment）
+    WIF-->>GHA: deploy SA の短命credential（impersonation）
+
+    GHA->>TF: apply -target=artifact_registry（冪等に repo 用意）
+    GHA->>AR: docker build & push（api / service 両イメージ）
+    GHA->>GHA: Trivy スキャン（CRITICAL/HIGH で fail）
+
+    Note over GHA,DB: マイグレーションは api 起動時に走らせない（issue 072）
+    GHA->>TF: apply -target=migrate Job（新 api イメージへ更新）
+    GHA->>MJ: gcloud run jobs execute --wait
+    MJ->>DB: alembic upgrade head（expand-only / 後方互換）
+    Note over MJ,DB: 失敗時はここで停止 ── まだ切替前なので blue は無傷
+
+    Note over GHA,API: 段階カナリア（旧リビジョン=blue を保持）
+    GHA->>API: gcloud run deploy green --no-traffic --tag green
+    GHA->>API: update-traffic green=10
+    GHA->>API: GET /api/v1/health（--retry・LB 経由）
+    API-->>GHA: 200（ベイク後 再確認）
+    GHA->>API: update-traffic green=100
+    Note over GHA,API: ヘルス NG なら --to-revisions <old>=100 で即ロールバック
+
+    GHA->>TF: apply（full）: worker / LB / monitoring を収れん
+    Note over TF,API: api の image/traffic は ignore_changes<br/>（リビジョン/トラフィックは gcloud 主導）
 ```
 </content>
