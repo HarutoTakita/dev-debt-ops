@@ -1,6 +1,6 @@
 ---
 name: release-version
-description: バックエンド + フロントエンド全体でバージョンをバンプし、日本語のチェンジログを更新、ロックファイルを更新
+description: バックエンド + フロントエンド全体でバージョンをバンプし、日本語のチェンジログを更新、ロックファイルと API/ER 図ドキュメント（docs/reference）を再生成
 ---
 
 ユーザー入力では対象バージョンと、何を強調するかのオプションのノートを指定できます。
@@ -40,9 +40,16 @@ $ARGUMENTS
    - `cd backend && uv lock`
    - `cd frontend && bun install`
 
-7. **検証:**
+7. **API ドキュメント / DB ER 図を再生成（`docs/reference/`）:**
+   - `cd backend && uv run --directory api python -m app.scripts.export_openapi` — `docs/reference/openapi.json`（OpenAPI 3.1）を更新。
+   - `cd backend && uv run --directory api python -m app.scripts.export_dbml` — `docs/reference/schema.dbml`（DBML の ER 図）を更新。
+   - どちらも DB・ネットワーク不要（ルート定義 / `SQLModel.metadata` から純粋に生成）。リリースに含まれるルート・スキーマ・DB モデルの変更をドキュメントへ反映する。
+   - 差分が出た場合はバージョンバンプと同じコミットに含める（ドキュメントとコードの同期を保つ）。
+
+8. **検証:**
    - `backend/pyproject.toml`、`frontend/package.json`、`backend/uv.lock`、`frontend/bun.lock` にバージョンが表示される。
    - `CHANGELOG.md` に新しい `## [X.Y.Z] - YYYY-MM-DD` セクションがある。
+   - `docs/reference/openapi.json` / `docs/reference/schema.dbml` が最新（再生成しても差分が出ない）。
    - オプションのスモークテスト: `./scripts/extract-changelog.sh X.Y.Z` が空でないノートを出力。
 
 ## 重要な注意事項
