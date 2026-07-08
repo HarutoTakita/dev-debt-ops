@@ -1,0 +1,343 @@
+// DevDebtOps データベース ER 図（DBML）。
+// SQLModel.metadata から自動生成。dbdiagram.io に貼り付けるか dbml-renderer で可視化できる。
+// 再生成: cd backend && uv run --directory api python -m app.scripts.export_dbml
+
+Project devdebtops {
+  database_type: "PostgreSQL"
+  Note: "理解負債 × コード負債プラットフォームの DB スキーマ（api 所有・Alembic 管理）"
+}
+
+Table "app_metadata" {
+  "key" varchar [pk]
+  "value" varchar [not null]
+  "updated_at" timestamptz [not null]
+}
+
+Table "assigned_developers" {
+  "id" uuid [pk]
+  "debt_kind" varchar [not null]
+  "debt_id" uuid [not null]
+  "github_handle" varchar [not null]
+  "coverage" float [not null]
+  "certified_via" varchar
+}
+
+Table "base_analysis_snapshots" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "computed_at" timestamptz [not null]
+  "payload" json [not null]
+}
+
+Table "code_graphs" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "computed_at" timestamptz [not null]
+  "graph" json [not null]
+}
+
+Table "debt_trend_points" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "week" varchar [not null]
+  "code_debt_score" float [not null]
+  "knowledge_coverage" float [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "feature_flags" {
+  "id" uuid [pk]
+  "developer_id" uuid [not null]
+  "project_id" uuid [not null]
+  "feature_key" varchar [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "jobs" {
+  "id" uuid [pk]
+  "job_type" varchar [not null]
+  "status" varchar [not null]
+  "payload" json [not null]
+  "result_data" json
+  "progress" json
+  "error" varchar
+  "created_by" uuid
+  "project_id" uuid
+  "created_at" timestamptz [not null]
+  "started_at" timestamptz
+  "completed_at" timestamptz
+}
+
+Table "learning_plans" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "developer_id" uuid
+  "feature_id" uuid
+  "gap_concepts" json [not null]
+  "estimated_total_minutes" int [not null]
+  "quiz_session_id" uuid
+  "created_at" timestamptz [not null]
+}
+
+Table "learning_resources" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "origin" varchar [not null]
+  "section" varchar [not null]
+  "kind" varchar [not null]
+  "title" varchar [not null]
+  "summary" varchar [not null]
+  "tech" varchar [not null]
+  "source_ref" varchar
+  "url" varchar
+  "estimated_minutes" int
+  "priority" varchar [not null]
+  "dormant_days" int
+  "origin_meta" json [not null]
+  "walkthrough" json [not null]
+}
+
+Table "quiz_sessions" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "developer_id" uuid [not null]
+  "file_path" varchar [not null]
+  "repo_full_name" varchar [not null]
+  "granularity" varchar [not null]
+  "feature_id" uuid
+  "is_baseline" boolean [not null]
+  "origin_session_id" uuid
+  "retest_mode" varchar
+  "status" varchar [not null]
+  "score" float
+  "started_at" timestamptz
+  "completed_at" timestamptz
+  "questions" json [not null]
+  "answer_key" json [not null]
+  "source_kc" float
+}
+
+Table "tech_stacks" {
+  "id" uuid [pk]
+  "owner" varchar [not null]
+  "repo" varchar [not null]
+  "analyzed_at" timestamptz [not null]
+  "languages" json [not null]
+  "categories" json [not null]
+}
+
+Table "users" {
+  "display_name" varchar
+  "last_active_at" timestamptz
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "deleted_at" timestamptz
+  "token_epoch" bigint [not null, default: `0`]
+  "is_demo" boolean [not null, default: `false`]
+  "analysis_credits" int [not null, default: `0`]
+  "id" char [pk]
+  "email" varchar(320) [not null, unique]
+  "hashed_password" varchar(1024) [not null]
+  "is_active" boolean [not null]
+  "is_superuser" boolean [not null]
+  "is_verified" boolean [not null]
+}
+
+Table "analysis_runs" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "commit_sha" varchar [not null]
+  "branch" varchar [not null, default: `main`]
+  "kind" varchar [not null]
+  "job_id" uuid [ref: > jobs.id]
+  "status" varchar [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "learning_steps" {
+  "id" uuid [pk]
+  "plan_id" uuid [not null, ref: > learning_plans.id]
+  "order" int [not null]
+  "completed" boolean [not null]
+  "completed_at" timestamptz
+  "resource_id" uuid [not null, ref: > learning_resources.id]
+}
+
+Table "oauth_accounts" {
+  "user_id" char [not null, ref: > users.id]
+  "id" char [pk]
+  "oauth_name" varchar(100) [not null]
+  "access_token" varchar(1024) [not null]
+  "expires_at" int
+  "refresh_token" varchar(1024)
+  "account_id" varchar(320) [not null]
+  "account_email" varchar(320) [not null]
+}
+
+Table "orgs" {
+  "id" uuid [pk]
+  "name" varchar [not null]
+  "slug" varchar [not null]
+  "is_personal" boolean [not null]
+  "created_by" uuid [not null, ref: > users.id]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "deleted_at" timestamptz
+}
+
+Table "quiz_answers" {
+  "id" uuid [pk]
+  "session_id" uuid [not null, ref: > quiz_sessions.id]
+  "question_id" varchar [not null]
+  "value" varchar [not null]
+  "is_correct" boolean
+  "saved_at" timestamptz [not null]
+}
+
+Table "quiz_question_flags" {
+  "id" uuid [pk]
+  "developer_id" uuid [not null]
+  "session_id" uuid [not null, ref: > quiz_sessions.id]
+  "question_id" varchar [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "quiz_results" {
+  "id" uuid [pk]
+  "session_id" uuid [not null, ref: > quiz_sessions.id]
+  "understood" json [not null]
+  "gap_concepts" json [not null]
+  "kc_before" float [not null]
+  "kc_after" float [not null]
+  "learning_plan_id" uuid
+}
+
+Table "refresh_tokens" {
+  "user_id" char [not null, ref: > users.id]
+  "family_id" varchar [not null]
+  "expires_at" timestamptz [not null]
+  "revoked_at" timestamptz
+  "replaced_by_token" varchar
+  "token" varchar(43) [pk]
+  "created_at" timestamp [not null]
+}
+
+Table "code_debts" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "file_path" varchar [not null]
+  "type" varchar [not null]
+  "severity" varchar [not null]
+  "status" varchar [not null]
+  "detected_at" timestamptz [not null]
+  "related_pr" varchar
+  "related_issue" varchar
+  "related_issue_by" uuid
+  "related_adr" varchar
+  "archaeology_notes" varchar [not null]
+  "code_snippet" varchar [not null]
+  "code_debt_score" float [not null]
+  "knowledge_coverage" float [not null]
+  "ai_generation_prob" float [not null]
+  "estimated_repay_hours" float [not null]
+  "metrics" json [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "dependencies" {
+  "id" uuid [pk]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "from_path" varchar [not null]
+  "to_path" varchar [not null]
+  "computed_at" timestamptz [not null]
+}
+
+Table "features" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "key" varchar [not null]
+  "name" varchar [not null]
+  "description" varchar [not null]
+  "source" varchar [not null]
+  "computed_at" timestamptz [not null]
+}
+
+Table "file_kc" {
+  "id" uuid [pk]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "file_path" varchar [not null]
+  "module" varchar [not null]
+  "dev_id" uuid
+  "github_handle" varchar
+  "kc" float [not null]
+  "mastery" varchar [not null]
+  "certified_via" varchar
+  "computed_at" timestamptz [not null]
+}
+
+Table "knowledge_debts" {
+  "id" uuid [pk]
+  "project_id" uuid [not null]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "file_path" varchar [not null]
+  "repo" varchar [not null]
+  "reason" varchar [not null]
+  "severity" varchar [not null]
+  "status" varchar [not null]
+  "detected_at" timestamptz [not null]
+  "related_adr" varchar
+  "code_snippet" varchar [not null]
+  "code_debt_score" float [not null]
+  "knowledge_coverage" float [not null]
+  "ai_generation_prob" float [not null]
+  "estimated_repay_hours" float [not null]
+  "detection_notes" varchar [not null]
+  "metrics" json [not null]
+  "created_at" timestamptz [not null]
+}
+
+Table "org_members" {
+  "id" uuid [pk]
+  "user_id" uuid [not null, ref: > users.id]
+  "org_id" uuid [not null, ref: > orgs.id]
+  "role" varchar [not null]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "deleted_at" timestamptz
+}
+
+Table "projects" {
+  "id" uuid [pk]
+  "org_id" uuid [not null, ref: > orgs.id]
+  "name" varchar [not null]
+  "slug" varchar [not null]
+  "repo_owner" varchar [not null]
+  "repo_name" varchar [not null]
+  "repo_full_name" varchar [not null]
+  "default_branch" varchar [not null]
+  "repo_private" boolean [not null]
+  "github_repo_id" int
+  "created_by" uuid [not null, ref: > users.id]
+  "created_at" timestamptz [not null]
+  "updated_at" timestamptz [not null]
+  "deleted_at" timestamptz
+}
+
+Table "repo_files" {
+  "id" uuid [pk]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "path" varchar [not null]
+  "language" varchar
+  "loc" int
+  "created_at" timestamptz [not null]
+}
+
+Table "feature_files" {
+  "id" uuid [pk]
+  "run_id" uuid [not null, ref: > analysis_runs.id]
+  "feature_id" uuid [not null, ref: > features.id]
+  "file_path" varchar [not null]
+  "confidence" float [not null]
+}
