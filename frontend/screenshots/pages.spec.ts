@@ -12,7 +12,7 @@ const PAGES: [key: string, route: string, title: string][] = [
   ["02-org-dashboard", `/${ORG}`, "組織ダッシュボード（プロジェクト一覧）"],
   ["03-overview", BASE, "プロジェクト概要 / 解析ラン・コックピット"],
   ["04-matrix", `${BASE}/matrix`, "コード品質マップ（二軸マトリクス）"],
-  ["06-galaxy", `${BASE}/galaxy`, "Knowledge Galaxy（理解度マップ）"],
+  ["06-galaxy", `${BASE}/galaxy`, "理解度マップ・マップ表示"],
   ["07-learning", `${BASE}/learning`, "クイズと学習（統合ハブ）"],
   ["12-settings", `${BASE}/settings`, "プロジェクト設定"],
 ];

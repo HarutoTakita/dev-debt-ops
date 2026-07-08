@@ -3143,7 +3143,7 @@
         "tags": [
           "galaxy"
         ],
-        "summary": "Knowledge Galaxy 個人 KC マップを返す",
+        "summary": "個人の理解度マップを返す",
         "description": "Return the developer's personal galaxy. 200 with ``observed=false`` when not yet analysed.",
         "operationId": "get_galaxy_api_v1_orgs__slug__projects__project_slug__galaxy_get",
         "security": [

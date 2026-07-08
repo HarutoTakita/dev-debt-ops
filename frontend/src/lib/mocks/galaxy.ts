@@ -1,6 +1,6 @@
 import type { PersonalGalaxy } from "$lib/api/schemas";
 
-// Knowledge Galaxy のモック。Level 1（機能グラフ）/ Level 2（機能内ファイルグラフ）の両方を見せるため、
+// 理解度マップのモック。Level 1（機能グラフ）/ Level 2（機能内ファイルグラフ）の両方を見せるため、
 // 機能（feature）はディレクトリをまたぐ意味的グルーピングにしてある（機能 ≠ フォルダ）。
 // observed は store 側で true に上書きする。
 export const mockGalaxy: PersonalGalaxy = {
