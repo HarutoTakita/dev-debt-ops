@@ -86,6 +86,10 @@ BASE_URL=http://localhost:8080 bun run screenshots
 | `18-new-project`      | 新規プロジェクト作成（repo 選択）        | 「新規プロジェクト」→ repo 一覧（best-effort）              | ui      |
 | `19-analysis-status`  | 解析ステータス（解析ラン・コックピット） | トップバー「解析」ポップオーバー（best-effort）             | ui      |
 | `20-command-palette`  | コマンドパレット（⌘K 検索）              | ⌘K / Ctrl+K で開く（best-effort）                           | ui      |
+| `21-account-menu`     | アカウントメニュー（言語/テーマ/ログアウト） | 右上アバターのドロップダウンを開く（best-effort）           | account |
+| `22-account`          | アカウント画面（残りの解析クレジット）   | `/account` へ直接遷移                                       | account |
+| `23-admin`            | 管理ダッシュボード（ユーザー管理/クレジット） | `/admin` へ直接遷移（デモは管理者想定で閲覧可）             | account |
+| `24-shortcuts`        | キーボードショートカット一覧             | `?` キーで Dialog を開く（best-effort）                     | account |
 
 > `/quizzes` は `/learning?tab=quiz` へ 308 リダイレクトされる統合ハブ（= `07-learning`）なので個別撮影はしない。
 >
@@ -105,6 +109,7 @@ BASE_URL=http://localhost:8080 bun run screenshots
 | `quiz.spec.ts`         | クイズ受験フロー                                                                                                                    |
 | `ui.spec.ts`           | 理解度マップ list / ヘルプ / オンボーディング / 新規プロジェクト / 解析ステータス / 変更履歴                                        |
 | `sidebar.spec.ts`      | サイドバーのセクション分け / スター                                                                                                 |
+| `account.spec.ts`      | アカウントメニュー / アカウント画面(`/account`) / 管理ダッシュボード(`/admin`) / ショートカット一覧(`?`)                             |
 
 デモ org / project の slug は `backend/api/app/scripts/seed_demo.py`（`DEMO_ORG_SLUG` / `DEMO_PROJECT_SLUG`）と
 `helpers.ts` の `ORG` / `PROJECT` を一致させること。
