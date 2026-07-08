@@ -64,32 +64,32 @@ BASE_URL=http://localhost:8080 bun run screenshots
 
 ## 撮影するページ
 
-| key                   | ページ                                   | 取得方法                                                    | spec    |
-| --------------------- | ---------------------------------------- | ----------------------------------------------------------- | ------- |
-| `01-login`            | ログイン / お試しデモ入口                | 直接                                                        | helpers |
-| `02-org-dashboard`    | 組織ダッシュボード                       | 直接                                                        | pages   |
-| `03-overview`         | プロジェクト概要 / 解析コックピット      | 直接                                                        | pages   |
-| `04-matrix`           | コード品質マップ（二軸マトリクス）       | 直接                                                        | pages   |
-| `05-matrix-detail`    | 負債の詳細                               | 一覧の先頭を開く（best-effort）                             | pages   |
-| `06-galaxy`           | 理解度マップ（マップ表示）               | 直接                                                        | pages   |
-| `07-learning`         | クイズと学習（統合ハブ）                 | 直接                                                        | pages   |
-| `08-learning-code`    | コード学習ウォークスルー                 | 「学習を開く」→ コード資源（best-effort）                   | pages   |
-| `09-quiz-session`     | クイズ受験（集中モード）                 | 「理解度を確認する」（best-effort）                         | quiz    |
-| `10-quiz-result`      | クイズ採点結果                           | 受験フローを辿る（best-effort）                             | quiz    |
-| `11-repos`            | コード改善（ファイルツリー + 負債）      | `?path=` で指摘ファイルを開く（best-effort）                | pages   |
-| `12-settings`         | プロジェクト設定                         | 直接                                                        | pages   |
-| `13-galaxy-list`      | 理解度マップ（リスト表示）               | 「リスト」タブ（best-effort）                               | ui      |
-| `14-help-menu`        | ヘルプメニュー（ドロップダウン）         | 「ヘルプ」クリック（best-effort）                           | ui      |
-| `15-onboarding-tour`  | オンボーディングガイド（ツアー）         | ヘルプ →「オンボーディングガイドを確認する」（best-effort） | ui      |
-| `16-changelog`        | 変更履歴（CHANGELOG）                    | ヘルプ →「バージョン」（best-effort）                       | ui      |
-| `17-project-sections` | プロジェクトのセクション分け / スター    | localStorage に状態を投入（best-effort）                    | sidebar |
-| `18-new-project`      | 新規プロジェクト作成（repo 選択）        | 「新規プロジェクト」→ repo 一覧（best-effort）              | ui      |
-| `19-analysis-status`  | 解析ステータス（解析ラン・コックピット） | トップバー「解析」ポップオーバー（best-effort）             | ui      |
-| `20-command-palette`  | コマンドパレット（⌘K 検索）              | ⌘K / Ctrl+K で開く（best-effort）                           | ui      |
-| `21-account-menu`     | アカウントメニュー（言語/テーマ/ログアウト） | 右上アバターのドロップダウンを開く（best-effort）           | account |
-| `22-account`          | アカウント画面（残りの解析クレジット）   | `/account` へ直接遷移                                       | account |
+| key                   | ページ                                        | 取得方法                                                    | spec    |
+| --------------------- | --------------------------------------------- | ----------------------------------------------------------- | ------- |
+| `01-login`            | ログイン / お試しデモ入口                     | 直接                                                        | helpers |
+| `02-org-dashboard`    | 組織ダッシュボード                            | 直接                                                        | pages   |
+| `03-overview`         | プロジェクト概要 / 解析コックピット           | 直接                                                        | pages   |
+| `04-matrix`           | コード品質マップ（二軸マトリクス）            | 直接                                                        | pages   |
+| `05-matrix-detail`    | 負債の詳細                                    | 一覧の先頭を開く（best-effort）                             | pages   |
+| `06-galaxy`           | 理解度マップ（マップ表示）                    | 直接                                                        | pages   |
+| `07-learning`         | クイズと学習（統合ハブ）                      | 直接                                                        | pages   |
+| `08-learning-code`    | コード学習ウォークスルー                      | 「学習を開く」→ コード資源（best-effort）                   | pages   |
+| `09-quiz-session`     | クイズ受験（集中モード）                      | 「理解度を確認する」（best-effort）                         | quiz    |
+| `10-quiz-result`      | クイズ採点結果                                | 受験フローを辿る（best-effort）                             | quiz    |
+| `11-repos`            | コード改善（ファイルツリー + 負債）           | `?path=` で指摘ファイルを開く（best-effort）                | pages   |
+| `12-settings`         | プロジェクト設定                              | 直接                                                        | pages   |
+| `13-galaxy-list`      | 理解度マップ（リスト表示）                    | 「リスト」タブ（best-effort）                               | ui      |
+| `14-help-menu`        | ヘルプメニュー（ドロップダウン）              | 「ヘルプ」クリック（best-effort）                           | ui      |
+| `15-onboarding-tour`  | オンボーディングガイド（ツアー）              | ヘルプ →「オンボーディングガイドを確認する」（best-effort） | ui      |
+| `16-changelog`        | 変更履歴（CHANGELOG）                         | ヘルプ →「バージョン」（best-effort）                       | ui      |
+| `17-project-sections` | プロジェクトのセクション分け / スター         | localStorage に状態を投入（best-effort）                    | sidebar |
+| `18-new-project`      | 新規プロジェクト作成（repo 選択）             | 「新規プロジェクト」→ repo 一覧（best-effort）              | ui      |
+| `19-analysis-status`  | 解析ステータス（解析ラン・コックピット）      | トップバー「解析」ポップオーバー（best-effort）             | ui      |
+| `20-command-palette`  | コマンドパレット（⌘K 検索）                   | ⌘K / Ctrl+K で開く（best-effort）                           | ui      |
+| `21-account-menu`     | アカウントメニュー（言語/テーマ/ログアウト）  | 右上アバターのドロップダウンを開く（best-effort）           | account |
+| `22-account`          | アカウント画面（残りの解析クレジット）        | `/account` へ直接遷移                                       | account |
 | `23-admin`            | 管理ダッシュボード（ユーザー管理/クレジット） | `/admin` へ直接遷移（デモは管理者想定で閲覧可）             | account |
-| `24-shortcuts`        | キーボードショートカット一覧             | `?` キーで Dialog を開く（best-effort）                     | account |
+| `24-shortcuts`        | キーボードショートカット一覧                  | `?` キーで Dialog を開く（best-effort）                     | account |
 
 > `/quizzes` は `/learning?tab=quiz` へ 308 リダイレクトされる統合ハブ（= `07-learning`）なので個別撮影はしない。
 >
@@ -109,7 +109,7 @@ BASE_URL=http://localhost:8080 bun run screenshots
 | `quiz.spec.ts`         | クイズ受験フロー                                                                                                                    |
 | `ui.spec.ts`           | 理解度マップ list / ヘルプ / オンボーディング / 新規プロジェクト / 解析ステータス / 変更履歴                                        |
 | `sidebar.spec.ts`      | サイドバーのセクション分け / スター                                                                                                 |
-| `account.spec.ts`      | アカウントメニュー / アカウント画面(`/account`) / 管理ダッシュボード(`/admin`) / ショートカット一覧(`?`)                             |
+| `account.spec.ts`      | アカウントメニュー / アカウント画面(`/account`) / 管理ダッシュボード(`/admin`) / ショートカット一覧(`?`)                            |
 
 デモ org / project の slug は `backend/api/app/scripts/seed_demo.py`（`DEMO_ORG_SLUG` / `DEMO_PROJECT_SLUG`）と
 `helpers.ts` の `ORG` / `PROJECT` を一致させること。
