@@ -1,6 +1,6 @@
 ---
 name: release-version
-description: バックエンド + フロントエンド全体でバージョンをバンプし、日本語のチェンジログを更新、ロックファイルと API/ER 図ドキュメント（docs/reference）を再生成
+description: バックエンド + フロントエンド全体でバージョンをバンプし、日本語のチェンジログを更新、ロックファイルと API/ER 図ドキュメント（docs/reference）を再生成、取扱説明書をエージェント支援で更新
 ---
 
 ユーザー入力では対象バージョンと、何を強調するかのオプションのノートを指定できます。
@@ -46,11 +46,19 @@ $ARGUMENTS
    - どちらも DB・ネットワーク不要（ルート定義 / `SQLModel.metadata` から純粋に生成）。リリースに含まれるルート・スキーマ・DB モデルの変更をドキュメントへ反映する。
    - 差分が出た場合はバージョンバンプと同じコミットに含める（ドキュメントとコードの同期を保つ）。
 
-8. **取扱説明書（`docs/取扱説明書/README.md`）の見直し — 手動/判断ベース（自動生成ではない）:**
-   - 取扱説明書は手書きの説明文＋スクリーンショット（`images/screens`, `images/screens-mobile`）で構成され、コードから機械生成できない。**このリリースのユーザー向け変更に照らして手動で見直す**。
-   - チェンジログの `Added` / `Changed` / `Removed`（特に UI・画面・操作・機能の変更）を確認し、該当する節の説明文を更新。新機能は節を追加、廃止機能は該当節を削除。
-   - **画面が変わった箇所のみ**スクリーンショットを撮り直して `images/` を差し替える（UI 無変更なら不要）。
-   - ユーザー向けの変更が無いリリース（内部/インフラのみ等）ではスキップしてよい。判断に迷う場合はユーザーに確認する。
+8. **取扱説明書（`docs/取扱説明書/README.md`）をエージェント支援で更新:**
+   このリリースに**ユーザー向け UI / 画面 / 操作の変更**が含まれる場合に実施（内部/インフラのみならスキップ可。迷う場合はユーザーに確認）。取扱説明書は「説明文＋スクリーンショット」で構成され、スクショは決定論的に再取得できるが、本文はモデル生成のため**コミット前に必ず人間がレビュー**する。
+
+   a. **スクリーンショットを再取得**（`frontend/screenshots/` の Playwright ハーネス。詳細は同 README）:
+      - 前提: デモモードのスタックを起動しデモデータを投入（`DEMO_MODE_ENABLED=true` で `docker compose watch` → `docker compose exec api uv run --directory api python -m app.scripts.seed_demo` → `cd frontend && bun run dev`）。
+      - 実行: `cd frontend && bun run screenshots` → `docs/取扱説明書/images/screens/`・`images/screens-mobile/` と `screens.manifest.json` / `screens-mobile.manifest.json` を更新（PC 1440x900 / モバイル 390x844）。
+      - スタック未起動・Playwright ブラウザ未導入などで実行できない場合はスキップし、その旨を記録（本文更新のみ手動で行う）。
+
+   b. **本文をサブエージェントで更新**（Agent ツールで起動）。サブエージェントに以下を渡す:
+      - このリリースのユーザー向け変更（手順3で作成したチェンジログの `Added` / `Changed` / `Removed`）。
+      - `docs/取扱説明書/screens.manifest.json`（`key → { title, route, file }`）と `docs/取扱説明書/README.md`（既存）。
+      - 指示: 変更に該当する節の説明文を更新し、新規画面は節を追加（manifest の `key`/`title`/`route` と `images/screens/<key>.png` を対応付け）、廃止画面の節と画像参照を削除する。文体・見出し構成・目次は既存 README に合わせ、**確認できない機能は書かない**（manifest とチェンジログにある事実のみ）。
+      - 生成後、人間が差分をレビューしてからコミットに含める。
 
 9. **検証:**
    - `backend/pyproject.toml`、`frontend/package.json`、`backend/uv.lock`、`frontend/bun.lock` にバージョンが表示される。
