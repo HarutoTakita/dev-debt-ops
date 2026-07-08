@@ -23,3 +23,6 @@ db_tier           = "db-f1-micro"
 db_disk_size      = 10
 db_backup_enabled = false
 # staging: Cloud SQL public IP + authorized networks (simplified networking).
+
+# ゲストデモ入口（ログインの「お試しはこちら」）を stg では有効化する（デモ/審査用）。
+demo_mode_enabled = true

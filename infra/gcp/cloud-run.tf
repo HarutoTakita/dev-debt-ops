@@ -30,6 +30,8 @@ locals {
     SERVICE_OIDC_AUDIENCE    = local.service_oidc_audience
     ANALYSIS_CREDITS_ENABLED = tostring(var.analysis_credits_enabled)
     ADMIN_EMAILS             = var.admin_emails
+    # ゲストデモ入口（ログインの「お試しはこちら」）を出すか。/api/v1/config で公開され、フロントが表示判定に使う（issue 069）。
+    DEMO_MODE_ENABLED = tostring(var.demo_mode_enabled)
   }
 
   api_secret_env = {
@@ -177,6 +179,10 @@ resource "google_cloud_run_v2_job" "migrate" {
   name     = "${local.name_prefix}-migrate"
   location = var.region
 
+  # 移行 Job は ephemeral（デプロイ毎に新イメージへ更新・再適用する）。deletion_protection が既定 true だと
+  # リビジョン置換時に「cannot destroy job without deletion_protection=false」で apply が止まるため無効化する。
+  deletion_protection = false
+
   template {
     template {
       service_account = google_service_account.api.email
@@ -205,7 +211,26 @@ resource "google_cloud_run_v2_job" "migrate" {
           mount_path = "/cloudsql"
         }
 
-        # alembic は DATABASE_URL のみ必要（env.py が settings.DATABASE_URL を読む）。
+        # alembic の env.py は `app.core.config.settings`（全設定）を import するため、DATABASE_URL だけでなく
+        # 非-dev の必須検証（SECRET_KEY が既定値でない・COOKIE_SECURE=true）も満たす必要がある。ENVIRONMENT 未指定だと
+        # 既定 prod で厳格検証に落ちるため、api と同じ ENVIRONMENT / COOKIE_SECURE / SECRET_KEY を渡す。
+        env {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        }
+        env {
+          name  = "COOKIE_SECURE"
+          value = "true"
+        }
+        env {
+          name = "SECRET_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secrets["secret-key"].secret_id
+              version = "latest"
+            }
+          }
+        }
         env {
           name = "DATABASE_URL"
           value_source {
