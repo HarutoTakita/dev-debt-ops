@@ -23,3 +23,18 @@ pre-commit:
       # Auto-installs the binary on first run (Homebrew on macOS, `go install` on Linux).
       # Scans the staged diff only — fast even on big commits.
       run: ./scripts/gitleaks-precommit.sh
+
+# Heavier, project-wide checks before sharing code. Type checks are fast and need no
+# infra (unlike the unit tests, which require Postgres/Chromium and run in CI). The `glob`
+# gates each command so a docs-only push skips it.
+pre-push:
+  parallel: true
+  commands:
+    ty:
+      root: backend/
+      glob: "**/*.py"
+      run: uv run ty check shared/shared api/app service/service
+    svelte-check:
+      root: frontend/
+      glob: "**/*.{ts,svelte}"
+      run: bun run check
