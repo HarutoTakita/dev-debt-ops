@@ -361,16 +361,32 @@ DevDebtOps は「**理解負債**」を主役に据えた開発プラットフ�
 
 ## 7. モバイル対応
 
-DevDebtOps はスマートフォンでも主要画面を操作できます。参考として、`images/screens-mobile/` に主要画面（`01`〜`12`）のスマホ版スクリーンショットを収録しています。
+DevDebtOps はスマートフォンでも主要画面を操作できます。モバイルではヘッダー左のハンバーガーメニュー（≡）からサイドバーを開き、プロジェクト一覧やナビゲーションにアクセスします。カード・表・機能フィルタは縦並びに再レイアウトされます。
 
-モバイルではヘッダー左のハンバーガーメニュー（≡）からサイドバーを開き、プロジェクト一覧やナビゲーションにアクセスします。カード・表・機能フィルタは縦並びに再レイアウトされます。
+主要画面のモバイル版は以下のとおりです。各画面の詳しい説明は、キャプションの番号に対応するセクションを参照してください。
 
-<p>
-  <img src="images/screens-mobile/02-org-dashboard.png" alt="プロジェクト一覧のモバイル表示" width="300">
-  <img src="images/screens-mobile/06-galaxy.png" alt="理解度マップのモバイル表示" width="300">
-</p>
-
-左: プロジェクト一覧／右: 理解度マップのリスト表示。
+<table>
+  <tr>
+    <td align="center"><img src="images/screens-mobile/01-login.png" width="200"><br>1-1 ログイン</td>
+    <td align="center"><img src="images/screens-mobile/02-org-dashboard.png" width="200"><br>1-2 プロジェクト一覧</td>
+    <td align="center"><img src="images/screens-mobile/03-overview.png" width="200"><br>2-1 ダッシュボード</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/screens-mobile/04-matrix.png" width="200"><br>3-1 コード改善</td>
+    <td align="center"><img src="images/screens-mobile/05-matrix-detail.png" width="200"><br>3-2 コード改善の詳細</td>
+    <td align="center"><img src="images/screens-mobile/11-repos.png" width="200"><br>3-3 コード品質マップ</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/screens-mobile/06-galaxy.png" width="200"><br>4-1 理解度マップ</td>
+    <td align="center"><img src="images/screens-mobile/07-learning.png" width="200"><br>5-1 クイズと学習</td>
+    <td align="center"><img src="images/screens-mobile/09-quiz-session.png" width="200"><br>5-2 クイズ受験</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="images/screens-mobile/10-quiz-result.png" width="200"><br>5-3 クイズ採点結果</td>
+    <td align="center"><img src="images/screens-mobile/08-learning-code.png" width="200"><br>5-4 コード学習ウォークスルー</td>
+    <td align="center"><img src="images/screens-mobile/12-settings.png" width="200"><br>6-1 プロジェクト設定</td>
+  </tr>
+</table>
 
 ---
 
