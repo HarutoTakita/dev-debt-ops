@@ -1,10 +1,8 @@
 # API リファレンス（OpenAPI）
 
-DevDebtOps の外部 API（FastAPI）の OpenAPI 3.1 スキーマと、その閲覧用ドキュメントです。
+DevDebtOps の外部 API（FastAPI）の OpenAPI 3.1 スキーマです。
 
 - **スキーマ（JSON）**: [`openapi.json`](./openapi.json)
-- **スキーマ（YAML）**: [`openapi.yaml`](./openapi.yaml)
-- **スタンドアロン閲覧**: [`api.html`](./api.html) — ブラウザで直接開くと `openapi.json` を読み込み、API リファレンス（Scalar）を表示（アプリ起動不要）。
 
 ## 概要
 
@@ -33,18 +31,16 @@ DevDebtOps の外部 API（FastAPI）の OpenAPI 3.1 スキーマと、その閲
 | `Stack` | 2 | 技術スタック検出 |
 | `agentic` / `kc` / `features` / `jobs` / `Config` | 各 1 | エージェント解析実行 / 理解度計測 / 機能クラスタ / 非同期ジョブ状態 / 公開設定 |
 
-（合計 76 オペレーション / 63 パス。正確な入出力スキーマは `openapi.json` / `api.html` を参照。）
+（合計 76 オペレーション / 63 パス。正確な入出力スキーマは `openapi.json` を参照。）
 
 ## 閲覧方法
 
-1. **このディレクトリの `api.html` をブラウザで開く**（最も手軽。オフライン可）。
-   ローカルで開けない場合は簡易サーバー経由: `cd docs/reference && python3 -m http.server 8890` → `http://localhost:8890/api.html`。
-2. **アプリ起動中の Scalar UI**: 開発環境で `/api/docs`（`scalar-fastapi`）。本番では無効。
-3. **スキーマを直接**: `openapi.json` / `openapi.yaml` を Swagger Editor・Redoc・Postman 等に読み込む。
+1. **アプリ起動中の Scalar UI**: 開発環境で `/api/docs`（`scalar-fastapi`）。本番では無効。
+2. **スキーマを直接**: `openapi.json` を Swagger Editor・Redoc・Scalar・Postman 等に読み込む。
 
 ## 再生成
 
-ルートやスキーマ（Pydantic モデル）を変更したら、以下で `openapi.json` / `openapi.yaml` を更新する（DB・ネットワーク不要）。
+ルートやスキーマ（Pydantic モデル）を変更したら、以下で `openapi.json` を更新する（DB・ネットワーク不要）。
 
 ```bash
 cd backend && uv run --directory api python -m app.scripts.export_openapi
