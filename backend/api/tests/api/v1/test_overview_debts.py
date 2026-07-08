@@ -171,8 +171,12 @@ async def test_list_debts_filter_and_sort(authenticated_client: AsyncClient) -> 
     await _seed_analysis(project_id)
     base = f"/api/v1/orgs/{org_slug}/projects/{project_slug}/debts"
 
-    # No filter: both debts, severity desc → critical (knowledge) before high (code).
+    # No filter returns both debts. Default sort is now "priority" (not severity).
     res = (await authenticated_client.get(base)).json()
+    assert res["total"] == 2
+
+    # Sort by severity desc explicitly → critical (knowledge) before high (code).
+    res = (await authenticated_client.get(f"{base}?sort_key=severity")).json()
     assert res["total"] == 2
     assert res["debts"][0]["kind"] == "knowledge"
     assert res["debts"][0]["assigned_agent"] == "knowledge_debt"
