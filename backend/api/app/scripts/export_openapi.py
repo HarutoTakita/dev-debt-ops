@@ -1,8 +1,4 @@
-"""FastAPI アプリの OpenAPI スキーマを docs/reference/ に書き出す (API ドキュメント生成).
-
-生成物:
-- ``docs/reference/openapi.json``
-- ``docs/reference/openapi.yaml``
+"""FastAPI アプリの OpenAPI スキーマを docs/reference/openapi.json に書き出す (API ドキュメント生成).
 
 実行（リポジトリルートから）::
 
@@ -17,8 +13,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import yaml
-
 from app.main import app
 
 # backend/api/app/scripts/export_openapi.py -> リポジトリルートは parents[4]。
@@ -27,21 +21,13 @@ OUT_DIR = REPO_ROOT / "docs" / "reference"
 
 
 def main() -> None:
-    """OpenAPI スキーマを JSON / YAML として docs/reference/ に書き出す."""
+    """OpenAPI スキーマを JSON として docs/reference/ に書き出す."""
     schema = app.openapi()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     json_path = OUT_DIR / "openapi.json"
     json_path.write_text(json.dumps(schema, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    yaml_path = OUT_DIR / "openapi.yaml"
-    yaml_path.write_text(
-        yaml.safe_dump(schema, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
-
     print(f"wrote {json_path.relative_to(REPO_ROOT)} ({len(schema.get('paths', {}))} paths)")
-    print(f"wrote {yaml_path.relative_to(REPO_ROOT)}")
 
 
 if __name__ == "__main__":
