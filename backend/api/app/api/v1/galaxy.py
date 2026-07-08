@@ -26,7 +26,7 @@ router = APIRouter(tags=["galaxy"])
 @router.get(
     "/orgs/{slug}/projects/{project_slug}/galaxy",
     response_model=PersonalGalaxyOut,
-    summary="Knowledge Galaxy 個人 KC マップを返す",
+    summary="個人の理解度マップを返す",
 )
 async def get_galaxy(
     project_slug: Annotated[str, Path(description="Project slug within the org.")],

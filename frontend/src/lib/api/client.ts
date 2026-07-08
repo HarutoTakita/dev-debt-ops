@@ -452,7 +452,7 @@ export async function generateCodeWalkthrough(
   return codeWalkthroughJobSchema.parse(await response.json());
 }
 
-// Knowledge Galaxy（issue 032）: GET .../galaxy を personalGalaxySchema で検証 / analyze-galaxy は enqueue。
+// 理解度マップ（issue 032）: GET .../galaxy を personalGalaxySchema で検証 / analyze-galaxy は enqueue。
 export async function getGalaxy(orgSlug: string, projectSlug: string): Promise<PersonalGalaxy> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/galaxy`);
   if (!response.ok) throw new Error(await errorDetail(response, "Galaxy の取得に失敗しました"));

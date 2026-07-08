@@ -365,7 +365,7 @@ export type KnowledgeDebt = z.infer<typeof knowledgeDebtSchema>;
 export type DebtItem = z.infer<typeof debtItemSchema>;
 export type DebtList = z.infer<typeof debtListSchema>;
 
-// Knowledge Galaxy（個人理解度マップ / §6.2）。3D は Future、本フェーズは 2D。
+// 個人理解度マップ（§6.2）。3D は Future、本フェーズは 2D。
 // 星=マスター / 薄星=部分理解 / ブラックホール=触ったが未理解 / 未踏星域=未接触。
 export const masteryStatusSchema = z.enum(["star", "dim_star", "black_hole", "unexplored"]);
 

@@ -30,7 +30,7 @@
     "capturedAt": "2026-07-05T04:40:47.704Z"
   },
   "06-galaxy": {
-    "title": "Knowledge Galaxy（理解度マップ）",
+    "title": "理解度マップ・マップ表示",
     "route": "/demo/sample-shop/galaxy",
     "file": "docs/user-guide/images/screens/06-galaxy.png",
     "capturedAt": "2026-07-05T04:40:43.146Z"
