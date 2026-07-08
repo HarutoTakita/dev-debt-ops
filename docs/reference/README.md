@@ -1,8 +1,9 @@
 # API リファレンス（OpenAPI）
 
-DevDebtOps の外部 API（FastAPI）の OpenAPI 3.1 スキーマです。
+DevDebtOps の API とデータベースのリファレンスです。
 
-- **スキーマ（JSON）**: [`openapi.json`](./openapi.json)
+- **API スキーマ（OpenAPI 3.1 / JSON）**: [`openapi.json`](./openapi.json)
+- **DB ER 図（DBML）**: [`schema.dbml`](./schema.dbml) — [dbdiagram.io](https://dbdiagram.io/d) に貼り付けるか `dbml-renderer` で ER 図として可視化できる。
 
 ## 概要
 
@@ -47,3 +48,13 @@ cd backend && uv run --directory api python -m app.scripts.export_openapi
 ```
 
 生成スクリプト: `backend/api/app/scripts/export_openapi.py`。
+
+## ER 図（DBML）の再生成
+
+DB スキーマ（SQLModel のモデル）を変更したら、以下で `schema.dbml` を更新する（DB・ネットワーク不要。`SQLModel.metadata` から生成）。
+
+```bash
+cd backend && uv run --directory api python -m app.scripts.export_dbml
+```
+
+生成スクリプト: `backend/api/app/scripts/export_dbml.py`。マイグレーション（`api` 所有）と ORM モデルが真実で、DBML はその可視化用スナップショット。
