@@ -11,7 +11,7 @@ import { defineConfig } from "@playwright/test";
  * 実行: `bun run screenshots`（= playwright test -c screenshots/playwright.config.ts）
  *
  * 2 プロジェクトで撮影する:
- * - `desktop` … PC 版（1440x900）。画像は docs/取扱説明書/images/screens/ に出力。
+ * - `desktop` … PC 版（1440x900）。画像は docs/user-guide/images/screens/ に出力。
  * - `mobile`  … モバイル(レスポンシブUI)版（390x844, isMobile）。画像は images/screens-mobile/ に出力。
  *   出力先/manifest の振り分けは helpers.ts が「ビューポート幅」で自動判定する。デスクトップ専用の
  *   クローム（サイドバー/コマンドパレット等）を撮る ui.spec / sidebar.spec は mobile ではスキップする。

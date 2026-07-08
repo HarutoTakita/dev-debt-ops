@@ -55,7 +55,7 @@ open http://localhost:8080                       # Traefik → api がビルド�
 │   ├── gcp/         アプリスタック（Cloud Run / Cloud SQL / Cloud Tasks / LB / Cloud Armor 等）
 │   └── bootstrap/   初回 bootstrap（WIF プール・デプロイ SA・tfstate バケット）
 ├── docker/          Dockerfile（api / service、各 dev / runtime ステージ）
-├── docs/            ドキュメント（issue / 取扱説明書 / インフラ図）
+├── docs/            ドキュメント（issue / user-guide / infra 図）
 ├── compose.yml      開発スタック（db + api + service）
 ├── compose.prod.yml 本番モードのローカル確認用（Traefik）
 └── CLAUDE.md        開発ガイドライン（最新・権威）
@@ -94,4 +94,4 @@ uv run ty check shared/shared api/app service/service          # 型チェック
 
 - [`CLAUDE.md`](./CLAUDE.md) — 開発ガイドライン（最新・権威）。スタック・規約・運用の詳細はここ
 - [`docs/issue/`](./docs/issue/) — 設計・意思決定の履歴（058/059 知識負債ファーストへのリポジション、069 ADK Twin Agent 中核化 ほか）
-- [`docs/取扱説明書/`](./docs/取扱説明書/) — 画面ベースの取扱説明書（`frontend/screenshots/` で自動取得した画像が素材）
+- [`docs/user-guide/`](./docs/user-guide/) — 画面ベースの取扱説明書（`frontend/screenshots/` で自動取得した画像が素材）

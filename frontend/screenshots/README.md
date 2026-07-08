@@ -1,7 +1,7 @@
 # 画面スクリーンショット自動取得（仕様書兼取扱説明書のベース）
 
-DevDebtOps の各画面を Playwright で自動撮影し、`docs/取扱説明書/images/screens/` に PNG と
-`docs/取扱説明書/screens.manifest.json`（ページのメタ情報）を出力する。これを入力に仕様書・取扱説明書を生成する。
+DevDebtOps の各画面を Playwright で自動撮影し、`docs/user-guide/images/screens/` に PNG と
+`docs/user-guide/screens.manifest.json`（ページのメタ情報）を出力する。これを入力に仕様書・取扱説明書を生成する。
 
 認証は **ゲストデモログイン**（issue 069）を使うため GitHub アカウント不要。シード済みのデモ org
 （`demo` / `sample-shop`）に対して読み取り中心で撮影する。
@@ -52,11 +52,11 @@ BASE_URL=http://localhost:8080 bun run screenshots
 `projects`。振り分けは helpers がビューポート幅で自動判定）:
 
 - PC 版（`desktop`, 1440x900）
-  - 画像: `docs/取扱説明書/images/screens/<NN-key>.png`
-  - メタ情報: `docs/取扱説明書/screens.manifest.json`（`key → { title, route, file, capturedAt }`）
+  - 画像: `docs/user-guide/images/screens/<NN-key>.png`
+  - メタ情報: `docs/user-guide/screens.manifest.json`（`key → { title, route, file, capturedAt }`）
 - モバイル版（`mobile`, 390x844, isMobile）
-  - 画像: `docs/取扱説明書/images/screens-mobile/<NN-key>.png`
-  - メタ情報: `docs/取扱説明書/screens-mobile.manifest.json`
+  - 画像: `docs/user-guide/images/screens-mobile/<NN-key>.png`
+  - メタ情報: `docs/user-guide/screens-mobile.manifest.json`
 
 モバイルは主要ページ（`pages.spec` / `quiz.spec`）のみ撮影する。デスクトップ専用クローム（サイドバーの
 ヘルプ/セクション、コマンドパレット ⌘K 等）を撮る `ui.spec` / `sidebar.spec` は mobile ではスキップする。

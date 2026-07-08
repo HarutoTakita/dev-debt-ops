@@ -47,17 +47,17 @@ $ARGUMENTS
    - どちらも DB・ネットワーク不要（ルート定義 / `SQLModel.metadata` から純粋に生成）。リリースに含まれるルート・スキーマ・DB モデルの変更をドキュメントへ反映する。
    - 差分が出た場合はバージョンバンプと同じコミットに含める（ドキュメントとコードの同期を保つ）。
 
-8. **取扱説明書（`docs/取扱説明書/README.md`）をエージェント支援で更新:**
+8. **取扱説明書（`docs/user-guide/README.md`）をエージェント支援で更新:**
    このリリースに**ユーザー向け UI / 画面 / 操作の変更**が含まれる場合に実施（内部/インフラのみならスキップ可。迷う場合はユーザーに確認）。取扱説明書は「説明文＋スクリーンショット」で構成され、スクショは決定論的に再取得できるが、本文はモデル生成のため**コミット前に必ず人間がレビュー**する。
 
    a. **スクリーンショットを再取得**（`frontend/screenshots/` の Playwright ハーネス。詳細は同 README）:
       - 前提: デモモードのスタックを起動しデモデータを投入（`DEMO_MODE_ENABLED=true` で `docker compose watch` → `docker compose exec api uv run --directory api python -m app.scripts.seed_demo` → `cd frontend && bun run dev`）。
-      - 実行: `cd frontend && bun run screenshots` → `docs/取扱説明書/images/screens/`・`images/screens-mobile/` と `screens.manifest.json` / `screens-mobile.manifest.json` を更新（PC 1440x900 / モバイル 390x844）。
+      - 実行: `cd frontend && bun run screenshots` → `docs/user-guide/images/screens/`・`images/screens-mobile/` と `screens.manifest.json` / `screens-mobile.manifest.json` を更新（PC 1440x900 / モバイル 390x844）。
       - スタック未起動・Playwright ブラウザ未導入などで実行できない場合はスキップし、その旨を記録（本文更新のみ手動で行う）。
 
    b. **本文をサブエージェントで更新**（Agent ツールで起動）。サブエージェントに以下を渡す:
       - このリリースのユーザー向け変更（手順3で作成したチェンジログの `Added` / `Changed` / `Removed`）。
-      - `docs/取扱説明書/screens.manifest.json`（`key → { title, route, file }`）と `docs/取扱説明書/README.md`（既存）。
+      - `docs/user-guide/screens.manifest.json`（`key → { title, route, file }`）と `docs/user-guide/README.md`（既存）。
       - 指示: 変更に該当する節の説明文を更新し、新規画面は節を追加（manifest の `key`/`title`/`route` と `images/screens/<key>.png` を対応付け）、廃止画面の節と画像参照を削除する。文体・見出し構成・目次は既存 README に合わせ、**確認できない機能は書かない**（manifest とチェンジログにある事実のみ）。
       - 生成後、人間が差分をレビューしてからコミットに含める。
 
@@ -65,7 +65,7 @@ $ARGUMENTS
    - `backend/pyproject.toml`、`frontend/package.json`、`backend/uv.lock`、`frontend/bun.lock` にバージョンが表示される。
    - `CHANGELOG.md` に新しい `## [X.Y.Z] - YYYY-MM-DD` セクションがある。
    - `docs/reference/openapi.json` / `docs/reference/schema.dbml` が最新（再生成しても差分が出ない）。
-   - ユーザー向け変更があった場合、`docs/取扱説明書/README.md` に反映済み（無ければスキップで可）。
+   - ユーザー向け変更があった場合、`docs/user-guide/README.md` に反映済み（無ければスキップで可）。
    - オプションのスモークテスト: `./scripts/extract-changelog.sh X.Y.Z` が空でないノートを出力。
 
 ## 重要な注意事項

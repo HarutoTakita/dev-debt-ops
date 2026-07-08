@@ -15,10 +15,10 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "../../");
 // PC 版とモバイル(レスポンシブ)版で出力先/manifest を分ける。振り分けは shot() 内でビューポート幅から判定。
-const SHOT_ROOT = path.resolve(REPO_ROOT, "docs/取扱説明書/images/screens");
-const MANIFEST = path.resolve(REPO_ROOT, "docs/取扱説明書/screens.manifest.json");
-const SHOT_ROOT_MOBILE = path.resolve(REPO_ROOT, "docs/取扱説明書/images/screens-mobile");
-const MANIFEST_MOBILE = path.resolve(REPO_ROOT, "docs/取扱説明書/screens-mobile.manifest.json");
+const SHOT_ROOT = path.resolve(REPO_ROOT, "docs/user-guide/images/screens");
+const MANIFEST = path.resolve(REPO_ROOT, "docs/user-guide/screens.manifest.json");
+const SHOT_ROOT_MOBILE = path.resolve(REPO_ROOT, "docs/user-guide/images/screens-mobile");
+const MANIFEST_MOBILE = path.resolve(REPO_ROOT, "docs/user-guide/screens-mobile.manifest.json");
 
 // シード済みデモワークスペース（backend/api/app/scripts/seed_demo.py と一致させること）。
 export const ORG = "demo";
