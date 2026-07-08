@@ -6,7 +6,7 @@
 - プロダクトの思想・スタック概要: [`README.md`](../README.md)
 - コーディング規約・重要な落とし穴（**必読**）: [`CLAUDE.md`](../CLAUDE.md)
 - インフラ構成図・シーケンス図: [`docs/infra/README.md`](infra/README.md)
-- 画面の使い方（利用者向け）: [`docs/取扱説明書/README.md`](取扱説明書/README.md)
+- 画面の使い方（利用者向け）: [`docs/user-guide/README.md`](user-guide/README.md)
 - API / DB リファレンス: [`docs/reference/README.md`](reference/README.md)
 - 設計・課題ドキュメント: [`docs/issue/`](issue/)
 
@@ -137,7 +137,7 @@ cd frontend && bun run dev        # Vite HMR :5173、/api を :8000 にプロキ
 - 認証は **WIF のみ**（長期鍵なし）。`vars.GCP_WIF_PROVIDER` / `vars.GCP_DEPLOY_SA` は bootstrap 出力。
 - 秘密は GitHub Secrets → `TF_VAR_*` にマップ（`deploy-gcp.yml` 参照）。ワークフローに平文で置かない。
 - deploy 系は `concurrency` で環境ごとに直列化。編集後は対象ブランチへ push した版が実行される点に注意。
-- ⚠ `release.yml` は `scripts/extract-changelog.sh` を参照するが**現状リポジトリに存在しない**。タグ運用の前に同スクリプト（`## [X.Y.Z]` セクション抽出）を用意するか、workflow を調整すること。
+- `release.yml` は `scripts/extract-changelog.sh <tag>` で `CHANGELOG.md` から `## [X.Y.Z]` セクション本文を抽出し、GitHub Release のノートに使う。マッチする見出しが無いと Release ジョブが失敗するため、タグを打つ前に該当セクション（`## [X.Y.Z] - YYYY-MM-DD`）を用意すること（`release-version` スキルが自動化）。
 
 ---
 
@@ -186,10 +186,10 @@ cd frontend && bun run dev        # Vite HMR :5173、/api を :8000 にプロキ
   cd backend && uv run --directory api python -m app.scripts.export_dbml
   ```
   どちらもルート定義 / `SQLModel.metadata` から純粋生成（DB 不要）。ルート・スキーマ・モデルを変えたら再生成。
-- **取扱説明書**（`docs/取扱説明書/README.md` + スクショ）: 画面が変わったら §「スクショ再取得」。
+- **取扱説明書**（`docs/user-guide/README.md` + スクショ）: 画面が変わったら §「スクショ再取得」。
   ```sh
   # 前提: デモモードで起動 + seed_demo + bun run dev（frontend/screenshots/README.md 参照）
-  cd frontend && bun run screenshots     # docs/取扱説明書/images/ と manifest を更新
+  cd frontend && bun run screenshots     # docs/user-guide/images/ と manifest を更新
   ```
   本文はドラフト/実装に合わせて手動（またはエージェント支援）で更新。サブ見出しは読み順の通し番号。
 - **インフラ図**（`docs/infra/`）: Terraform / 実コードを変えたら図と README を更新。
@@ -223,5 +223,5 @@ cd frontend && bun run dev        # Vite HMR :5173、/api を :8000 にプロキ
 
 - 規約・落とし穴: [`CLAUDE.md`](../CLAUDE.md)
 - インフラ図: [`docs/infra/`](infra/) ／ API・ER 図: [`docs/reference/`](reference/)
-- 利用者向け: [`docs/取扱説明書/`](取扱説明書/) ／ 設計・課題: [`docs/issue/`](issue/)
+- 利用者向け: [`docs/user-guide/`](user-guide/) ／ 設計・課題: [`docs/issue/`](issue/)
 - スクショ生成: [`frontend/screenshots/README.md`](../frontend/screenshots/README.md)

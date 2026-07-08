@@ -2,121 +2,121 @@
   "01-login": {
     "title": "ログイン / お試しデモ入口",
     "route": "/login",
-    "file": "docs/取扱説明書/images/screens/01-login.png",
+    "file": "docs/user-guide/images/screens/01-login.png",
     "capturedAt": "2026-07-05T04:41:19.062Z"
   },
   "02-org-dashboard": {
     "title": "組織ダッシュボード（プロジェクト一覧）",
     "route": "/demo",
-    "file": "docs/取扱説明書/images/screens/02-org-dashboard.png",
+    "file": "docs/user-guide/images/screens/02-org-dashboard.png",
     "capturedAt": "2026-07-05T04:40:39.553Z"
   },
   "03-overview": {
     "title": "プロジェクト概要 / 解析ラン・コックピット",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/03-overview.png",
+    "file": "docs/user-guide/images/screens/03-overview.png",
     "capturedAt": "2026-07-05T04:40:40.828Z"
   },
   "04-matrix": {
     "title": "コード品質マップ（二軸マトリクス）",
     "route": "/demo/sample-shop/matrix",
-    "file": "docs/取扱説明書/images/screens/04-matrix.png",
+    "file": "docs/user-guide/images/screens/04-matrix.png",
     "capturedAt": "2026-07-05T04:40:41.768Z"
   },
   "05-matrix-detail": {
     "title": "負債の詳細（返済プラン・担当）",
     "route": "/demo/sample-shop/matrix/aa324477-af4a-5ee3-8382-c6e2d526a633",
-    "file": "docs/取扱説明書/images/screens/05-matrix-detail.png",
+    "file": "docs/user-guide/images/screens/05-matrix-detail.png",
     "capturedAt": "2026-07-05T04:40:47.704Z"
   },
   "06-galaxy": {
     "title": "Knowledge Galaxy（理解度マップ）",
     "route": "/demo/sample-shop/galaxy",
-    "file": "docs/取扱説明書/images/screens/06-galaxy.png",
+    "file": "docs/user-guide/images/screens/06-galaxy.png",
     "capturedAt": "2026-07-05T04:40:43.146Z"
   },
   "07-learning": {
     "title": "クイズと学習（統合ハブ）",
     "route": "/demo/sample-shop/learning",
-    "file": "docs/取扱説明書/images/screens/07-learning.png",
+    "file": "docs/user-guide/images/screens/07-learning.png",
     "capturedAt": "2026-07-05T04:40:44.124Z"
   },
   "08-learning-code": {
     "title": "コード学習ウォークスルー",
     "route": "/demo/sample-shop/learning/code/ba52955c-34cf-593d-9f71-206466c4b09c",
-    "file": "docs/取扱説明書/images/screens/08-learning-code.png",
+    "file": "docs/user-guide/images/screens/08-learning-code.png",
     "capturedAt": "2026-07-05T04:40:48.769Z"
   },
   "09-quiz-session": {
     "title": "クイズ受験（集中モード）",
     "route": "/demo/sample-shop/quizzes/71eaf5ce-af2c-535a-b661-6520e3718f83",
-    "file": "docs/取扱説明書/images/screens/09-quiz-session.png",
+    "file": "docs/user-guide/images/screens/09-quiz-session.png",
     "capturedAt": "2026-07-05T04:40:53.194Z"
   },
   "10-quiz-result": {
     "title": "クイズ採点結果（理解度の更新）",
     "route": "/demo/sample-shop/quizzes/71eaf5ce-af2c-535a-b661-6520e3718f83/result",
-    "file": "docs/取扱説明書/images/screens/10-quiz-result.png",
+    "file": "docs/user-guide/images/screens/10-quiz-result.png",
     "capturedAt": "2026-07-05T04:40:58.006Z"
   },
   "11-repos": {
     "title": "コード改善（ファイルツリー + 負債）",
     "route": "/demo/sample-shop/repos",
-    "file": "docs/取扱説明書/images/screens/11-repos.png",
+    "file": "docs/user-guide/images/screens/11-repos.png",
     "capturedAt": "2026-07-05T04:40:50.406Z"
   },
   "12-settings": {
     "title": "プロジェクト設定",
     "route": "/demo/sample-shop/settings",
-    "file": "docs/取扱説明書/images/screens/12-settings.png",
+    "file": "docs/user-guide/images/screens/12-settings.png",
     "capturedAt": "2026-07-05T04:40:44.934Z"
   },
   "13-galaxy-list": {
     "title": "理解度マップ（リスト表示）",
     "route": "/demo/sample-shop/galaxy",
-    "file": "docs/取扱説明書/images/screens/13-galaxy-list.png",
+    "file": "docs/user-guide/images/screens/13-galaxy-list.png",
     "capturedAt": "2026-07-05T04:41:03.211Z"
   },
   "14-help-menu": {
     "title": "ヘルプメニュー",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/14-help-menu.png",
+    "file": "docs/user-guide/images/screens/14-help-menu.png",
     "capturedAt": "2026-07-05T04:41:05.701Z"
   },
   "15-onboarding-tour": {
     "title": "オンボーディングガイド（ツアー）",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/15-onboarding-tour.png",
+    "file": "docs/user-guide/images/screens/15-onboarding-tour.png",
     "capturedAt": "2026-07-05T04:41:08.754Z"
   },
   "16-changelog": {
     "title": "変更履歴（CHANGELOG）",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/16-changelog.png",
+    "file": "docs/user-guide/images/screens/16-changelog.png",
     "capturedAt": "2026-07-05T04:41:20.846Z"
   },
   "17-project-sections": {
     "title": "プロジェクトのセクション分け / スター",
     "route": "/demo",
-    "file": "docs/取扱説明書/images/screens/17-project-sections.png",
+    "file": "docs/user-guide/images/screens/17-project-sections.png",
     "capturedAt": "2026-07-05T04:41:00.508Z"
   },
   "18-new-project": {
     "title": "新規プロジェクト作成（リポジトリ + 解析対象ブランチ選択）",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/18-new-project.png",
+    "file": "docs/user-guide/images/screens/18-new-project.png",
     "capturedAt": "2026-07-05T04:41:11.980Z"
   },
   "19-analysis-status": {
     "title": "解析ステータス（解析ラン・コックピット）",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/19-analysis-status.png",
+    "file": "docs/user-guide/images/screens/19-analysis-status.png",
     "capturedAt": "2026-07-05T04:41:14.788Z"
   },
   "20-command-palette": {
     "title": "コマンドパレット（⌘K 検索）",
     "route": "/demo/sample-shop",
-    "file": "docs/取扱説明書/images/screens/20-command-palette.png",
+    "file": "docs/user-guide/images/screens/20-command-palette.png",
     "capturedAt": "2026-07-05T04:41:17.620Z"
   }
 }
