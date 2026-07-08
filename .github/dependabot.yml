@@ -1,12 +1,17 @@
 # Weekly dependency update PRs.
 # Security alerts are raised immediately regardless of schedule.
 # See docs/reference/prod-readiness.md §7 for the supply-chain rationale.
+#
+# target-branch: "develop" — 開発は develop 中心（main はリリース系のみ・develop の後追い）。
+# Dependabot は設定を既定ブランチ(main)から読むため、この target-branch は main 側に載って初めて有効。
+# 更新 PR は develop を基点に作成・develop へ向け、リリース時に develop → main で main へ届く。
 
 version: 2
 updates:
   # Backend Python deps (uv reads pyproject.toml + uv.lock)
   - package-ecosystem: "uv"
     directory: "/backend"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
@@ -14,6 +19,7 @@ updates:
   # Frontend JS deps (bun reads package.json + bun.lock)
   - package-ecosystem: "bun"
     directory: "/frontend"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
@@ -33,24 +39,28 @@ updates:
   # Terraform — app stack
   - package-ecosystem: "terraform"
     directory: "/infra/gcp"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
 
   # Terraform — bootstrap stack
   - package-ecosystem: "terraform"
     directory: "/infra/bootstrap/gcp"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
 
   # GitHub Actions used in .github/workflows/
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
 
   # Dockerfile base images (dev + prod)
   - package-ecosystem: "docker"
     directory: "/docker"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     # Python は 3.13 ラインで運用（CLAUDE.md / requires-python >=3.13）。
