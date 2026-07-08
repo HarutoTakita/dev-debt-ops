@@ -1,0 +1,47 @@
+# service イメージの HIGH CVE 受容リスト（stg デプロイ・ブートストラップ）
+#
+# 調査の結果、検出された HIGH（26件）はすべて「我々が著述していない第三者コンポーネント」内にあり、
+# ビルド時に我々のコードで直接差し替えできるものは無かった（OS/debian パッケージの HIGH は 0 件）:
+#   - github-mcp-server / trivy … upstream の prebuilt Go バイナリ。Go stdlib / vendored 依存の CVE で、
+#     upstream の再ビルドでのみ解消。github-mcp-server は latest 使用中で上げ余地が無い。
+#   - Node.js (node-pkg) … Serena / CodeGraphContext / nodesource が同梱する推移的 npm 依存。
+#   - Python (python-pkg) … google-adk / google-genai 等の推移的依存。
+# いずれも Trivy の ignore-unfixed 適用後も残る（「upstream に修正版はあるが我々のビルドでは差し替え不可」）。
+# service は内部 Cloud Run（Cloud Tasks OIDC 経由のみ・外部公開なし）で攻撃面は限定的。
+# upstream リリースで解消次第、本リストから外して再評価すること。
+
+# --- github-mcp-server (gobinary / upstream prebuilt) ---
+CVE-2026-25681
+CVE-2026-27136
+CVE-2026-33814
+CVE-2026-39821
+CVE-2026-42502
+
+# --- trivy (gobinary / upstream prebuilt) ---
+CVE-2026-53488
+CVE-2026-53489
+CVE-2026-53492
+CVE-2026-50151
+
+# --- Node.js (node-pkg / ツール同梱の推移的依存) ---
+CVE-2024-21538
+CVE-2025-64756
+CVE-2026-26996
+CVE-2026-27903
+CVE-2026-27904
+CVE-2026-48815
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842
+CVE-2026-26960
+CVE-2026-29786
+CVE-2026-31802
+
+# --- Python (python-pkg / 推移的依存) ---
+CVE-2025-4565
+CVE-2026-0994
+CVE-2026-53539
+CVE-2026-48818
+CVE-2026-54283
+# cryptography 46.0.7 の wheel 同梱 OpenSSL（fixed: 48.0.1）。GHSA-ID で報告される推移的依存。
+GHSA-537c-gmf6-5ccf
