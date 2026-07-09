@@ -361,8 +361,15 @@ class GitHubGitClient:
         return pulls
 
     async def get_pull_request_reviews(self, owner: str, repo: str, number: int) -> list[ReviewInfo]:
-        """Return the reviews on a pull request (state + reviewer login)."""
+        """Return the reviews on a pull request (state + reviewer login).
+
+        A 404 is treated as "no reviews" (empty list): the number can refer to an issue or a
+        deleted / cross-repo PR surfaced by the commit→PR association, and a single missing PR
+        must not abort knowledge-debt detection (issue: knowledge_debt_detection の 404 クラッシュ)。
+        """
         resp = await self._client.get(f"/repos/{owner}/{repo}/pulls/{number}/reviews")
+        if resp.status_code == 404:
+            return []
         resp.raise_for_status()
         reviews: list[ReviewInfo] = []
         for rv in resp.json():
