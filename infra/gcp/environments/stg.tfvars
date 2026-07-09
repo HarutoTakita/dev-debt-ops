@@ -31,3 +31,6 @@ demo_mode_enabled = true
 # 管理者なしでも各ユーザーが 5 回まで解析できるようにする（デモ/審査用）。
 analysis_credits_enabled = true
 analysis_credits_initial = 5
+
+# 管理者（superuser）。ログイン毎に is_superuser を照合（issue 300）。クレジット付与や管理画面に必要。
+admin_emails = "haruto.ta.413@icloud.com"
