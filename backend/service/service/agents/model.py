@@ -74,6 +74,7 @@ def build_agent_model() -> _BoundedGemini:
             initial_delay=2.0,
             max_delay=32.0,
             exp_base=2.0,
+            jitter=1.0,  # リトライ遅延を乱数化し同時多発時の集中（thundering herd）を回避（既定 1.0 を明示）
             http_status_codes=_AGENT_RETRY_STATUS,
         ),
     )

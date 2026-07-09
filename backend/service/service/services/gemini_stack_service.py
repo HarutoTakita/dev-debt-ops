@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import random
 
 import google.auth
 import google.auth.exceptions
@@ -127,6 +128,7 @@ def _build_client() -> genai.Client:
 _RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
 _GENERATE_MAX_ATTEMPTS = 6
 _GENERATE_BASE_BACKOFF_SECONDS = 2.0
+_GENERATE_MAX_BACKOFF_SECONDS = 32.0
 
 
 def _is_retryable_generate_error(exc: Exception) -> bool:
@@ -167,7 +169,10 @@ async def _generate(
                 e,
             )
             if attempt < _GENERATE_MAX_ATTEMPTS - 1:
-                await asyncio.sleep(_GENERATE_BASE_BACKOFF_SECONDS * (2**attempt))
+                # equal jitter: 半分は指数バックオフ、残り半分を乱数化。多数の Gemini 呼びが同一クォータ窓に
+                # 一斉リトライ（thundering herd）して再枯渇するのを避け、分散させて回復確率を上げる。
+                delay = min(_GENERATE_MAX_BACKOFF_SECONDS, _GENERATE_BASE_BACKOFF_SECONDS * (2**attempt))
+                await asyncio.sleep(delay / 2 + random.uniform(0, delay / 2))
     if last is not None:
         raise last
     raise RuntimeError("Gemini generate_content failed without an exception")
