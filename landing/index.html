@@ -346,6 +346,28 @@
         background-color: rgba(69, 26, 3, 0.75);
         border-color: rgba(245, 158, 11, 0.55);
       }
+      /* 使い方アシスタント（チャット）のアクセント色。アプリの「解析」ボタン（理解負債＝ティール）に合わせ、
+         LP の know（明るいシアン #22b8c4）より彩度を落とした #0d9488 で蛍光感を抑える。
+         know 自体はヒーロー/チップ等で使うため変更せず、チャット領域のみをスコープして上書きする。 */
+      #chat-launcher {
+        background-color: #0d9488;
+      }
+      #chat-launcher:focus {
+        --tw-ring-color: rgba(13, 148, 136, 0.6);
+      }
+      #chat-panel .bg-know {
+        background-color: #0d9488;
+      }
+      #chat-panel .bg-know\/20 {
+        background-color: rgba(13, 148, 136, 0.18);
+      }
+      #chat-panel .text-know {
+        color: #14b8a6;
+      }
+      #chat-panel .hover\:border-know\/50:hover,
+      #chat-panel .focus\:border-know\/50:focus {
+        border-color: rgba(13, 148, 136, 0.5);
+      }
       /* ファーストビューの機能ハイライト・チップ（アイコン＋短い売り文句のピル）。 */
       .chip {
         display: inline-flex;
