@@ -1,8 +1,10 @@
 # ユースケース図
 
-DevDebtOps（Tech Debt Twin Agent）のアクターと主要ユースケースを Mermaid で示す。
+DevDebtOps のアクターと主要ユースケースを Mermaid で示す。
 Mermaid に UML ユースケース図の専用記法は無いため、**アクター → ユースケース（システム境界）** を
 flowchart で表現する。機能は `frontend/` のルートと `backend/api` のルータ、`backend/service` のパイプラインに対応する。
+
+> このドキュメントは実コード（`frontend/src/routes`・`backend/api/app/api/v1`・`backend/service/service/pipelines`）に基づく。
 
 ## 全体ユースケース図
 
@@ -10,102 +12,98 @@ flowchart で表現する。機能は `frontend/` のルートと `backend/api` 
 flowchart LR
     classDef actor fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
     classDef uc fill:#fff,stroke:#666,rx:18,ry:18;
-    classDef sys fill:#f5f5f5,stroke:#999,stroke-dasharray:4 4;
+    classDef ext fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
 
-    dev["👤 開発者<br/>(メンバー)"]:::actor
-    lead["🧭 テックリード<br/>(オーナー/管理者)"]:::actor
-    gh["🐙 GitHub<br/>(外部システム)"]:::actor
-    twin["🤖 Twin Agent<br/>(自律ループ)"]:::actor
+    dev["👤 開発者 / メンバー"]:::actor
+    lead["🧭 テックリード / 管理者"]:::actor
+    guest["🧪 ゲスト（デモ）"]:::actor
+
+    gh["🐙 GitHub<br/>(OAuth SSO / GitHub App)"]:::ext
+    gem["✨ Vertex AI (Gemini)"]:::ext
+    mcp["🔌 MCP サーバー<br/>(Serena / CodeGraphContext / Semgrep / GitHub)"]:::ext
 
     subgraph SYS["🛰️ DevDebtOps システム"]
         direction TB
 
-        subgraph ACC["アカウント / 組織"]
-            u1(["GitHub でログイン"]):::uc
-            u2(["組織・メンバーを管理"]):::uc
-            u3(["プロジェクトを作成"]):::uc
-            u4(["リポジトリを接続"]):::uc
+        subgraph ACC["アカウント / プロジェクト"]
+            a1(["GitHub SSO でログイン"]):::uc
+            a2(["デモで試す（お試し）"]):::uc
+            a3(["プロジェクトを作成<br/>(リポジトリ・ブランチ接続)"]):::uc
+            a4(["アカウント設定・言語/テーマ切替"]):::uc
+            a5(["ユーザー管理・解析クレジット付与"]):::uc
         end
 
-        subgraph DIAG["診断（理解する）"]
-            u5(["リポジトリを解析する<br/>(コックピット)"]):::uc
-            u6(["スタックを解析"]):::uc
-            u7(["コード/知識負債を検知"]):::uc
-            u8(["Overview 二軸ダッシュボードを見る"]):::uc
-            u9(["負債マトリクスをドリルダウン"]):::uc
-            u10(["知識ギャラクシーで KC を見る"]):::uc
+        subgraph SEE["解析・見える化"]
+            b1(["リポジトリ解析を実行"]):::uc
+            b2(["ダッシュボードで品質×理解度を見る<br/>(二軸マトリクス・ホットスポット)"]):::uc
+            b3(["理解度マップで機能/ファイル別の理解度を見る"]):::uc
+            b4(["コード品質マップでコードと指摘を閲覧"]):::uc
         end
 
-        subgraph REPAY["返済する"]
-            u11(["クイズを生成・受験して返済"]):::uc
-            u12(["返済 PR を生成"]):::uc
-            u13(["学習プランを生成・検証"]):::uc
+        subgraph KNOW["理解負債の解消（測る→学ぶ→再測定）"]
+            c1(["学習プランを受講する"]):::uc
+            c2(["確認クイズで理解度を実測・再受験する"]):::uc
         end
 
-        subgraph AGENT["エージェント"]
-            u14(["Twin Agent の活動を観測"]):::uc
-            u15(["自律ループを実行"]):::uc
+        subgraph CODE["技術負債の解消"]
+            d1(["コード改善: AI 修正 PR を自動生成"]):::uc
+            d2(["Issue を作成し担当を割り当てる"]):::uc
         end
 
-        subgraph REF["参照"]
-            u16(["リポジトリ/コードを閲覧"]):::uc
+        subgraph AG["AI エージェント基盤（内部処理）"]
+            e1(["ADK エージェントが自律探索・解析<br/>(オーケストレーター×サブエージェント×MCP×Hook)"]):::uc
         end
     end
 
-    dev --> u1 & u3 & u4
-    dev --> u5 & u8 & u9 & u10
-    dev --> u11 & u14 & u16
-    lead --> u2 & u12 & u13 & u15
-    lead --> u8
+    dev --> a1 & a3 & a4
+    dev --> b1 & b2 & b3 & b4
+    dev --> c1 & c2 & d1 & d2
+    guest --> a2
+    guest --> b2 & b3 & b4
+    lead --> a5 & b2 & d2
 
-    %% include 関係（コックピットが各生成を束ねる）
-    u5 -.includes.-> u6
-    u5 -.includes.-> u7
-    u5 -.includes.-> u10
-    u5 -.includes.-> u11
-    u5 -.includes.-> u13
-    u15 -.includes.-> u7
-    u15 -.includes.-> u12
+    %% 解析実行はエージェント基盤を起動（include）
+    b1 -.includes.-> e1
 
     %% 外部システム連携
-    u1 -.認可.-> gh
-    u4 -.App install.-> gh
-    u6 -.REST/解析.-> gh
-    u12 -.PR 作成.-> gh
-    u15 --> twin
-    twin -.検知→分析→計画→返済→検証.-> u7
+    a1 -.認可.-> gh
+    a3 -.App install / repo 読取.-> gh
+    b4 -.repo 読取.-> gh
+    d1 -.PR 作成.-> gh
+    d2 -.Issue 作成.-> gh
+    e1 -.推論.-> gem
+    e1 -.構造/依存/品質/履歴の取得.-> mcp
 ```
 
 ## アクターと責務
 
 | アクター | 説明 | 主なユースケース |
 |---|---|---|
-| 👤 開発者（メンバー） | プロジェクトに参加する一般開発者 | ログイン / プロジェクト作成 / リポジトリ接続 / 解析実行 / 各 Map 閲覧 / クイズ返済 / 活動観測 |
-| 🧭 テックリード（オーナー/管理者） | 組織・チームを管理する責任者 | メンバー管理 / 返済 PR 生成 / 学習プラン / 自律ループ実行 / 全体ダッシュボード |
-| 🐙 GitHub | OAuth・GitHub App・REST API を提供する外部システム | ログイン認可 / App インストール / リポジトリ読取 / PR 作成 |
-| 🤖 Twin Agent | service 上で動く自律ループ（検知→分析→計画→返済→検証） | 各パイプラインを束ねナラティブ化 |
+| 👤 開発者 / メンバー | 自分のコード理解と品質を扱う一般ユーザー | ログイン / プロジェクト作成 / 解析実行 / 各画面閲覧 / 学習・クイズ / コード改善 |
+| 🧭 テックリード / 管理者 | チームの理解度・品質を俯瞰し運用を管理 | 二軸ダッシュボードで優先度把握 / ユーザー管理 / 解析クレジット付与 / レビュー・学習の割当 |
+| 🧪 ゲスト（デモ） | GitHub なしでシード済みデモ org を体験（解析は読み取り専用） | デモログイン / 各画面の閲覧 |
+| 🐙 GitHub | OAuth SSO・GitHub App・REST を提供する外部システム | ログイン認可 / App インストール / リポジトリ読取 / PR・Issue 作成 |
+| ✨ Vertex AI (Gemini) | エージェントおよび各生成の推論エンジン（外部） | 機能クラスタリング / 学習プラン・クイズ・改善案の生成 / AI 生成痕跡の推定 |
+| 🔌 MCP サーバー | Serena / CodeGraphContext / Semgrep / GitHub（外部の解析ツール群） | コード構造・依存グラフ・品質/脆弱性・変更履歴の取得 |
 
 ## ユースケース ↔ 実装対応
 
 | ユースケース | フロント（ルート） | バックエンド（api ルータ / service パイプライン） |
 |---|---|---|
-| GitHub でログイン | `/login` | `auth`（GitHub OAuth + JWT/refresh cookie） |
-| 組織・メンバーを管理 | `[org]/settings/members` | `orgs` / `users` |
-| プロジェクトを作成 | `[org]/projects/new` | `projects` |
-| リポジトリを接続 | `[org]/[project]/repos` | `github`（App installation） |
-| リポジトリを解析する（コックピット） | `[org]/[project]`（Overview・issue-037） | 各 enqueue を束ねる |
-| スタックを解析 | （Repos / Overview） | `stack` → `stack_analysis` |
-| コード/知識負債を検知 | （Matrix） | `debts` / `knowledge_debts` → `code_debt_detection` / `knowledge_debt_detection` |
-| Overview 二軸ダッシュボード | `[org]/[project]` | `overview` |
-| 負債マトリクスをドリルダウン | `[org]/[project]/matrix/[debtId]` | `debts` |
-| 知識ギャラクシーで KC を見る | `[org]/[project]/galaxy` | `galaxy` / `kc` → `kc_analysis` |
-| クイズを生成・受験して返済 | `[org]/[project]/quizzes/[sessionId]/result` | `quizzes` → `quiz_generation` / `quiz_grading` |
-| 返済 PR を生成 | （Matrix 詳細） | `debts` → `repayment_pr_generation` |
-| 学習プランを生成・検証 | `[org]/[project]/learning` | `learning` → `learning_plan_generation` |
-| Twin Agent の活動を観測 | `[org]/[project]/agents` | `agents` |
-| 自律ループを実行 | `[org]/[project]/agents` | `agent_loop`（`code_debt_loop` / `knowledge_debt_loop`） |
-| リポジトリ/コードを閲覧 | `[org]/[project]/repos` | `github` |
+| GitHub SSO でログイン | `/login`, `/login/callback` | `auth` / `auth_custom`（GitHub OAuth ＋ access/refresh cookie の分離） |
+| デモで試す（お試し） | `/login` | `auth_demo`（`POST /api/v1/auth/demo`） |
+| プロジェクトを作成（リポジトリ・ブランチ接続） | `/[org]`（新規プロジェクト） | `projects` / `github`（GitHub App installation） |
+| アカウント設定・言語/テーマ | `/account` | `users` / `config` |
+| ユーザー管理・解析クレジット付与（管理者） | `/admin` | `users` / `orgs` |
+| リポジトリ解析を実行 | `/[org]/[project]`（解析コックピット） | `agentic` → `agentic_analysis`（下流の各処理を束ね enqueue） |
+| ダッシュボード（品質×理解度の二軸・ホットスポット） | `/[org]/[project]` | `overview`（`debts` / `knowledge_debts` / `kc` を集約） |
+| 理解度マップ（機能/ファイル別の理解度） | `/[org]/[project]/galaxy` | `galaxy` / `kc` / `features` → `kc_analysis` / `feature_clustering` |
+| コード品質マップ（コード閲覧・指摘の確認） | `/[org]/[project]/repos` | `github` / `debts` → `code_debt_detection`（Semgrep / Trivy / ヒューリスティック） |
+| 学習プランを受講する | `/[org]/[project]/learning`（+ `/learning/code/[resourceId]`） | `learning` / `knowledge_units` → `learning_plan_generation` / `code_walkthrough_generation` |
+| 確認クイズを実測・再受験する | `/[org]/[project]/quizzes/[sessionId]/result` | `quizzes` → `quiz_generation`（生成）/ `quiz_grading`（ルールベース採点・LLM 不使用） |
+| コード改善（AI 修正 PR / Issue 作成） | `/[org]/[project]/matrix`（+ `/matrix/[debtId]`） | `debts` / `knowledge_debts` → `repayment_pr_generation`（GitHub へ PR / Issue） |
+| AI 解析エージェント（内部） | —（解析実行時に自動起動） | `agentic_analysis`（ADK：探索→著述の SequentialAgent ＋ 用途特化サブエージェント、MCP、予算/PII マスキング Hook） |
 
-> 注: 各 Map の「生成を起動する UI」は issue-037（解析ラン・コックピット）で配線する。
-> 現状は enqueue API（`client.ts`）は配線済みだが、UI 起点が未実装のものがある。
-</content>
+> 補足:
+> - 重い処理は `agentic` などが Cloud Tasks 経由で `service`（Worker）へ非同期ディスパッチし、`jobs` でジョブ状態を管理する。
+> - 計測の芯（理解度 KC・クイズ採点・負債スコア/深刻度）は決定論的。LLM（Gemini）は解析の探索・所見と、学習/クイズ/改善案の生成に用いる。

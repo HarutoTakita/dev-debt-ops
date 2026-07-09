@@ -448,10 +448,30 @@ DevDebtOps の核心が、この画面です。機能ごとに生成された学
 
 - **公開に耐える体裁** — [ランディングページ](https://stg.devdebtops.harutotakita.dev/lp)、プライバシーポリシー・利用規約を整備し、外部公開・サービス提供の要件を満たす。
 - **可観測性** — Cloud Monitoring / Logging で 5xx エラー率やサービスの稼働状況を継続監視。
+- **ユーザーの声を集める仕組み** — LP に使い方アシスタント（チャット）を設置し、ユーザーからの質問対応や改善要望の収集を行う。集まった声をプロダクトの継続的な改善に繋げる、フィードバックの入口を用意しています。
 
 ### 拡張性・保守性 — ドキュメントの自動整備
 
-[`/release-version`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/release-version/SKILL.md) で新バージョンを切ると、**API ドキュメント**（[`openapi.json`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/openapi.json)、OpenAPI 3.1）・**ER 図**（[`schema.dbml`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/schema.dbml)、DBML）・**取扱説明書**（[`README.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/user-guide/README.md)、Playwright でスクショ自動再取得＋本文を AI 更新）・**チェンジログ**（[`CHANGELOG.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/CHANGELOG.md)）が自動で最新化。ドキュメントが常にコードへ追従するため、機能追加やチーム拡大にも耐える保守性・拡張性を確保します。
+
+[`/release-version`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/release-version/SKILL.md) で新バージョンを切ると、
+
+- **API ドキュメント**（[`openapi.json`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/openapi.json)、OpenAPI 3.1）
+- **ER 図**（[`schema.dbml`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/schema.dbml)、DBML）
+- **取扱説明書**（[`README.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/user-guide/README.md)
+- **チェンジログ**（[`CHANGELOG.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/CHANGELOG.md)）
+
+が自動で最新化。
+
+ドキュメントが常にコードへ追従するため、機能追加やチーム拡大にも耐える保守性・拡張性を確保します。
+
+加えて、
+
+- **運用手順書**（[`operations.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/operations.md)）
+- **シーケンス図**（[`sequence-diagrams.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/sequence-diagrams.md)）
+- **アーキテクチャ構成図**（[`infrastructure.png`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/infrastructure.png)）
+- **ユースケース図**（[`use-cases.md`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/use-cases.md)）
+
+など、デプロイ・障害対応から解析パイプラインの内部フロー、システム構成、機能全体像までを示すドキュメントも整備し、開発・運用を支える情報を体系的に揃えています。
 
 ---
 
