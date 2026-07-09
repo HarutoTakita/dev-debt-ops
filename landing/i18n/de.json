@@ -233,5 +233,12 @@
   "agent.hk_tool": "Tool-Ausführung",
   "agent.harness_base": "Das Fundament, das jeden Agentenschritt über Before-/After-Hooks sicher und stabil steuert.",
   "agent.orch_role": "Steuert & verteilt",
-  "agent.mcp_ref": "Greift zur richtigen Zeit auf MCP-Tools zu"
+  "agent.mcp_ref": "Greift zur richtigen Zeit auf MCP-Tools zu",
+  "chat.title": "Anleitungs-Assistent",
+  "chat.demo": "⚠ Dies ist eine Demo-Funktion. Der KI-Chat ist noch nicht implementiert (geplant nach dem Produktions-Release). Die aktuellen Antworten sind einfache regelbasierte Antworten.",
+  "chat.greeting": "Hallo! Frag mich alles zur Nutzung von DevDebtOps – ich führe dich zu den wichtigsten Ansichten und Aktionen.",
+  "chat.send": "Senden",
+  "chat.suggest1": "Was ist das Dashboard?",
+  "chat.suggest2": "Wie man die Verständnis-Karte liest",
+  "chat.suggest3": "Verbesserungsvorschlag senden"
 }

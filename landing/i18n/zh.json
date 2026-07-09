@@ -233,5 +233,12 @@
   "agent.hk_tool": "工具执行",
   "agent.harness_base": "通过 before / after Hooks 安全稳定地掌控智能体每一步执行的基座。",
   "agent.orch_role": "统筹并分派",
-  "agent.mcp_ref": "在恰当时机引用 MCP 工具"
+  "agent.mcp_ref": "在恰当时机引用 MCP 工具",
+  "chat.title": "使用助手",
+  "chat.demo": "⚠ 这是演示功能。AI 聊天尚未实现（计划在正式发布后引入）。当前回答为基于规则的简易应答。",
+  "chat.greeting": "你好！关于 DevDebtOps 的使用方法，有任何疑问尽管问我。我会为你指引主要界面和操作。",
+  "chat.send": "发送",
+  "chat.suggest1": "什么是仪表盘？",
+  "chat.suggest2": "如何看理解度地图",
+  "chat.suggest3": "发送改善建议"
 }

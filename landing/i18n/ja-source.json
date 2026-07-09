@@ -233,5 +233,12 @@
   "agent.hk_tool": "ツール実行",
   "agent.harness_base": "before / after の Hooks で、エージェントの全実行を安全・安定に制御する基盤。",
   "agent.orch_role": "全体を統括し、振り分け",
-  "agent.mcp_ref": "適切なタイミングで MCP を参照"
+  "agent.mcp_ref": "適切なタイミングで MCP を参照",
+  "chat.title": "使い方アシスタント",
+  "chat.demo": "⚠ これはデモ機能です。AI チャットは未実装で、本番リリース後に導入予定です。現在の回答はルールベースの簡易応答です。",
+  "chat.greeting": "こんにちは！DevDebtOps の使い方について気になることをお聞きください。主要な画面や操作をご案内します。",
+  "chat.send": "送信",
+  "chat.suggest1": "ダッシュボードとは？",
+  "chat.suggest2": "理解度マップの見方",
+  "chat.suggest3": "改善要望を送る"
 }

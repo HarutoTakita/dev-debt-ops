@@ -2608,6 +2608,274 @@
         });
       })();
     </script>
+    <!-- ===== 使い方アシスタント（デモ・ルールベース。実 LLM 呼び出しは未実装／本番リリース後に導入予定） ===== -->
+    <button
+      id="chat-launcher"
+      type="button"
+      class="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-know text-white shadow-xl transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-know/60"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+    </button>
+
+    <div
+      id="chat-panel"
+      class="fixed bottom-24 right-6 z-50 hidden w-[calc(100vw-3rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e141b] text-slate-200 shadow-2xl"
+      role="dialog"
+      aria-modal="false"
+    >
+      <div class="flex items-center justify-between border-b border-white/10 px-4 py-3">
+        <div class="flex items-center gap-2">
+          <span class="flex h-6 w-6 items-center justify-center rounded-full bg-know/20 text-know">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+          </span>
+          <span class="font-semibold text-white" data-i18n="chat.title">使い方アシスタント</span>
+        </div>
+        <button id="chat-close" type="button" class="text-slate-400 transition hover:text-white">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <!-- 但し書き（常時表示・デモ明示） -->
+      <p class="border-b border-code/20 bg-code/10 px-4 py-2 text-xs leading-relaxed text-code" data-i18n="chat.demo">
+        ⚠ これはデモ機能です。AI チャットは未実装で、本番リリース後に導入予定です。現在の回答はルールベースの簡易応答です。
+      </p>
+
+      <div id="chat-log" class="flex max-h-[50vh] min-h-[12rem] flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 text-sm">
+        <div class="max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-white/5 px-3 py-2 leading-relaxed" data-i18n="chat.greeting">
+          こんにちは！DevDebtOps の使い方について気になることをお聞きください。主要な画面や操作をご案内します。
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 px-4 pb-2">
+        <button type="button" class="chat-suggest rounded-full border border-white/15 px-3 py-1 text-xs text-slate-300 transition hover:border-know/50 hover:text-white" data-i18n="chat.suggest1">ダッシュボードとは？</button>
+        <button type="button" class="chat-suggest rounded-full border border-white/15 px-3 py-1 text-xs text-slate-300 transition hover:border-know/50 hover:text-white" data-i18n="chat.suggest2">理解度マップの見方</button>
+        <button type="button" class="chat-suggest rounded-full border border-white/15 px-3 py-1 text-xs text-slate-300 transition hover:border-know/50 hover:text-white" data-i18n="chat.suggest3">改善要望を送る</button>
+      </div>
+
+      <form id="chat-form" class="flex items-center gap-2 border-t border-white/10 px-3 py-3">
+        <input id="chat-input" type="text" autocomplete="off" class="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-know/50 focus:outline-none" />
+        <button type="submit" class="rounded-lg bg-know px-3 py-2 text-sm font-medium text-white transition hover:brightness-110" data-i18n="chat.send">送信</button>
+      </form>
+    </div>
+
+    <script>
+      // 使い方アシスタント（デモ）: ルールベースの簡易応答。実 LLM 呼び出しは行わない（本番リリース後に導入予定）。
+      // ロケールは i18n.js と同じ PARAGLIDE_LOCALE（cookie/localStorage）を参照。回答は locale 別マップから選ぶ。
+      (function () {
+        var launcher = document.getElementById("chat-launcher");
+        var panel = document.getElementById("chat-panel");
+        var closeBtn = document.getElementById("chat-close");
+        var form = document.getElementById("chat-form");
+        var input = document.getElementById("chat-input");
+        var log = document.getElementById("chat-log");
+        if (!launcher || !panel || !form || !input || !log) return;
+
+        var LOCALES = ["ja", "en", "zh", "ko", "es", "de"];
+        function locale() {
+          var m = document.cookie.match(/(?:^|; )PARAGLIDE_LOCALE=([^;]*)/);
+          var c = m ? decodeURIComponent(m[1]) : null;
+          if (LOCALES.indexOf(c) >= 0) return c;
+          try { var ls = localStorage.getItem("PARAGLIDE_LOCALE"); if (LOCALES.indexOf(ls) >= 0) return ls; } catch (e) {}
+          return "ja";
+        }
+        function mailto() {
+          return "mailto:" + ["haruto.takita", "gmail.com"].join("@") + "?subject=" + encodeURIComponent("DevDebtOps 改善要望");
+        }
+
+        // UI 文字列（placeholder / aria）。表示テキストは data-i18n 側で多言語化される。
+        var STR = {
+          ja: { ph: "使い方を質問…", open: "使い方アシスタントを開く", close: "閉じる" },
+          en: { ph: "Ask how to use it…", open: "Open the how-to assistant", close: "Close" },
+          zh: { ph: "询问使用方法…", open: "打开使用助手", close: "关闭" },
+          ko: { ph: "사용법을 질문…", open: "사용법 어시스턴트 열기", close: "닫기" },
+          es: { ph: "Pregunta cómo usarlo…", open: "Abrir el asistente de uso", close: "Cerrar" },
+          de: { ph: "Frag, wie es geht…", open: "Hilfe-Assistent öffnen", close: "Schließen" }
+        };
+        // 意図別の回答（HTML 可・自前コンテンツ）。__MAIL__ は実行時に mailto へ置換。
+        var A = {
+          ja: {
+            greeting: "DevDebtOps の使い方について何でも聞いてください。主要な機能や操作をご案内します。",
+            dashboard: "ダッシュボードは、理解度 × コード品質の二軸マトリクスでリポジトリ全体を俯瞰する画面です。左下（低理解・低品質）に集まるファイルほど最優先の改善対象です。KPI・推移グラフ・優先対応リストも確認できます。",
+            galaxy: "理解度マップは、機能・ファイルごとの理解度をグラフ／リストで可視化します。色が理解度を表し、クイズの実測に基づきます。理解の低い箇所からそのまま学習に進めます。",
+            learning: "「クイズと学習」では、機能ごとの学習プランを進め、確認クイズで理解度を実測します。学習 → クイズ → 再受験の閉ループで理解負債を返済していきます。",
+            code: "「コード改善」はファイル単位で技術負債を優先度順に一覧し、AI による修正 PR 自動生成や、担当者をアサインした Issue 作成ができます。「コード品質マップ」ではファイルツリーから負債の分布を俯瞰できます。",
+            analyze: "プロジェクト右上の「解析」から、リポジトリ探索 → 技術負債の検知 → 理解負債の整理 → クイズ/学習の生成 が順に実行されます。完了すると各画面のデータが最新化されます。",
+            login: "GitHub でサインインすると自分のリポジトリを接続できます。アカウントが無くても、ログイン画面の「お試しはこちら」からデモ環境をすぐ体験できます。",
+            langtheme: "右上のアカウントメニューから、表示言語（日本語・English・中文・한국어・Español・Deutsch）とダークモード／ライトモードを切り替えられます。",
+            pricing: "リポジトリ解析にはクレジットを使用します（環境により無効）。残りのクレジットはアカウント画面で確認でき、付与は管理者が行います。",
+            feedback: "改善のご要望は大歓迎です！フッターのメールアイコン、または次のリンクからお送りください: ",
+            maillabel: "メールでのお問い合わせ",
+            fallback: "うまく理解できませんでした。ダッシュボード／理解度マップ／クイズと学習／コード改善／解析 などについてお聞きください。詳しくは取扱説明書もご覧ください。"
+          },
+          en: {
+            greeting: "Ask me anything about using DevDebtOps — I'll point you to the right feature or screen.",
+            dashboard: "The dashboard gives a bird's-eye view of the repo on a two-axis matrix (understanding × code quality). Files clustered in the bottom-left (low understanding, low quality) are the top priorities. It also shows KPIs, trend charts, and a priority list.",
+            galaxy: "The understanding map visualizes your understanding per feature/file as a graph or list. Color encodes understanding and is based on actual quiz results, so you can jump straight into learning the weak spots.",
+            learning: "In \"Quizzes & Learning\" you work through per-feature learning plans and measure understanding with quizzes. Learn → quiz → retake forms a closed loop that repays understanding debt.",
+            code: "\"Code improvement\" lists technical debt per file by priority, and can auto-generate fix PRs with AI or create issues assigned to an owner. The \"Code quality map\" shows the debt distribution across the file tree.",
+            analyze: "From \"Analyze\" (top-right of a project), the pipeline runs in order: repo exploration → tech-debt detection → understanding-debt organization → quiz/learning generation. Each screen's data refreshes when it finishes.",
+            login: "Sign in with GitHub to connect your own repository. No account? Use \"Try the demo\" on the login screen to explore a demo environment right away.",
+            langtheme: "From the account menu (top-right) you can switch the display language (日本語 / English / 中文 / 한국어 / Español / Deutsch) and toggle dark / light mode.",
+            pricing: "Repository analysis uses credits (disabled in some environments). You can check your remaining credits on the account screen; admins grant them.",
+            feedback: "We'd love your suggestions! Reach out via the mail icon in the footer, or this link: ",
+            maillabel: "email us",
+            fallback: "Sorry, I didn't quite get that. Try asking about the dashboard, understanding map, quizzes & learning, code improvement, or analysis. See the user guide for details."
+          },
+          zh: {
+            greeting: "关于 DevDebtOps 的使用方法，尽管问我——我会为你指引合适的功能或界面。",
+            dashboard: "仪表盘以「理解度 × 代码质量」双轴矩阵的形式，让你俯瞰整个仓库。聚集在左下角（低理解度、低质量）的文件是最优先的改善对象。你还能查看 KPI、趋势图和优先处理清单。",
+            galaxy: "理解度地图（Understanding Map）以图表或列表的形式，可视化你对各功能/文件的理解度。颜色代表理解度，并基于实际的测验结果，因此你可以直接从薄弱之处进入学习。",
+            learning: "在「测验与学习」（Quizzes & Learning）中，你可以推进各功能的学习计划，并通过确认测验实测理解度。学习 → 测验 → 重考构成闭环，逐步偿还理解债务。",
+            code: "「代码改善」（Code improvement）按优先级逐文件列出技术债务，可借助 AI 自动生成修复 PR，或创建并指派负责人的 Issue。「代码质量地图」（Code quality map）则让你从文件树俯瞰债务分布。",
+            analyze: "从项目右上角的「解析」（Analyze）开始，流程会依次执行：仓库探索 → 技术债务检测 → 理解债务整理 → 测验/学习生成。完成后，各界面的数据会随之更新。",
+            login: "使用 GitHub 登录即可连接你自己的仓库。没有账户？在登录界面点击「立即试用」，便可马上体验演示环境。",
+            langtheme: "在右上角的账户菜单中，你可以切换显示语言（日本語 / English / 中文 / 한국어 / Español / Deutsch），并切换深色/浅色模式。",
+            pricing: "仓库解析会消耗积分（部分环境下已禁用）。你可以在账户界面查看剩余积分，积分由管理员发放。",
+            feedback: "非常欢迎你的改善建议！请通过页脚的邮件图标或以下链接联系我们: ",
+            maillabel: "邮件联系我们",
+            fallback: "抱歉，我没能完全理解。你可以询问仪表盘、理解度地图、测验与学习、代码改善或解析等方面的问题。更多详情请参阅使用说明书。"
+          },
+          ko: {
+            greeting: "DevDebtOps 사용법에 대해 무엇이든 물어보세요. 알맞은 기능이나 화면으로 안내해 드립니다.",
+            dashboard: "대시보드는 이해도 × 코드 품질의 2축 매트릭스로 저장소 전체를 한눈에 조망하는 화면입니다. 왼쪽 아래(낮은 이해도·낮은 품질)에 모인 파일일수록 최우선 개선 대상입니다. KPI, 추이 그래프, 우선 대응 목록도 확인할 수 있습니다.",
+            galaxy: "이해도 맵(Understanding Map)은 기능·파일별 이해도를 그래프나 목록으로 시각화합니다. 색상이 이해도를 나타내며 퀴즈 실측 결과에 기반하므로, 이해가 낮은 부분에서 바로 학습으로 넘어갈 수 있습니다.",
+            learning: "「퀴즈 & 학습」(Quizzes & Learning)에서는 기능별 학습 플랜을 진행하고 확인 퀴즈로 이해도를 실측합니다. 학습 → 퀴즈 → 재응시의 폐루프로 이해 부채를 상환해 나갑니다.",
+            code: "「코드 개선」(Code improvement)은 파일 단위로 기술 부채를 우선순위대로 나열하며, AI로 수정 PR을 자동 생성하거나 담당자를 지정한 이슈를 만들 수 있습니다. 「코드 품질 맵」(Code quality map)에서는 파일 트리로 부채 분포를 조망할 수 있습니다.",
+            analyze: "프로젝트 오른쪽 위의 「분석」(Analyze)에서 저장소 탐색 → 기술 부채 감지 → 이해 부채 정리 → 퀴즈/학습 생성이 순서대로 실행됩니다. 완료되면 각 화면의 데이터가 최신 상태로 갱신됩니다.",
+            login: "GitHub으로 로그인하면 자신의 저장소를 연결할 수 있습니다. 계정이 없으신가요? 로그인 화면의 「데모 체험하기」로 데모 환경을 바로 이용해 보세요.",
+            langtheme: "오른쪽 위 계정 메뉴에서 표시 언어(日本語 / English / 中文 / 한국어 / Español / Deutsch)와 다크 모드/라이트 모드를 전환할 수 있습니다.",
+            pricing: "저장소 분석에는 크레딧이 사용됩니다(일부 환경에서는 비활성화). 남은 크레딧은 계정 화면에서 확인할 수 있으며, 부여는 관리자가 진행합니다.",
+            feedback: "개선 요청은 언제든 환영합니다! 푸터의 메일 아이콘 또는 다음 링크로 보내주세요: ",
+            maillabel: "이메일로 문의",
+            fallback: "죄송합니다, 제대로 이해하지 못했어요. 대시보드, 이해도 맵, 퀴즈 & 학습, 코드 개선, 분석 등에 대해 물어봐 주세요. 자세한 내용은 사용 설명서도 참고해 주세요."
+          },
+          es: {
+            greeting: "Pregúntame lo que quieras sobre el uso de DevDebtOps: te indicaré la función o pantalla adecuada.",
+            dashboard: "El panel ofrece una vista general del repositorio en una matriz de dos ejes (comprensión × calidad del código). Los archivos agrupados en la esquina inferior izquierda (baja comprensión, baja calidad) son la máxima prioridad. También muestra KPI, gráficos de tendencia y una lista de prioridades.",
+            galaxy: "El mapa de comprensión (Understanding Map) visualiza tu comprensión por función/archivo en forma de gráfico o lista. El color representa la comprensión y se basa en los resultados reales de los cuestionarios, así que puedes pasar directamente a estudiar los puntos débiles.",
+            learning: "En «Cuestionarios y aprendizaje» (Quizzes & Learning) avanzas por planes de aprendizaje por función y mides tu comprensión con cuestionarios. Aprender → cuestionario → repetir forma un ciclo cerrado que salda la deuda de comprensión.",
+            code: "«Mejora de código» (Code improvement) enumera la deuda técnica por archivo según su prioridad y permite generar PR de corrección automáticamente con IA o crear incidencias asignadas a un responsable. El «Mapa de calidad del código» (Code quality map) muestra la distribución de la deuda en el árbol de archivos.",
+            analyze: "Desde «Analizar» (Analyze), arriba a la derecha de un proyecto, la canalización se ejecuta en orden: exploración del repositorio → detección de deuda técnica → organización de la deuda de comprensión → generación de cuestionarios/aprendizaje. Los datos de cada pantalla se actualizan al finalizar.",
+            login: "Inicia sesión con GitHub para conectar tu propio repositorio. ¿No tienes cuenta? Usa «Probar la demo» en la pantalla de inicio de sesión para explorar un entorno de demostración al instante.",
+            langtheme: "Desde el menú de cuenta (arriba a la derecha) puedes cambiar el idioma de visualización (日本語 / English / 中文 / 한국어 / Español / Deutsch) y alternar entre modo oscuro y claro.",
+            pricing: "El análisis del repositorio consume créditos (desactivado en algunos entornos). Puedes consultar tus créditos restantes en la pantalla de cuenta; los administradores los otorgan.",
+            feedback: "¡Nos encantarían tus sugerencias! Escríbenos con el icono de correo del pie de página o este enlace: ",
+            maillabel: "correo electrónico",
+            fallback: "Lo siento, no lo he entendido bien. Prueba a preguntar sobre el panel, el mapa de comprensión, los cuestionarios y aprendizaje, la mejora de código o el análisis. Consulta el manual de usuario para más detalles."
+          },
+          de: {
+            greeting: "Frag mich alles zur Nutzung von DevDebtOps – ich verweise dich auf die passende Funktion oder Ansicht.",
+            dashboard: "Das Dashboard bietet einen Überblick über das Repository in einer Zwei-Achsen-Matrix (Verständnis × Codequalität). Dateien, die sich unten links häufen (geringes Verständnis, geringe Qualität), haben höchste Priorität. Außerdem werden KPIs, Trenddiagramme und eine Prioritätenliste angezeigt.",
+            galaxy: "Die Verständnis-Karte (Understanding Map) visualisiert dein Verständnis pro Funktion/Datei als Diagramm oder Liste. Die Farbe steht für das Verständnis und basiert auf tatsächlichen Quiz-Ergebnissen, sodass du direkt zum Lernen der Schwachstellen springen kannst.",
+            learning: "Unter „Quizze & Lernen“ (Quizzes & Learning) arbeitest du funktionsbezogene Lernpläne durch und misst dein Verständnis mit Quizzen. Lernen → Quiz → Wiederholung bildet einen geschlossenen Kreislauf, der Verständnisschulden abbaut.",
+            code: "„Code-Verbesserung“ (Code improvement) listet technische Schulden pro Datei nach Priorität und kann Fix-PRs mit KI automatisch erstellen oder Issues mit zugewiesenen Verantwortlichen anlegen. Die „Codequalitäts-Karte“ (Code quality map) zeigt die Verteilung der Schulden über den Dateibaum.",
+            analyze: "Über „Analysieren“ (Analyze) oben rechts in einem Projekt läuft die Pipeline der Reihe nach ab: Repository-Erkundung → Erkennung technischer Schulden → Aufbereitung der Verständnisschulden → Quiz-/Lerngenerierung. Nach Abschluss werden die Daten jeder Ansicht aktualisiert.",
+            login: "Melde dich mit GitHub an, um dein eigenes Repository zu verbinden. Kein Konto? Nutze „Demo ausprobieren“ auf dem Anmeldebildschirm, um sofort eine Demo-Umgebung zu erkunden.",
+            langtheme: "Über das Kontomenü (oben rechts) kannst du die Anzeigesprache (日本語 / English / 中文 / 한국어 / Español / Deutsch) wechseln und zwischen Dunkel- und Hellmodus umschalten.",
+            pricing: "Die Repository-Analyse verbraucht Credits (in manchen Umgebungen deaktiviert). Dein verbleibendes Guthaben siehst du im Kontobildschirm; Credits werden von Administratoren vergeben.",
+            feedback: "Wir freuen uns über deine Vorschläge! Melde dich über das Mail-Symbol in der Fußzeile oder diesen Link: ",
+            maillabel: "E-Mail",
+            fallback: "Entschuldigung, das habe ich nicht ganz verstanden. Frag gerne nach dem Dashboard, der Verständnis-Karte, Quizze & Lernen, der Code-Verbesserung oder der Analyse. Weitere Details findest du im Benutzerhandbuch."
+          }
+        };
+        var INTENTS = [
+          ["feedback", ["要望", "改善して", "改善希望", "バグ", "不具合", "フィードバック", "feedback", "request", "improve", "suggestion", "bug", "报告", "建议", "요청", "버그"]],
+          ["dashboard", ["ダッシュボード", "マトリクス", "二軸", "概要", "dashboard", "matrix", "overview"]],
+          ["galaxy", ["理解度マップ", "理解度", "マップ", "galaxy", "understanding map", "knowledge map"]],
+          ["learning", ["クイズ", "学習", "テスト", "quiz", "learn", "test", "study"]],
+          ["code", ["コード改善", "コード品質", "技術負債", "品質マップ", "修正pr", "修正 pr", "code", "debt", "refactor", "quality map", "repos"]],
+          ["analyze", ["解析", "スキャン", "analyze", "analysis", "scan", "run analysis"]],
+          ["login", ["ログイン", "サインイン", "デモ", "お試し", "login", "sign in", "signin", "demo", "try"]],
+          ["langtheme", ["言語", "多言語", "テーマ", "ダークモード", "ライトモード", "language", "locale", "theme", "dark mode", "light mode"]],
+          ["pricing", ["料金", "クレジット", "課金", "無料", "価格", "price", "pricing", "cost", "credit", "free", "plan"]],
+          ["greeting", ["こんにちは", "はじめまして", "hello", "hi", "hey", "안녕", "你好", "hola", "hallo"]]
+        ];
+        function answers() {
+          var loc = locale();
+          return A[loc] || A.en || A.ja;
+        }
+        function reply(text) {
+          var q = text.toLowerCase();
+          for (var i = 0; i < INTENTS.length; i++) {
+            var kws = INTENTS[i][1];
+            for (var j = 0; j < kws.length; j++) {
+              if (q.indexOf(kws[j].toLowerCase()) >= 0) return INTENTS[i][0];
+            }
+          }
+          return "fallback";
+        }
+
+        function bubble(text, mine) {
+          var el = document.createElement("div");
+          el.className = mine
+            ? "max-w-[85%] self-end rounded-2xl rounded-tr-sm bg-know/20 px-3 py-2 leading-relaxed text-white"
+            : "max-w-[85%] self-start rounded-2xl rounded-tl-sm bg-white/5 px-3 py-2 leading-relaxed";
+          el.textContent = text; // 常に textContent（innerHTML を使わず XSS シンクを作らない）
+          log.appendChild(el);
+          log.scrollTop = log.scrollHeight;
+          return el;
+        }
+        function respond(text) {
+          bubble(text, true);
+          var ans = answers();
+          var key = reply(text);
+          var out = ans[key] || ans.fallback;
+          var typing = bubble("…", false);
+          setTimeout(function () {
+            typing.textContent = out;
+            if (key === "feedback") {
+              var a = document.createElement("a");
+              a.href = mailto();
+              a.className = "underline hover:text-white";
+              a.textContent = ans.maillabel || "Email";
+              typing.appendChild(a);
+            }
+            log.scrollTop = log.scrollHeight;
+          }, 350);
+        }
+
+        function open(show) {
+          if (show) {
+            panel.classList.remove("hidden");
+            panel.classList.add("flex");
+            var s = STR[locale()] || STR.en;
+            input.setAttribute("placeholder", s.ph);
+            closeBtn.setAttribute("aria-label", s.close);
+            launcher.setAttribute("aria-label", s.open);
+            setTimeout(function () { input.focus(); }, 0);
+          } else {
+            panel.classList.add("hidden");
+            panel.classList.remove("flex");
+          }
+        }
+        // 初期 aria-label
+        launcher.setAttribute("aria-label", (STR[locale()] || STR.en).open);
+
+        launcher.addEventListener("click", function (e) {
+          e.stopPropagation();
+          open(panel.classList.contains("hidden"));
+        });
+        closeBtn.addEventListener("click", function () { open(false); });
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var v = input.value.trim();
+          if (!v) return;
+          input.value = "";
+          respond(v);
+        });
+        Array.prototype.forEach.call(document.querySelectorAll(".chat-suggest"), function (btn) {
+          btn.addEventListener("click", function () { respond(btn.textContent.trim()); });
+        });
+        document.addEventListener("click", function (e) {
+          if (panel.classList.contains("hidden")) return;
+          if (!e.target.closest("#chat-panel") && !e.target.closest("#chat-launcher")) open(false);
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") open(false);
+        });
+      })();
+    </script>
+
     <!-- 多言語切り替え（アプリと同じ 6 言語）。翻訳辞書＋適用ロジック。 -->
     <script src="i18n.js"></script>
   </body>
