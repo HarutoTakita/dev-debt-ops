@@ -33,7 +33,7 @@
   import * as m from "$lib/paraglide/messages";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
-  import { tourSteps, noProjectSteps } from "$lib/components/onboarding/tour-steps";
+  import { tourSteps, mobileTourSteps, noProjectSteps, isMobileTour } from "$lib/components/onboarding/tour-steps";
   import ProjectNavGroup from "./project-nav-group.svelte";
   import ChangelogDialog from "./changelog-dialog.svelte";
 
@@ -57,7 +57,8 @@
       const top = project.list[0];
       if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
     }
-    onboarding.start(tourSteps);
+    // PC はサイドバー版、モバイルはページ内コンテンツ対象の mobileTourSteps を出す。
+    onboarding.start(isMobileTour() ? mobileTourSteps : tourSteps);
   }
   // 変更履歴（CHANGELOG）を中央モーダルで表示する。開閉は shellMenus と共有（ガイドが開いて説明する）。
 

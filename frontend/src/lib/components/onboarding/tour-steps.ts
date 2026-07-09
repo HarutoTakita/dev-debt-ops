@@ -129,6 +129,59 @@ export const noProjectSteps: TourStep[] = [
   },
 ];
 
+// モバイル版オンボーディング（issue 066 追補）。PC 版 tourSteps はサイドバーの nav 項目を対象にするが、
+// モバイルではサイドバーが Sheet（ドロワー）内で非表示のため機能しない（対象が見つからず 6s 空白 → 中央表示）。
+// そこでモバイルでは「各画面のページ内コンテンツ要素」（レスポンシブで常時可視。実機で可視を確認済み）を対象に、
+// 5 つの主要画面を巡る。文言は PC 版と同じ画面説明メッセージを再利用する。エンジン（onboarding-tour.svelte）は
+// 共通で、route 遷移＋対象ハイライト＋レスポンシブ配置をそのまま使う（PC 版には一切影響しない）。
+export const mobileTourSteps: TourStep[] = [
+  {
+    id: "m-overview",
+    target: "overview-primary", // ダッシュボードの二軸マトリクス（モバイル可視）
+    title: m.tour_overview_title,
+    body: m.tour_overview_body,
+    placement: "bottom",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}`,
+  },
+  {
+    id: "m-galaxy",
+    target: "galaxy-views", // 理解度マップの表示切替（モバイル可視）
+    title: m.tour_galaxy_title,
+    body: m.tour_galaxy_body,
+    placement: "bottom",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/galaxy`,
+  },
+  {
+    id: "m-knowledge",
+    target: "units-list", // クイズと学習の学習プラン一覧（モバイル可視）
+    title: m.tour_knowledge_title,
+    body: m.tour_knowledge_body,
+    placement: "top",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/learning`,
+  },
+  {
+    id: "m-quality",
+    target: "repos-tree", // コード品質マップのファイルツリー（/repos, モバイル可視）
+    title: m.tour_matrix_title,
+    body: m.tour_matrix_body,
+    placement: "bottom",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/repos`,
+  },
+  {
+    id: "m-improve",
+    target: "matrix-search", // コード改善の絞り込み（/matrix, モバイル可視）
+    title: m.tour_repos_title,
+    body: m.tour_repos_body,
+    placement: "bottom",
+    route: (c) => `/${c.orgSlug}/${c.projectSlug}/matrix`,
+  },
+];
+
+/** モバイル表示（サイドバーがドロワーになる md 未満）か。ツアーの PC/モバイル出し分けに使う。 */
+export function isMobileTour(): boolean {
+  return typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches;
+}
+
 // 各メニューの「詳細を確認する」で開くページ別ガイド（issue 066）。メイン手順の id をキーにする。
 // 先頭ステップで当該ページへ遷移（route）し、各ページの主要 UI 要素を順にハイライトして詳しく説明する。
 // タブ等の隠れ要素は reveal（表示前のクリック）で出してから計測する。
