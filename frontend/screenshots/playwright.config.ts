@@ -38,13 +38,13 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      // 2x（Retina 相当）で高解像度の PNG を出力する。
-      use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
+      // 3x（高 DPI）で高解像度の PNG を出力する（提出資料用に解像度を引き上げ）。
+      use: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 3 },
     },
     {
       name: "mobile",
       // スマホ相当のビューポート＋モバイルエミュレーション（chromium 専用）。レスポンシブUIを撮る。
-      use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+      use: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 4, isMobile: true, hasTouch: true },
     },
   ],
 });
