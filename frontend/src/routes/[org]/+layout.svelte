@@ -15,9 +15,13 @@
   let { children } = $props();
 
   // 初回プロジェクト作成 → 遷移後にツアーを一度だけ自動開始（issue 066）。
+  // サイドバーツアーはデスクトップ前提（対象がサイドバー内）。モバイル（md 未満）では自動起動しない
+  // ＝ ドロワー内のサイドバーを対象にできず、勝手に起動して邪魔になるのを防ぐ。手動（ヘルプ）では起動可。
   $effect(() => {
     const orgSlug = page.params.org;
-    if (orgSlug && onboarding.consumeAutoStart(orgSlug)) onboarding.start(tourSteps);
+    if (!orgSlug) return;
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 768px)").matches) return;
+    if (onboarding.consumeAutoStart(orgSlug)) onboarding.start(tourSteps);
   });
 
   // モバイル: ドロワー内のリンクで遷移したら Sheet を閉じる（開いたまま遷移先を覆う不具合を防ぐ）。

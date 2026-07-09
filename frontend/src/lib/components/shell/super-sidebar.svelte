@@ -44,6 +44,9 @@
   // が存在せずガイドブロックが全て中央表示になり、詳細ガイドの route も projectSlug 空で 404 になる。
   // そのため、未選択ならトップのプロジェクトを 1 つ選んでから開始する（issue 066 追補）。
   async function startGuide() {
+    // モバイル: サイドバーは Sheet（モーダル）ドロワー内にある。開いたままだとツアーのオーバーレイが
+    // モーダルの inert / aria-hidden 対象になり表示・操作できない。先にドロワーを閉じてから開始する。
+    sidebar.mobileOpen = false;
     // プロジェクトが 1 つも無い場合、tourSteps は全ステップがプロジェクト配下 route へ遷移するため
     // projectSlug 空で不正遷移しフリーズする。0 件時は「新規プロジェクト作成」へ誘導するガイドを出す。
     if (!project.current && project.list.length === 0) {
