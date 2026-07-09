@@ -65,6 +65,12 @@ variable "analysis_credits_enabled" {
   default     = false
 }
 
+variable "analysis_credits_initial" {
+  description = "Initial analysis credits granted to each new user on registration (issue 298). Default 0 (admin tops up); set >0 to give every new user a bounded number of free analyses."
+  type        = number
+  default     = 0
+}
+
 variable "demo_mode_enabled" {
   description = "Enable the guest demo entry (「お試しはこちら」on login) + seeded sample data (issue 069). Surfaced via GET /api/v1/config so the login page shows the demo CTA. Default false; enable for the public hackathon demo."
   type        = bool

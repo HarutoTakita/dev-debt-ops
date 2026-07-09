@@ -26,3 +26,8 @@ db_backup_enabled = false
 
 # ゲストデモ入口（ログインの「お試しはこちら」）を stg では有効化する（デモ/審査用）。
 demo_mode_enabled = true
+
+# 解析クレジットを有効化し、Gemini コストを上限管理する（issue 298）。新規ユーザーには初期 5 クレジットを付与し、
+# 管理者なしでも各ユーザーが 5 回まで解析できるようにする（デモ/審査用）。
+analysis_credits_enabled = true
+analysis_credits_initial = 5

@@ -135,6 +135,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # `.session` is defined on SQLAlchemyUserDatabase but not the BaseUserDatabase protocol.
         session = cast(SQLAlchemyUserDatabase[User, uuid.UUID], self.user_db).session
 
+        # 新規ユーザーへ初期解析クレジットを付与（issue 298）。ANALYSIS_CREDITS_INITIAL（既定 0）。
+        # クレジット無効時は残高が無視されるため無害。有効時は各ユーザーがこの回数だけ解析を実行できる。
+        if settings.ANALYSIS_CREDITS_INITIAL:
+            user.analysis_credits = settings.ANALYSIS_CREDITS_INITIAL
+            session.add(user)
+
         # Derive slug from email prefix
         base_slug = re.sub(r"[^a-z0-9-]", "-", user.email.split("@")[0].lower()).strip("-")
         if len(base_slug) < 3:

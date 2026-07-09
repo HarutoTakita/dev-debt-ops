@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     ANALYSIS_CREDITS_ENABLED: bool = Field(
         default=False, description="Gate repository analysis / repayment-PR on per-user analysis credits (issue 298)."
     )
+    # Initial analysis credits granted to each new user on registration (issue 298). Default 0 keeps the
+    # previous behaviour (admin tops up). Set >0 (e.g. for the public hackathon) so every new user can run
+    # a bounded number of analyses without an admin grant. Only meaningful when ANALYSIS_CREDITS_ENABLED.
+    ANALYSIS_CREDITS_INITIAL: int = Field(
+        default=0, description="Initial analysis credits granted to each new user on registration (issue 298)."
+    )
 
     # Admin accounts (issue 300). Comma-separated emails that are the *only* superusers: on every login
     # a user's ``is_superuser`` is reconciled to whether their email is listed here, so GitHub-SSO users
