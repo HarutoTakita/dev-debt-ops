@@ -452,6 +452,7 @@ DevDebtOps の核心が、この画面です。機能ごとに生成された学
 
 ### 拡張性・保守性 — ドキュメントの自動整備
 
+主要ドキュメントはリリースごとに自動で最新化し、加えて設計・運用を支えるドキュメントも体系的に整備することで、コードに追従し続ける保守性・拡張性を確保しています。
 
 [`/release-version`](https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/release-version/SKILL.md) で新バージョンを切ると、
 
