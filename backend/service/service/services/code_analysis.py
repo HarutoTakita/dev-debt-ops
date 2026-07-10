@@ -271,3 +271,80 @@ def duplication_is_debt(ratio: float) -> bool:
 def duplication_score(ratio: float) -> float:
     """Map a duplication ratio into ``0..1`` (ratio 0.5+ saturates to 1.0)."""
     return max(0.0, min(1.0, ratio * 2))
+
+
+# --- excerpt selection (skip leading docstring / imports) -----------------
+# quiz 素材やコードスニペットが「ファイル先頭」を機械的に切り出すと、docstring 主体のファイルでは
+# モジュール docstring + import しか入らず、実装ではない自然言語プロースになる。以下は言語非依存の
+# ヒューリスティックで、先頭の docstring・コメント・import 群を読み飛ばして実装が始まる行を返す。
+_IMPORT_PREFIXES = ("import ", "from ", "export ", "require(", "#include", "package ", "use ", "using ")
+
+
+def _docstring_delim(s: str) -> str | None:
+    """If ``s`` opens a Python triple-quoted string (optionally after an r/b/u/f prefix), return the delim."""
+    j = 0
+    while j < len(s) and j < 2 and s[j].lower() in "rbuf":
+        j += 1
+    rest = s[j:]
+    if rest.startswith('"""'):
+        return '"""'
+    if rest.startswith("'''"):
+        return "'''"
+    return None
+
+
+def leading_code_line(content: str) -> int:
+    """Return the 1-based line where real implementation begins, past a leading docstring/imports/comments.
+
+    Language-agnostic heuristic: skips blank lines, ``#`` / ``//`` line comments, ``/* */`` block
+    comments, a leading Python module docstring, and import/module declarations. Returns 1 when nothing
+    is skippable, and never points past the last line (a file that is *only* boilerplate → 1, i.e. the top).
+    """
+    lines = content.split("\n")
+    n = len(lines)
+    i = 0
+    in_block_comment = False
+    in_docstring = False
+    doc_delim = ""
+    while i < n:
+        s = lines[i].strip()
+        if in_block_comment:
+            if "*/" in s:
+                in_block_comment = False
+            i += 1
+            continue
+        if in_docstring:
+            if doc_delim in s:
+                in_docstring = False
+            i += 1
+            continue
+        if not s or s.startswith("#") or s.startswith("//"):
+            i += 1
+            continue
+        if s.startswith("/*"):
+            if "*/" not in s[2:]:
+                in_block_comment = True
+            i += 1
+            continue
+        delim = _docstring_delim(s)
+        if delim is not None:
+            if delim in s[s.index(delim) + 3 :]:  # opens and closes on the same line
+                i += 1
+                continue
+            in_docstring = True
+            doc_delim = delim
+            i += 1
+            continue
+        if s.startswith(_IMPORT_PREFIXES):
+            i += 1
+            continue
+        return i + 1  # first line that is neither comment/docstring/import/blank → real code
+    return 1  # whole file was boilerplate → don't skip everything; show from the top
+
+
+def implementation_excerpt(content: str) -> str:
+    """Return ``content`` from its first real implementation line (drops a leading docstring/import block)."""
+    start = leading_code_line(content)
+    if start <= 1:
+        return content
+    return "\n".join(content.split("\n")[start - 1 :])

@@ -19,7 +19,7 @@ from service.agents.budget import RunBudget
 from service.agents.serena_mcp import build_serena_toolset
 from service.agents.single_agent import run_single_agent
 from service.agents.walkthrough_agent import build_walkthrough_agent
-from service.services import gemini_stack_service, repo_checkout
+from service.services import code_analysis, gemini_stack_service, repo_checkout
 from service.services.github_git_client import GitHubGitClient
 
 logger = logging.getLogger(__name__)
@@ -78,6 +78,13 @@ def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
                 "explanation": explanation,
             }
         )
+    # 先頭ステップが「モジュール docstring / import だけ」を指すと、学習画面の初期表示が実装コードではなく
+    # 自然言語プロースになる。実装が始まる行より前で完結するステップは先頭から落とす（最低 1 つは残す）。
+    boundary = code_analysis.leading_code_line("\n".join(lines))
+    if boundary > 1:
+        trimmed = [s for s in out if s["end_line"] >= boundary]
+        if trimmed:
+            out = trimmed
     return out
 
 

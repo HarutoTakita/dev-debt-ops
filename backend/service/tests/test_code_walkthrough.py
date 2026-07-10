@@ -26,6 +26,25 @@ def test_clean_steps_reanchors_start_line_to_matching_text() -> None:
     assert steps == [{"start_line": 4, "end_line": 5, "title": "t", "explanation": "x"}]
 
 
+def test_clean_steps_drops_leading_docstring_only_step() -> None:
+    """A leading step covering only the module docstring/imports is dropped so the first view is code."""
+    lines = ['"""doc', 'more"""', "import os", "", "def f():", "    return 1"]
+    raw = [
+        {"start_line": 1, "end_line": 2, "start_text": '"""doc', "title": "doc", "explanation": "module doc"},
+        {"start_line": 5, "end_line": 6, "start_text": "def f():", "title": "f", "explanation": "the function"},
+    ]
+    steps = clean_steps(raw, lines)
+    assert [s["title"] for s in steps] == ["f"]  # docstring-only step dropped, code step kept
+
+
+def test_clean_steps_keeps_step_when_all_would_be_dropped() -> None:
+    """If every step is within the leading boilerplate, keep them (never return an empty walkthrough)."""
+    lines = ['"""doc', 'more"""', "import os"]
+    raw = [{"start_line": 1, "end_line": 2, "start_text": '"""doc', "title": "doc", "explanation": "module doc"}]
+    steps = clean_steps(raw, lines)
+    assert [s["title"] for s in steps] == ["doc"]
+
+
 def test_clean_steps_drops_invalid_and_clamps() -> None:
     """Items without explanation/line numbers are dropped; ranges are clamped to the file length."""
     lines = ["a", "b", "c"]

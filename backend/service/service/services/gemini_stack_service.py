@@ -348,13 +348,24 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
 
 
 _QUIZ_GEN_PROMPT = """\
-Generate a 5-question comprehension quiz (difficulties L1..L5) for this file.
+Generate a 5-question comprehension quiz (difficulties L1..L5) about the target below.
 
-=== {path} ===
+対象: {label}
+対象は 1 つのソースファイル、または機能の代表ファイル群です。ソースファイルは `=== <path> ===` という
+ブロックで示されます（各ブロックの <path> がそのコードの実ファイルパス）。
+
 {content}
 
 IMPORTANT — all learner-facing text (every "prompt" and every choice "label") MUST be written in
 Japanese (日本語). Do NOT write questions or choices in English.
+
+出題方針（重要）:
+- 各設問は「特定のコードの具体的な挙動」を問うこと（関数・メソッドの引数/戻り値、分岐条件、例外や
+  エラー処理、副作用、データの流れ、境界値・エッジケースなど）。
+- 「このファイル / 最初のコードブロックの主な目的は何か」のような、コードを読まずに答えられる抽象的・
+  要約的な設問は禁止。必ず該当コードの中身に踏み込むこと。
+- コードを指すときは「最初のコードブロック」等の曖昧な言い方をせず、具体的な関数名・クラス名・
+  ファイル名（=== <path> === の <path>）で指すこと。
 
 Every question MUST be objective and auto-gradable. Use ONLY these two kinds — never free text:
 - "multiple_choice": exactly ONE correct choice (rendered as radio buttons).
@@ -365,16 +376,16 @@ Return ONLY a valid JSON object — no markdown — with this exact schema:
 {{
   "questions": [
     {{"id": "q1", "kind": "multiple_choice|multiple_select", "prompt": "（日本語の設問文）",
-      "code_snippet": {{"language": "<上のファイルの言語>", "path": "{path}",
-        "content": "<上のファイルから、その設問が対象とする該当コードをそのまま数行コピー>"}},
+      "code_snippet": {{"language": "<該当コードの言語>", "path": "<該当コードの実ファイルパス>",
+        "content": "<設問が対象とする該当コードをそのまま数行コピー>"}},
       "choices": [{{"id": "a", "label": "（日本語の選択肢）"}}],
       "difficulty": "L1|L2|L3|L4|L5"}}
   ],
   "answer_key": {{"q1": {{"answer": "correct id(s)", "rubric": "grading criteria"}}}}
 }}
-各設問には必ず "code_snippet" を付け、"content" には上のファイルから設問が対象とする該当コードを
-そのまま（最大 25 行程度に）コピーすること。プレースホルダ（"..." 等）や空文字は禁止。各設問は必ずその
-該当コードについて問うこと。"language" はファイル拡張子に対応する言語、"path" は引用元ファイルのパス。
+各設問には必ず "code_snippet" を付け、"content" には設問が対象とする該当コードをそのまま（最大 25 行程度に）
+コピーすること。プレースホルダ（"..." 等）や空文字は禁止。"path" は該当コードの実ファイルパス（=== <path> ===
+の <path>。対象が単一ファイルなら {label}）。"language" はファイル拡張子に対応する言語。
 For "answer": multiple_choice = the single correct choice id (e.g. a); multiple_select = a
 comma-separated list of correct ids (e.g. a,c).
 Provide exactly 5 questions with ids q1..q5 spanning L1..L5.
@@ -396,12 +407,18 @@ Return ONLY a valid JSON object — no markdown — with this exact schema
 """
 
 
-async def generate_quiz(path: str, content: str) -> dict:
-    """Return ``{questions, answer_key}`` for a file (Gemini via Vertex AI). Empty on parse failure."""
+async def generate_quiz(label: str, content: str) -> dict:
+    """Return ``{questions, answer_key}`` for a target (Gemini via Vertex AI). Empty on parse failure.
+
+    ``label`` is the target name — a single file's path (file-scope) or a feature name (feature-scope,
+    where ``content`` already carries ``=== <path> ===`` file blocks). It is no longer injected as a
+    ``=== {path} ===`` wrapper, which previously nested a feature name over the file blocks and produced
+    generic "purpose of the first code block" questions.
+    """
     client = _build_client()
     # 切り詰め時はマーカーを付け、続きがあることをモデルに伝える（_build_file_section と同様, issue 074-E）。
     clipped = content[:_MAX_FILE_CHARS] + ("\n... (truncated)" if len(content) > _MAX_FILE_CHARS else "")
-    prompt = _QUIZ_GEN_PROMPT.format(path=path, content=clipped)
+    prompt = _QUIZ_GEN_PROMPT.format(label=label, content=clipped)
     response = await _generate(
         client,
         model=config.gemini_model(),

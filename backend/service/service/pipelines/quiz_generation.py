@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlmodel import col
 
 from service import config
-from service.services import quiz_authoring
+from service.services import code_analysis, quiz_authoring
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobType, ResultStatus
@@ -64,7 +64,8 @@ async def _feature_content(session, client, request: QuizGenerationRequest) -> t
         body = fc.content or ""
         if body.strip():
             has_code = True
-        blocks.append(f"=== {ff.file_path} ===\n{_clip(body)}")
+        # 実装が始まる行から抜粋（docstring/import 主体のファイルで素材が自然言語だけになるのを防ぐ）。
+        blocks.append(f"=== {ff.file_path} ===\n{_clip(code_analysis.implementation_excerpt(body))}")
     label = feat.name if feat is not None else (request.feature_id or "feature")
     header = f"Feature: {label}\n{feat.description if feat is not None else ''}".strip()
     return label, f"{header}\n\n{chr(10).join(blocks)}", has_code

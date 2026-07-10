@@ -60,7 +60,8 @@ async def _mint_installation_token(github: GitHubRef) -> str:
 
 
 def _snippet(content: str) -> str:
-    return "\n".join(content.splitlines()[:_MAX_SNIPPET_LINES])
+    # 実装が始まる行から抜粋する（先頭の docstring / import だけを切り出して自然言語プロースになるのを防ぐ）。
+    return "\n".join(code_analysis.implementation_excerpt(content).splitlines()[:_MAX_SNIPPET_LINES])
 
 
 def _agent_notes_by_file(base_findings: list[dict] | None) -> dict[str, str]:
