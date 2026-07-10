@@ -90,18 +90,25 @@ async def _generate_quiz(
     feature: Feature,
     developer_id: uuid.UUID,
 ) -> None:
-    """Create + fill a baseline quiz for one feature (skip if the requester has an open one)."""
+    """Create + fill a baseline quiz for one feature (skip if the requester already has ONE — any status)."""
+    # status に依らず dedup（issue 075-B）: 完了済み baseline も対象にし、再解析で重複 is_baseline セッションを
+    # 作らない。過去バグで既に重複が残っていても MultipleResultsFound で落ちないよう limit(1).first() で判定する。
     existing = (
-        await session.execute(
-            select(QuizSession).where(
-                col(QuizSession.project_id) == feature.project_id,
-                col(QuizSession.developer_id) == developer_id,
-                col(QuizSession.feature_id) == feature.id,
-                col(QuizSession.is_baseline).is_(True),
-                col(QuizSession.status) != "completed",
+        (
+            await session.execute(
+                select(QuizSession)
+                .where(
+                    col(QuizSession.project_id) == feature.project_id,
+                    col(QuizSession.developer_id) == developer_id,
+                    col(QuizSession.feature_id) == feature.id,
+                    col(QuizSession.is_baseline).is_(True),
+                )
+                .limit(1)
             )
         )
-    ).scalar_one_or_none()
+        .scalars()
+        .first()
+    )
     if existing is not None:
         return
     rep = (
@@ -171,15 +178,21 @@ async def generate_learning_and_quizzes(
     if on_progress is not None:
         await on_progress(0, total)
     steps: list[str] = []
+    # 各機能を独立の SAVEPOINT で包む（issue 075-A）。失敗機能の flush 済み行（LearningPlan/QuizSession）を
+    # savepoint へ rollback することで、(1) 空プランが run_task の commit で永続化＝冪等ガードで固定化するのを防ぎ、
+    # (2) DB エラーでも session が rollback 必須状態のまま後続機能を PendingRollbackError で巻き込むのを防ぐ。
+    # plan と quiz は別々の savepoint（plan 失敗でも quiz は試す既存の独立性を維持）。
     for index, feature in enumerate(features):
         try:
-            await _generate_plan(session, ctx, request, feature, developer_id)
+            async with session.begin_nested():
+                await _generate_plan(session, ctx, request, feature, developer_id)
             steps.append(f"[generate] learning plan: {feature.key}")
         except Exception as exc:  # one feature failing must not abort the rest
             logger.exception("learning plan generation failed for feature %s", feature.key)
             steps.append(f"[generate] learning plan {feature.key} failed: {exc}")
         try:
-            await _generate_quiz(session, ctx, request, feature, developer_id)
+            async with session.begin_nested():
+                await _generate_quiz(session, ctx, request, feature, developer_id)
             steps.append(f"[generate] quiz: {feature.key}")
         except Exception as exc:
             logger.exception("quiz generation failed for feature %s", feature.key)
