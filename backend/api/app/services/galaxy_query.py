@@ -125,12 +125,21 @@ async def build_galaxy(session: AsyncSession, project: Project, user: User) -> P
             files_by_feature.setdefault(key, []).append(ff.file_path)
             feature_keys_by_file.setdefault(ff.file_path, []).append(key)
 
+    # ノード母集合を KC 採点ファイル ∪ 機能ファイルに統一する。機能にファイルを割り当てても、その path が
+    # KC 実行（別 run）の採点集合に無いとノードが作られず、チップは file_count>0 なのにマップは空
+    # （「表示するファイルがありません」）になっていた。未採点の機能ファイルは unexplored を既定にして必ず描画する。
+    for path in feature_keys_by_file:
+        if path not in kc_by_file:
+            kc_by_file[path] = 0.0
+            mastery_by_file[path] = "unexplored"
+
     by_module: dict[str, list[FileMasteryOut]] = {}
-    all_kc: list[float] = []
-    for path in sorted(agg_files):
+    all_kc: list[float] = []  # org_kc は「採点済み」ファイルのみで平均（統合した未採点の既定 0 は含めない）
+    for path in sorted(set(agg_files) | set(feature_keys_by_file)):
         kc = kc_by_file[path]
         mastery = mastery_by_file[path]
-        all_kc.append(kc)
+        if path in agg_map:
+            all_kc.append(kc)
         module = _module_of(path)
         by_module.setdefault(module, []).append(
             FileMasteryOut(
@@ -158,6 +167,7 @@ async def build_galaxy(session: AsyncSession, project: Project, user: User) -> P
             file_count=len(files_by_feature[key]),
         )
         for key in sorted(files_by_feature)
+        if files_by_feature[key]  # 空機能はチップにしない（クラスタリングで除去済みだが二重の安全網）
     ]
 
     dep_rows = (await session.execute(select(Dependency).where(col(Dependency.run_id) == kc_run_id))).scalars().all()
