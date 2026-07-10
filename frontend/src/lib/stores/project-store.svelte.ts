@@ -1,5 +1,5 @@
 import type { Project } from "$lib/api/schemas";
-import { listProjects } from "$lib/api/client";
+import { listProjects, SessionExpiredError } from "$lib/api/client";
 
 const RECENT_KEY = "rosetta:project:recent";
 const RECENT_LIMIT = 10;
@@ -44,7 +44,10 @@ class ProjectStore {
       this.list = await this.#withTimeout(listProjects(orgSlug), 10_000);
     } catch (e) {
       this.list = [];
-      this.error = e instanceof Error ? e.message : "load failed";
+      // セッション切れは apiFetch がログイン遷移を起動済み。「読み込み失敗」を出さず遷移に委ねる。
+      if (!(e instanceof SessionExpiredError)) {
+        this.error = e instanceof Error ? e.message : "load failed";
+      }
     } finally {
       this.loading = false;
     }
