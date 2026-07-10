@@ -33,6 +33,11 @@ class TestCodeTitles:
         assert f("", "src/login.py") == "login の実装を理解する"  # 空 → 置換
         assert f(None, "src/login.py") == "login の実装を理解する"
 
+    def test_learnable_code_files_drops_init_and_main(self) -> None:
+        """__init__.py / __main__.py は学習対象から除外（「実装を理解する」対象として無意味）。"""
+        paths = ["src/pkg/__init__.py", "src/pkg/service.py", "src/__main__.py", "app/models.py"]
+        assert learning_plan_generation._learnable_code_files(paths) == ["src/pkg/service.py", "app/models.py"]
+
     def test_code_resources_fallback_titles_are_not_filenames(self) -> None:
         res = learning_plan_generation._code_resources([], ["src/a.py", "src/b.ts"])
         titles = [r["title"] for r in res]

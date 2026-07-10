@@ -38,6 +38,15 @@ logger = logging.getLogger(__name__)
 _PRIORITY_RANK = {"required": 0, "recommended": 1, "supplementary": 2, "hands_on": 3}
 _SOURCE_EXTS = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java")
 _MAX_TEAM = 12
+# 学習プランから除外するボイラープレート。__init__.py / __main__.py は「実装を理解する」対象として無意味
+# （再エクスポート/パッケージマーカーで実装が無い）。理解度マップ・KC では意図的に残すため、除外はこの
+# 学習プラン生成にだけ閉じる（マップから消さない）。
+_EXCLUDED_LEARNING_BASENAMES = frozenset({"__init__.py", "__main__.py"})
+
+
+def _learnable_code_files(paths: list[str]) -> list[str]:
+    """Drop boilerplate (``__init__.py`` / ``__main__.py``) that has no implementation worth studying."""
+    return [p for p in paths if p.rsplit("/", 1)[-1] not in _EXCLUDED_LEARNING_BASENAMES]
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -321,6 +330,9 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
                 await client.aclose()
         code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
         code_desc = ""
+    # __init__.py / __main__.py を学習対象から除外（両分岐の合流点で 1 回。Gemini 入力・_code_resources の
+    # マッチング/フォールバックすべてに効く）。
+    code_files = _learnable_code_files(code_files)
     # 学習ステップ/外部リソースはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。各 1 呼び出し。
     plan_owner, _, plan_repo = request.repo_full_name.partition("/")
     try:
