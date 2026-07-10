@@ -27,6 +27,7 @@
       dim_star: "bg-debt-knowledge/40 ring-1 ring-inset ring-debt-knowledge",
       black_hole: "border-2 border-destructive bg-destructive/10",
       unexplored: "border border-dashed border-muted-foreground bg-background",
+      out_of_scope: "bg-muted-foreground/25 border border-muted-foreground/30", // 対象外: 淡い塗り
     }[file.mastery],
   );
 </script>

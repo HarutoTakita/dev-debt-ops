@@ -159,6 +159,30 @@ async def test_galaxy_renders_feature_files_missing_from_kc(authenticated_client
     assert body["org_kc"] == 0.65  # 未採点の既定 0 は org_kc に含めない（採点済みのみ平均）
 
 
+async def test_galaxy_labels_boilerplate_out_of_scope(authenticated_client: AsyncClient) -> None:
+    """学習対象外のボイラープレート（__init__.py）は out_of_scope（対象外）にし、org_kc からも除外する。"""
+    org_slug, project_slug, project_id, _user_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        run = AnalysisRun(
+            project_id=project_id, commit_sha="k", kind=JobType.KC_ANALYSIS.value, status=JobStatus.COMPLETED
+        )
+        session.add(run)
+        await session.flush()
+        session.add_all(
+            [
+                FileKc(run_id=run.id, file_path="pkg/service.py", kc=0.8, mastery="star"),
+                FileKc(run_id=run.id, file_path="pkg/__init__.py", kc=0.9, mastery="star"),  # boilerplate
+            ]
+        )
+        await session.commit()
+
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/galaxy")).json()
+    files = {f["path"]: f for s in body["systems"] for f in s["files"]}
+    assert files["pkg/__init__.py"]["mastery"] == "out_of_scope"  # 対象外に上書き
+    assert files["pkg/service.py"]["mastery"] == "star"  # 通常ファイルは不変
+    assert body["org_kc"] == 0.8  # 対象外は平均から除外（0.9 を含めない）
+
+
 @pytest.mark.usefixtures("_stub_installation")
 async def test_analyze_galaxy_enqueues_kc_analysis(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, _, _ = await _seed_project(authenticated_client)

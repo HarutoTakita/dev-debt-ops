@@ -27,6 +27,7 @@ from app.schemas.galaxy import (
     StarSystemOut,
     WormholeOut,
 )
+from shared.analysis_scope import is_learnable_path
 from shared.enums import JobStatus, JobType
 from shared.models import AnalysisRun, Dependency, Feature, FeatureFile, FileKc
 
@@ -133,12 +134,18 @@ async def build_galaxy(session: AsyncSession, project: Project, user: User) -> P
             kc_by_file[path] = 0.0
             mastery_by_file[path] = "unexplored"
 
+    # 学習対象外のボイラープレート（__init__.py / __main__.py 等）は「未着手」ではなく「対象外」に。
+    # 学習プランも生成されないので、未着手の理解ギャップとして扱うと誤解を招く（定義は shared に集約）。
+    for path in mastery_by_file:
+        if not is_learnable_path(path):
+            mastery_by_file[path] = "out_of_scope"
+
     by_module: dict[str, list[FileMasteryOut]] = {}
-    all_kc: list[float] = []  # org_kc は「採点済み」ファイルのみで平均（統合した未採点の既定 0 は含めない）
+    all_kc: list[float] = []  # org_kc は「採点済み」かつ「学習対象」のファイルのみで平均する
     for path in sorted(set(agg_files) | set(feature_keys_by_file)):
         kc = kc_by_file[path]
         mastery = mastery_by_file[path]
-        if path in agg_map:
+        if path in agg_map and mastery != "out_of_scope":
             all_kc.append(kc)
         module = _module_of(path)
         by_module.setdefault(module, []).append(

@@ -4,7 +4,7 @@
   import * as m from "$lib/paraglide/messages";
   import { masteryDot, masteryLabel } from "./galaxy-labels";
 
-  const statuses: MasteryStatus[] = ["star", "dim_star", "black_hole", "unexplored"];
+  const statuses: MasteryStatus[] = ["star", "dim_star", "black_hole", "unexplored", "out_of_scope"];
 </script>
 
 <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border bg-card px-3 py-2 text-xs">
