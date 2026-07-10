@@ -206,12 +206,13 @@ export async function listUserActivity(q?: string): Promise<UserActivity[]> {
   return z.array(userActivitySchema).parse(await response.json());
 }
 
+// Adjust a user's analysis credits by a signed delta (positive grants, negative deducts). Admin only.
 export async function grantUserCredits(userId: string, amount: number): Promise<User> {
   const response = await apiFetch(`/api/v1/users/${userId}/credits`, {
     method: "POST",
     body: JSON.stringify({ amount }),
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "クレジットの付与に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "クレジットの更新に失敗しました"));
   return userSchema.parse(await response.json());
 }
 
