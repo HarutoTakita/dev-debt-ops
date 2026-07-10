@@ -87,7 +87,7 @@ _AUTHOR_INSTRUCTION = """\
 あなたは解析結果を確定するエージェントです。直前の探索でまとめた所見が以下にあります:
 
 <exploration>
-{exploration}
+{exploration?}
 </exploration>
 
 この所見に基づき、【必ず一度だけ】save_base_analysis を呼んで元データを確定してください。各引数のスキーマ:
@@ -182,6 +182,9 @@ def build_analysis_agent(
     github_toolset: McpToolset | None = None,
     code_graph_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
+    owner: str = "",
+    repo: str = "",
+    branch: str = "main",
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Build the two-stage Base Analysis Agent (explorer → author).
 
@@ -189,8 +192,11 @@ def build_analysis_agent(
     author gets only ``save_base_analysis`` and reads the explorer's findings from session state
     (``{exploration}``). Deterministic measurement (KC / complexity / semgrep) is intentionally NOT
     exposed here — those run as their own program blocks after this agent.
+
+    ``owner``/``repo``/``branch`` bind the run's repository into the exploration tools (issue 077-C) so
+    the LLM can't read the wrong branch — the tools take no repo coordinates from the model.
     """
-    explorer_tools: list[Any] = list(build_repo_tools(client, budget))
+    explorer_tools: list[Any] = list(build_repo_tools(client, budget, owner=owner, repo=repo, branch=branch))
     for toolset in (serena_toolset, github_toolset, code_graph_toolset):
         if toolset is not None:
             explorer_tools.append(toolset)

@@ -1,9 +1,9 @@
 """stack-analysis pipeline: tool logic, ``process`` (method-B mint), handler + idempotency.
 
-GitHub and Vertex AI are mocked — the ADK ``Runner`` is never actually driven; instead
-``run_stack_analysis`` is patched with a fake that upserts a ``TechStack`` (standing in for
-the agent's ``save_stack``), so the tests exercise the service plumbing (token mint, DB
-write, Job lifecycle, idempotency) without external calls.
+GitHub and Vertex AI are mocked — the deterministic ``populate_tech_stack`` (which ``process`` now
+uses instead of the ADK agent, issue 077-D) is patched with a fake that upserts a ``TechStack``, so
+the tests exercise the service plumbing (token mint, DB write, Job lifecycle, idempotency) without
+external calls.
 """
 
 import uuid
@@ -93,10 +93,10 @@ def _select_tech_stack(owner: str, repo: str):
     return select(TechStack).where(TechStack.owner == owner, TechStack.repo == repo)
 
 
-def _fake_run_writes_stack(trace: list[str]):
-    """Return a fake run_stack_analysis that upserts a TechStack (like the agent's save_stack)."""
+def _fake_populate_writes_stack():
+    """Return a fake populate_tech_stack that upserts a TechStack (deterministic path always saves)."""
 
-    async def _fake(github_client, session, owner, repo, branch="main") -> list[str]:
+    async def _fake(github_client, session, owner, repo, branch="main") -> None:
         session.add(
             TechStack(
                 owner=owner,
@@ -107,15 +107,20 @@ def _fake_run_writes_stack(trace: list[str]):
             )
         )
         await session.commit()
-        return trace
 
     return _fake
 
 
-async def test_process_mints_token_and_returns_result(session_maker: async_sessionmaker[AsyncSession], mocker) -> None:
+async def test_process_uses_deterministic_populate_not_adk_agent(
+    session_maker: async_sessionmaker[AsyncSession], mocker
+) -> None:
+    """process() routes through the deterministic populate_tech_stack (always saves), never the ADK
+    agent — so it can't return COMPLETED with an empty stack (issue 077-D)."""
     mint = mocker.patch.object(GitHubAppService, "get_installation_token", AsyncMock(return_value="ghs_token"))
-    trace = ["[call] list_key_files(...)", "[done] list_key_files", "[summary] done"]
-    mocker.patch.object(stack_analysis, "run_stack_analysis", _fake_run_writes_stack(trace))
+    mocker.patch.object(stack_analysis, "populate_tech_stack", _fake_populate_writes_stack())
+    agent = mocker.patch.object(
+        stack_analysis, "run_stack_analysis", AsyncMock(side_effect=AssertionError("ADK agent must not be used"))
+    )
 
     request = StackAnalysisRequest(
         job_id=str(uuid.uuid4()),
@@ -134,8 +139,8 @@ async def test_process_mints_token_and_returns_result(session_maker: async_sessi
     # Method B: the token was minted in the service from the installation id (no payload secret).
     mint.assert_awaited_once_with(12345678)
     assert result.status == ResultStatus.COMPLETED
-    assert result.agent_trace == trace
-    assert result.languages[0].name == "Python"
+    assert result.languages[0].name == "Python"  # non-empty stack persisted by the deterministic path
+    agent.assert_not_awaited()  # the unreliable ADK agent path is gone
 
 
 # ---------------------------------------------------------------------------
@@ -169,8 +174,7 @@ async def test_handler_completes_job_and_writes_tech_stack(
     client: AsyncClient, session_maker: async_sessionmaker[AsyncSession], mocker
 ) -> None:
     mocker.patch.object(GitHubAppService, "get_installation_token", AsyncMock(return_value="ghs_token"))
-    trace = ["[call] list_key_files(...)", "[done] save_stack", "[summary] 完了"]
-    mocker.patch.object(stack_analysis, "run_stack_analysis", _fake_run_writes_stack(trace))
+    mocker.patch.object(stack_analysis, "populate_tech_stack", _fake_populate_writes_stack())
 
     job_id = await _seed_job(session_maker)
     resp = await client.post(f"/tasks/{JobType.STACK_ANALYSIS.value}", json=_task_body(job_id))
@@ -182,7 +186,6 @@ async def test_handler_completes_job_and_writes_tech_stack(
         assert job is not None
         assert job.status == JobStatus.COMPLETED
         assert job.result_data is not None
-        assert job.result_data["agentTrace"] == trace
         assert job.result_data["languages"][0]["name"] == "Python"
         ts = (await session.execute(_select_tech_stack("acme", "rosetta"))).scalar_one_or_none()
         assert ts is not None
@@ -191,9 +194,9 @@ async def test_handler_completes_job_and_writes_tech_stack(
 async def test_handler_idempotent_on_redelivery(
     client: AsyncClient, session_maker: async_sessionmaker[AsyncSession], mocker
 ) -> None:
-    """A redelivered, already-COMPLETED job must not re-run the agent (at-least-once)."""
+    """A redelivered, already-COMPLETED job must not re-run detection (at-least-once)."""
     mocker.patch.object(GitHubAppService, "get_installation_token", AsyncMock(return_value="ghs_token"))
-    spy = mocker.patch.object(stack_analysis, "run_stack_analysis", AsyncMock(return_value=["x"]))
+    spy = mocker.patch.object(stack_analysis, "populate_tech_stack", AsyncMock())
 
     job_id = await _seed_job(session_maker, status=JobStatus.COMPLETED, result_data={"agentTrace": ["original"]})
     resp = await client.post(f"/tasks/{JobType.STACK_ANALYSIS.value}", json=_task_body(job_id))

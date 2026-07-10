@@ -74,6 +74,9 @@ async def run_analysis_agent(
             github_toolset=github_toolset,
             code_graph_toolset=code_graph_toolset,
             repo_dir=repo_dir,
+            owner=owner,
+            repo=repo,
+            branch=branch,
         )
         session_service = InMemorySessionService()
         runner = Runner(

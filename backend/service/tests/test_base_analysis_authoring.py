@@ -12,7 +12,7 @@ import pytest
 from google.adk.agents import SequentialAgent
 
 from service.agents import code_graph_mcp, github_mcp, serena_mcp
-from service.agents.base_analysis_tools import build_analysis_agent, build_base_analysis
+from service.agents.base_analysis_tools import _AUTHOR_INSTRUCTION, build_analysis_agent, build_base_analysis
 from service.agents.budget import RunBudget
 
 
@@ -29,6 +29,11 @@ class TestBuildAnalysisAgent:
         agent = build_analysis_agent(client=AsyncMock(), budget=RunBudget(), captured={})
         assert isinstance(agent, SequentialAgent)
         assert [a.name for a in agent.sub_agents] == ["analysis_explorer", "base_author"]
+
+    def test_author_instruction_uses_optional_exploration_placeholder(self) -> None:
+        """{exploration?} は optional（空探索でも著者が KeyError せず save を呼べる, issue 077-A）。"""
+        assert "{exploration?}" in _AUTHOR_INSTRUCTION
+        assert "{exploration}" not in _AUTHOR_INSTRUCTION  # 非 optional 形は state 欠落で KeyError になる
 
     def test_author_stage_uses_independent_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """explorer と author の before_model_callback は別 RunBudget にする（explorer が共有予算を使い切っても

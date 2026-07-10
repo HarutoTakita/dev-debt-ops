@@ -395,11 +395,16 @@ async def _read_persisted(session: AsyncSession, owner: str, repo: str) -> tuple
 
 
 async def process(request: StackAnalysisRequest, ctx: PipelineContext) -> StackAnalysisResult:
-    """Run the ADK agent, persist the ``TechStack``, and return the result schema.
+    """Detect + persist the repo's ``TechStack`` deterministically, then return the result schema.
 
     ``shared.worker.run_task`` owns the ``Job`` lifecycle (PROCESSING → COMPLETED/FAILED,
     idempotency) and writes the returned result into ``Job.result_data``. This function runs
     on ``ctx.session`` so the ``TechStack`` upsert lands in the same DB as the Job update.
+
+    Uses the deterministic ``populate_tech_stack`` (list → classify → **always** save), NOT the
+    autonomous ADK ``run_stack_analysis`` — the agent sometimes stops before ``save_stack`` and left an
+    empty ``tech_stacks`` row while the job still reported COMPLETED (issue 077-D). The agentic backbone
+    already uses ``populate_tech_stack``; this aligns the standalone STACK_ANALYSIS job with it.
     """
     if ctx.session is None:
         raise RuntimeError("stack_analysis pipeline requires a DB session in the pipeline context")
@@ -407,7 +412,7 @@ async def process(request: StackAnalysisRequest, ctx: PipelineContext) -> StackA
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
     try:
-        trace = await run_stack_analysis(client, ctx.session, request.owner, request.repo, request.branch)
+        await populate_tech_stack(client, ctx.session, request.owner, request.repo, request.branch)
     finally:
         await client.aclose()
 
@@ -421,5 +426,5 @@ async def process(request: StackAnalysisRequest, ctx: PipelineContext) -> StackA
         branch=request.branch,
         languages=languages,
         categories=categories,
-        agent_trace=trace,
+        agent_trace=["[stack_analysis] deterministic populate (list → classify → save)"],
     )

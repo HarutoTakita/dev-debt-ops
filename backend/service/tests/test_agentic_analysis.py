@@ -161,19 +161,39 @@ class TestRepoTools:
             TreeItem(path="node_modules/x/index.js", type="blob", size=50),
             TreeItem(path="src", type="tree", size=None),
         ]
-        list_repo_source_files, _read, _assess = build_repo_tools(client, RunBudget())
-        result = await list_repo_source_files("acme", "rosetta", "main")
+        list_repo_source_files, _read, _assess = build_repo_tools(
+            client, RunBudget(), owner="acme", repo="rosetta", branch="main"
+        )
+        result = await list_repo_source_files()  # repo coordinates are bound, not LLM-supplied (077-C)
         assert "app/main.py" in result
         assert "node_modules/x/index.js" not in result
 
-    async def test_read_file_truncates_and_charges_budget(self) -> None:
+    async def test_list_repo_source_files_prioritises_and_is_language_fair(self) -> None:
+        """077-B: selection is language-fair (round-robin by extension) and prefers larger files."""
+        client = AsyncMock()
+        client.get_repository_tree.return_value = [
+            TreeItem(path="a.py", type="blob", size=10),
+            TreeItem(path="b.py", type="blob", size=90),  # bigger .py → before a.py
+            TreeItem(path="c.ts", type="blob", size=20),
+        ]
+        list_repo_source_files, _read, _assess = build_repo_tools(
+            client, RunBudget(), owner="acme", repo="rosetta", branch="main"
+        )
+        result = await list_repo_source_files()
+        assert set(result) == {"a.py", "b.py", "c.ts"}
+        assert result.index("b.py") < result.index("a.py")  # size desc within the .py bucket
+        assert result[1] == "c.ts"  # round-robin: biggest .py, then the .ts (not both .py first)
+
+    async def test_read_file_uses_bound_branch(self) -> None:
+        """077-C: read_file takes only a path; the client is called with the bound owner/repo/branch."""
         client = AsyncMock()
         client.get_file_content.return_value = FileContent(path="big.py", content="x" * 10_000, sha="s", size=10_000)
         budget = RunBudget()
-        _list, read_file, _assess = build_repo_tools(client, budget)
-        result = await read_file("acme", "rosetta", "big.py")
+        _list, read_file, _assess = build_repo_tools(client, budget, owner="acme", repo="rosetta", branch="feature/x")
+        result = await read_file("big.py")  # no owner/repo/ref args
         assert "(truncated)" in result
         assert budget.files_read == 1
+        client.get_file_content.assert_awaited_once_with("acme", "rosetta", "big.py", "feature/x")
 
 
 # --- plugin ----------------------------------------------------------------
