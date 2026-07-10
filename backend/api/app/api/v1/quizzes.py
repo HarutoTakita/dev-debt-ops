@@ -93,10 +93,16 @@ def _answer_correct(answer_key: dict, question_id: str, value: str | None) -> bo
         return None
     if value is None:
         return False
-    if isinstance(expected, list):
+    # Multi-select may be a list or a comma-string; compare as id sets (mirror quiz_grading._choice_matches, issue 074).
+    if isinstance(expected, list) or "," in str(expected) or "," in str(value):
+        exp = (
+            {str(e).strip() for e in expected}
+            if isinstance(expected, list)
+            else {p.strip() for p in str(expected).split(",") if p.strip()}
+        )
         chosen = {p.strip() for p in str(value).split(",") if p.strip()}
-        return chosen == {str(e) for e in expected}
-    return str(value).strip() == str(expected)
+        return chosen == exp
+    return str(value).strip() == str(expected).strip()
 
 
 def _labels_for(value: object, id_to_label: dict[str, str]) -> str:

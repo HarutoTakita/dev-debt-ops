@@ -215,3 +215,106 @@ async def test_grading_idempotent_when_completed(session_maker: async_sessionmak
     async with session_maker() as session:
         result = await quiz_grading.process(req, PipelineContext(session=session))
     assert result.score == 0.5  # completed → echoed, not re-graded
+
+
+async def test_grading_multi_select_comma_string_answer_key(session_maker: async_sessionmaker) -> None:
+    """multiple_select answer_key stored as a comma-STRING (model output) is graded as an id set —
+    unsorted / spaced user answers still score correct (issue 074-A)."""
+    questions = [
+        {"id": "q1", "kind": "multiple_select", "prompt": "P1", "difficulty": "L2"},
+        {"id": "q2", "kind": "multiple_select", "prompt": "P2", "difficulty": "L2"},
+    ]
+    answer_key = {"q1": {"answer": "a,c", "rubric": ""}, "q2": {"answer": "a,b,d", "rubric": ""}}
+    sid = await _seed_session(session_maker, questions=questions, answer_key=answer_key, status="grading")
+    async with session_maker() as session:
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="c,a"))  # unsorted
+        session.add(QuizAnswer(session_id=sid, question_id="q2", value="a, b, d"))  # spaced
+        await session.commit()
+
+    req = QuizGradingRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GRADING,
+        session_id=str(sid),
+        project_id=str(uuid.uuid4()),
+        github=GitHubRef(installation_id=0),
+        requested_by="u",
+    )
+    async with session_maker() as session:
+        result = await quiz_grading.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.score == 1.0
+
+
+async def test_grading_counts_unkeyed_question_as_wrong(session_maker: async_sessionmaker) -> None:
+    """A question missing from answer_key counts in the denominator (no score inflation) — issue 074-B."""
+    questions = [
+        {"id": "q1", "kind": "multiple_choice", "prompt": "P1", "difficulty": "L1"},
+        {"id": "q2", "kind": "multiple_choice", "prompt": "P2", "difficulty": "L1"},  # no key
+    ]
+    answer_key = {"q1": {"answer": "a", "rubric": ""}}
+    sid = await _seed_session(session_maker, questions=questions, answer_key=answer_key, status="grading")
+    async with session_maker() as session:
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="a"))  # correct
+        session.add(QuizAnswer(session_id=sid, question_id="q2", value="a"))  # ungradeable → counted wrong
+        await session.commit()
+
+    req = QuizGradingRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GRADING,
+        session_id=str(sid),
+        project_id=str(uuid.uuid4()),
+        github=GitHubRef(installation_id=0),
+        requested_by="u",
+    )
+    async with session_maker() as session:
+        result = await quiz_grading.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.score == 0.5  # 1/2, not the inflated 1/1
+    async with session_maker() as session:
+        qr = (await session.execute(select(QuizResult).where(QuizResult.session_id == sid))).scalar_one()
+        assert [c["id"] for c in qr.gap_concepts] == ["q2"]
+
+
+async def test_generation_drops_unkeyed_questions(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """Generation persists only questions that have a valid answer_key entry (issue 074-B)."""
+    _patch_common(monkeypatch, quiz_generation)
+
+    async def _fake_gen(path: str, content: str) -> dict:
+        return {
+            "questions": [
+                {"id": "q1", "kind": "multiple_choice", "prompt": "?", "difficulty": "L1"},
+                {"id": "q2", "kind": "multiple_choice", "prompt": "?", "difficulty": "L1"},  # no key → dropped
+            ],
+            "answer_key": {"q1": {"answer": "a", "rubric": "r"}},
+        }
+
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}
+
+    monkeypatch.setattr(quiz_authoring, "_run_quiz_agent", _empty_agent)
+    monkeypatch.setattr(gemini_stack_service, "generate_quiz", _fake_gen)
+    sid = await _seed_session(session_maker)
+    req = QuizGenerationRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GENERATION,
+        session_id=str(sid),
+        project_id=str(uuid.uuid4()),
+        file_path="src/a.py",
+        repo_full_name="acme/rosetta",
+        branch="main",
+        github=GitHubRef(installation_id=1),
+        requested_by="u",
+    )
+    async with session_maker() as session:
+        result = await quiz_generation.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.question_count == 1
+    async with session_maker() as session:
+        qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
+        assert [q["id"] for q in qs.questions] == ["q1"]
+        assert set(qs.answer_key) == {"q1"}

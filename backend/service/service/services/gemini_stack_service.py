@@ -398,7 +398,9 @@ Return ONLY a valid JSON object — no markdown — with this exact schema
 async def generate_quiz(path: str, content: str) -> dict:
     """Return ``{questions, answer_key}`` for a file (Gemini via Vertex AI). Empty on parse failure."""
     client = _build_client()
-    prompt = _QUIZ_GEN_PROMPT.format(path=path, content=content[:_MAX_FILE_CHARS])
+    # 切り詰め時はマーカーを付け、続きがあることをモデルに伝える（_build_file_section と同様, issue 074-E）。
+    clipped = content[:_MAX_FILE_CHARS] + ("\n... (truncated)" if len(content) > _MAX_FILE_CHARS else "")
+    prompt = _QUIZ_GEN_PROMPT.format(path=path, content=clipped)
     response = await _generate(
         client,
         model=config.gemini_model(),

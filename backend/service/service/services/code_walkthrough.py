@@ -11,6 +11,7 @@ Two producers share the cleaning/anchoring logic:
 """
 
 import logging
+import re
 
 import httpx
 
@@ -22,6 +23,8 @@ from service.services import gemini_stack_service, repo_checkout
 from service.services.github_git_client import GitHubGitClient
 
 logger = logging.getLogger(__name__)
+
+_ANCHOR_WINDOW = 5  # 複数一致時に LLM の claim をどれだけ信じて最近傍を選ぶか（行数）。超過は曖昧として drop。
 
 
 def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
@@ -50,13 +53,21 @@ def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
         if not explanation:
             continue
         # Re-anchor by matching the exact start-line text to the real file (corrects LLM line drift).
-        anchor = str(item.get("start_text") or "").strip()
+        # 誤ったハイライトは欠落より有害なので、曖昧/未検証な anchor は行番号 claim を信じず step ごと drop
+        # する（issue 074-F）。防御的に残った ``N: `` プレフィックスは除去してから照合する。
+        anchor = re.sub(r"^\s*\d+:\s?", "", str(item.get("start_text") or "")).strip()
         if anchor:
             matches = [i + 1 for i, s in enumerate(stripped) if s and s == anchor]
-            if matches:
+            if len(matches) == 1:
+                best = matches[0]  # 一意一致 → テキストは行番号より確実。距離に依らず採用。
+            elif len(matches) > 1:
                 best = min(matches, key=lambda line_no: abs(line_no - start))
-                end += best - start
-                start = best
+                if abs(best - start) > _ANCHOR_WINDOW:
+                    continue  # 複数一致かつ claim が遠い → どれか判定できず drop。
+            else:
+                continue  # anchor が本文に存在しない → 検証不能につき drop。
+            end += best - start
+            start = best
         start = max(1, min(start, n))
         end = max(start, min(end, n))
         out.append(

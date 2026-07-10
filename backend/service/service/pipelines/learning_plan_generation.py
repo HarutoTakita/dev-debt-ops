@@ -13,6 +13,7 @@ if the plan already has steps, skip (the whole build commits once, so a failed r
 
 import asyncio
 import logging
+import posixpath
 import uuid
 from datetime import UTC, datetime
 
@@ -131,14 +132,34 @@ def _clean_step_title(title: object, path: str) -> str:
     return t
 
 
+def _match_code_file(sr: object, norm_to_canon: dict[str, str], base_to_canon: dict[str, list[str]]) -> str | None:
+    """Resolve a model-returned ``source_ref`` to a canonical repo path (issue 074-C).
+
+    Exact-set membership dropped every step on any path-format drift (``./`` prefix, separators,
+    repo- vs feature-relative). Normalize via ``posixpath.normpath`` first, then fall back to a
+    *uniquely* matching basename so near-miss paths keep their Gemini explanations. Returns ``None``
+    when it can't be resolved (so it's skipped, not mismapped to the wrong file).
+    """
+    if not isinstance(sr, str) or not sr:
+        return None
+    canon = norm_to_canon.get(posixpath.normpath(sr))
+    if canon is not None:
+        return canon
+    candidates = base_to_canon.get(sr.rsplit("/", 1)[-1], [])
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
     """Map Gemini code-learning steps to Section A (code) resources; fall back to listing files when empty."""
-    valid = set(code_files)
+    norm_to_canon = {posixpath.normpath(p): p for p in code_files}
+    base_to_canon: dict[str, list[str]] = {}
+    for p in code_files:
+        base_to_canon.setdefault(p.rsplit("/", 1)[-1], []).append(p)
     out: list[dict] = []
     seen: set[str] = set()
     for s in steps:
-        sr = s.get("source_ref")
-        if not isinstance(sr, str) or sr not in valid or sr in seen:
+        sr = _match_code_file(s.get("source_ref"), norm_to_canon, base_to_canon)
+        if sr is None or sr in seen:
             continue
         seen.add(sr)
         out.append(

@@ -49,6 +49,17 @@ class TestCodeTitles:
         assert by_ref["src/a.py"]["title"] == "認証の流れを理解する"
         assert by_ref["src/b.py"]["title"] == "b の実装を理解する"
 
+    def test_code_resources_matches_despite_path_drift(self) -> None:
+        """`./` プレフィックスや basename だけの source_ref でも正規化/一意 basename で採用され、解説が保持される
+        （完全一致落ちで summary="" のファイル一覧に降格しない, issue 074-C）。"""
+        steps = [
+            {"source_ref": "./src/a.py", "title": "認証を理解する", "summary": "explA"},  # ./ プレフィックス
+            {"source_ref": "b.py", "title": "b を理解する", "summary": "explB"},  # basename のみ
+        ]
+        by_ref = {r["source_ref"]: r for r in learning_plan_generation._code_resources(steps, ["src/a.py", "src/b.py"])}
+        assert by_ref["src/a.py"]["summary"] == "explA"  # 正規化一致で解説が残る
+        assert by_ref["src/b.py"]["summary"] == "explB"  # 一意 basename 一致で解説が残る
+
 
 class _FakeClient:
     async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
