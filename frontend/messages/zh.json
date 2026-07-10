@@ -396,6 +396,7 @@
   "quiz_focus_no_snippet": "（无代码片段）",
   "quiz_save_saving": "保存中…",
   "quiz_save_saved": "已保存 {time}",
+  "quiz_save_failed": "保存失败",
   "quiz_answer_placeholder": "写下你的想法…",
   "quiz_result_title": "已偿还——你的理解度已更新",
   "quiz_result_understood": "你已理解的内容",

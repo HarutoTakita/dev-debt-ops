@@ -396,6 +396,7 @@
   "quiz_focus_no_snippet": "(코드 스니펫 없음)",
   "quiz_save_saving": "저장 중…",
   "quiz_save_saved": "{time} 저장됨",
+  "quiz_save_failed": "저장에 실패했습니다",
   "quiz_answer_placeholder": "생각을 적어보세요…",
   "quiz_result_title": "상환 완료 — 이해도가 업데이트되었습니다",
   "quiz_result_understood": "이해한 내용",

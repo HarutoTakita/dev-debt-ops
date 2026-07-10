@@ -396,6 +396,7 @@
   "quiz_focus_no_snippet": "(kein Code-Ausschnitt)",
   "quiz_save_saving": "Wird gespeichert…",
   "quiz_save_saved": "Gespeichert {time}",
+  "quiz_save_failed": "Speichern fehlgeschlagen",
   "quiz_answer_placeholder": "Schreibe deine Gedanken…",
   "quiz_result_title": "Getilgt – dein Verständnis wurde aktualisiert",
   "quiz_result_understood": "Was du verstanden hast",

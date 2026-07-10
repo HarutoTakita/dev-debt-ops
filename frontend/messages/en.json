@@ -401,6 +401,7 @@
   "quiz_focus_no_snippet": "(no code snippet)",
   "quiz_save_saving": "Saving…",
   "quiz_save_saved": "Saved {time}",
+  "quiz_save_failed": "Failed to save",
   "quiz_answer_placeholder": "Write your thoughts…",
   "quiz_result_title": "Quiz complete — your understanding is updated",
   "quiz_result_understood": "What you understood",

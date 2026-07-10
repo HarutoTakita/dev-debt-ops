@@ -396,6 +396,7 @@
   "quiz_focus_no_snippet": "(sin fragmento de código)",
   "quiz_save_saving": "Guardando…",
   "quiz_save_saved": "Guardado {time}",
+  "quiz_save_failed": "Error al guardar",
   "quiz_answer_placeholder": "Escribe tus ideas…",
   "quiz_result_title": "Saldado: tu comprensión se ha actualizado",
   "quiz_result_understood": "Lo que comprendiste",
