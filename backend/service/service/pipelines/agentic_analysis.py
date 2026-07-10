@@ -46,7 +46,7 @@ from service.pipelines import (
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
 from service.services import code_graph, function_graph, repo_checkout, trivy_scan
 from service.services.github_app import GitHubAppService
-from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient
+from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient, LocalCloneGitHubClient
 from shared.enums import JobType, ResultStatus
 from shared.models import BaseAnalysisSnapshot, CodeGraph
 from shared.pipelines.context import PipelineContext
@@ -182,11 +182,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         base_analysis = BaseAnalysis()
         await reporter.fail("base_analysis")
     finally:
+        # エージェント用クライアントは閉じるが、clone は消さない — バックボーンがローカル読み取りに再利用する
+        # （下記）。clone / per-run KuzuDB の削除は解析完了後の最終 finally に集約した。
         await client.aclose()
-        if repo_dir is not None:
-            shutil.rmtree(repo_dir, ignore_errors=True)
-            # per-run KuzuDB（clone の兄弟ディレクトリ, issue 078-A）も clone と一緒に片付ける。
-            shutil.rmtree(code_graph.kuzudb_path_for(repo_dir), ignore_errors=True)
 
     # 2) Deterministic backbone — each sub-pipeline runs under THIS job_id, creating its own
     # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
@@ -194,10 +192,18 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # 取得の共通化: バックボーン全体で 1 つの読み取りキャッシュ付き GitHub クライアントを共有し、各ステップが
     # 個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を 1 回に集約する。標準呼び出し
     # （各パイプライン単体）では ctx.github_client は None のまま＝各自で取得する従来どおりの動作になる。
-    ctx.github_client = CachingGitHubGitClient(
-        access_token=await _mint_installation_token(request.github), token_provider=_refresh_token
-    )
+    # clone がある場合は LocalCloneGitHubClient でツリー/ファイル取得をローカルに向ける（Contents API の
+    # per-file 呼び出し＝502 の主因・REST レート枠の大半を排除。blame/list_commits は API のまま＝浅い clone に
+    # 履歴が無く、blame は別枠の GraphQL）。clone 失敗時は従来どおり API 版にフォールバック。
     try:
+        # クライアント生成（トークンのミント含む）も try 内で行い、失敗しても finally が clone を回収する。
+        stack_token = await _mint_installation_token(request.github)
+        if repo_dir is not None:
+            ctx.github_client = LocalCloneGitHubClient(
+                repo_dir, access_token=stack_token, token_provider=_refresh_token
+            )
+        else:
+            ctx.github_client = CachingGitHubGitClient(access_token=stack_token, token_provider=_refresh_token)
         fc_req = FeatureClusteringRequest(
             job_id=request.job_id,
             job_type=JobType.FEATURE_CLUSTERING,
@@ -298,9 +304,14 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         )
         await reporter.complete("baseline")
     finally:
-        # 共有クライアントを必ず閉じる。
-        await ctx.github_client.aclose()
+        # 共有クライアントを必ず閉じ、clone / per-run KuzuDB（issue 078-A）をここで片付ける（バックボーンの
+        # ローカル読み取りが終わるまで clone を生存させるため、cleanup をエージェントブロックから最終へ移動）。
+        if ctx.github_client is not None:  # トークンのミント失敗などで未生成のことがある
+            await ctx.github_client.aclose()
         ctx.github_client = None
+        if repo_dir is not None:
+            shutil.rmtree(repo_dir, ignore_errors=True)
+            shutil.rmtree(code_graph.kuzudb_path_for(repo_dir), ignore_errors=True)
 
     all_trace = agent_trace + steps
     summary = agent_trace[-1] if agent_trace else (steps[-1] if steps else "analysis produced no trace")

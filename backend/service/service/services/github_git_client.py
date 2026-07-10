@@ -1,15 +1,51 @@
 """GitHub REST API client authenticated with an installation access token."""
 
+import asyncio
 import base64
 import logging
+import os
+import random
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 
 from shared.worker import TransientTaskError
 
 logger = logging.getLogger(__name__)
+
+# Transient GitHub server errors worth retrying (502/503/504). GitHub's Contents API 502s
+# intermittently; a single 502 in a many-file backbone loop must not fail the whole analysis step.
+_RETRYABLE_STATUS = frozenset({502, 503, 504})
+_MAX_RETRIES = 3  # total GET attempts = 1 + _MAX_RETRIES
+
+
+class _RetryTransport(httpx.AsyncBaseTransport):
+    """Retry idempotent GETs on transient GitHub 5xx (502/503/504) with jittered backoff.
+
+    Only GET is retried (safe to replay; no request body to re-stream). Non-GET methods and non-5xx
+    responses pass through untouched. 429 / secondary-403 are left to the ``_raise_on_rate_limit``
+    response hook (whole-job retry via Cloud Tasks), so this only absorbs transient server blips.
+    """
+
+    def __init__(self) -> None:
+        self._inner = httpx.AsyncHTTPTransport()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await self._inner.handle_async_request(request)
+        if request.method != "GET":
+            return response
+        for attempt in range(_MAX_RETRIES):
+            if response.status_code not in _RETRYABLE_STATUS:
+                return response
+            await response.aclose()
+            await asyncio.sleep(min(0.5 * 2**attempt, 8.0) + random.uniform(0, 0.3))
+            response = await self._inner.handle_async_request(request)
+        return response
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 class _InstallationTokenAuth(httpx.Auth):
@@ -207,6 +243,7 @@ class GitHubGitClient:
             headers=headers,
             auth=auth,
             timeout=30.0,
+            transport=_RetryTransport(),  # retry transient 5xx GETs (GitHub Contents API 502s intermittently)
             event_hooks={"response": [_raise_on_rate_limit]},
         )
 
@@ -570,3 +607,51 @@ class CachingGitHubGitClient(GitHubGitClient):
         if key not in self._file_cache:
             self._file_cache[key] = await super().get_file_content(owner, repo, path, ref)
         return self._file_cache[key]
+
+
+class LocalCloneGitHubClient(CachingGitHubGitClient):
+    """Serve tree + file reads from a local clone; delegate history (blame / commits / PRs) to the API.
+
+    The agentic orchestrator already shallow-clones the repo for the agent / CGC. Reusing that clone
+    for the backbone's O(files) ``get_repository_tree`` + ``get_file_content`` reads removes ~all
+    Contents-API (REST) calls — the transient-502 source and the dominant REST rate-limit cost — with
+    zero extra network I/O. ``get_blame`` / ``list_commits`` stay on the API: a ``--depth 1`` clone has
+    no history to serve them, and blame runs on GitHub's *separate* GraphQL budget. Token/auth plumbing
+    and every non-file method are inherited unchanged, so a standalone (clone-less) run keeps using the
+    plain caching client.
+
+    The local tree is path-sorted (files only); consumers filter ``type == "blob"`` and cap the list,
+    so this yields the same files/criteria as the API — only the pre-cap ordering can differ slightly.
+    """
+
+    def __init__(
+        self, repo_dir: str, *, access_token: str, token_provider: Callable[[], Awaitable[str]] | None = None
+    ) -> None:
+        super().__init__(access_token=access_token, token_provider=token_provider)
+        self._repo_dir = Path(repo_dir).resolve()
+
+    async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
+        """Walk the clone and return its files as blob ``TreeItem``s (``.git`` pruned), path-sorted."""
+        items: list[TreeItem] = []
+        for root, dirs, files in os.walk(self._repo_dir):
+            dirs[:] = [d for d in dirs if d != ".git"]  # never descend into git metadata
+            for name in files:
+                full = Path(root) / name
+                if not full.is_file():  # skip broken/dangling symlinks
+                    continue
+                rel = full.relative_to(self._repo_dir).as_posix()
+                items.append(TreeItem(path=rel, type="blob", size=full.stat().st_size))
+        items.sort(key=lambda t: t.path)  # deterministic order (API returns git-tree order)
+        return items
+
+    async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
+        """Read the file from the clone; binary → ``content=None`` (same lenient decode as the API path).
+
+        Paths outside the clone (``..`` traversal) or missing files return ``content=None`` rather than
+        raising — matching how the backbone treats an unreadable file.
+        """
+        target = (self._repo_dir / path).resolve()
+        if not target.is_relative_to(self._repo_dir) or not target.is_file():
+            return FileContent(path=path, content=None, sha="", size=0)
+        raw = target.read_bytes()
+        return FileContent(path=path, content=_decode_text(raw), sha="", size=len(raw))
