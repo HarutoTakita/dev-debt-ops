@@ -3,12 +3,18 @@
 Fetches the target file, asks Gemini for an L1–L5 quiz + answer key, and fills the
 ``quiz_sessions`` row created by the api. ``shared.worker.run_task`` owns the Job lifecycle.
 Idempotent: if the session already has questions, regeneration is skipped.
+
+``process`` = ``prepare_inputs`` (read-only, on the session) → ``generate`` (Gemini, session-free) →
+``persist`` (flush-only, on the session). The stages are exposed so the baseline fan-out
+(``baseline_generation``) can run ``generate`` concurrently across features while keeping DB work serial.
 """
 
 import logging
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
@@ -34,7 +40,9 @@ def _clip(body: str) -> str:
     return body
 
 
-async def _feature_content(session, client, request: QuizGenerationRequest) -> tuple[str, str, bool]:
+async def _feature_content(
+    session: AsyncSession, client: GitHubGitClient, *, feature_id: str, repo_full_name: str, branch: str
+) -> tuple[str, str, bool]:
     """Return ``(label, combined_content, has_code)`` for a feature-scope quiz (issue 054).
 
     Combines the feature description with its top representative files' contents so Gemini can
@@ -42,13 +50,13 @@ async def _feature_content(session, client, request: QuizGenerationRequest) -> t
     ``True`` iff at least one non-empty file body was assembled (issue 074-D: without real code the
     model would fabricate the mandatory ``code_snippet``).
     """
-    feature_id = uuid.UUID(str(request.feature_id))
-    feat = (await session.execute(select(Feature).where(col(Feature.id) == feature_id))).scalar_one_or_none()
+    fid = uuid.UUID(str(feature_id))
+    feat = (await session.execute(select(Feature).where(col(Feature.id) == fid))).scalar_one_or_none()
     files = (
         (
             await session.execute(
                 select(FeatureFile)
-                .where(col(FeatureFile.feature_id) == feature_id)
+                .where(col(FeatureFile.feature_id) == fid)
                 .order_by(col(FeatureFile.confidence).desc())
                 .limit(_MAX_FEATURE_FILES)
             )
@@ -56,17 +64,17 @@ async def _feature_content(session, client, request: QuizGenerationRequest) -> t
         .scalars()
         .all()
     )
-    owner, _, repo = request.repo_full_name.partition("/")
+    owner, _, repo = repo_full_name.partition("/")
     blocks: list[str] = []
     has_code = False
     for ff in files:
-        fc = await client.get_file_content(owner, repo, ff.file_path, request.branch)
+        fc = await client.get_file_content(owner, repo, ff.file_path, branch)
         body = fc.content or ""
         if body.strip():
             has_code = True
         # 実装が始まる行から抜粋（docstring/import 主体のファイルで素材が自然言語だけになるのを防ぐ）。
         blocks.append(f"=== {ff.file_path} ===\n{_clip(code_analysis.implementation_excerpt(body))}")
-    label = feat.name if feat is not None else (request.feature_id or "feature")
+    label = feat.name if feat is not None else (str(feature_id) or "feature")
     header = f"Feature: {label}\n{feat.description if feat is not None else ''}".strip()
     return label, f"{header}\n\n{chr(10).join(blocks)}", has_code
 
@@ -111,8 +119,102 @@ async def _mint_installation_token(github: GitHubRef) -> str:
     return await app_service.get_installation_token(github.installation_id)
 
 
+@dataclass
+class QuizInputs:
+    """Read-only inputs for quiz generation, gathered before the Gemini step.
+
+    ``skip_reason`` is set when there is no usable code (empty file / no feature content) — the
+    ``generate`` step then returns ``None`` and ``persist`` records a skip instead of fabricating
+    a hallucinated quiz (issue 074-D).
+    """
+
+    owner: str
+    repo: str
+    branch: str
+    label: str
+    content: str
+    token: str
+    skip_reason: str | None = None
+
+
+async def prepare_inputs(
+    session: AsyncSession,
+    ctx: PipelineContext,
+    *,
+    granularity: str,
+    feature_id: str | None,
+    file_path: str,
+    repo_full_name: str,
+    branch: str,
+    github: GitHubRef,
+) -> QuizInputs:
+    """Read the quiz's source content (feature files or a single file) + mint the clone token. No writes."""
+    owner, _, repo = repo_full_name.partition("/")
+    token = await _mint_installation_token(github)  # required for the agentic quiz's clone
+    # Reuse the job's shared read-caching client for file fetches when present (agentic backbone),
+    # else mint our own. The clone inside generate_quiz_agentic still uses ``token``.
+    shared_client = ctx.github_client
+    client = shared_client or GitHubGitClient(access_token=token)
+    try:
+        if granularity == "feature" and feature_id:
+            label, content, has_code = await _feature_content(
+                session, client, feature_id=feature_id, repo_full_name=repo_full_name, branch=branch
+            )
+            if not has_code:
+                # 実コードが無い（FeatureFile 0 件 / 取得内容が空）→ 生成すると code_snippet を捏造した
+                # 幻覚設問になる。生成せずスキップ（issue 074-D）。
+                return QuizInputs(
+                    owner,
+                    repo,
+                    branch,
+                    label,
+                    "",
+                    token,
+                    skip_reason="insufficient context: no code content; quiz generation skipped",
+                )
+            return QuizInputs(owner, repo, branch, label, content, token)
+        fc = await client.get_file_content(owner, repo, file_path, branch)
+        body = fc.content or ""
+        if not body.strip():
+            return QuizInputs(
+                owner,
+                repo,
+                branch,
+                file_path,
+                "",
+                token,
+                skip_reason="insufficient context: empty file; quiz generation skipped",
+            )
+        return QuizInputs(owner, repo, branch, file_path, body, token)
+    finally:
+        if shared_client is None:
+            await client.aclose()
+
+
+async def generate(inputs: QuizInputs) -> dict | None:
+    """Agentic quiz authoring (no DB access → safe to run concurrently). ``None`` when the input is skipped."""
+    if inputs.skip_reason is not None:
+        return None
+    return await quiz_authoring.generate_quiz_agentic(
+        inputs.owner, inputs.repo, inputs.branch, inputs.label, inputs.content, token=inputs.token
+    )
+
+
+async def persist(session: AsyncSession, inputs: QuizInputs, generated: dict | None, *, quiz: QuizSession) -> int:
+    """Persist the generated questions onto ``quiz`` (flush only). Returns the kept-question count."""
+    if generated is None:
+        logger.info("quiz_generation: skipping %s — %s", inputs.label, inputs.skip_reason)
+        return 0
+    # 有効な answer_key を持つ設問だけを残す（採点不能な設問を出さない, issue 074-B）。
+    quiz.questions, quiz.answer_key = _coherent_quiz(generated["questions"], generated["answer_key"])
+    session.add(quiz)
+    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
+    logger.info("quiz_generation: %s questions for session %s", len(quiz.questions), quiz.id)
+    return len(quiz.questions)
+
+
 async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizGenerationResult:
-    """Generate quiz questions for the session's file and persist them."""
+    """Generate quiz questions for the session's file and persist them: prepare → generate → persist."""
     if ctx.session is None:
         raise RuntimeError("quiz_generation pipeline requires a DB session in the pipeline context")
     session = ctx.session
@@ -139,49 +241,25 @@ async def process(request: QuizGenerationRequest, ctx: PipelineContext) -> QuizG
             agent_trace=["already generated"],
         )
 
-    owner, _, repo = request.repo_full_name.partition("/")
-    token = await _mint_installation_token(request.github)  # required for the agentic quiz's clone
-    # Reuse the job's shared read-caching client for file fetches when present (agentic backbone),
-    # else mint our own. The clone inside generate_quiz_agentic still uses ``token``.
-    shared_client = ctx.github_client
-    client = shared_client or GitHubGitClient(access_token=token)
-    try:
-        # Agentic authoring (issue 217 PR3): the agent follows dependencies via Serena for deeper
-        # questions; the same token clones the repo. Falls back to the direct path.
-        if request.granularity == "feature" and request.feature_id:
-            label, content, has_code = await _feature_content(session, client, request)
-            if not has_code:
-                # 実コードが無い（FeatureFile 0 件 / 取得内容が空）→ 生成すると code_snippet を捏造した
-                # 幻覚設問になる。生成せずスキップ（issue 074-D）。
-                logger.info("quiz_generation: skipping feature %s — no code content", request.feature_id)
-                return _skip_result(request, "insufficient context: no code content; quiz generation skipped")
-            generated = await quiz_authoring.generate_quiz_agentic(
-                owner, repo, request.branch, label, content, token=token
-            )
-        else:
-            fc = await client.get_file_content(owner, repo, request.file_path, request.branch)
-            body = fc.content or ""
-            if not body.strip():
-                logger.info("quiz_generation: skipping %s — empty file", request.file_path)
-                return _skip_result(request, "insufficient context: empty file; quiz generation skipped")
-            generated = await quiz_authoring.generate_quiz_agentic(
-                owner, repo, request.branch, request.file_path, body, token=token
-            )
-    finally:
-        if shared_client is None:
-            await client.aclose()
-
-    # 有効な answer_key を持つ設問だけを残す（採点不能な設問を出さない, issue 074-B）。
-    quiz.questions, quiz.answer_key = _coherent_quiz(generated["questions"], generated["answer_key"])
-    session.add(quiz)
-    await session.flush()  # run_task owns the terminal commit (atomic with the Job, issue-042)
-
-    logger.info("quiz_generation: %s questions for session %s", len(quiz.questions), request.session_id)
+    inputs = await prepare_inputs(
+        session,
+        ctx,
+        granularity=request.granularity,
+        feature_id=request.feature_id,
+        file_path=request.file_path,
+        repo_full_name=request.repo_full_name,
+        branch=request.branch,
+        github=request.github,
+    )
+    generated = await generate(inputs)
+    count = await persist(session, inputs, generated, quiz=quiz)
+    if generated is None and inputs.skip_reason is not None:
+        return _skip_result(request, inputs.skip_reason)
     return QuizGenerationResult(
         job_id=request.job_id,
         job_type=JobType.QUIZ_GENERATION,
         status=ResultStatus.COMPLETED,
         session_id=request.session_id,
-        question_count=len(quiz.questions),
-        agent_trace=[f"generated {len(quiz.questions)} questions"],
+        question_count=count,
+        agent_trace=[f"generated {count} questions"],
     )

@@ -9,12 +9,17 @@ B. stack — テックスタック解析（``tech_stacks``）の言語/フレー
 A → B の順、各セクション内は priority 順で ``learning_resources`` + ``learning_steps`` を作り
 ``estimated_total_minutes`` を集計する。``shared.worker.run_task`` owns the Job lifecycle. Idempotent:
 if the plan already has steps, skip (the whole build commits once, so a failed run leaves no partial steps).
+
+``process`` = ``prepare_inputs`` (read-only, on the session) → ``generate`` (Gemini, session-free) →
+``persist`` (flush-only, on the session). The three stages are exposed so the baseline fan-out
+(``baseline_generation``) can run ``generate`` concurrently across features while keeping DB work serial.
 """
 
 import asyncio
 import logging
 import posixpath
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select
@@ -67,15 +72,15 @@ def _age_days(authored_at: str, *, now: datetime) -> int | None:
 
 
 async def _internal_assets(
-    client: GitHubGitClient, request: LearningPlanGenerationRequest, now: datetime
+    client: GitHubGitClient, repo_full_name: str, branch: str, gap_concepts: list[str], now: datetime
 ) -> list[dict]:
     """Find ADR + concept-matching code team assets with dormant_days."""
-    owner, _, repo = request.repo_full_name.partition("/")
+    owner, _, repo = repo_full_name.partition("/")
     if not owner or not repo:
         return []
-    tree = await client.get_repository_tree(owner, repo, request.branch)
+    tree = await client.get_repository_tree(owner, repo, branch)
     blobs = [t.path for t in tree if t.type == "blob" and not is_vendored_path(t.path)]
-    concepts = [c.lower() for c in request.gap_concepts]
+    concepts = [c.lower() for c in gap_concepts]
 
     picked: dict[str, dict] = {}  # path → resource (dedup)
     for path in blobs:
@@ -99,7 +104,7 @@ async def _internal_assets(
 
     resources = list(picked.values())
     for r in resources:  # dormant_days from latest commit of the file
-        commits = await client.list_commits(owner, repo, path=r["source_ref"], sha=request.branch, per_page=1)
+        commits = await client.list_commits(owner, repo, path=r["source_ref"], sha=branch, per_page=1)
         r["dormant_days"] = _age_days(commits[0].authored_at, now=now) if commits else None
     return resources
 
@@ -232,9 +237,9 @@ def _stack_resources(raw: list[dict]) -> list[dict]:
     return out
 
 
-async def _stack_terms(session: AsyncSession, request: LearningPlanGenerationRequest, *, limit: int = 10) -> list[str]:
+async def _stack_terms(session: AsyncSession, repo_full_name: str, *, limit: int = 10) -> list[str]:
     """Tech terms (languages + categories) from the project's tech_stack — Section B source (issue 068)."""
-    owner, _, repo = request.repo_full_name.partition("/")
+    owner, _, repo = repo_full_name.partition("/")
     if not owner or not repo:
         return []
     ts = (
@@ -289,72 +294,100 @@ async def _pregenerate_walkthroughs(
         session.add(resource)
 
 
-async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) -> LearningPlanGenerationResult:
-    """Generate the plan's resources + ordered steps (team-first)."""
-    if ctx.session is None:
-        raise RuntimeError("learning_plan_generation pipeline requires a DB session in the pipeline context")
-    session = ctx.session
+@dataclass
+class PlanInputs:
+    """Read-only inputs for learning-plan generation, gathered before the Gemini step."""
+
+    code_name: str
+    code_desc: str
+    code_files: list[str]
+    terms: list[str]
+    owner: str
+    repo: str
+
+
+@dataclass
+class PlanGenerated:
+    """Gemini authoring output (produced without touching the DB session — safe to run concurrently)."""
+
+    code_steps: list[dict]
+    stack_raw: list[dict]
+
+
+async def prepare_inputs(
+    session: AsyncSession,
+    ctx: PipelineContext,
+    *,
+    feature: Feature | None,
+    repo_full_name: str,
+    branch: str,
+    github: GitHubRef,
+    gap_concepts: list[str],
+) -> PlanInputs:
+    """Gather the plan's generation inputs (code files + name/desc + stack terms). Read-only — no writes.
+
+    Feature scope uses the feature's representative files; concept scope resolves ADR/concept-matching
+    files from the repo tree. Safe to run before the concurrent ``generate`` step.
+    """
     now = datetime.now(UTC)
-    plan_id = uuid.UUID(request.plan_id)
-
-    plan = (await session.execute(select(LearningPlan).where(col(LearningPlan.id) == plan_id))).scalar_one_or_none()
-    if plan is None:
-        return _result(request, step_count=0, team=0, external=0)
-    existing = (
-        await session.execute(
-            select(func.count()).select_from(LearningStep).where(col(LearningStep.plan_id) == plan_id)
-        )
-    ).scalar_one()
-    if existing:  # idempotent: already generated
-        return _result(request, step_count=existing, team=0, external=0)
-
-    # 学習プランを 2 セクションで構成する（issue 068）:
-    #  A. code  — このリポジトリのコードを理解する具体ステップ（機能の代表ファイル + Gemini の説明）
-    #  B. stack — 検出した技術スタックの一般学習リソース（外部 URL + 説明）
-    feature = None
-    if plan.feature_id is not None:
-        feature = (
-            await session.execute(select(Feature).where(col(Feature.id) == plan.feature_id))
-        ).scalar_one_or_none()
-
-    # Section A: 学習対象のコードファイル（機能なら代表ファイル、概念スコープなら concept マッチ）。
     if feature is not None:
         code_files = await _feature_file_paths(session, feature.id)
         code_name, code_desc = feature.name, feature.description
     else:
         shared_client = ctx.github_client
-        client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
+        client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(github))
         try:
-            code_files = [r["source_ref"] for r in await _internal_assets(client, request, now) if r.get("source_ref")]
+            assets = await _internal_assets(client, repo_full_name, branch, gap_concepts, now)
         finally:
             if shared_client is None:
                 await client.aclose()
-        code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
+        code_files = [r["source_ref"] for r in assets if r.get("source_ref")]
+        code_name = gap_concepts[0] if gap_concepts else "コード理解"
         code_desc = ""
-    # __init__.py / __main__.py を学習対象から除外（両分岐の合流点で 1 回。Gemini 入力・_code_resources の
-    # マッチング/フォールバックすべてに効く）。
+    # __init__.py / __main__.py を学習対象から除外（Gemini 入力・マッチング/フォールバック双方に効く）。
     code_files = _learnable_code_files(code_files)
-    # 学習ステップ/外部リソースはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。各 1 呼び出し。
-    plan_owner, _, plan_repo = request.repo_full_name.partition("/")
+    terms = await _stack_terms(session, repo_full_name)
+    owner, _, repo = repo_full_name.partition("/")
+    return PlanInputs(code_name, code_desc, code_files, terms, owner, repo)
+
+
+async def generate(inputs: PlanInputs) -> PlanGenerated:
+    """Gemini authoring for a learning plan (no DB access → safe to run concurrently across features).
+
+    Falls back to an empty section when Gemini is unavailable, exactly as the sequential path did.
+    """
     try:
         code_steps = await learning_authoring.generate_code_learning_steps_agentic(
-            code_name, code_desc, code_files, owner=plan_owner, repo=plan_repo
+            inputs.code_name, inputs.code_desc, inputs.code_files, owner=inputs.owner, repo=inputs.repo
         )
     except ValueError:
         logger.warning("Gemini code-learning unavailable; listing files without explanations")
         code_steps = []
-    code = _code_resources(code_steps, code_files)
-
-    # Section B: 技術スタックの一般学習リソース。
     try:
-        terms = await _stack_terms(session, request)
-        stack = _stack_resources(
-            await learning_authoring.generate_external_resources_agentic(terms, owner=plan_owner, repo=plan_repo)
+        stack_raw = await learning_authoring.generate_external_resources_agentic(
+            inputs.terms, owner=inputs.owner, repo=inputs.repo
         )
     except ValueError:
         logger.warning("Gemini stack-learning unavailable; code section only")
-        stack = []
+        stack_raw = []
+    return PlanGenerated(code_steps, stack_raw)
 
+
+async def persist(
+    session: AsyncSession,
+    request: LearningPlanGenerationRequest,
+    ctx: PipelineContext,
+    inputs: PlanInputs,
+    generated: PlanGenerated,
+    *,
+    plan: LearningPlan,
+) -> tuple[int, int, int]:
+    """Build the plan's resources + ordered steps + walkthroughs on ``session`` (flush only).
+
+    Returns ``(step_count, team_count, external_count)``. ``plan`` must already be flushed (has an id).
+    """
+    code = _code_resources(generated.code_steps, inputs.code_files)
+    stack = _stack_resources(generated.stack_raw)
     # A（code）→ B（stack）の順。各セクション内は priority 順。
     ordered = sorted(code, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)) + sorted(
         stack, key=lambda r: _PRIORITY_RANK.get(r["priority"], 9)
@@ -379,13 +412,12 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
         )
         session.add(resource)
         await session.flush()
-        session.add(LearningStep(plan_id=plan_id, order=order, completed=False, resource_id=resource.id))
+        session.add(LearningStep(plan_id=plan.id, order=order, completed=False, resource_id=resource.id))
         total_minutes += r["estimated_minutes"] or 0
         if r["section"] == "code" and r["kind"] == "code" and isinstance(r["source_ref"], str):
             code_to_walk.append((resource, r["source_ref"]))
 
     # 解析時に各コードファイルの行ごと解説（walkthrough）を事前生成し保存する（ユーザーが開いた瞬間に即表示）。
-    # GitHub 取得 + Gemini 生成はファイルごとに独立なので、セマフォで上限を設けつつ並行実行して待ち時間を抑える。
     await _pregenerate_walkthroughs(session, request, code_to_walk, shared_client=ctx.github_client)
 
     plan.estimated_total_minutes = total_minutes
@@ -399,7 +431,45 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
         len(stack),
         request.plan_id,
     )
-    return _result(request, step_count=len(ordered), team=len(code), external=len(stack))
+    return len(ordered), len(code), len(stack)
+
+
+async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) -> LearningPlanGenerationResult:
+    """Generate the plan's resources + ordered steps (team-first): prepare → generate → persist."""
+    if ctx.session is None:
+        raise RuntimeError("learning_plan_generation pipeline requires a DB session in the pipeline context")
+    session = ctx.session
+    plan_id = uuid.UUID(request.plan_id)
+
+    plan = (await session.execute(select(LearningPlan).where(col(LearningPlan.id) == plan_id))).scalar_one_or_none()
+    if plan is None:
+        return _result(request, step_count=0, team=0, external=0)
+    existing = (
+        await session.execute(
+            select(func.count()).select_from(LearningStep).where(col(LearningStep.plan_id) == plan_id)
+        )
+    ).scalar_one()
+    if existing:  # idempotent: already generated
+        return _result(request, step_count=existing, team=0, external=0)
+
+    feature = None
+    if plan.feature_id is not None:
+        feature = (
+            await session.execute(select(Feature).where(col(Feature.id) == plan.feature_id))
+        ).scalar_one_or_none()
+
+    inputs = await prepare_inputs(
+        session,
+        ctx,
+        feature=feature,
+        repo_full_name=request.repo_full_name,
+        branch=request.branch,
+        github=request.github,
+        gap_concepts=request.gap_concepts,
+    )
+    generated = await generate(inputs)
+    step_count, team, external = await persist(session, request, ctx, inputs, generated, plan=plan)
+    return _result(request, step_count=step_count, team=team, external=external)
 
 
 def _result(

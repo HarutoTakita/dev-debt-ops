@@ -81,6 +81,16 @@ def gemini_timeout_ms() -> int:
     return int(os.environ.get("GEMINI_TIMEOUT_MS", "120000"))
 
 
+def baseline_fanout_concurrency() -> int:
+    """Max features whose learning plan / quiz are *generated* concurrently in the baseline fan-out.
+
+    Only the session-free Gemini authoring runs in parallel (DB reads/writes stay serial on the job's
+    single session). Each Gemini call already retries 429/5xx with jittered backoff, so a modest cap
+    keeps concurrent quota pressure — and the DB connection pool — comfortably in bounds. Clamped to ≥1.
+    """
+    return max(1, int(os.environ.get("BASELINE_FANOUT_CONCURRENCY", "3")))
+
+
 def github_app_id() -> str:
     """GitHub App numeric id (method B: service mints installation tokens)."""
     return os.environ.get("GITHUB_APP_ID", "")

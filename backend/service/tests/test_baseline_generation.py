@@ -1,9 +1,10 @@
-"""issue 069/075: server-side baseline fanout — per-feature savepoint isolation + baseline dedup.
+"""issue 069/075 + parallel fanout: server-side baseline fanout — prepare → generate → persist phases.
 
-The fanout (``generate_learning_and_quizzes``) runs learning-plan + baseline-quiz generation per
-feature on one shared session, committed once by ``run_task``. These tests use fakes for the heavy
-``learning_plan_generation.process`` / ``quiz_generation.process`` (GitHub + Gemini) and assert the
-transaction-isolation (074-A savepoint) and idempotency (075-B) behaviour directly.
+The fanout (``generate_learning_and_quizzes``) runs learning-plan + baseline-quiz generation per feature
+on the job's single session: a serial *prepare* (read-only), a concurrent semaphore-capped *generate*
+(Gemini, session-free), then a serial per-feature-SAVEPOINT *persist*. These tests fake the three stages
+(GitHub + Gemini) and assert row creation + progress, per-feature savepoint isolation (074-A/075-A), and
+baseline dedup (075-B) directly.
 """
 
 import uuid
@@ -12,7 +13,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from service.pipelines import baseline_generation
+from service.pipelines import baseline_generation, learning_plan_generation, quiz_generation
 from shared.enums import JobStatus, JobType
 from shared.models import AnalysisRun, Feature, FeatureFile, LearningPlan, QuizSession
 from shared.pipelines.context import PipelineContext
@@ -49,18 +50,47 @@ def _request(project_id: uuid.UUID, developer_id: uuid.UUID) -> AgenticAnalysisR
     )
 
 
+def _patch_stages(monkeypatch: pytest.MonkeyPatch, *, plan_persist=None, quiz_persist=None) -> None:
+    """Fake both pipelines' GitHub/Gemini stages so the fanout orchestration can be tested in isolation.
+
+    Only the pipeline ``persist`` stage writes children — the LearningPlan / QuizSession *rows* themselves
+    are created by the fanout (``_persist_plan`` / ``_persist_quiz``), so faking persist still exercises
+    row creation, savepoint rollback and dedup.
+    """
+
+    async def _plan_prepare(session, ctx, *, feature, repo_full_name, branch, github, gap_concepts):
+        return learning_plan_generation.PlanInputs("n", "d", [], [], "acme", "rosetta")
+
+    async def _plan_generate(inputs):
+        return learning_plan_generation.PlanGenerated([], [])
+
+    async def _plan_persist_ok(session, request, ctx, inputs, generated, *, plan):
+        return (0, 0, 0)
+
+    async def _quiz_prepare(session, ctx, *, granularity, feature_id, file_path, repo_full_name, branch, github):
+        return quiz_generation.QuizInputs("acme", "rosetta", "main", "label", "content", "tok")
+
+    async def _quiz_generate(inputs):
+        return {"questions": [], "answer_key": {}}
+
+    async def _quiz_persist_ok(session, inputs, generated, *, quiz):
+        return 0
+
+    monkeypatch.setattr(baseline_generation.learning_plan_generation, "prepare_inputs", _plan_prepare)
+    monkeypatch.setattr(baseline_generation.learning_plan_generation, "generate", _plan_generate)
+    monkeypatch.setattr(baseline_generation.learning_plan_generation, "persist", plan_persist or _plan_persist_ok)
+    monkeypatch.setattr(baseline_generation.quiz_generation, "prepare_inputs", _quiz_prepare)
+    monkeypatch.setattr(baseline_generation.quiz_generation, "generate", _quiz_generate)
+    monkeypatch.setattr(baseline_generation.quiz_generation, "persist", quiz_persist or _quiz_persist_ok)
+
+
 async def test_fanout_creates_plan_and_quiz_per_feature(
     monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
 ) -> None:
     """Happy path: each feature gets a LearningPlan + baseline QuizSession; on_progress ticks per feature."""
     project_id, developer_id = uuid.uuid4(), uuid.uuid4()
     await _seed_features(session_maker, project_id, ["auth", "billing"])
-
-    async def _ok(req: object, ctx: object) -> None:
-        return None
-
-    monkeypatch.setattr(baseline_generation.learning_plan_generation, "process", _ok)
-    monkeypatch.setattr(baseline_generation.quiz_generation, "process", _ok)
+    _patch_stages(monkeypatch)
 
     progress: list[tuple[int, int]] = []
 
@@ -88,26 +118,22 @@ async def test_fanout_creates_plan_and_quiz_per_feature(
 async def test_failed_feature_rolls_back_and_regenerates_on_rerun(
     monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
 ) -> None:
-    """075-A: a feature whose plan generation raises leaves NO partial LearningPlan (savepoint rollback),
-    the other feature is unaffected, and a re-run regenerates the failed one (not locked to empty)."""
+    """075-A: a feature whose plan persist raises leaves NO partial LearningPlan (per-feature savepoint
+    rollback), the other feature is unaffected, and a re-run regenerates the failed one."""
     project_id, developer_id = uuid.uuid4(), uuid.uuid4()
     await _seed_features(session_maker, project_id, ["auth", "billing"])
 
-    calls = {"plan": 0}
+    calls = {"persist": 0}
 
-    async def _plan_process(req: object, ctx: object) -> None:
-        calls["plan"] += 1
-        if calls["plan"] == 1:  # 最初の 1 機能だけ失敗させる（LearningPlan は _generate_plan で flush 済み）
+    async def _plan_persist(session, request, ctx, inputs, generated, *, plan):
+        calls["persist"] += 1
+        if calls["persist"] == 1:  # 最初の機能の persist を失敗させる（LearningPlan 行は _persist_plan で flush 済み）
             raise RuntimeError("gemini boom")
-        return None
+        return (0, 0, 0)
 
-    async def _quiz_ok(req: object, ctx: object) -> None:
-        return None
+    _patch_stages(monkeypatch, plan_persist=_plan_persist)
 
-    monkeypatch.setattr(baseline_generation.learning_plan_generation, "process", _plan_process)
-    monkeypatch.setattr(baseline_generation.quiz_generation, "process", _quiz_ok)
-
-    # 1st run: one feature's plan fails → its empty LearningPlan must be rolled back to the savepoint.
+    # 1st run: one feature's persist fails → its LearningPlan is rolled back to the savepoint.
     async with session_maker() as session:
         await baseline_generation.generate_learning_and_quizzes(
             _request(project_id, developer_id), PipelineContext(session=session)
@@ -149,11 +175,7 @@ async def test_completed_baseline_quiz_is_not_regenerated(
         )
         await session.commit()
 
-    async def _ok(req: object, ctx: object) -> None:
-        return None
-
-    monkeypatch.setattr(baseline_generation.learning_plan_generation, "process", _ok)
-    monkeypatch.setattr(baseline_generation.quiz_generation, "process", _ok)
+    _patch_stages(monkeypatch)
 
     async with session_maker() as session:
         await baseline_generation.generate_learning_and_quizzes(
