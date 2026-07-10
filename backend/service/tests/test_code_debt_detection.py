@@ -124,6 +124,36 @@ class TestDetectors:
         )
         assert code_analysis.cyclomatic_complexity(content, "ts_js") == 2
 
+    def test_complexity_snippet_anchors_to_hotspot_and_names_symbol(self) -> None:
+        """複雑度の code_snippet は冒頭 import ではなく最も複雑な領域を指し、理由はその関数名に触れる。"""
+        content = (
+            "import os\nimport sys\n\ndef trivial():\n    return 1\n"
+            + "\n" * 4
+            + "def busy(x):\n"
+            + "\n".join(f"    if x == {i} and x or x: pass" for i in range(9))
+            + "\n"
+        )
+        findings = code_debt_detection.detect({"app/svc.py": content})
+        comp = [f for f in findings if f.type == "complexity"]
+        assert comp, "expected a complexity finding"
+        f = comp[0]
+        assert "import os" not in f.code_snippet  # not the file top
+        assert "if x ==" in f.code_snippet  # the actual complex region
+        assert "busy" in f.archaeology_notes  # reason references the offending function
+
+    def test_duplicate_finding_names_partner_and_uses_block_snippet(self) -> None:
+        """重複の理由は相手ファイルを名指しし、code_snippet は重複ブロックそのもの（単一ファイル表現にしない）。"""
+        block = "\n".join(f"row{i} = handle({i})" for i in range(8))
+        files = {
+            "a.py": "import os\n" + block + "\nend_a = 1\n",
+            "b.py": "import sys\n" + block + "\nend_b = 2\n",
+        }
+        dups = {f.file_path: f for f in code_debt_detection.detect(files) if f.type == "duplicate"}
+        assert "a.py" in dups
+        fa = dups["a.py"]
+        assert "b.py" in fa.archaeology_notes  # cross-file partner named in the reason
+        assert "row0 = handle(0)" in fa.code_snippet  # snippet is the duplicated block
+
     def test_dead_file_detection(self) -> None:
         files = {
             "app/main.py": "from app import util\n",  # entrypoint, references util

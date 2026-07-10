@@ -12,6 +12,7 @@ file in the repo, so these are the product-decision values, chosen to line up wi
 """
 
 import re
+from typing import NamedTuple
 
 from service.services.dependency_extraction import extract_dependencies
 
@@ -162,6 +163,57 @@ def complexity_score(complexity: int) -> float:
     return max(0.0, min(1.0, (complexity - 5) / _COMPLEXITY_SPAN))
 
 
+_HOTSPOT_WINDOW = 12  # lines; the sliding window used to locate the densest decision-point region
+
+
+def complexity_hotspot(content: str, language: str) -> tuple[int, int, str] | None:
+    """Locate the densest decision-point region: ``(start_line, end_line, verbatim_text)`` (1-based).
+
+    Whole-file cyclomatic complexity doesn't say *where* the complexity is, so a top-of-file excerpt
+    highlights imports rather than the offending logic. This slides a window over the file and returns
+    the block with the most decision points (branches/loops/boolean ops), as verbatim contiguous source
+    so the viewer can locate + highlight it. Returns ``None`` when no region stands out (caller falls
+    back to a generic excerpt).
+    """
+    lines = content.split("\n")
+    decision = _PY_DECISION if language == "python" else _JS_DECISION
+    per_line = [len(decision.findall(_strip_noncode(ln, language))) for ln in lines]
+    if sum(per_line) <= 0:
+        return None
+    if len(lines) <= _HOTSPOT_WINDOW:
+        window = range(len(lines))
+    else:
+        best_start, best_sum = 0, -1
+        for i in range(len(lines) - _HOTSPOT_WINDOW + 1):
+            s = sum(per_line[i : i + _HOTSPOT_WINDOW])
+            if s > best_sum:
+                best_sum, best_start = s, i
+        window = range(best_start, best_start + _HOTSPOT_WINDOW)
+    # Trim to the branching span so the anchor lands on real logic (not the leading blank/def lines).
+    dense = [i for i in window if per_line[i] > 0]
+    lo, hi = dense[0], dense[-1]
+    return (lo + 1, hi + 1, "\n".join(lines[lo : hi + 1]))
+
+
+_PY_DEF_RE = re.compile(r"^\s*(?:async\s+)?def\s+(\w+)|^\s*class\s+(\w+)")
+_JS_DEF_RE = re.compile(
+    r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)"
+    r"|^\s*(?:export\s+)?(?:default\s+)?class\s+(\w+)"
+    r"|^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*="
+)
+
+
+def nearest_definition(content: str, line: int, language: str) -> str | None:
+    """Name of the nearest def / class / function at or above 1-based ``line`` (best-effort, else None)."""
+    pattern = _PY_DEF_RE if language == "python" else _JS_DEF_RE
+    lines = content.split("\n")
+    for i in range(min(line, len(lines)) - 1, -1, -1):
+        m = pattern.match(lines[i])
+        if m:
+            return next((g for g in m.groups() if g), None)
+    return None
+
+
 def _normalized_lines(content: str) -> list[str]:
     """Strip whitespace, drop blank lines and single-line comments."""
     out: list[str] = []
@@ -173,30 +225,75 @@ def _normalized_lines(content: str) -> list[str]:
     return out
 
 
-def find_duplicate_ratios(files: dict[str, str]) -> dict[str, float]:
-    """Return per-file fraction of ``_DUP_WINDOW``-line blocks duplicated elsewhere in the repo.
-
-    A block is "duplicated" if its normalized text appears in two or more distinct windows
-    across all files. The ratio is duplicated-windows / total-windows for that file.
-    """
-    # Count every window's occurrences across the whole file set.
-    counts: dict[str, int] = {}
-    per_file_windows: dict[str, list[str]] = {}
-    for path, content in files.items():
-        lines = _normalized_lines(content)
-        windows = ["\n".join(lines[i : i + _DUP_WINDOW]) for i in range(len(lines) - _DUP_WINDOW + 1)]
-        per_file_windows[path] = windows
-        for w in windows:
-            counts[w] = counts.get(w, 0) + 1
-
-    ratios: dict[str, float] = {}
-    for path, windows in per_file_windows.items():
-        if not windows:
-            ratios[path] = 0.0
+def _normalized_with_lineno(content: str) -> list[tuple[int, str]]:
+    """Like ``_normalized_lines`` but keeps each kept line's 1-based original line number."""
+    out: list[tuple[int, str]] = []
+    for idx, raw in enumerate(content.splitlines()):
+        line = raw.strip()
+        if not line or line.startswith(("#", "//", "*", "/*")):
             continue
-        dup = sum(1 for w in windows if counts[w] > 1)
-        ratios[path] = dup / len(windows)
-    return ratios
+        out.append((idx + 1, line))
+    return out
+
+
+class DuplicateInfo(NamedTuple):
+    """Per-file duplication result: the ratio plus *where* and *with whom* the block is shared."""
+
+    ratio: float
+    block_text: str  # verbatim source of the first duplicated block ("" when none)
+    block_start_line: int  # 1-based; 0 when none
+    block_end_line: int
+    related_files: list[str]  # other files that contain a block duplicated with this file
+
+
+def duplicate_report(files: dict[str, str]) -> dict[str, DuplicateInfo]:
+    """Per-file duplication with the offending block's location + the partner files sharing it.
+
+    A block ("window") of ``_DUP_WINDOW`` normalized lines is "duplicated" when its text occurs in two
+    or more windows across the whole file set. Beyond the scalar ratio (kept for scoring), this reports
+    the first duplicated block's verbatim source + original line range (so the viewer highlights the
+    real location, not the file top) and the *other* files sharing a duplicated block (so a cross-file
+    problem isn't presented as a lone single-file issue).
+    """
+    counts: dict[str, int] = {}
+    key_to_files: dict[str, set[str]] = {}
+    # (key, original_start_line, original_end_line) per window, per file.
+    per_file: dict[str, list[tuple[str, int, int]]] = {}
+    for path, content in files.items():
+        norm = _normalized_with_lineno(content)
+        windows: list[tuple[str, int, int]] = []
+        for i in range(len(norm) - _DUP_WINDOW + 1):
+            chunk = norm[i : i + _DUP_WINDOW]
+            key = "\n".join(t for _, t in chunk)
+            windows.append((key, chunk[0][0], chunk[-1][0]))
+            counts[key] = counts.get(key, 0) + 1
+            key_to_files.setdefault(key, set()).add(path)
+        per_file[path] = windows
+
+    report: dict[str, DuplicateInfo] = {}
+    for path, windows in per_file.items():
+        if not windows:
+            report[path] = DuplicateInfo(0.0, "", 0, 0, [])
+            continue
+        dup = [w for w in windows if counts[w[0]] > 1]
+        ratio = len(dup) / len(windows)
+        block_text, start_line, end_line, related = "", 0, 0, []
+        if dup:
+            key, start_line, end_line = dup[0]
+            block_text = "\n".join(content_lines(files[path])[start_line - 1 : end_line])
+            related = sorted({f for w in dup for f in key_to_files[w[0]] if f != path})
+        report[path] = DuplicateInfo(ratio, block_text, start_line, end_line, related)
+    return report
+
+
+def content_lines(content: str) -> list[str]:
+    """Split file content into lines (helper so callers don't re-implement ``split``)."""
+    return content.split("\n")
+
+
+def find_duplicate_ratios(files: dict[str, str]) -> dict[str, float]:
+    """Return per-file fraction of ``_DUP_WINDOW``-line blocks duplicated elsewhere in the repo."""
+    return {path: info.ratio for path, info in duplicate_report(files).items()}
 
 
 def _is_entrypoint(path: str) -> bool:
