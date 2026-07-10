@@ -26,6 +26,25 @@ def test_clean_steps_reanchors_start_line_to_matching_text() -> None:
     assert steps == [{"start_line": 4, "end_line": 5, "title": "t", "explanation": "x"}]
 
 
+def test_clean_steps_drops_leading_docstring_only_step() -> None:
+    """A leading step covering only the module docstring/imports is dropped so the first view is code."""
+    lines = ['"""doc', 'more"""', "import os", "", "def f():", "    return 1"]
+    raw = [
+        {"start_line": 1, "end_line": 2, "start_text": '"""doc', "title": "doc", "explanation": "module doc"},
+        {"start_line": 5, "end_line": 6, "start_text": "def f():", "title": "f", "explanation": "the function"},
+    ]
+    steps = clean_steps(raw, lines)
+    assert [s["title"] for s in steps] == ["f"]  # docstring-only step dropped, code step kept
+
+
+def test_clean_steps_keeps_step_when_all_would_be_dropped() -> None:
+    """If every step is within the leading boilerplate, keep them (never return an empty walkthrough)."""
+    lines = ['"""doc', 'more"""', "import os"]
+    raw = [{"start_line": 1, "end_line": 2, "start_text": '"""doc', "title": "doc", "explanation": "module doc"}]
+    steps = clean_steps(raw, lines)
+    assert [s["title"] for s in steps] == ["doc"]
+
+
 def test_clean_steps_drops_invalid_and_clamps() -> None:
     """Items without explanation/line numbers are dropped; ranges are clamped to the file length."""
     lines = ["a", "b", "c"]
@@ -36,6 +55,35 @@ def test_clean_steps_drops_invalid_and_clamps() -> None:
     ]
     steps = clean_steps(raw, lines)
     assert steps == [{"start_line": 1, "end_line": 3, "title": "", "explanation": "keep"}]
+
+
+def test_clean_steps_drops_ambiguous_far_anchor() -> None:
+    """start_text matching multiple lines, none within the window of the claim → dropped (issue 074-F)."""
+    lines = ["    return", "x = 1", "y = 2", "    return"]  # "return" at lines 1 and 4
+    raw = [{"start_line": 20, "end_line": 21, "start_text": "    return", "title": "t", "explanation": "e"}]
+    assert clean_steps(raw, lines) == []  # nearest match (line 4) is >5 from claim 20 → ambiguous → dropped
+
+
+def test_clean_steps_drops_unmatched_anchor() -> None:
+    """start_text that does not appear in the file is unverifiable → the step is dropped (issue 074-F)."""
+    lines = ["def a():", "    pass"]
+    raw = [{"start_line": 1, "end_line": 2, "start_text": "nonexistent line", "title": "t", "explanation": "e"}]
+    assert clean_steps(raw, lines) == []
+
+
+def test_clean_steps_snaps_ambiguous_near_anchor() -> None:
+    """Multiple matches but one within the window of the claim → snap to the nearest (issue 074-F)."""
+    lines = ["    return", "x = 1", "    return", "y = 2"]  # "return" at lines 1 and 3
+    raw = [{"start_line": 2, "end_line": 2, "start_text": "    return", "title": "t", "explanation": "e"}]
+    steps = clean_steps(raw, lines)
+    assert steps == [{"start_line": 1, "end_line": 1, "title": "t", "explanation": "e"}]
+
+
+def test_clean_steps_keeps_claim_when_no_anchor() -> None:
+    """No start_text → no re-anchoring evidence → keep the clamped claim (don't gut the walkthrough)."""
+    lines = ["a", "b", "c"]
+    raw = [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
+    assert clean_steps(raw, lines) == [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
 
 
 # --- walkthrough agent -----------------------------------------------------

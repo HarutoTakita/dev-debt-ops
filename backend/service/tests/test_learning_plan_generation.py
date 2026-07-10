@@ -33,6 +33,11 @@ class TestCodeTitles:
         assert f("", "src/login.py") == "login の実装を理解する"  # 空 → 置換
         assert f(None, "src/login.py") == "login の実装を理解する"
 
+    def test_learnable_code_files_drops_init_and_main(self) -> None:
+        """__init__.py / __main__.py は学習対象から除外（「実装を理解する」対象として無意味）。"""
+        paths = ["src/pkg/__init__.py", "src/pkg/service.py", "src/__main__.py", "app/models.py"]
+        assert learning_plan_generation._learnable_code_files(paths) == ["src/pkg/service.py", "app/models.py"]
+
     def test_code_resources_fallback_titles_are_not_filenames(self) -> None:
         res = learning_plan_generation._code_resources([], ["src/a.py", "src/b.ts"])
         titles = [r["title"] for r in res]
@@ -48,6 +53,17 @@ class TestCodeTitles:
         by_ref = {r["source_ref"]: r for r in learning_plan_generation._code_resources(steps, ["src/a.py", "src/b.py"])}
         assert by_ref["src/a.py"]["title"] == "認証の流れを理解する"
         assert by_ref["src/b.py"]["title"] == "b の実装を理解する"
+
+    def test_code_resources_matches_despite_path_drift(self) -> None:
+        """`./` プレフィックスや basename だけの source_ref でも正規化/一意 basename で採用され、解説が保持される
+        （完全一致落ちで summary="" のファイル一覧に降格しない, issue 074-C）。"""
+        steps = [
+            {"source_ref": "./src/a.py", "title": "認証を理解する", "summary": "explA"},  # ./ プレフィックス
+            {"source_ref": "b.py", "title": "b を理解する", "summary": "explB"},  # basename のみ
+        ]
+        by_ref = {r["source_ref"]: r for r in learning_plan_generation._code_resources(steps, ["src/a.py", "src/b.py"])}
+        assert by_ref["src/a.py"]["summary"] == "explA"  # 正規化一致で解説が残る
+        assert by_ref["src/b.py"]["summary"] == "explB"  # 一意 basename 一致で解説が残る
 
 
 class _FakeClient:

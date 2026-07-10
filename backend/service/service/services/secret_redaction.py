@@ -54,10 +54,14 @@ _BEARER_PATTERN = re.compile(r"(?i)\b(bearer)\s+([A-Za-z0-9._\-]{16,})")
 # Assignment-style secrets: a key whose name looks secret, then ``:`` or ``=``, then a value.
 # The key + separator (+ optional quote) are kept; only the value is masked. The value class
 # excludes whitespace, quotes, ``#`` (comments) and the guillemets used by REDACTED.
+# The keyword is bounded by ``(?<![A-Za-z0-9])`` / ``(?![A-Za-z0-9])`` so it matches as a *whole token*
+# within the key (separated by ``._-`` or boundaries), not as an arbitrary substring — otherwise
+# ``tokenizer=``/``api_keyboard=``/``credentialsChecked=`` would be over-redacted (issue 078-H).
 _ASSIGNMENT_PATTERN = re.compile(
     r"(?i)(?P<key>[\w.\-]{0,40}?"
-    r"(?:passwd|password|secret|api[_-]?key|access[_-]?key|client[_-]?secret|"
-    r"auth[_-]?token|credentials?|token)[\w.\-]*)"
+    r"(?<![A-Za-z0-9])(?:passwd|password|secret|api[_-]?key|access[_-]?key|client[_-]?secret|"
+    r"auth[_-]?token|credentials?|token)(?![A-Za-z0-9])"
+    r"[\w.\-]*)"
     r"(?P<sep>\s*[:=]\s*)"
     r"(?P<quote>[\"']?)"
     r"(?P<value>[^\s\"'#«»]{6,})"
@@ -74,16 +78,28 @@ _DS_ENTROPY_MIN_LEN = 20
 _DS_MIN_LEN = 8
 
 
-def _is_allowlisted(value: str, allowlist: frozenset[str]) -> bool:
-    """True if ``value`` overlaps an allowlisted token (equal / substring either way).
+# A short allowlist token (branch "main"/"dev") must not spare a high-entropy secret merely because it
+# appears as a substring; only reasonably long coordinates may spare a value they're wholly inside.
+_ALLOWLIST_MIN_SUBSTR = 8
 
-    The allowlist carries caller-supplied known-safe identifiers — e.g. the repository owner / name /
-    ``owner/repo`` / branch the agent is told to analyse. These are author-controlled, not secrets,
-    but detect-secrets' entropy plugins flag slugs like ``owner/repo`` as high-entropy, which would
-    mask the coordinates the agent needs to call its tools (issue 225). Substring matching also spares
-    a flagged piece of an allowlisted token (e.g. just the owner out of ``owner/repo``).
+
+def _is_allowlisted(value: str, allowlist: frozenset[str]) -> bool:
+    """True if ``value`` is an allowlisted coordinate (or a fragment of one).
+
+    The allowlist carries caller-supplied known-safe identifiers — the repository owner / name /
+    ``owner/repo`` / branch the agent is told to analyse. detect-secrets' entropy plugins flag slugs
+    like ``owner/repo`` as high-entropy, which would mask the coordinates the agent needs (issue 225).
+    So: an exact match, or a detected value that is a fragment of an allowlisted token, is spared. But
+    the reverse (a token appearing *inside* a larger value) is only spared for tokens ≥
+    ``_ALLOWLIST_MIN_SUBSTR`` chars — otherwise short generic tokens like "main"/"dev" would spare any
+    secret that merely contains them, leaking it to the LLM (issue 078-G).
     """
-    return any(value in token or token in value for token in allowlist)
+    for token in allowlist:
+        if value == token or value in token:
+            return True
+        if len(token) >= _ALLOWLIST_MIN_SUBSTR and token in value:
+            return True
+    return False
 
 
 def _detect_secrets_pass(text: str, allowlist: frozenset[str]) -> tuple[str, int]:

@@ -38,6 +38,16 @@ def test_vertex_model_name_falls_back_to_bare_id_without_project(monkeypatch: py
     assert vertex_model_name() == "gemini-2.5-flash"
 
 
+def test_retry_status_aligned_and_covers_gateway_timeouts() -> None:
+    """Agent + backbone retry sets are identical and include 408/502/504 (issue 076-A)."""
+    from service.agents import model
+    from service.services import gemini_stack_service
+
+    expected = {408, 429, 500, 502, 503, 504}
+    assert set(model._AGENT_RETRY_STATUS) == expected
+    assert set(gemini_stack_service._RETRYABLE_STATUS) == expected
+
+
 # --- trace -----------------------------------------------------------------
 
 
@@ -128,6 +138,15 @@ def test_run_budget_model_and_file_caps() -> None:
         budget.charge_files(6)
 
 
+def test_run_budget_result_chars_is_advisory() -> None:
+    """Cumulative retained-result chars accumulate and flip ``result_chars_exceeded`` — never raise (076-D)."""
+    budget = RunBudget(max_result_chars=100)
+    budget.charge_result_chars(60)
+    assert not budget.result_chars_exceeded()
+    budget.charge_result_chars(60)  # 120 > 100 — advisory, no raise
+    assert budget.result_chars_exceeded()
+
+
 # --- hooks -----------------------------------------------------------------
 
 
@@ -178,6 +197,23 @@ def test_after_tool_callback_ignores_missing_or_unserializable() -> None:
     callback = make_after_tool_callback()
     assert callback() is None
     assert callback(tool_response=object()) is None
+
+
+def test_after_tool_callback_omits_once_cumulative_budget_exceeded() -> None:
+    """With a budget, results are omitted once cumulative retained chars pass max_result_chars (076-D)."""
+    from service.agents.hooks import make_after_tool_callback
+
+    budget = RunBudget(max_result_chars=50)
+    callback = make_after_tool_callback(budget)
+    # First result serialises past 50 chars → charged (pushes cumulative over the cap) but small enough
+    # per-result to pass through unchanged (None).
+    assert callback(tool_response={"x": "a" * 100}) is None
+    assert budget.result_chars_exceeded()
+    # Next result is omitted because the cumulative budget is already exceeded.
+    out = callback(tool_response={"y": "b"})
+    assert out is not None
+    assert out["truncated"] is True
+    assert "omitted" in out["result"]
 
 
 # --- tools (delegate to code_analysis) -------------------------------------

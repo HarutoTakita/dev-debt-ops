@@ -233,5 +233,12 @@
   "agent.hk_tool": "Ejecución de herramienta",
   "agent.harness_base": "La base que gobierna cada paso del agente de forma segura y estable mediante hooks before/after.",
   "agent.orch_role": "Supervisa y reparte",
-  "agent.mcp_ref": "Consulta las herramientas MCP en el momento adecuado"
+  "agent.mcp_ref": "Consulta las herramientas MCP en el momento adecuado",
+  "chat.title": "Asistente de uso",
+  "chat.demo": "⚠ Esta es una función de demostración. El chat con IA aún no está implementado (previsto para después del lanzamiento en producción). Las respuestas actuales son respuestas sencillas basadas en reglas.",
+  "chat.greeting": "¡Hola! Pregúntame lo que quieras sobre el uso de DevDebtOps: te guiaré por las pantallas y acciones principales.",
+  "chat.send": "Enviar",
+  "chat.suggest1": "¿Qué es el panel?",
+  "chat.suggest2": "Cómo leer el mapa de comprensión",
+  "chat.suggest3": "Enviar una sugerencia de mejora"
 }

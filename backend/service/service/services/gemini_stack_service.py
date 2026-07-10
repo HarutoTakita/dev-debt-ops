@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import random
 
 import google.auth
 import google.auth.exceptions
@@ -121,12 +122,14 @@ def _build_client() -> genai.Client:
     )
 
 
-# HTTP statuses worth retrying with backoff: 429 (RESOURCE_EXHAUSTED / quota & rate limits) and the
-# transient 5xx (500 INTERNAL, 502 Bad Gateway, 503 UNAVAILABLE, 504 Gateway Timeout) — Google's own
-# 502 body says "try again in 30 seconds". 4xx other than 429 are caller bugs — don't retry.
-_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+# HTTP statuses worth retrying with backoff: 408 (Request Timeout) + 429 (RESOURCE_EXHAUSTED / quota &
+# rate limits) and the transient 5xx (500 INTERNAL, 502 Bad Gateway, 503 UNAVAILABLE, 504 Gateway
+# Timeout) — Google's own 502 body says "try again in 30 seconds". Other 4xx are caller bugs — don't
+# retry. Kept identical to agents/model.py `_AGENT_RETRY_STATUS` (genai's default retriable set).
+_RETRYABLE_STATUS: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})
 _GENERATE_MAX_ATTEMPTS = 6
 _GENERATE_BASE_BACKOFF_SECONDS = 2.0
+_GENERATE_MAX_BACKOFF_SECONDS = 32.0
 
 
 def _is_retryable_generate_error(exc: Exception) -> bool:
@@ -167,7 +170,10 @@ async def _generate(
                 e,
             )
             if attempt < _GENERATE_MAX_ATTEMPTS - 1:
-                await asyncio.sleep(_GENERATE_BASE_BACKOFF_SECONDS * (2**attempt))
+                # equal jitter: 半分は指数バックオフ、残り半分を乱数化。多数の Gemini 呼びが同一クォータ窓に
+                # 一斉リトライ（thundering herd）して再枯渇するのを避け、分散させて回復確率を上げる。
+                delay = min(_GENERATE_MAX_BACKOFF_SECONDS, _GENERATE_BASE_BACKOFF_SECONDS * (2**attempt))
+                await asyncio.sleep(delay / 2 + random.uniform(0, delay / 2))
     if last is not None:
         raise last
     raise RuntimeError("Gemini generate_content failed without an exception")
@@ -197,7 +203,7 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return _empty_result()
     # Guard against valid-JSON-but-wrong-shape replies (e.g. a list/scalar) before save_stack
     # calls .get() on it — matches the dict guards in the sibling Gemini helpers (issue-045).
@@ -250,7 +256,7 @@ async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return probs
 
     if isinstance(raw, dict):
@@ -328,7 +334,7 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         raw = {}
     if not isinstance(raw, dict):
         raw = {}
@@ -342,13 +348,24 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
 
 
 _QUIZ_GEN_PROMPT = """\
-Generate a 5-question comprehension quiz (difficulties L1..L5) for this file.
+Generate a 5-question comprehension quiz (difficulties L1..L5) about the target below.
 
-=== {path} ===
+対象: {label}
+対象は 1 つのソースファイル、または機能の代表ファイル群です。ソースファイルは `=== <path> ===` という
+ブロックで示されます（各ブロックの <path> がそのコードの実ファイルパス）。
+
 {content}
 
 IMPORTANT — all learner-facing text (every "prompt" and every choice "label") MUST be written in
 Japanese (日本語). Do NOT write questions or choices in English.
+
+出題方針（重要）:
+- 各設問は「特定のコードの具体的な挙動」を問うこと（関数・メソッドの引数/戻り値、分岐条件、例外や
+  エラー処理、副作用、データの流れ、境界値・エッジケースなど）。
+- 「このファイル / 最初のコードブロックの主な目的は何か」のような、コードを読まずに答えられる抽象的・
+  要約的な設問は禁止。必ず該当コードの中身に踏み込むこと。
+- コードを指すときは「最初のコードブロック」等の曖昧な言い方をせず、具体的な関数名・クラス名・
+  ファイル名（=== <path> === の <path>）で指すこと。
 
 Every question MUST be objective and auto-gradable. Use ONLY these two kinds — never free text:
 - "multiple_choice": exactly ONE correct choice (rendered as radio buttons).
@@ -359,16 +376,16 @@ Return ONLY a valid JSON object — no markdown — with this exact schema:
 {{
   "questions": [
     {{"id": "q1", "kind": "multiple_choice|multiple_select", "prompt": "（日本語の設問文）",
-      "code_snippet": {{"language": "<上のファイルの言語>", "path": "{path}",
-        "content": "<上のファイルから、その設問が対象とする該当コードをそのまま数行コピー>"}},
+      "code_snippet": {{"language": "<該当コードの言語>", "path": "<該当コードの実ファイルパス>",
+        "content": "<設問が対象とする該当コードをそのまま数行コピー>"}},
       "choices": [{{"id": "a", "label": "（日本語の選択肢）"}}],
       "difficulty": "L1|L2|L3|L4|L5"}}
   ],
   "answer_key": {{"q1": {{"answer": "correct id(s)", "rubric": "grading criteria"}}}}
 }}
-各設問には必ず "code_snippet" を付け、"content" には上のファイルから設問が対象とする該当コードを
-そのまま（最大 25 行程度に）コピーすること。プレースホルダ（"..." 等）や空文字は禁止。各設問は必ずその
-該当コードについて問うこと。"language" はファイル拡張子に対応する言語、"path" は引用元ファイルのパス。
+各設問には必ず "code_snippet" を付け、"content" には設問が対象とする該当コードをそのまま（最大 25 行程度に）
+コピーすること。プレースホルダ（"..." 等）や空文字は禁止。"path" は該当コードの実ファイルパス（=== <path> ===
+の <path>。対象が単一ファイルなら {label}）。"language" はファイル拡張子に対応する言語。
 For "answer": multiple_choice = the single correct choice id (e.g. a); multiple_select = a
 comma-separated list of correct ids (e.g. a,c).
 Provide exactly 5 questions with ids q1..q5 spanning L1..L5.
@@ -390,10 +407,18 @@ Return ONLY a valid JSON object — no markdown — with this exact schema
 """
 
 
-async def generate_quiz(path: str, content: str) -> dict:
-    """Return ``{questions, answer_key}`` for a file (Gemini via Vertex AI). Empty on parse failure."""
+async def generate_quiz(label: str, content: str) -> dict:
+    """Return ``{questions, answer_key}`` for a target (Gemini via Vertex AI). Empty on parse failure.
+
+    ``label`` is the target name — a single file's path (file-scope) or a feature name (feature-scope,
+    where ``content`` already carries ``=== <path> ===`` file blocks). It is no longer injected as a
+    ``=== {path} ===`` wrapper, which previously nested a feature name over the file blocks and produced
+    generic "purpose of the first code block" questions.
+    """
     client = _build_client()
-    prompt = _QUIZ_GEN_PROMPT.format(path=path, content=content[:_MAX_FILE_CHARS])
+    # 切り詰め時はマーカーを付け、続きがあることをモデルに伝える（_build_file_section と同様, issue 074-E）。
+    clipped = content[:_MAX_FILE_CHARS] + ("\n... (truncated)" if len(content) > _MAX_FILE_CHARS else "")
+    prompt = _QUIZ_GEN_PROMPT.format(label=label, content=clipped)
     response = await _generate(
         client,
         model=config.gemini_model(),
@@ -402,7 +427,7 @@ async def generate_quiz(path: str, content: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"questions": [], "answer_key": {}}
     if not isinstance(raw, dict):
         return {"questions": [], "answer_key": {}}
@@ -421,7 +446,7 @@ async def grade_quiz(payload: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"score": 0.0, "understood": [], "gap_concepts": []}
     if not isinstance(raw, dict):
         return {"score": 0.0, "understood": [], "gap_concepts": []}
@@ -464,7 +489,7 @@ async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     resources = raw.get("resources") if isinstance(raw, dict) else None
     return resources if isinstance(resources, list) else []
@@ -513,7 +538,7 @@ async def generate_code_learning_steps(
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     steps = raw.get("steps") if isinstance(raw, dict) else None
     return steps if isinstance(steps, list) else []
@@ -557,7 +582,7 @@ async def generate_code_walkthrough(path: str, content: str, *, max_steps: int =
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     steps = raw.get("steps") if isinstance(raw, dict) else None
     return steps if isinstance(steps, list) else []
@@ -593,7 +618,7 @@ async def generate_agent_narrative(kind: str, summary: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"headline": "", "steps": []}
     if not isinstance(raw, dict):
         return {"headline": "", "steps": []}
@@ -658,7 +683,7 @@ async def cluster_features(paths: list[str], edges: list[tuple[str, str]]) -> li
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     if not isinstance(raw, dict):
         return []

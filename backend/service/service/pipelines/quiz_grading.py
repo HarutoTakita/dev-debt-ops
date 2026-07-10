@@ -32,16 +32,23 @@ logger = logging.getLogger(__name__)
 
 
 def _choice_matches(expected: object, given: object) -> bool:
-    """Match a stored answer (``str`` for single-choice, ``list`` for multi) against a saved value.
+    """Match a stored answer against a saved value; shape-agnostic for multi-select (issue 074).
 
-    Multi-select answers are persisted as a comma-separated string of choice ids (issue 040).
+    Multi-select answers may be persisted as a Python list (some seeds) OR a comma-separated string
+    (the model / issue 040). Compare as a set of choice ids in both cases so id order / spacing don't
+    mark a correct answer wrong. Single-choice → trimmed string equality.
     """
     if given is None:
         return False
-    if isinstance(expected, list):
+    if isinstance(expected, list) or "," in str(expected) or "," in str(given):
+        exp = (
+            {str(e).strip() for e in expected}
+            if isinstance(expected, list)
+            else {p.strip() for p in str(expected).split(",") if p.strip()}
+        )
         chosen = {p.strip() for p in str(given).split(",") if p.strip()}
-        return chosen == {str(e) for e in expected}
-    return str(given).strip() == str(expected)
+        return chosen == exp
+    return str(given).strip() == str(expected).strip()
 
 
 def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> dict:
@@ -60,17 +67,15 @@ def _grade_offline(questions: list, answer_key: dict, answers: list[dict]) -> di
     correct_by_qid: dict[str, bool] = {}
     for q in questions:
         if not isinstance(q, dict):
-            continue
+            continue  # 本物の設問でない（壊れた要素）はスキップ
         qid = q.get("id")
-        key = answer_key.get(qid)
-        if not isinstance(key, dict):
-            continue
-        expected = key.get("answer")
-        if expected is None:
-            continue
         total += 1
         concept = {"id": str(qid), "label": q.get("prompt") or str(qid)}
-        is_correct = _choice_matches(expected, given.get(qid))
+        key = answer_key.get(qid)
+        expected = key.get("answer") if isinstance(key, dict) else None
+        # answer_key が無い / answer が None の設問は採点不能。分母から落とすとスコアが水増しされる
+        # （例: 5 問中 1 問無キー・4 問正解 → 4/4=1.0）ため、不正解として計上する（issue 074-B）。
+        is_correct = _choice_matches(expected, given.get(qid)) if expected is not None else False
         correct_by_qid[str(qid)] = is_correct
         if is_correct:
             correct += 1

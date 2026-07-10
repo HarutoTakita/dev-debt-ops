@@ -8,9 +8,10 @@ from google.genai import Client, types
 
 from service import config
 
-# 429/5xx に対する自動リトライ（指数バックオフ）。バックボーン側 (gemini_stack_service._generate) と
-# 同等の設定。タイムアウトと併用することで「応答が来ない無限待ち」も「瞬間的なクォータ超過」も両方を吸収。
-_AGENT_RETRY_STATUS = [429, 500, 503]
+# 429/5xx に対する自動リトライ（指数バックオフ）。バックボーン側 (gemini_stack_service._RETRYABLE_STATUS) と
+# 同一集合。408 Request Timeout・502 Bad Gateway・504 Gateway Timeout も transient として再試行する
+# （genai 既定の再試行集合と一致）。タイムアウトと併用し「無限待ち」も「瞬間的なクォータ超過/ゲートウェイ blip」も吸収。
+_AGENT_RETRY_STATUS = [408, 429, 500, 502, 503, 504]
 _AGENT_RETRY_ATTEMPTS = 6
 
 
@@ -74,6 +75,7 @@ def build_agent_model() -> _BoundedGemini:
             initial_delay=2.0,
             max_delay=32.0,
             exp_base=2.0,
+            jitter=1.0,  # リトライ遅延を乱数化し同時多発時の集中（thundering herd）を回避（既定 1.0 を明示）
             http_status_codes=_AGENT_RETRY_STATUS,
         ),
     )

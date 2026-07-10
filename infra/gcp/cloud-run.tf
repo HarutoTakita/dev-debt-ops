@@ -29,6 +29,7 @@ locals {
     FRONTEND_ORIGIN          = var.domain != "" ? "https://${var.domain}" : "http://localhost:5173"
     SERVICE_OIDC_AUDIENCE    = local.service_oidc_audience
     ANALYSIS_CREDITS_ENABLED = tostring(var.analysis_credits_enabled)
+    ANALYSIS_CREDITS_INITIAL = tostring(var.analysis_credits_initial)
     ADMIN_EMAILS             = var.admin_emails
     # ゲストデモ入口（ログインの「お試しはこちら」）を出すか。/api/v1/config で公開され、フロントが表示判定に使う（issue 069）。
     DEMO_MODE_ENABLED = tostring(var.demo_mode_enabled)

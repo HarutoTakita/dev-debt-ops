@@ -46,7 +46,7 @@ from service.pipelines import (
 from service.pipelines.progress import AGENTIC_STEPS, ProgressReporter
 from service.services import code_graph, function_graph, repo_checkout, trivy_scan
 from service.services.github_app import GitHubAppService
-from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient
+from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient, LocalCloneGitHubClient
 from shared.enums import JobType, ResultStatus
 from shared.models import BaseAnalysisSnapshot, CodeGraph
 from shared.pipelines.context import PipelineContext
@@ -134,22 +134,33 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     base_analysis = BaseAnalysis()
     budget = RunBudget()
     token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
-    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
-    # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもグラフ無しで継続（graceful）。CGC スナップショット
-    # ＋ clone からの決定的スナップショット（issue 250）をマージし、CGC が索引失敗/関数 0 件でも理解度マップの
-    # L2/L3 が「どんな repo でも」表示される。マージ結果が空＝一時的失敗のときは上書きせず前回を温存。
-    cgc_snapshot: dict = {}
-    if repo_dir is not None and await code_graph.build_graph(repo_dir):
-        cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
-    det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
-    snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
-    if snapshot:
-        await _persist_code_graph(session, request.project_id, snapshot)
-    # Trivy SCA/secret/misconfig (issue 278): a deterministic scan over the SAME clone (no extra
-    # checkout). Runs regardless of the agent outcome; graceful []. Fed into the code-debt block below.
-    trivy_findings: list[trivy_scan.TrivyAggregate] = await trivy_scan.scan_repo(repo_dir) if repo_dir else []
+
+    # 長時間 run（clone+エージェント+バックボーン+機能別生成）が ~1h のトークン TTL を超えても 401 で止まらないよう、
+    # 401 時に再発行するプロバイダを渡す（issue 078-D）。
+    async def _refresh_token() -> str:
+        return await _mint_installation_token(request.github)
+
+    client = GitHubGitClient(access_token=token, token_provider=_refresh_token)
+    # clone から run_analysis_agent までを 1 つの try/finally で囲む（issue 078-C）。以前は clone の後・try の前で
+    # グラフ構築 / _persist_code_graph(DB) / Trivy が未ガードに走り、そこで例外が出るとクローン＋git クライアントが
+    # 残留していた。repo_dir/trivy_findings は try 前に初期化し、finally が全経路で cleanup する。
+    repo_dir: str | None = None
+    trivy_findings: list[trivy_scan.TrivyAggregate] = []
     try:
+        repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
+        # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもグラフ無しで継続（graceful）。CGC スナップ
+        # ショット＋clone からの決定的スナップショット（issue 250）をマージし、CGC が索引失敗/関数 0 件でも理解度
+        # マップの L2/L3 が「どんな repo でも」表示される。マージ結果が空＝一時的失敗のときは上書きせず前回を温存。
+        cgc_snapshot: dict = {}
+        if repo_dir is not None and await code_graph.build_graph(repo_dir):
+            cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
+        det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
+        snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
+        if snapshot:
+            await _persist_code_graph(session, request.project_id, snapshot)
+        # Trivy SCA/secret/misconfig (issue 278): a deterministic scan over the SAME clone (no extra
+        # checkout). Runs regardless of the agent outcome; graceful []. Fed into the code-debt block below.
+        trivy_findings = await trivy_scan.scan_repo(repo_dir) if repo_dir else []
         agent_trace, base_analysis = await run_analysis_agent(
             client=client,
             owner=request.owner,
@@ -163,17 +174,17 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             await _persist_base_analysis(session, request.project_id, base_analysis)
         await reporter.complete("base_analysis")
     except Exception as exc:
-        # ベース解析エージェントはベストエフォート。Gemini の一時障害（502/503/500 等）やツール失敗で例外化しても、
-        # 決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失って解析全体を FAILED＝run_task が全 flush を
-        # ロールバック、にしてはならない。ログを残し、元データ無しで決定的バックボーンを実行して COMPLETED に確定する。
-        logger.exception("base analysis agent failed; continuing with the deterministic backbone")
+        # ベース解析（＋事前のグラフ/Trivy）はベストエフォート。Gemini の一時障害やツール/グラフ/クローン失敗で
+        # 例外化しても、決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失わせない（run_task の全 flush
+        # ロールバック＝解析全体 FAILED を避ける）。ログを残し、元データ無しで続行し COMPLETED に確定する。
+        logger.exception("base analysis / pre-analysis step failed; continuing with the deterministic backbone")
         agent_trace = [f"[analysis_agent] failed: {exc}"]
         base_analysis = BaseAnalysis()
         await reporter.fail("base_analysis")
     finally:
+        # エージェント用クライアントは閉じるが、clone は消さない — バックボーンがローカル読み取りに再利用する
+        # （下記）。clone / per-run KuzuDB の削除は解析完了後の最終 finally に集約した。
         await client.aclose()
-        if repo_dir is not None:
-            shutil.rmtree(repo_dir, ignore_errors=True)
 
     # 2) Deterministic backbone — each sub-pipeline runs under THIS job_id, creating its own
     # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
@@ -181,8 +192,18 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # 取得の共通化: バックボーン全体で 1 つの読み取りキャッシュ付き GitHub クライアントを共有し、各ステップが
     # 個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を 1 回に集約する。標準呼び出し
     # （各パイプライン単体）では ctx.github_client は None のまま＝各自で取得する従来どおりの動作になる。
-    ctx.github_client = CachingGitHubGitClient(access_token=await _mint_installation_token(request.github))
+    # clone がある場合は LocalCloneGitHubClient でツリー/ファイル取得をローカルに向ける（Contents API の
+    # per-file 呼び出し＝502 の主因・REST レート枠の大半を排除。blame/list_commits は API のまま＝浅い clone に
+    # 履歴が無く、blame は別枠の GraphQL）。clone 失敗時は従来どおり API 版にフォールバック。
     try:
+        # クライアント生成（トークンのミント含む）も try 内で行い、失敗しても finally が clone を回収する。
+        stack_token = await _mint_installation_token(request.github)
+        if repo_dir is not None:
+            ctx.github_client = LocalCloneGitHubClient(
+                repo_dir, access_token=stack_token, token_provider=_refresh_token
+            )
+        else:
+            ctx.github_client = CachingGitHubGitClient(access_token=stack_token, token_provider=_refresh_token)
         fc_req = FeatureClusteringRequest(
             job_id=request.job_id,
             job_type=JobType.FEATURE_CLUSTERING,
@@ -283,9 +304,14 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         )
         await reporter.complete("baseline")
     finally:
-        # 共有クライアントを必ず閉じる。
-        await ctx.github_client.aclose()
+        # 共有クライアントを必ず閉じ、clone / per-run KuzuDB（issue 078-A）をここで片付ける（バックボーンの
+        # ローカル読み取りが終わるまで clone を生存させるため、cleanup をエージェントブロックから最終へ移動）。
+        if ctx.github_client is not None:  # トークンのミント失敗などで未生成のことがある
+            await ctx.github_client.aclose()
         ctx.github_client = None
+        if repo_dir is not None:
+            shutil.rmtree(repo_dir, ignore_errors=True)
+            shutil.rmtree(code_graph.kuzudb_path_for(repo_dir), ignore_errors=True)
 
     all_trace = agent_trace + steps
     summary = agent_trace[-1] if agent_trace else (steps[-1] if steps else "analysis produced no trace")

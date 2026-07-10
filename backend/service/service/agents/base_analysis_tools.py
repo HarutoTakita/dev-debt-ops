@@ -87,7 +87,7 @@ _AUTHOR_INSTRUCTION = """\
 あなたは解析結果を確定するエージェントです。直前の探索でまとめた所見が以下にあります:
 
 <exploration>
-{exploration}
+{exploration?}
 </exploration>
 
 この所見に基づき、【必ず一度だけ】save_base_analysis を呼んで元データを確定してください。各引数のスキーマ:
@@ -182,6 +182,9 @@ def build_analysis_agent(
     github_toolset: McpToolset | None = None,
     code_graph_toolset: McpToolset | None = None,
     repo_dir: str | None = None,
+    owner: str = "",
+    repo: str = "",
+    branch: str = "main",
 ) -> SequentialAgent:  # ty: ignore[deprecated]
     """Build the two-stage Base Analysis Agent (explorer → author).
 
@@ -189,8 +192,11 @@ def build_analysis_agent(
     author gets only ``save_base_analysis`` and reads the explorer's findings from session state
     (``{exploration}``). Deterministic measurement (KC / complexity / semgrep) is intentionally NOT
     exposed here — those run as their own program blocks after this agent.
+
+    ``owner``/``repo``/``branch`` bind the run's repository into the exploration tools (issue 077-C) so
+    the LLM can't read the wrong branch — the tools take no repo coordinates from the model.
     """
-    explorer_tools: list[Any] = list(build_repo_tools(client, budget))
+    explorer_tools: list[Any] = list(build_repo_tools(client, budget, owner=owner, repo=repo, branch=branch))
     for toolset in (serena_toolset, github_toolset, code_graph_toolset):
         if toolset is not None:
             explorer_tools.append(toolset)
@@ -209,15 +215,20 @@ def build_analysis_agent(
         before_tool_callback=make_before_tool_callback(budget),
         before_model_callback=make_before_model_callback(budget),
         # 大きなツール結果を切り詰め、多ターンで履歴が肥大しリクエストが膨らむ（コスト増・502/timeout）のを防ぐ。
-        after_tool_callback=make_after_tool_callback(),
+        # budget を渡すと累積文字数もガードする（issue 076-D）。
+        after_tool_callback=make_after_tool_callback(budget),
     )
+    # 著者ステージは explorer と独立した予算にする（issue 076-C）。explorer が共有予算を使い切っても、確定用の
+    # save_base_analysis（モデル呼び出し＋tool 呼び出し）が予算超過で弾かれて空 BaseAnalysis になるのを防ぐ。
+    # 著者は「探索結果を読んで save を 1 回呼ぶ」だけなので少額で十分。
+    author_budget = RunBudget(max_tool_calls=8, max_model_calls=12)
     author = LlmAgent(
         model=build_agent_model(),
         name="base_author",
         instruction=_AUTHOR_INSTRUCTION,
         tools=[_make_save_base_analysis(captured)],
-        before_tool_callback=make_before_tool_callback(budget),
-        before_model_callback=make_before_model_callback(budget),
-        after_tool_callback=make_after_tool_callback(),
+        before_tool_callback=make_before_tool_callback(author_budget),
+        before_model_callback=make_before_model_callback(author_budget),
+        after_tool_callback=make_after_tool_callback(author_budget),
     )
     return SequentialAgent(name="base_analysis_pipeline", sub_agents=[explorer, author])  # ty: ignore[deprecated]

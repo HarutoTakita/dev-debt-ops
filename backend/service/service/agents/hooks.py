@@ -53,13 +53,17 @@ def make_before_model_callback(budget: RunBudget) -> Callable[..., None]:
     return before_model_callback
 
 
-def make_after_tool_callback() -> Callable[..., dict[str, object] | None]:
+def make_after_tool_callback(budget: RunBudget | None = None) -> Callable[..., dict[str, object] | None]:
     """Build an ADK ``after_tool_callback`` that truncates oversized tool results.
 
     ADK calls it as ``cb(tool=, args=, tool_context=, tool_response=...)`` and uses a non-``None``
     return to REPLACE the tool result. We return a bounded stand-in only when a result serialises
     beyond ``_MAX_TOOL_RESULT_CHARS`` (so small results pass through unchanged, preserving shape),
     keeping the accumulated conversation context — and thus each model request — from ballooning.
+
+    When ``budget`` is given (issue 076-D), the retained per-result chars are charged to a cumulative
+    counter; once ``max_result_chars`` is passed, further results are omitted (compacted to a short
+    stand-in) so the multi-turn history can't grow without bound even under the per-result cap.
     """
 
     def after_tool_callback(*_args: object, **kwargs: object) -> dict[str, object] | None:
@@ -70,6 +74,15 @@ def make_after_tool_callback() -> Callable[..., dict[str, object] | None]:
             serialized = json.dumps(response, ensure_ascii=False, default=str)
         except (TypeError, ValueError):
             return None  # not serialisable → leave ADK's original handling untouched
+        if budget is not None:
+            # 累積が上限を超えたら、この結果は本文を送らず omit する（コンテキストの無制限成長を止める）。
+            if budget.result_chars_exceeded():
+                return {
+                    "result": "… (omitted: agent context budget reached)",
+                    "truncated": True,
+                    "original_chars": len(serialized),
+                }
+            budget.charge_result_chars(min(len(serialized), _MAX_TOOL_RESULT_CHARS))
         if len(serialized) <= _MAX_TOOL_RESULT_CHARS:
             return None  # small enough — keep the exact original result
         return {

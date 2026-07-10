@@ -41,6 +41,16 @@ async def test_list_users_and_grant_credits(monkeypatch: pytest.MonkeyPatch) -> 
         granted = await client.post(f"/api/v1/users/{me['id']}/credits", json={"amount": 3})
         assert granted.status_code == 200, granted.text
         assert granted.json()["analysis_credits"] == 3
+
+        # 負の delta で減算できる（issue: 管理者がクレジットを減らせる）。
+        reduced = await client.post(f"/api/v1/users/{me['id']}/credits", json={"amount": -2})
+        assert reduced.status_code == 200, reduced.text
+        assert reduced.json()["analysis_credits"] == 1
+
+        # 過剰な減算でも残高は 0 未満にならずクランプされる。
+        clamped = await client.post(f"/api/v1/users/{me['id']}/credits", json={"amount": -5})
+        assert clamped.status_code == 200, clamped.text
+        assert clamped.json()["analysis_credits"] == 0
     finally:
         await client.aclose()
 

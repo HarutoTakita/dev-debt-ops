@@ -88,7 +88,10 @@ async def test_generation_feature_scope_builds_quiz(
     async def _fake_gen(label: str, content: str) -> dict:
         seen["label"] = label
         seen["content"] = content
-        return {"questions": [{"id": "q1", "kind": "free_text", "prompt": "?", "difficulty": "L1"}], "answer_key": {}}
+        return {
+            "questions": [{"id": "q1", "kind": "multiple_choice", "prompt": "?", "difficulty": "L1"}],
+            "answer_key": {"q1": {"answer": "a", "rubric": ""}},
+        }
 
     async def _empty_agent(*args: object, **kwargs: object) -> dict:
         return {}  # force the agentic path to fall back to the (patched) direct generate_quiz
@@ -133,6 +136,139 @@ async def test_generation_feature_scope_builds_quiz(
     assert "src/auth.py" in seen["content"]
     assert "src/token.py" in seen["content"]
     assert "Authentication" in seen["content"]
+
+
+async def test_generation_feature_no_code_skips(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """A feature with no code content (no FeatureFile rows) skips generation rather than hallucinating (074-D)."""
+    project_id, developer_id = uuid.uuid4(), uuid.uuid4()
+    feature_id = await _seed_feature(session_maker, project_id, [])  # ファイル無し = コンテキスト空
+
+    called = {"gen": False}
+
+    async def _fake_mint(github: GitHubRef) -> str:
+        return "tok"
+
+    async def _fake_gen(label: str, content: str) -> dict:
+        called["gen"] = True
+        return {
+            "questions": [{"id": "q1", "kind": "multiple_choice", "prompt": "?", "difficulty": "L1"}],
+            "answer_key": {"q1": {"answer": "a", "rubric": ""}},
+        }
+
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}
+
+    monkeypatch.setattr(quiz_generation, "_mint_installation_token", _fake_mint)
+    monkeypatch.setattr(quiz_generation, "GitHubGitClient", lambda access_token: _FakeClient())
+    monkeypatch.setattr(quiz_authoring, "_run_quiz_agent", _empty_agent)
+    monkeypatch.setattr(gemini_stack_service, "generate_quiz", _fake_gen)
+
+    async with session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=developer_id,
+            file_path="",
+            repo_full_name="acme/rosetta",
+            granularity="feature",
+            feature_id=feature_id,
+            status="not_started",
+        )
+        session.add(qs)
+        await session.commit()
+        sid = qs.id
+
+    req = QuizGenerationRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GENERATION,
+        session_id=str(sid),
+        project_id=str(project_id),
+        file_path="",
+        repo_full_name="acme/rosetta",
+        github=GitHubRef(installation_id=1),
+        requested_by="u",
+        granularity="feature",
+        feature_id=str(feature_id),
+    )
+    async with session_maker() as session:
+        result = await quiz_generation.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.question_count == 0  # 生成をスキップ
+    assert called["gen"] is False  # Gemini を呼んでいない
+    async with session_maker() as session:
+        qs = (await session.execute(select(QuizSession).where(QuizSession.id == sid))).scalar_one()
+        assert not qs.questions
+
+
+async def test_feature_content_truncates_with_marker(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """Per-file content is clipped with a `... (truncated)` marker so the model knows it was cut (074-E)."""
+    from service.pipelines.quiz_generation import _MAX_FEATURE_FILE_CHARS
+
+    project_id, developer_id = uuid.uuid4(), uuid.uuid4()
+    feature_id = await _seed_feature(session_maker, project_id, ["src/big.py"])
+
+    class _BigClient:
+        async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
+            return FileContent(path=path, content="x = 1\n" * (_MAX_FEATURE_FILE_CHARS), sha="s", size=10)
+
+        async def aclose(self) -> None:
+            return None
+
+    seen: dict[str, str] = {}
+
+    async def _fake_mint(github: GitHubRef) -> str:
+        return "tok"
+
+    async def _fake_gen(label: str, content: str) -> dict:
+        seen["content"] = content
+        return {
+            "questions": [{"id": "q1", "kind": "multiple_choice", "prompt": "?", "difficulty": "L1"}],
+            "answer_key": {"q1": {"answer": "a", "rubric": ""}},
+        }
+
+    async def _empty_agent(*args: object, **kwargs: object) -> dict:
+        return {}
+
+    monkeypatch.setattr(quiz_generation, "_mint_installation_token", _fake_mint)
+    monkeypatch.setattr(quiz_generation, "GitHubGitClient", lambda access_token: _BigClient())
+    monkeypatch.setattr(quiz_authoring, "_run_quiz_agent", _empty_agent)
+    monkeypatch.setattr(gemini_stack_service, "generate_quiz", _fake_gen)
+
+    async with session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=developer_id,
+            file_path="src/big.py",
+            repo_full_name="acme/rosetta",
+            granularity="feature",
+            feature_id=feature_id,
+            status="not_started",
+        )
+        session.add(qs)
+        await session.commit()
+        sid = qs.id
+
+    req = QuizGenerationRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.QUIZ_GENERATION,
+        session_id=str(sid),
+        project_id=str(project_id),
+        file_path="src/big.py",
+        repo_full_name="acme/rosetta",
+        github=GitHubRef(installation_id=1),
+        requested_by="u",
+        granularity="feature",
+        feature_id=str(feature_id),
+    )
+    async with session_maker() as session:
+        await quiz_generation.process(req, PipelineContext(session=session))
+        await session.commit()
+
+    assert "... (truncated)" in seen["content"]
 
 
 async def test_grading_feature_expands_kc_to_all_files(session_maker: async_sessionmaker) -> None:

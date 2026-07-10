@@ -13,6 +13,7 @@ if the plan already has steps, skip (the whole build commits once, so a failed r
 
 import asyncio
 import logging
+import posixpath
 import uuid
 from datetime import UTC, datetime
 
@@ -26,6 +27,7 @@ from service.services.code_analysis import is_vendored_path
 from service.services.code_walkthrough import build_walkthrough
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
+from shared.analysis_scope import is_learnable_path
 from shared.enums import JobType, ResultStatus
 from shared.models import Feature, FeatureFile, LearningPlan, LearningResource, LearningStep, TechStack
 from shared.pipelines.context import PipelineContext
@@ -37,6 +39,15 @@ logger = logging.getLogger(__name__)
 _PRIORITY_RANK = {"required": 0, "recommended": 1, "supplementary": 2, "hands_on": 3}
 _SOURCE_EXTS = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".java")
 _MAX_TEAM = 12
+
+
+def _learnable_code_files(paths: list[str]) -> list[str]:
+    """Drop boilerplate (``__init__.py`` / ``__main__.py``) that has no implementation worth studying.
+
+    The scope rule lives in ``shared.analysis_scope`` so the galaxy map labels the same files 対象外
+    (``out_of_scope``) rather than 未着手 — one source of truth, no drift.
+    """
+    return [p for p in paths if is_learnable_path(p)]
 
 
 async def _mint_installation_token(github: GitHubRef) -> str:
@@ -131,14 +142,34 @@ def _clean_step_title(title: object, path: str) -> str:
     return t
 
 
+def _match_code_file(sr: object, norm_to_canon: dict[str, str], base_to_canon: dict[str, list[str]]) -> str | None:
+    """Resolve a model-returned ``source_ref`` to a canonical repo path (issue 074-C).
+
+    Exact-set membership dropped every step on any path-format drift (``./`` prefix, separators,
+    repo- vs feature-relative). Normalize via ``posixpath.normpath`` first, then fall back to a
+    *uniquely* matching basename so near-miss paths keep their Gemini explanations. Returns ``None``
+    when it can't be resolved (so it's skipped, not mismapped to the wrong file).
+    """
+    if not isinstance(sr, str) or not sr:
+        return None
+    canon = norm_to_canon.get(posixpath.normpath(sr))
+    if canon is not None:
+        return canon
+    candidates = base_to_canon.get(sr.rsplit("/", 1)[-1], [])
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def _code_resources(steps: list[dict], code_files: list[str]) -> list[dict]:
     """Map Gemini code-learning steps to Section A (code) resources; fall back to listing files when empty."""
-    valid = set(code_files)
+    norm_to_canon = {posixpath.normpath(p): p for p in code_files}
+    base_to_canon: dict[str, list[str]] = {}
+    for p in code_files:
+        base_to_canon.setdefault(p.rsplit("/", 1)[-1], []).append(p)
     out: list[dict] = []
     seen: set[str] = set()
     for s in steps:
-        sr = s.get("source_ref")
-        if not isinstance(sr, str) or sr not in valid or sr in seen:
+        sr = _match_code_file(s.get("source_ref"), norm_to_canon, base_to_canon)
+        if sr is None or sr in seen:
             continue
         seen.add(sr)
         out.append(
@@ -300,6 +331,9 @@ async def process(request: LearningPlanGenerationRequest, ctx: PipelineContext) 
                 await client.aclose()
         code_name = request.gap_concepts[0] if request.gap_concepts else "コード理解"
         code_desc = ""
+    # __init__.py / __main__.py を学習対象から除外（両分岐の合流点で 1 回。Gemini 入力・_code_resources の
+    # マッチング/フォールバックすべてに効く）。
+    code_files = _learnable_code_files(code_files)
     # 学習ステップ/外部リソースはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。各 1 呼び出し。
     plan_owner, _, plan_repo = request.repo_full_name.partition("/")
     try:

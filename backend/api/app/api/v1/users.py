@@ -230,7 +230,7 @@ async def set_user_role(
 @router.post(
     "/{user_id}/credits",
     response_model=UserRead,
-    summary="Grant analysis credits to a user",
+    summary="Adjust analysis credits for a user",
     response_description="Updated user record with the new balance.",
     responses={
         status.HTTP_404_NOT_FOUND: {"description": "User not found."},
@@ -239,15 +239,16 @@ async def set_user_role(
     },
 )
 async def grant_user_credits(
-    user_id: Annotated[uuid.UUID, Path(description="UUID of the user receiving credits.")],
+    user_id: Annotated[uuid.UUID, Path(description="UUID of the user whose credits are adjusted.")],
     body: UserCreditsGrant,
     _admin: CurrentSuperuser,
     session: SessionDep,
 ) -> User:
-    """Add ``amount`` repository-analysis credits to a user's balance (superuser only, issue 298).
+    """Adjust a user's repository-analysis credits by a signed delta (superuser only, issue 298).
 
-    This is the manual top-up path (a future admin screen will call it). Credits start at 0, so a
-    user cannot run analysis until an admin grants some (when ``ANALYSIS_CREDITS_ENABLED``).
+    Positive ``amount`` grants (the manual top-up path); negative deducts. The balance is clamped to
+    ``>= 0`` so an over-deduction just zeroes it. Credits start at 0, so a user cannot run analysis
+    until an admin grants some (when ``ANALYSIS_CREDITS_ENABLED``).
 
     Raises:
         NotFoundError: If no user with ``user_id`` exists.
@@ -255,7 +256,7 @@ async def grant_user_credits(
     user = await session.get(User, user_id)
     if user is None:
         raise NotFoundError("user not found")
-    user.analysis_credits += body.amount
+    user.analysis_credits = max(0, user.analysis_credits + body.amount)
     session.add(user)
     await session.commit()
     await session.refresh(user)

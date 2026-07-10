@@ -53,6 +53,9 @@ class SecretRedactionPlugin(BasePlugin):
         super().__init__(name=name)
         self.redacted = 0
         self._allowlist = frozenset(token for token in allowlist if token)
+        # 既にマスク済みの contents 数（issue 076-G）。ADK は毎回全履歴を再送するので、末尾に増えた新規分だけを
+        # 走査し、過去 content の O(履歴) 再スキャン（DLP 有効時はコスト/クォータ増）を避ける。
+        self._scanned = 0
 
     async def before_model_callback(
         self, *, callback_context: CallbackContext, llm_request: LlmRequest
@@ -62,7 +65,9 @@ class SecretRedactionPlugin(BasePlugin):
         part 単位でマスクする（各パートは after_tool_callback の上限で ~12k に収まり、DLP の ~0.5MB 上限に安全）。
         DLP は ``deidentify`` 内で有効時のみ呼ばれ、失敗時はローカルのルールベース PII にフォールバックする。
         """
-        for content in llm_request.contents or []:
+        contents = llm_request.contents or []
+        # 末尾の新規 content のみ走査する（過去分は前回までにマスク済み。secret は content 追加時に必ず処理される）。
+        for content in contents[self._scanned :]:
             for part in getattr(content, "parts", None) or []:
                 text = getattr(part, "text", None)
                 if isinstance(text, str) and text:
@@ -70,4 +75,5 @@ class SecretRedactionPlugin(BasePlugin):
                     if count:
                         part.text = masked
                         self.redacted += count
+        self._scanned = len(contents)
         return None

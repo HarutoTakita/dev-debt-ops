@@ -12,7 +12,6 @@
   import History from "@lucide/svelte/icons/history";
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
-  import { goto } from "$app/navigation";
   import { cn } from "$lib/utils";
   import * as Tooltip from "$lib/components/ui/tooltip";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
@@ -33,28 +32,19 @@
   import * as m from "$lib/paraglide/messages";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
   import { shellMenus } from "$lib/stores/shell-menus.svelte";
-  import { tourSteps, noProjectSteps } from "$lib/components/onboarding/tour-steps";
+  import { startGuideFor } from "$lib/components/onboarding/onboarding-launch";
   import ProjectNavGroup from "./project-nav-group.svelte";
   import ChangelogDialog from "./changelog-dialog.svelte";
 
   const orgSlug = $derived(page.params.org ?? "");
   const currentId = $derived(project.current?.id);
   // ヘルプ（オンボーディングガイドの再生 / LP）。「...」と同様のドロップダウンから選ぶ。
-  // プロジェクト選択画面（未選択）でガイドを開始すると、ハイライト対象（サイドバーのプロジェクト配下メニュー）
-  // が存在せずガイドブロックが全て中央表示になり、詳細ガイドの route も projectSlug 空で 404 になる。
-  // そのため、未選択ならトップのプロジェクトを 1 つ選んでから開始する（issue 066 追補）。
+  // 起動の出し分け（デモ→EC デモ / 未解析→解析のみ案内 / 通常→PC・モバイル）は onboarding-launch に集約。
   async function startGuide() {
-    // プロジェクトが 1 つも無い場合、tourSteps は全ステップがプロジェクト配下 route へ遷移するため
-    // projectSlug 空で不正遷移しフリーズする。0 件時は「新規プロジェクト作成」へ誘導するガイドを出す。
-    if (!project.current && project.list.length === 0) {
-      onboarding.start(noProjectSteps);
-      return;
-    }
-    if (!project.current) {
-      const top = project.list[0];
-      if (top) await goto(resolve(`/${orgSlug}/${top.slug}`));
-    }
-    onboarding.start(tourSteps);
+    // モバイル: サイドバーは Sheet（モーダル）ドロワー内にある。開いたままだとツアーのオーバーレイが
+    // モーダルの inert / aria-hidden 対象になり表示・操作できない。先にドロワーを閉じてから開始する。
+    sidebar.mobileOpen = false;
+    await startGuideFor(orgSlug);
   }
   // 変更履歴（CHANGELOG）を中央モーダルで表示する。開閉は shellMenus と共有（ガイドが開いて説明する）。
 

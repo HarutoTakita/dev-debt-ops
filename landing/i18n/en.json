@@ -233,5 +233,12 @@
   "agent.hk_tool": "Tool call",
   "agent.harness_base": "The foundation that governs every agent step safely and reliably via before/after hooks.",
   "agent.orch_role": "Oversees & dispatches",
-  "agent.mcp_ref": "References MCP tools at the right time"
+  "agent.mcp_ref": "References MCP tools at the right time",
+  "chat.title": "How-to assistant",
+  "chat.demo": "⚠ This is a demo feature. The AI chat is not yet implemented (planned for after the production release). Replies are simple rule-based responses.",
+  "chat.greeting": "Hi! Ask me anything about using DevDebtOps — I'll guide you to the right screens and actions.",
+  "chat.send": "Send",
+  "chat.suggest1": "What is the dashboard?",
+  "chat.suggest2": "How to read the understanding map",
+  "chat.suggest3": "Send an improvement request"
 }

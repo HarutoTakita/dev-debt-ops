@@ -1,3 +1,5 @@
+import { goto } from "$app/navigation";
+import { resolve } from "$app/paths";
 import { z } from "zod";
 import {
   analyzeStackJobSchema,
@@ -92,6 +94,17 @@ async function errorDetail(response: Response, fallback: string): Promise<string
   return fallback;
 }
 
+/**
+ * セッション切れ（アクセス+リフレッシュ両方失効）を表す。``apiFetch`` が投げ、呼び出し側は
+ * 「読み込み失敗」画面を出さずにログイン遷移へ委ねる（load は redirect に変換、コンポーネントは無視）。
+ */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super("session expired");
+    this.name = "SessionExpiredError";
+  }
+}
+
 let _refreshing: Promise<boolean> | null = null;
 
 async function tryRefresh(): Promise<boolean> {
@@ -104,18 +117,38 @@ async function tryRefresh(): Promise<boolean> {
   return _refreshing;
 }
 
+let _redirectingToLogin = false;
+
+/** 認証状態をクリアしてログイン画面へ SPA 遷移する（多重 401 のバーストは 1 回に集約）。 */
+async function redirectToLogin(): Promise<void> {
+  if (_redirectingToLogin) return;
+  _redirectingToLogin = true;
+  try {
+    // client ↔ auth ストアは相互 import になるため動的 import で循環を避ける。
+    const { auth } = await import("$lib/stores/auth.svelte");
+    auth.clear();
+    await goto(resolve("/login"));
+  } finally {
+    _redirectingToLogin = false;
+  }
+}
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (typeof init?.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   let response = await fetch(path, { ...init, headers });
-  if (response.status === 401 && path !== "/api/v1/auth/refresh") {
+  // 認証エンドポイント（login / refresh / register / logout 等）自身の 401 は各画面が扱うので触らない。
+  if (response.status === 401 && !path.startsWith("/api/v1/auth/")) {
     const refreshed = await tryRefresh();
     if (refreshed) {
-      response = await fetch(path, { ...init, headers });
+      response = await fetch(path, { ...init, headers }); // アクセストークンだけ切れたケース → 再試行で回復
     } else {
-      window.location.href = "/login";
+      // リフレッシュも失効＝真のセッション切れ。401 を下流に返すと呼び出し側がエラー画面を描画して
+      // しまうため、ログイン遷移を起動しつつ専用エラーを投げて「読み込み失敗」表示を抑止する。
+      void redirectToLogin();
+      throw new SessionExpiredError();
     }
   }
   return response;
@@ -206,12 +239,13 @@ export async function listUserActivity(q?: string): Promise<UserActivity[]> {
   return z.array(userActivitySchema).parse(await response.json());
 }
 
+// Adjust a user's analysis credits by a signed delta (positive grants, negative deducts). Admin only.
 export async function grantUserCredits(userId: string, amount: number): Promise<User> {
   const response = await apiFetch(`/api/v1/users/${userId}/credits`, {
     method: "POST",
     body: JSON.stringify({ amount }),
   });
-  if (!response.ok) throw new Error(await errorDetail(response, "クレジットの付与に失敗しました"));
+  if (!response.ok) throw new Error(await errorDetail(response, "クレジットの更新に失敗しました"));
   return userSchema.parse(await response.json());
 }
 

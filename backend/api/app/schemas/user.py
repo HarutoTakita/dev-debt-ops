@@ -52,9 +52,17 @@ class UserRoleUpdate(BaseModel):
 
 
 class UserCreditsGrant(BaseModel):
-    """Request body for granting repository-analysis credits to a user (admin-only, issue 298)."""
+    """Request body for adjusting repository-analysis credits for a user (admin-only, issue 298).
 
-    amount: int = Field(ge=1, le=1000, description="Number of analysis credits to add to the user's balance.")
+    ``amount`` is a signed delta: positive grants, negative deducts. The resulting balance is clamped
+    to ``>= 0`` server-side, so an over-deduction just zeroes the balance rather than going negative.
+    """
+
+    amount: int = Field(
+        ge=-1000,
+        le=1000,
+        description="Signed analysis-credit delta (positive grants, negative deducts).",
+    )
 
 
 class UserActivityOut(BaseModel):

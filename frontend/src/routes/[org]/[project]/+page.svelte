@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import { resolve } from "$app/paths";
   import { overviewMock } from "$lib/mock/overview-mock";
-  import { getOverview } from "$lib/api/client";
+  import { getOverview, SessionExpiredError } from "$lib/api/client";
   import type { Overview } from "$lib/api/schemas";
   import { repo } from "$lib/stores/repo-store.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -26,9 +26,10 @@
     try {
       overview = await getOverview(orgSlug, projectSlug);
       overviewError = false;
-    } catch {
+    } catch (e) {
       overview = null;
-      overviewError = true;
+      // セッション切れは apiFetch がログイン遷移を起動済み。再試行 UI を出さず遷移に委ねる。
+      overviewError = !(e instanceof SessionExpiredError);
     }
   }
   $effect(() => {

@@ -185,6 +185,41 @@ async def test_result_includes_per_question_review(authenticated_client: AsyncCl
     assert review["q2"]["correct_answer"] == "No"  # answer "b" → label
 
 
+async def test_result_review_multi_select_comma_string_answer_key(authenticated_client: AsyncClient) -> None:
+    """multiple_select の answer_key がカンマ文字列でも、read 時に id 集合として正誤判定される（issue 074-A）。"""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        qs = QuizSession(
+            project_id=project_id,
+            developer_id=user_id,
+            file_path="src/a.py",
+            repo_full_name="acme/rosetta",
+            status="completed",
+            questions=[
+                {
+                    "id": "q1",
+                    "kind": "multiple_select",
+                    "prompt": "Q?",
+                    "choices": [{"id": "a", "label": "A"}, {"id": "b", "label": "B"}, {"id": "c", "label": "C"}],
+                }
+            ],
+            answer_key={"q1": {"answer": "a,c"}},  # カンマ文字列（list でない）
+        )
+        session.add(qs)
+        await session.flush()
+        sid = qs.id
+        # is_correct は永続化せず read 時導出（_answer_correct）を検証。ユーザー回答は未ソート。
+        session.add(QuizAnswer(session_id=sid, question_id="q1", value="c,a"))
+        session.add(QuizResult(session_id=sid, understood=[], gap_concepts=[], kc_before=0.1, kc_after=0.5))
+        await session.commit()
+
+    body = (
+        await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/result")
+    ).json()
+    review = {r["question_id"]: r for r in body["review"]}
+    assert review["q1"]["is_correct"] is True
+
+
 async def _seed_graded_mc(project_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID:
     """Seed a completed 2-question MC session: q1 correct, q2 wrong (graded)."""
     async with app_db.async_session_maker() as session:

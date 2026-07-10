@@ -16,7 +16,7 @@ from app.main import app
 from app.models.project import Project
 from app.services.dependencies import get_task_dispatcher, reset_blob_client, reset_task_dispatcher
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Dependency, FileKc, Job
+from shared.models import AnalysisRun, Dependency, Feature, FeatureFile, FileKc, Job
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +83,22 @@ async def _seed_kc(project_id: uuid.UUID, user_id: uuid.UUID) -> None:
         await session.commit()
 
 
+async def _seed_feature_run(project_id: uuid.UUID, key: str, name: str, file_paths: list[str]) -> None:
+    async with app_db.async_session_maker() as session:
+        run = AnalysisRun(
+            project_id=project_id, commit_sha="f", kind=JobType.FEATURE_CLUSTERING.value, status=JobStatus.COMPLETED
+        )
+        session.add(run)
+        await session.flush()
+        feat = Feature(project_id=project_id, run_id=run.id, key=key, name=name)
+        session.add(feat)
+        await session.flush()
+        session.add_all(
+            [FeatureFile(run_id=run.id, feature_id=feat.id, file_path=p, confidence=0.9) for p in file_paths]
+        )
+        await session.commit()
+
+
 async def test_galaxy_unobserved_returns_200(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, _, _ = await _seed_project(authenticated_client)
     resp = await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/galaxy")
@@ -116,6 +132,55 @@ async def test_galaxy_projects_personal_kc(authenticated_client: AsyncClient) ->
     assert auth["kc"] == 0.65  # mean of the two files' KC (dev for login, team fallback for token)
 
     assert body["wormholes"] == [{"from": "auth/login.py", "to": "auth/token.py"}]
+
+
+async def test_galaxy_renders_feature_files_missing_from_kc(authenticated_client: AsyncClient) -> None:
+    """機能に割り当てたファイルが KC 実行の採点集合に無くても、ノードとして必ず描画される（union）。
+
+    従来は KC 実行の FileKc からしかノードを作らず、FC 実行だけが持つファイルは表示されなかった
+    （チップは file_count>0 なのにマップは空＝「表示するファイルがありません」）。
+    """
+    org_slug, project_slug, project_id, user_id = await _seed_project(authenticated_client)
+    await _seed_kc(project_id, user_id)  # KC は auth/login.py・auth/token.py のみ採点
+    await _seed_feature_run(project_id, "auth", "認証", ["auth/login.py", "unscored/util.py"])
+
+    resp = await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/galaxy")
+    assert resp.status_code == 200
+    body = resp.json()
+    files = {f["path"]: f for s in body["systems"] for f in s["files"]}
+
+    assert "unscored/util.py" in files  # KC 未採点でもノード化
+    assert files["unscored/util.py"]["mastery"] == "unexplored"  # 未採点は unexplored 既定
+    assert files["unscored/util.py"]["feature_keys"] == ["auth"]  # 機能タグが付く＝フィルタで拾える
+    assert files["auth/login.py"]["feature_keys"] == ["auth"]
+
+    feats = {f["key"]: f for f in body["features"]}
+    assert feats["auth"]["file_count"] == 2  # 両方カウント（空チップにならない）
+    assert body["org_kc"] == 0.65  # 未採点の既定 0 は org_kc に含めない（採点済みのみ平均）
+
+
+async def test_galaxy_labels_boilerplate_out_of_scope(authenticated_client: AsyncClient) -> None:
+    """学習対象外のボイラープレート（__init__.py）は out_of_scope（対象外）にし、org_kc からも除外する。"""
+    org_slug, project_slug, project_id, _user_id = await _seed_project(authenticated_client)
+    async with app_db.async_session_maker() as session:
+        run = AnalysisRun(
+            project_id=project_id, commit_sha="k", kind=JobType.KC_ANALYSIS.value, status=JobStatus.COMPLETED
+        )
+        session.add(run)
+        await session.flush()
+        session.add_all(
+            [
+                FileKc(run_id=run.id, file_path="pkg/service.py", kc=0.8, mastery="star"),
+                FileKc(run_id=run.id, file_path="pkg/__init__.py", kc=0.9, mastery="star"),  # boilerplate
+            ]
+        )
+        await session.commit()
+
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/galaxy")).json()
+    files = {f["path"]: f for s in body["systems"] for f in s["files"]}
+    assert files["pkg/__init__.py"]["mastery"] == "out_of_scope"  # 対象外に上書き
+    assert files["pkg/service.py"]["mastery"] == "star"  # 通常ファイルは不変
+    assert body["org_kc"] == 0.8  # 対象外は平均から除外（0.9 を含めない）
 
 
 @pytest.mark.usefixtures("_stub_installation")

@@ -1,13 +1,90 @@
 """GitHub REST API client authenticated with an installation access token."""
 
+import asyncio
 import base64
+import logging
+import os
+import random
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 
 from shared.worker import TransientTaskError
 
+logger = logging.getLogger(__name__)
+
+# Transient GitHub server errors worth retrying (502/503/504). GitHub's Contents API 502s
+# intermittently; a single 502 in a many-file backbone loop must not fail the whole analysis step.
+_RETRYABLE_STATUS = frozenset({502, 503, 504})
+_MAX_RETRIES = 3  # total GET attempts = 1 + _MAX_RETRIES
+
+
+class _RetryTransport(httpx.AsyncBaseTransport):
+    """Retry idempotent GETs on transient GitHub 5xx (502/503/504) with jittered backoff.
+
+    Only GET is retried (safe to replay; no request body to re-stream). Non-GET methods and non-5xx
+    responses pass through untouched. 429 / secondary-403 are left to the ``_raise_on_rate_limit``
+    response hook (whole-job retry via Cloud Tasks), so this only absorbs transient server blips.
+    """
+
+    def __init__(self) -> None:
+        self._inner = httpx.AsyncHTTPTransport()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await self._inner.handle_async_request(request)
+        if request.method != "GET":
+            return response
+        for attempt in range(_MAX_RETRIES):
+            if response.status_code not in _RETRYABLE_STATUS:
+                return response
+            await response.aclose()
+            await asyncio.sleep(min(0.5 * 2**attempt, 8.0) + random.uniform(0, 0.3))
+            response = await self._inner.handle_async_request(request)
+        return response
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+class _InstallationTokenAuth(httpx.Auth):
+    """httpx auth that re-mints the GitHub installation token on a 401 and replays once (issue 078-D).
+
+    GitHub installation tokens expire after ~1h; a long analysis run (clone + agent + backbone +
+    per-feature generation) can outlive one, after which every request 401s on a frozen ``Authorization``
+    header. This sets the Bearer header from the current token and, on a 401, awaits ``provider`` for a
+    fresh token and replays the request once.
+    """
+
+    def __init__(self, token: str, provider: Callable[[], Awaitable[str]]) -> None:
+        self._token = token
+        self._provider = provider
+
+    async def async_auth_flow(self, request: httpx.Request):
+        request.headers["Authorization"] = f"Bearer {self._token}"
+        response = yield request
+        if response.status_code == 401:
+            self._token = await self._provider()
+            request.headers["Authorization"] = f"Bearer {self._token}"
+            yield request
+
+
 API_BASE = "https://api.github.com"
+
+
+def _decode_text(raw: bytes) -> str | None:
+    """Decode file bytes to text, or ``None`` for genuinely binary content (issue 078-F).
+
+    NUL bytes ⇒ binary ⇒ ``None``. Otherwise decode UTF-8, falling back to a lenient replace so
+    non-UTF-8 text (latin-1 / UTF-16-ish) is recovered rather than silently dropped.
+    """
+    if b"\x00" in raw:
+        return None
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-8", errors="replace")
 
 
 async def _raise_on_rate_limit(response: httpx.Response) -> None:
@@ -145,16 +222,28 @@ query($owner: String!, $repo: String!, $ref: String!, $path: String!) {
 class GitHubGitClient:
     """GitHub REST API client that authenticates with an installation access token."""
 
-    def __init__(self, access_token: str) -> None:
-        """Initialize the client with the given GitHub installation access token."""
+    def __init__(self, access_token: str, *, token_provider: Callable[[], Awaitable[str]] | None = None) -> None:
+        """Initialize the client with a GitHub installation access token.
+
+        When ``token_provider`` is given, the token is refreshed on a 401 and the request replayed
+        (issue 078-D) — for long runs that can outlive the ~1h installation-token TTL. Without it the
+        token is a static header (unchanged behaviour).
+        """
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        auth: httpx.Auth | None = None
+        if token_provider is not None:
+            auth = _InstallationTokenAuth(access_token, token_provider)
+        else:
+            headers["Authorization"] = f"Bearer {access_token}"
         self._client = httpx.AsyncClient(
             base_url=API_BASE,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            headers=headers,
+            auth=auth,
             timeout=30.0,
+            transport=_RetryTransport(),  # retry transient 5xx GETs (GitHub Contents API 502s intermittently)
             event_hooks={"response": [_raise_on_rate_limit]},
         )
 
@@ -236,7 +325,7 @@ class GitHubGitClient:
         )
         resp.raise_for_status()
         data = resp.json()
-        return [
+        items = [
             TreeItem(
                 path=item["path"],
                 type=item["type"],
@@ -245,9 +334,40 @@ class GitHubGitClient:
             for item in data.get("tree", [])
             if item["type"] in ("blob", "tree")
         ]
+        # GitHub silently omits entries and sets truncated=true past ~100k entries / 7MB (issue 078-E).
+        # Surface it so a partial file list is visible rather than looking like "these files don't exist".
+        if data.get("truncated"):
+            logger.warning(
+                "GitHub tree truncated for %s/%s@%s — analysis sees a partial file list (%d entries)",
+                owner,
+                repo,
+                branch,
+                len(items),
+            )
+        return items
+
+    async def _fetch_raw_text(self, owner: str, repo: str, path: str, ref: str) -> str | None:
+        """Fetch a file's raw bytes (Contents API raw media type) and decode as text, or None if binary.
+
+        Used for files the JSON Contents API won't inline (>1MB come back with ``encoding: "none"``).
+        """
+        try:
+            resp = await self._client.get(
+                f"/repos/{owner}/{repo}/contents/{path}",
+                params={"ref": ref},
+                headers={"Accept": "application/vnd.github.raw"},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        return _decode_text(resp.content)
 
     async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
-        """Return the decoded file content; binary files are returned with content=None."""
+        """Return the decoded file content; binary content is returned with content=None.
+
+        Recovers non-UTF-8 text (lenient decode) and >1MB files (which the Contents API returns with
+        ``encoding: "none"`` and empty content — fetched via the raw media type), issue 078-F.
+        """
         resp = await self._client.get(
             f"/repos/{owner}/{repo}/contents/{path}",
             params={"ref": ref},
@@ -257,10 +377,10 @@ class GitHubGitClient:
 
         content: str | None = None
         if data.get("encoding") == "base64" and data.get("content"):
-            try:
-                content = base64.b64decode(data["content"]).decode("utf-8")
-            except (UnicodeDecodeError, ValueError):
-                content = None
+            content = _decode_text(base64.b64decode(data["content"]))
+        elif data.get("type") == "file" and data.get("size", 0) > 0:
+            # Not inlined (oversize) → fetch the raw bytes instead of silently dropping the file.
+            content = await self._fetch_raw_text(owner, repo, path, ref)
 
         return FileContent(
             path=data["path"],
@@ -361,8 +481,15 @@ class GitHubGitClient:
         return pulls
 
     async def get_pull_request_reviews(self, owner: str, repo: str, number: int) -> list[ReviewInfo]:
-        """Return the reviews on a pull request (state + reviewer login)."""
+        """Return the reviews on a pull request (state + reviewer login).
+
+        A 404 is treated as "no reviews" (empty list): the number can refer to an issue or a
+        deleted / cross-repo PR surfaced by the commit→PR association, and a single missing PR
+        must not abort knowledge-debt detection (issue: knowledge_debt_detection の 404 クラッシュ)。
+        """
         resp = await self._client.get(f"/repos/{owner}/{repo}/pulls/{number}/reviews")
+        if resp.status_code == 404:
+            return []
         resp.raise_for_status()
         reviews: list[ReviewInfo] = []
         for rv in resp.json():
@@ -462,8 +589,8 @@ class CachingGitHubGitClient(GitHubGitClient):
     (they iterate / read ``.content``); do not mutate them, as the same objects are shared.
     """
 
-    def __init__(self, access_token: str) -> None:
-        super().__init__(access_token=access_token)
+    def __init__(self, access_token: str, *, token_provider: Callable[[], Awaitable[str]] | None = None) -> None:
+        super().__init__(access_token=access_token, token_provider=token_provider)
         self._tree_cache: dict[tuple[str, str, str], list[TreeItem]] = {}
         self._file_cache: dict[tuple[str, str, str, str], FileContent] = {}
 
@@ -480,3 +607,51 @@ class CachingGitHubGitClient(GitHubGitClient):
         if key not in self._file_cache:
             self._file_cache[key] = await super().get_file_content(owner, repo, path, ref)
         return self._file_cache[key]
+
+
+class LocalCloneGitHubClient(CachingGitHubGitClient):
+    """Serve tree + file reads from a local clone; delegate history (blame / commits / PRs) to the API.
+
+    The agentic orchestrator already shallow-clones the repo for the agent / CGC. Reusing that clone
+    for the backbone's O(files) ``get_repository_tree`` + ``get_file_content`` reads removes ~all
+    Contents-API (REST) calls — the transient-502 source and the dominant REST rate-limit cost — with
+    zero extra network I/O. ``get_blame`` / ``list_commits`` stay on the API: a ``--depth 1`` clone has
+    no history to serve them, and blame runs on GitHub's *separate* GraphQL budget. Token/auth plumbing
+    and every non-file method are inherited unchanged, so a standalone (clone-less) run keeps using the
+    plain caching client.
+
+    The local tree is path-sorted (files only); consumers filter ``type == "blob"`` and cap the list,
+    so this yields the same files/criteria as the API — only the pre-cap ordering can differ slightly.
+    """
+
+    def __init__(
+        self, repo_dir: str, *, access_token: str, token_provider: Callable[[], Awaitable[str]] | None = None
+    ) -> None:
+        super().__init__(access_token=access_token, token_provider=token_provider)
+        self._repo_dir = Path(repo_dir).resolve()
+
+    async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
+        """Walk the clone and return its files as blob ``TreeItem``s (``.git`` pruned), path-sorted."""
+        items: list[TreeItem] = []
+        for root, dirs, files in os.walk(self._repo_dir):
+            dirs[:] = [d for d in dirs if d != ".git"]  # never descend into git metadata
+            for name in files:
+                full = Path(root) / name
+                if not full.is_file():  # skip broken/dangling symlinks
+                    continue
+                rel = full.relative_to(self._repo_dir).as_posix()
+                items.append(TreeItem(path=rel, type="blob", size=full.stat().st_size))
+        items.sort(key=lambda t: t.path)  # deterministic order (API returns git-tree order)
+        return items
+
+    async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
+        """Read the file from the clone; binary → ``content=None`` (same lenient decode as the API path).
+
+        Paths outside the clone (``..`` traversal) or missing files return ``content=None`` rather than
+        raising — matching how the backbone treats an unreadable file.
+        """
+        target = (self._repo_dir / path).resolve()
+        if not target.is_relative_to(self._repo_dir) or not target.is_file():
+            return FileContent(path=path, content=None, sha="", size=0)
+        raw = target.read_bytes()
+        return FileContent(path=path, content=_decode_text(raw), sha="", size=len(raw))

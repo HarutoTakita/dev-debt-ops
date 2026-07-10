@@ -81,21 +81,22 @@
     return new Intl.DateTimeFormat(getLocale(), { dateStyle: "medium" }).format(then);
   }
 
-  async function grant(u: UserActivity) {
+  // クレジットを増減する。sign=1 で付与、sign=-1 で減算（サーバ側で残高は 0 未満にならないようクランプ）。
+  async function adjust(u: UserActivity, sign: 1 | -1) {
     const amount = amounts[u.id] ?? 5;
     if (!Number.isFinite(amount) || amount < 1) {
       toast.error(m.admin_grant_invalid());
       return;
     }
+    const magnitude = Math.floor(amount);
     busy = { ...busy, [u.id]: true };
     try {
-      const updated = await grantUserCredits(u.id, Math.floor(amount));
+      const updated = await grantUserCredits(u.id, magnitude * sign);
       rows = rows.map((x) => (x.id === u.id ? { ...x, analysis_credits: updated.analysis_credits } : x));
-      toast.success(
-        m.admin_grant_success({ email: u.email, amount: Math.floor(amount), balance: updated.analysis_credits }),
-      );
+      const args = { email: u.email, amount: magnitude, balance: updated.analysis_credits };
+      toast.success(sign > 0 ? m.admin_grant_success(args) : m.admin_reduce_success(args));
     } catch {
-      toast.error(m.admin_grant_error());
+      toast.error(sign > 0 ? m.admin_grant_error() : m.admin_reduce_error());
     } finally {
       busy = { ...busy, [u.id]: false };
     }
@@ -219,8 +220,11 @@
                       oninput={(e) => (amounts = { ...amounts, [u.id]: e.currentTarget.valueAsNumber })}
                       class="h-8 w-20"
                     />
-                    <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => grant(u)}
+                    <Button size="sm" class="h-8" disabled={busy[u.id]} onclick={() => adjust(u, 1)}
                       >{m.admin_grant()}</Button
+                    >
+                    <Button size="sm" variant="outline" class="h-8" disabled={busy[u.id]} onclick={() => adjust(u, -1)}
+                      >{m.admin_reduce()}</Button
                     >
                   </div>
                 {/if}

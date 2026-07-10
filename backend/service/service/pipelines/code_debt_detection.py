@@ -60,7 +60,8 @@ async def _mint_installation_token(github: GitHubRef) -> str:
 
 
 def _snippet(content: str) -> str:
-    return "\n".join(content.splitlines()[:_MAX_SNIPPET_LINES])
+    # 実装が始まる行から抜粋する（先頭の docstring / import だけを切り出して自然言語プロースになるのを防ぐ）。
+    return "\n".join(code_analysis.implementation_excerpt(content).splitlines()[:_MAX_SNIPPET_LINES])
 
 
 def _agent_notes_by_file(base_findings: list[dict] | None) -> dict[str, str]:
@@ -88,19 +89,33 @@ def _enrich_findings(findings: list[Finding], agent_notes: dict[str, str]) -> No
             f.archaeology_notes = f"{f.archaeology_notes}\n\n【エージェント所見】{note}"
 
 
-# 「なぜ品質が低いか」の説明文（解析時に生成）。基準が伝わりにくい具体的な指標値（循環的複雑度の数値・
-# 重複率・行数など）は載せず、理由・影響・改善の方向を定性的に示す（コード改善ビューでそのまま読める）。
-def _complexity_notes() -> str:
+# 「なぜ品質が低いか」の説明文（解析時に生成）。指標の数値そのものは metrics に持たせ、ここでは理由・影響・
+# 改善の方向を定性的に示す。ただし該当箇所（関数名・行）や重複の相手ファイルを含めて finding ごとに具体化し、
+# 「同じ理由が並ぶ」状態を避ける（該当コードは code_snippet が実箇所を指す）。
+def _complexity_notes(symbol: str | None, start_line: int | None) -> str:
+    if symbol:
+        where = f"`{symbol}`（{start_line} 行目付近）に条件分岐やネストが集中しており、"
+    elif start_line:
+        where = f"{start_line} 行目付近に条件分岐やネストが集中しており、"
+    else:
+        where = "条件分岐やネストが深く、"
     return (
-        "条件分岐やネストが深く、循環的複雑度が高いため処理の流れを追いにくくなっています。"
+        f"{where}循環的複雑度が高いため処理の流れを追いにくくなっています。"
         "変更時に想定外の経路を見落としてバグを埋め込みやすい状態です。"
         "責務ごとに関数を分割したりガード節を導入したりすることで複雑度を下げられます。"
     )
 
 
-def _duplicate_notes() -> str:
+def _duplicate_notes(related_files: list[str], start_line: int) -> str:
+    at = f"（{start_line} 行目付近）" if start_line else ""
+    if related_files:
+        shown = "、".join(f"`{f}`" for f in related_files[:3])
+        more = " ほか" if len(related_files) > 3 else ""
+        where = f"{shown}{more} と同じコードブロックが重複しています{at}。"
+    else:
+        where = f"このファイル内で同じコードブロックが繰り返されています{at}。"
     return (
-        "ほぼ同じコードブロックがこのファイルの広い範囲を占めています。"
+        f"{where}"
         "重複は修正漏れの温床になり、1 箇所の変更を複数箇所へ反映する保守コストを生みます。"
         "共通処理を関数やモジュールへ抽出して一本化することを推奨します。"
     )
@@ -128,30 +143,37 @@ def detect(files: dict[str, str]) -> list[Finding]:
         language = "python" if path.lower().endswith(".py") else "ts_js"
         cc = code_analysis.cyclomatic_complexity(content, language)
         if code_analysis.complexity_is_debt(cc):
+            # 該当箇所を最も複雑な領域にアンカーする（冒頭 import ではなく実際の複雑ロジックをハイライト）。
+            hotspot = code_analysis.complexity_hotspot(content, language)
+            if hotspot is not None:
+                start_line, _end, snippet = hotspot
+                symbol = code_analysis.nearest_definition(content, start_line, language)
+            else:
+                start_line, snippet, symbol = None, _snippet(content), None
             findings.append(
                 Finding(
                     file_path=path,
                     type="complexity",
                     score=code_analysis.complexity_score(cc),
-                    archaeology_notes=_complexity_notes(),
-                    code_snippet=_snippet(content),
+                    archaeology_notes=_complexity_notes(symbol, start_line),
+                    code_snippet=snippet,
                     metrics={"cyclomatic_complexity": cc},
                     estimated_repay_hours=round(cc / 4, 1),
                 )
             )
 
-    # Duplication — normalized-block ratio across the whole file set.
-    for path, ratio in code_analysis.find_duplicate_ratios(files).items():
-        if code_analysis.duplication_is_debt(ratio):
-            score = code_analysis.duplication_score(ratio)
+    # Duplication — normalized-block ratio across the whole file set (+ where and with whom it's shared).
+    for path, info in code_analysis.duplicate_report(files).items():
+        if code_analysis.duplication_is_debt(info.ratio):
+            score = code_analysis.duplication_score(info.ratio)
             findings.append(
                 Finding(
                     file_path=path,
                     type="duplicate",
                     score=score,
-                    archaeology_notes=_duplicate_notes(),
-                    code_snippet=_snippet(files[path]),
-                    metrics={"duplicate_ratio": round(ratio, 3)},
+                    archaeology_notes=_duplicate_notes(info.related_files, info.block_start_line),
+                    code_snippet=info.block_text or _snippet(files[path]),
+                    metrics={"duplicate_ratio": round(info.ratio, 3), "related_files": info.related_files},
                     estimated_repay_hours=round(score * 6, 1),
                 )
             )
@@ -380,7 +402,11 @@ async def process(
     ai_probs: dict[str, float] = {}
     if flagged_paths:
         try:
-            ai_probs = await gemini_stack_service.estimate_ai_generation({p: files[p] for p in flagged_paths})
+            # Trivy はロックファイル/マニフェスト（fetched source set に無いパス）を flag しうるため、
+            # `files` に有るパスだけを推定に渡す（`files[p]` の KeyError で全件の推定を捨てないため）。
+            ai_probs = await gemini_stack_service.estimate_ai_generation(
+                {p: files[p] for p in flagged_paths if p in files}
+            )
         except Exception:
             # AI 生成確率は補助的なエンリッチ。Gemini のクォータ超過(429)・一時障害(5xx)・認証/設定不備など
             # どんな失敗でも、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果を捨てて step 全体を

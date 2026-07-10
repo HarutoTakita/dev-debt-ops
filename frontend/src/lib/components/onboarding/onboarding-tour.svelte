@@ -26,8 +26,20 @@
   // 一瞬のちらつきを防ぐため、位置が決まってから表示する。ターゲット無しの中央説明ステップは即 true。
   let positioned = $state(false);
 
+  // 同じ data-tour 値の要素は、PC の固定サイドバーとモバイルの Sheet（ドロワー）の SuperSidebar 二重描画などで
+  // 複数存在し得る。可視（サイズあり）な要素を優先して選ぶ。querySelector の先頭固定だと非表示側を掴み、
+  // measure=0 で中央フォールバックに落ちてしまう（PC ツアーが nav 項目をハイライトできない既存不具合の原因）。
+  function findTourEl(sel: string): Element | null {
+    const els = document.querySelectorAll(`[data-tour="${sel}"]`);
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+    }
+    return els[0] ?? null;
+  }
+
   function measure(target: string) {
-    const el = document.querySelector(`[data-tour="${target}"]`);
+    const el = findTourEl(target);
     const r = el?.getBoundingClientRect();
     // 要素が無い / 非表示（0 サイズ）/ レイアウト未確定なら中央表示にフォールバック（変な位置を防ぐ）。
     if (!r || r.width === 0 || r.height === 0) {
@@ -68,7 +80,7 @@
         const revSel = s.reveal;
         let rev: HTMLElement | null = null;
         for (let i = 0; i < 40 && !cancelled; i++) {
-          rev = document.querySelector<HTMLElement>(`[data-tour="${revSel}"]`);
+          rev = findTourEl(revSel) as HTMLElement | null;
           if (rev) break;
           await new Promise((r) => setTimeout(r, 50));
         }
@@ -88,7 +100,7 @@
       // 出現しなければ measure() が中央フォールバックする（変な位置に出さない）。
       let el: Element | null = null;
       for (let i = 0; i < 120 && !cancelled; i++) {
-        el = document.querySelector(`[data-tour="${target}"]`);
+        el = findTourEl(target);
         if (el && el.getBoundingClientRect().width > 0) break;
         await new Promise((r) => setTimeout(r, 50));
       }
@@ -109,7 +121,7 @@
       for (const delay of [200, 500, 900]) {
         await new Promise((r) => setTimeout(r, delay));
         if (cancelled) return;
-        if (document.querySelector(`[data-tour="${target}"]`)) measure(target);
+        if (findTourEl(target)) measure(target);
       }
     })();
     return () => {

@@ -12,7 +12,7 @@ import pytest
 from google.adk.agents import SequentialAgent
 
 from service.agents import code_graph_mcp, github_mcp, serena_mcp
-from service.agents.base_analysis_tools import build_analysis_agent, build_base_analysis
+from service.agents.base_analysis_tools import _AUTHOR_INSTRUCTION, build_analysis_agent, build_base_analysis
 from service.agents.budget import RunBudget
 
 
@@ -29,6 +29,30 @@ class TestBuildAnalysisAgent:
         agent = build_analysis_agent(client=AsyncMock(), budget=RunBudget(), captured={})
         assert isinstance(agent, SequentialAgent)
         assert [a.name for a in agent.sub_agents] == ["analysis_explorer", "base_author"]
+
+    def test_author_instruction_uses_optional_exploration_placeholder(self) -> None:
+        """{exploration?} は optional（空探索でも著者が KeyError せず save を呼べる, issue 077-A）。"""
+        assert "{exploration?}" in _AUTHOR_INSTRUCTION
+        assert "{exploration}" not in _AUTHOR_INSTRUCTION  # 非 optional 形は state 欠落で KeyError になる
+
+    def test_author_stage_uses_independent_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """explorer と author の before_model_callback は別 RunBudget にする（explorer が共有予算を使い切っても
+        author の save_base_analysis が予算超過で弾かれない, issue 076-C）。"""
+        from service.agents import base_analysis_tools as bat
+
+        seen: list[RunBudget] = []
+        real = bat.make_before_model_callback
+
+        def spy(budget: RunBudget):
+            seen.append(budget)
+            return real(budget)
+
+        monkeypatch.setattr(bat, "make_before_model_callback", spy)
+        main_budget = RunBudget()
+        build_analysis_agent(client=AsyncMock(), budget=main_budget, captured={})
+        assert len(seen) == 2  # explorer, then author
+        assert seen[0] is main_budget  # explorer uses the shared/main budget
+        assert seen[1] is not main_budget  # author has its own budget (headroom for the terminal save)
 
     def test_explorer_gets_exploration_mcp_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Explorer gets Serena + GitHub + CodeGraph toolsets; the author only gets the save tool."""

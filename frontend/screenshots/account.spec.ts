@@ -71,3 +71,32 @@ test("キーボードショートカット一覧", async ({ page }) => {
     console.warn("skip 24-shortcuts:", String(e));
   }
 });
+
+// 多言語対応（i18n）: アプリを英語 UI に切り替え、アカウントメニューの言語サブメニューを
+// 展開した状態（English に✓）を撮影する。提出資料の i18n 説明で使う。
+test("言語メニュー（英語切替）", async ({ page }) => {
+  await startDemo(page);
+  try {
+    // 1) 日本語 UI のままメニュー → 言語サブメニューを開き、English に切り替える。
+    //    言語サブメニュー（DropdownMenu.Sub）は hover で開く（bits-ui）。
+    await page.locator('[data-tour="user-menu-trigger"]').click({ timeout: 10_000 });
+    await page.locator('[data-tour="user-menu-language-trigger"]').hover();
+    const langMenu = page.locator('[data-tour="user-menu-language"]');
+    await langMenu.first().waitFor({ timeout: 10_000 });
+    // setLocale(loc) が呼ばれ、Paraglide がロケール反映のためページを再読込/遷移する。
+    await langMenu.getByRole("menuitem", { name: "English" }).click();
+    await page.waitForLoadState("networkidle").catch(() => {});
+    await page.waitForTimeout(800); // 再読込後の再描画待ち（UI が英語になる）
+
+    // 2) 英語 UI で再度メニュー → 言語サブメニューを開いた状態を撮影する。
+    //    hover のままだと閉じることがあるため、サブメニュー内（English 項目）へポインタを移して開いたまま保持する。
+    await page.locator('[data-tour="user-menu-trigger"]').click({ timeout: 10_000 });
+    await page.locator('[data-tour="user-menu-language-trigger"]').hover();
+    await langMenu.first().waitFor({ timeout: 10_000 });
+    await langMenu.getByRole("menuitem", { name: "English" }).hover();
+    await page.waitForTimeout(400);
+    await shot(page, "25-language-en", { title: "言語切り替え（英語 UI・言語メニュー展開）" });
+  } catch (e) {
+    console.warn("skip 25-language-en:", String(e));
+  }
+});

@@ -23,3 +23,15 @@ def test_ambiguous_suffix_is_skipped() -> None:
     # Two files match the suffix → ambiguous → no edge (never guess a wrong connection).
     repo = {"a/app/foo.py", "b/app/foo.py", "svc/main.py"}
     assert _edges("svc/main.py", "from app.foo import bar\n", repo) == set()
+
+
+def test_resolves_comma_separated_imports() -> None:
+    # ``import a, b`` / ``import pkg.x, pkg.y as z`` — every module in the comma list forms an edge.
+    repo = {"pkg/main.py", "pkg/a.py", "pkg/b.py", "pkg/x.py", "pkg/y.py"}
+    edges = _edges("pkg/main.py", "import pkg.a, pkg.b\nimport pkg.x, pkg.y as z\n", repo)
+    assert edges == {
+        ("pkg/main.py", "pkg/a.py"),
+        ("pkg/main.py", "pkg/b.py"),
+        ("pkg/main.py", "pkg/x.py"),
+        ("pkg/main.py", "pkg/y.py"),
+    }

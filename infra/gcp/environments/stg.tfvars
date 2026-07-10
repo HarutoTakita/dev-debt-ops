@@ -26,3 +26,11 @@ db_backup_enabled = false
 
 # ゲストデモ入口（ログインの「お試しはこちら」）を stg では有効化する（デモ/審査用）。
 demo_mode_enabled = true
+
+# 解析クレジットを有効化し、Gemini コストを上限管理する（issue 298）。新規ユーザーには初期 5 クレジットを付与し、
+# 管理者なしでも各ユーザーが 5 回まで解析できるようにする（デモ/審査用）。
+analysis_credits_enabled = true
+analysis_credits_initial = 5
+
+# 管理者（superuser）。ログイン毎に is_superuser を照合（issue 300）。クレジット付与や管理画面に必要。
+admin_emails = "haruto.ta.413@icloud.com"

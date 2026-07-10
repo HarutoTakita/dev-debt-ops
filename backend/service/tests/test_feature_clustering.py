@@ -192,6 +192,99 @@ async def test_graph_community_expansion_grows_feature_along_edges(
         assert by_path["src/billing.py"].confidence == 0.5  # propagated member, lower confidence
 
 
+class TestPathRecoveryAndBackfill:
+    """機能に実ファイルが必ず割り当たる仕組み: 取りこぼし回収・近傍補完・空機能除去（純関数）。"""
+
+    def test_path_resolver_recovers_near_miss(self) -> None:
+        resolve = feature_clustering._path_resolver(["src/auth/login.py", "src/billing.py"])
+        assert resolve("./src/auth/login.py") == "src/auth/login.py"  # ./ 正規化
+        assert resolve("billing.py") == "src/billing.py"  # 一意 basename フォールバック
+        assert resolve("does/not/exist.py") is None
+        assert resolve("") is None
+
+    def test_path_resolver_ambiguous_basename_unresolved(self) -> None:
+        resolve = feature_clustering._path_resolver(["a/util.py", "b/util.py"])
+        assert resolve("util.py") is None  # 複数一致は解決しない（誤マップ防止）
+
+    def test_backfill_tops_up_from_unassigned_same_dir(self) -> None:
+        clusters = [{"key": "auth", "files": [{"path": "src/auth/login.py", "confidence": 0.9}]}]
+        source = ["src/auth/login.py", "src/auth/session.py", "src/auth/token.py", "src/auth/util.py"]
+        feature_clustering._backfill_features(clusters, source)
+        files = clusters[0]["files"]
+        assert len(files) == feature_clustering._MIN_FEATURE_FILES  # 最低件数まで補完
+        assert {f["path"] for f in files} <= set(source)
+        added = [f for f in files if f["path"] != "src/auth/login.py"]
+        assert all(f["confidence"] == feature_clustering._BACKFILL_CONFIDENCE for f in added)
+
+    def test_backfill_does_not_steal_other_features_files(self) -> None:
+        clusters = [
+            {"key": "auth", "files": [{"path": "src/a.py", "confidence": 0.9}]},
+            {"key": "billing", "files": [{"path": "src/b.py", "confidence": 0.9}]},
+        ]
+        feature_clustering._backfill_features(clusters, ["src/a.py", "src/b.py"])  # 未割当ファイル無し
+        assert {f["path"] for f in clusters[0]["files"]} == {"src/a.py"}  # b.py を奪わない
+        assert {f["path"] for f in clusters[1]["files"]} == {"src/b.py"}
+
+    def test_backfill_skips_seedless_feature(self) -> None:
+        clusters = [{"key": "ghost", "files": []}]
+        feature_clustering._backfill_features(clusters, ["src/a.py", "src/b.py", "src/c.py"])
+        assert clusters[0]["files"] == []  # アンカー無しは補完しない（永続化で除去される）
+
+
+async def test_process_drops_feature_with_no_real_files(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """実ファイル 0 件の「幻の機能」は永続化しない（機能があるのにコードが無い状態を作らない）。"""
+    clusters = [
+        {"key": "auth", "name": "認証", "description": "", "files": [{"path": "src/auth.py", "confidence": 0.9}]},
+        {"key": "ghost", "name": "幻", "description": "", "files": [{"path": "nowhere/x.py"}]},
+    ]
+    _patch(monkeypatch, clusters)
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await feature_clustering.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.feature_count == 1  # ghost は落ちる
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        features = {f.key for f in (await session.execute(select(Feature).where(Feature.run_id == run.id))).scalars()}
+        assert features == {"auth"}
+
+
+async def test_process_recovers_basename_and_normalized_paths(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """LLM の basename/相対 path でも tree の実 path に解決して割り当てる（完全一致落ちで機能が空にならない）。"""
+    clusters = [
+        {
+            "key": "auth",
+            "name": "認証",
+            "description": "",
+            "files": [{"path": "auth.py", "confidence": 0.9}, {"path": "./src/billing.py"}],
+        }
+    ]
+    _patch(monkeypatch, clusters)
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+
+    async with session_maker() as session:
+        result = await feature_clustering.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.file_count == 2  # auth.py→src/auth.py, ./src/billing.py→src/billing.py
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        ff = (await session.execute(select(FeatureFile).where(FeatureFile.run_id == run.id))).scalars().all()
+        assert {f.file_path for f in ff} == {"src/auth.py", "src/billing.py"}
+
+
 async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:
     _patch(monkeypatch, _CLUSTERS)
     request = _request()

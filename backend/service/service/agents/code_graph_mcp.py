@@ -18,7 +18,7 @@ import shutil
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp import StdioServerParameters
 
-from service.services.code_graph import CGC_DB_ENV, CGC_HOME
+from service.services.code_graph import CGC_DB_ENV, CGC_HOME, kuzudb_path_for
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ _CGC_TOOLS = [
 ]
 
 
-def build_code_graph_toolset() -> McpToolset | None:
+def build_code_graph_toolset(repo_dir: str | None = None) -> McpToolset | None:
     """Build the CGC MCP toolset (stdio, embedded KuzuDB) for the Twin Agent's specialists.
 
     The agent passes the repository path (the checked-out clone dir) as ``repo_path`` in tool args to
@@ -57,6 +57,8 @@ def build_code_graph_toolset() -> McpToolset | None:
                 args=["mcp", "start"],
                 env={
                     **CGC_DB_ENV,
+                    # 同一 run のみを見る per-run KuzuDB パス（issue 078-A）— pipeline が index したものと同じ。
+                    "KUZUDB_PATH": kuzudb_path_for(repo_dir),
                     "PATH": os.environ.get("PATH", ""),
                     "HOME": CGC_HOME,
                 },

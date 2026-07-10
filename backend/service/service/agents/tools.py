@@ -14,10 +14,37 @@ from typing import Any
 
 from service.agents.budget import RunBudget
 from service.services import code_analysis
-from service.services.github_git_client import GitHubGitClient
+from service.services.github_git_client import GitHubGitClient, TreeItem
 
-_MAX_AGENT_FILES = 20
-_MAX_FILE_CHARS = 5_000
+_MAX_AGENT_FILES = 40
+_MAX_FILE_CHARS = 6_000
+
+
+def _select_agent_files(tree: list[TreeItem], limit: int) -> list[str]:
+    """Pick up to ``limit`` source files, prioritised (issue 077-B).
+
+    A bare ``tree[:limit]`` slice is git-tree-order-biased and starves later languages/dirs. Instead
+    bucket source blobs by extension, order each bucket by size desc (bigger files ≈ more substance),
+    then round-robin across buckets so no single language/extension dominates the agent's evidence.
+    Content-free (uses ``TreeItem.size`` only), deterministic.
+    """
+    buckets: dict[str, list[tuple[int, str]]] = {}
+    for item in tree:
+        if item.type != "blob" or not code_analysis.is_source_file(item.path):
+            continue
+        ext = item.path.rsplit(".", 1)[-1].lower() if "." in item.path else ""
+        buckets.setdefault(ext, []).append((item.size or 0, item.path))
+    for entries in buckets.values():
+        entries.sort(key=lambda t: (-t[0], t[1]))  # size desc, then path (deterministic)
+    out: list[str] = []
+    keys = sorted(buckets)
+    while len(out) < limit and any(buckets[k] for k in keys):
+        for k in keys:
+            if buckets[k]:
+                out.append(buckets[k].pop(0)[1])
+                if len(out) >= limit:
+                    break
+    return out
 
 
 def list_source_files(paths: list[str]) -> list[str]:
@@ -69,45 +96,43 @@ def dead_file_findings(files: dict[str, str]) -> list[str]:
     return sorted(code_analysis.find_dead_files(files))
 
 
-def build_repo_tools(client: GitHubGitClient, budget: RunBudget) -> list[Callable[..., Any]]:
+def build_repo_tools(
+    client: GitHubGitClient, budget: RunBudget, *, owner: str, repo: str, branch: str
+) -> list[Callable[..., Any]]:
     """Build the repository-exploration tools an ``LlmAgent`` calls during analysis.
 
-    Closures capture the authenticated GitHub client + the run budget. Tool-call counting is
-    enforced by the before-tool callback (``service.agents.hooks``); here ``read_file`` also
-    charges the file-read budget. Returns ``[list_repo_source_files, read_file, assess_code_debt]``.
+    Closures capture the authenticated GitHub client, the run budget, and the run's
+    ``owner``/``repo``/``branch`` (issue 077-C) — the LLM does NOT pass repo coordinates, so it can't
+    read the wrong branch. Tool-call counting is enforced by the before-tool callback
+    (``service.agents.hooks``); here ``read_file`` also charges the file-read budget. Returns
+    ``[list_repo_source_files, read_file, assess_code_debt]``.
     """
 
-    async def list_repo_source_files(owner: str, repo: str, branch: str = "main") -> list[str]:
-        """List analysable source files in a repository (excludes vendored/config files).
+    async def list_repo_source_files() -> list[str]:
+        """List analysable source files in the repository under analysis (excludes vendored/config).
 
-        Call this first to decide which files are worth reading. Capped to keep the run bounded.
-
-        Args:
-            owner: Repository owner or organisation.
-            repo: Repository name.
-            branch: Branch to scan (defaults to main).
+        Call this first to decide which files are worth reading. Prioritised (language-fair, larger
+        files first) and capped to keep the run bounded.
 
         Returns:
             Source file paths (at most the per-run cap).
         """
         tree = await client.get_repository_tree(owner, repo, branch)
-        sources = [item.path for item in tree if item.type == "blob" and code_analysis.is_source_file(item.path)]
-        return sources[:_MAX_AGENT_FILES]
+        return _select_agent_files(tree, _MAX_AGENT_FILES)
 
-    async def read_file(owner: str, repo: str, path: str, ref: str = "main") -> str:
-        """Read one file's text content (truncated). Charges the file-read budget.
+    async def read_file(path: str) -> str:
+        """Read one file's text content (truncated) from the repository under analysis.
+
+        Charges the file-read budget.
 
         Args:
-            owner: Repository owner or organisation.
-            repo: Repository name.
             path: File path within the repository.
-            ref: Git ref to read from (branch / tag / sha).
 
         Returns:
             The file content, truncated to a safe length.
         """
         budget.charge_files(1)
-        file_content = await client.get_file_content(owner, repo, path, ref)
+        file_content = await client.get_file_content(owner, repo, path, branch)
         content = file_content.content or ""
         if len(content) > _MAX_FILE_CHARS:
             return content[:_MAX_FILE_CHARS] + "\n... (truncated)"

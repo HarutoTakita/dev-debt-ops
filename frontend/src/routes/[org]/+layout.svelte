@@ -8,16 +8,19 @@
   import CreateProjectDialog from "$lib/components/shell/create-project-dialog.svelte";
   import KeyboardShortcuts from "$lib/components/shell/keyboard-shortcuts.svelte";
   import OnboardingTour from "$lib/components/onboarding/onboarding-tour.svelte";
-  import { tourSteps } from "$lib/components/onboarding/tour-steps";
+  import { autoStartGuideFor } from "$lib/components/onboarding/onboarding-launch";
   import { sidebar } from "$lib/stores/sidebar-store.svelte";
   import { onboarding } from "$lib/stores/onboarding-store.svelte";
 
   let { children } = $props();
 
-  // 初回プロジェクト作成 → 遷移後にツアーを一度だけ自動開始（issue 066）。
+  // 初回プロジェクト作成 → 遷移後にツアーを一度だけ自動開始（issue 066）。プロジェクト配下（org/project 両方が
+  // 揃った状態）に着いてから起動する。作成直後は未解析のため、autoStartGuideFor が「解析のみ案内」ガイドを出す。
   $effect(() => {
     const orgSlug = page.params.org;
-    if (orgSlug && onboarding.consumeAutoStart(orgSlug)) onboarding.start(tourSteps);
+    const projectSlug = page.params.project;
+    if (!orgSlug || !projectSlug) return;
+    if (onboarding.consumeAutoStart(orgSlug)) void autoStartGuideFor(orgSlug, projectSlug);
   });
 
   // モバイル: ドロワー内のリンクで遷移したら Sheet を閉じる（開いたまま遷移先を覆う不具合を防ぐ）。

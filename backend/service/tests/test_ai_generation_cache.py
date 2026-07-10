@@ -45,3 +45,32 @@ async def test_estimate_ai_generation_empty_is_noop(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(g, "_generate", fake_generate)
     assert await g.estimate_ai_generation({}) == {}
+
+
+class _NoneResp:
+    """A blocked / MAX_TOKENS response: ``.text`` is None (candidate emitted no text)."""
+
+    text = None
+
+
+async def test_estimate_ai_generation_handles_blocked_none_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A None-text (blocked/empty) response returns the fallback, not an uncaught TypeError (issue 076-B)."""
+
+    async def fake_generate(_client: object, *, model: str, contents: str, config: object) -> _NoneResp:
+        return _NoneResp()
+
+    monkeypatch.setattr(g, "_build_client", lambda: object())
+    monkeypatch.setattr(g, "_generate", fake_generate)
+    g._AI_GEN_CACHE.clear()
+    assert await g.estimate_ai_generation({"a.py": "AAA"}) == {}  # no crash → empty estimate
+
+
+async def test_generate_quiz_handles_blocked_none_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """generate_quiz with a None-text response returns its documented empty shape (issue 076-B)."""
+
+    async def fake_generate(_client: object, *, model: str, contents: str, config: object) -> _NoneResp:
+        return _NoneResp()
+
+    monkeypatch.setattr(g, "_build_client", lambda: object())
+    monkeypatch.setattr(g, "_generate", fake_generate)
+    assert await g.generate_quiz("src/a.py", "def f(): pass\n") == {"questions": [], "answer_key": {}}

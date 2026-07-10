@@ -130,6 +130,12 @@
           ctx.lineWidth = 2 / scale; // 中空の赤丸
           ctx.strokeStyle = destructiveColor;
           ctx.stroke();
+        } else if (mastery === "out_of_scope") {
+          const a = ctx.globalAlpha; // 対象外: 淡いグレーの塗り（未着手の破線中空と区別）
+          ctx.globalAlpha = a * 0.3;
+          ctx.fillStyle = mutedColor;
+          ctx.fill();
+          ctx.globalAlpha = a;
         } else {
           ctx.setLineDash([3 / scale, 2 / scale]); // 未着手: 破線グレーの中空
           ctx.lineWidth = 1 / scale;

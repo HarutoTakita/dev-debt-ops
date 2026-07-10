@@ -62,7 +62,7 @@ class TestRunnerMcpLifecycle:
                 yield  # unreachable — makes this an async generator
 
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
-        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
         monkeypatch.setattr(runner, "Runner", _FakeRunner)
@@ -80,6 +80,75 @@ class TestRunnerMcpLifecycle:
         assert trace == []
         assert base.is_empty()  # no save_base_analysis was called → empty base
 
+    async def test_analysis_agent_returns_partial_and_closes_on_run_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A run_async failure (e.g. 502) is not propagated: toolsets close and partial trace/base return (076-E)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        class _FailingRunner:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            async def run_async(self, **_kwargs: object):
+                raise RuntimeError("502 Bad Gateway")
+                yield  # unreachable — makes this an async generator
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
+        monkeypatch.setattr(runner, "Runner", _FailingRunner)
+
+        trace, base = await runner.run_analysis_agent(
+            client=AsyncMock(),
+            owner="acme",
+            repo="rosetta",
+            branch="main",
+            budget=RunBudget(),
+            repo_dir="/tmp/x",
+            github_token="tok",
+        )
+        assert closed["n"] == 3  # toolsets still closed on failure
+        assert any("run failed" in line for line in trace)  # failure recorded, not discarded
+        assert base.is_empty()  # partial base returned (save never happened)
+
+    async def test_analysis_agent_closes_toolsets_on_setup_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A construction failure after toolsets are built still closes them (no leak, 076-F)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        def _boom(**_kwargs: object) -> object:
+            raise RuntimeError("agent build failed")
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_analysis_agent", _boom)
+
+        with pytest.raises(RuntimeError, match="agent build failed"):
+            await runner.run_analysis_agent(
+                client=AsyncMock(),
+                owner="acme",
+                repo="rosetta",
+                branch="main",
+                budget=RunBudget(),
+                repo_dir="/tmp/x",
+                github_token="tok",
+            )
+        assert closed["n"] == 3  # all created toolsets closed despite the setup failure
+
 
 # --- repo tools (GitHub client mocked) -------------------------------------
 
@@ -92,19 +161,39 @@ class TestRepoTools:
             TreeItem(path="node_modules/x/index.js", type="blob", size=50),
             TreeItem(path="src", type="tree", size=None),
         ]
-        list_repo_source_files, _read, _assess = build_repo_tools(client, RunBudget())
-        result = await list_repo_source_files("acme", "rosetta", "main")
+        list_repo_source_files, _read, _assess = build_repo_tools(
+            client, RunBudget(), owner="acme", repo="rosetta", branch="main"
+        )
+        result = await list_repo_source_files()  # repo coordinates are bound, not LLM-supplied (077-C)
         assert "app/main.py" in result
         assert "node_modules/x/index.js" not in result
 
-    async def test_read_file_truncates_and_charges_budget(self) -> None:
+    async def test_list_repo_source_files_prioritises_and_is_language_fair(self) -> None:
+        """077-B: selection is language-fair (round-robin by extension) and prefers larger files."""
+        client = AsyncMock()
+        client.get_repository_tree.return_value = [
+            TreeItem(path="a.py", type="blob", size=10),
+            TreeItem(path="b.py", type="blob", size=90),  # bigger .py → before a.py
+            TreeItem(path="c.ts", type="blob", size=20),
+        ]
+        list_repo_source_files, _read, _assess = build_repo_tools(
+            client, RunBudget(), owner="acme", repo="rosetta", branch="main"
+        )
+        result = await list_repo_source_files()
+        assert set(result) == {"a.py", "b.py", "c.ts"}
+        assert result.index("b.py") < result.index("a.py")  # size desc within the .py bucket
+        assert result[1] == "c.ts"  # round-robin: biggest .py, then the .ts (not both .py first)
+
+    async def test_read_file_uses_bound_branch(self) -> None:
+        """077-C: read_file takes only a path; the client is called with the bound owner/repo/branch."""
         client = AsyncMock()
         client.get_file_content.return_value = FileContent(path="big.py", content="x" * 10_000, sha="s", size=10_000)
         budget = RunBudget()
-        _list, read_file, _assess = build_repo_tools(client, budget)
-        result = await read_file("acme", "rosetta", "big.py")
+        _list, read_file, _assess = build_repo_tools(client, budget, owner="acme", repo="rosetta", branch="feature/x")
+        result = await read_file("big.py")  # no owner/repo/ref args
         assert "(truncated)" in result
         assert budget.files_read == 1
+        client.get_file_content.assert_awaited_once_with("acme", "rosetta", "big.py", "feature/x")
 
 
 # --- plugin ----------------------------------------------------------------
@@ -221,6 +310,25 @@ class TestProcess:
 
         scan.assert_awaited_once_with("/tmp/clone")
         assert code_debt_detection.process.call_args.kwargs["trivy_findings"] == [agg]
+
+    async def test_clone_cleaned_up_when_pre_analysis_step_raises(self, mocker) -> None:
+        """078-C: a failure in a pre-analysis step (Trivy/graph/persist) still cleans up the clone."""
+        self._mock_backbone(mocker)
+        mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value="/tmp/clone"))
+        mocker.patch.object(agentic_analysis.code_graph, "build_graph", AsyncMock(return_value=False))
+        mocker.patch.object(agentic_analysis.function_graph, "read_repo_sources", return_value={})
+        mocker.patch.object(agentic_analysis.function_graph, "build_snapshot", return_value={})
+        mocker.patch.object(agentic_analysis, "run_analysis_agent", AsyncMock(return_value=([], BaseAnalysis())))
+        # A pre-analysis step raises inside the (now guarded) block that previously leaked the clone.
+        mocker.patch.object(agentic_analysis.trivy_scan, "scan_repo", AsyncMock(side_effect=RuntimeError("trivy boom")))
+        rmtree = mocker.patch.object(agentic_analysis.shutil, "rmtree")
+
+        result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        assert result.status == ResultStatus.COMPLETED  # backbone still completes
+        # clone (and its per-run KuzuDB sibling) cleaned up despite the failure (078-C/A).
+        rmtree.assert_any_call("/tmp/clone", ignore_errors=True)
 
     async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
         """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""
