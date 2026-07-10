@@ -62,7 +62,7 @@ class TestRunnerMcpLifecycle:
                 yield  # unreachable — makes this an async generator
 
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
-        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
         monkeypatch.setattr(runner, "Runner", _FakeRunner)
@@ -101,7 +101,7 @@ class TestRunnerMcpLifecycle:
                 yield  # unreachable — makes this an async generator
 
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
-        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
         monkeypatch.setattr(runner, "Runner", _FailingRunner)
@@ -133,7 +133,7 @@ class TestRunnerMcpLifecycle:
             raise RuntimeError("agent build failed")
 
         monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
-        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda *_a: _FakeToolset())
         monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
         monkeypatch.setattr(runner, "build_analysis_agent", _boom)
 
@@ -327,7 +327,8 @@ class TestProcess:
         result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
 
         assert result.status == ResultStatus.COMPLETED  # backbone still completes
-        rmtree.assert_called_once_with("/tmp/clone", ignore_errors=True)  # clone cleaned up despite the failure
+        # clone (and its per-run KuzuDB sibling) cleaned up despite the failure (078-C/A).
+        rmtree.assert_any_call("/tmp/clone", ignore_errors=True)
 
     async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
         """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""

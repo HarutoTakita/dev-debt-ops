@@ -2,6 +2,7 @@
 
 import base64
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 import httpx
@@ -9,6 +10,29 @@ import httpx
 from shared.worker import TransientTaskError
 
 logger = logging.getLogger(__name__)
+
+
+class _InstallationTokenAuth(httpx.Auth):
+    """httpx auth that re-mints the GitHub installation token on a 401 and replays once (issue 078-D).
+
+    GitHub installation tokens expire after ~1h; a long analysis run (clone + agent + backbone +
+    per-feature generation) can outlive one, after which every request 401s on a frozen ``Authorization``
+    header. This sets the Bearer header from the current token and, on a 401, awaits ``provider`` for a
+    fresh token and replays the request once.
+    """
+
+    def __init__(self, token: str, provider: Callable[[], Awaitable[str]]) -> None:
+        self._token = token
+        self._provider = provider
+
+    async def async_auth_flow(self, request: httpx.Request):
+        request.headers["Authorization"] = f"Bearer {self._token}"
+        response = yield request
+        if response.status_code == 401:
+            self._token = await self._provider()
+            request.headers["Authorization"] = f"Bearer {self._token}"
+            yield request
+
 
 API_BASE = "https://api.github.com"
 
@@ -162,15 +186,26 @@ query($owner: String!, $repo: String!, $ref: String!, $path: String!) {
 class GitHubGitClient:
     """GitHub REST API client that authenticates with an installation access token."""
 
-    def __init__(self, access_token: str) -> None:
-        """Initialize the client with the given GitHub installation access token."""
+    def __init__(self, access_token: str, *, token_provider: Callable[[], Awaitable[str]] | None = None) -> None:
+        """Initialize the client with a GitHub installation access token.
+
+        When ``token_provider`` is given, the token is refreshed on a 401 and the request replayed
+        (issue 078-D) — for long runs that can outlive the ~1h installation-token TTL. Without it the
+        token is a static header (unchanged behaviour).
+        """
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        auth: httpx.Auth | None = None
+        if token_provider is not None:
+            auth = _InstallationTokenAuth(access_token, token_provider)
+        else:
+            headers["Authorization"] = f"Bearer {access_token}"
         self._client = httpx.AsyncClient(
             base_url=API_BASE,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            headers=headers,
+            auth=auth,
             timeout=30.0,
             event_hooks={"response": [_raise_on_rate_limit]},
         )
@@ -517,8 +552,8 @@ class CachingGitHubGitClient(GitHubGitClient):
     (they iterate / read ``.content``); do not mutate them, as the same objects are shared.
     """
 
-    def __init__(self, access_token: str) -> None:
-        super().__init__(access_token=access_token)
+    def __init__(self, access_token: str, *, token_provider: Callable[[], Awaitable[str]] | None = None) -> None:
+        super().__init__(access_token=access_token, token_provider=token_provider)
         self._tree_cache: dict[tuple[str, str, str], list[TreeItem]] = {}
         self._file_cache: dict[tuple[str, str, str, str], FileContent] = {}
 

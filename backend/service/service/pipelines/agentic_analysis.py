@@ -134,7 +134,13 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     base_analysis = BaseAnalysis()
     budget = RunBudget()
     token = await _mint_installation_token(request.github)
-    client = GitHubGitClient(access_token=token)
+
+    # 長時間 run（clone+エージェント+バックボーン+機能別生成）が ~1h のトークン TTL を超えても 401 で止まらないよう、
+    # 401 時に再発行するプロバイダを渡す（issue 078-D）。
+    async def _refresh_token() -> str:
+        return await _mint_installation_token(request.github)
+
+    client = GitHubGitClient(access_token=token, token_provider=_refresh_token)
     # clone から run_analysis_agent までを 1 つの try/finally で囲む（issue 078-C）。以前は clone の後・try の前で
     # グラフ構築 / _persist_code_graph(DB) / Trivy が未ガードに走り、そこで例外が出るとクローン＋git クライアントが
     # 残留していた。repo_dir/trivy_findings は try 前に初期化し、finally が全経路で cleanup する。
@@ -179,6 +185,8 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         await client.aclose()
         if repo_dir is not None:
             shutil.rmtree(repo_dir, ignore_errors=True)
+            # per-run KuzuDB（clone の兄弟ディレクトリ, issue 078-A）も clone と一緒に片付ける。
+            shutil.rmtree(code_graph.kuzudb_path_for(repo_dir), ignore_errors=True)
 
     # 2) Deterministic backbone — each sub-pipeline runs under THIS job_id, creating its own
     # (job_id, kind) run and upserting its tables on the shared session (flush only). Order:
@@ -186,7 +194,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     # 取得の共通化: バックボーン全体で 1 つの読み取りキャッシュ付き GitHub クライアントを共有し、各ステップが
     # 個別に行っていたリポジトリツリー取得（〜5×）・重複するソースファイル取得を 1 回に集約する。標準呼び出し
     # （各パイプライン単体）では ctx.github_client は None のまま＝各自で取得する従来どおりの動作になる。
-    ctx.github_client = CachingGitHubGitClient(access_token=await _mint_installation_token(request.github))
+    ctx.github_client = CachingGitHubGitClient(
+        access_token=await _mint_installation_token(request.github), token_provider=_refresh_token
+    )
     try:
         fc_req = FeatureClusteringRequest(
             job_id=request.job_id,

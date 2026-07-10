@@ -63,7 +63,7 @@ async def run_analysis_agent(
         github_toolset = build_github_toolset(github_token) if github_token else None
         if github_toolset is not None:
             toolsets.append(github_toolset)
-        code_graph_toolset = build_code_graph_toolset() if repo_dir else None
+        code_graph_toolset = build_code_graph_toolset(repo_dir) if repo_dir else None
         if code_graph_toolset is not None:
             toolsets.append(code_graph_toolset)
         root = build_analysis_agent(

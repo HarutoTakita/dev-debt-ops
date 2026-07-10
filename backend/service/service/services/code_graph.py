@@ -15,6 +15,7 @@ Design (validated by spike):
 """
 
 import asyncio
+import functools
 import json
 import logging
 import os
@@ -37,15 +38,36 @@ CGC_HOME = os.environ.get("HOME") or "/home/appuser"
 # Force the embedded KuzuDB backend regardless of the global CGC .env default (which is falkordb and
 # would need a separate service), and pin its on-disk path so it never depends on Path.home(). The CLI
 # build and the MCP server both honour these runtime env vars (shared via ``CGC_DB_ENV`` / ``cgc_env``).
+_GLOBAL_KUZUDB_PATH = os.path.join(CGC_HOME, ".codegraphcontext", "global", "kuzudb")
 CGC_DB_ENV = {
     "CGC_RUNTIME_DB_TYPE": "kuzudb",
-    "KUZUDB_PATH": os.path.join(CGC_HOME, ".codegraphcontext", "global", "kuzudb"),
+    "KUZUDB_PATH": _GLOBAL_KUZUDB_PATH,
 }
 
 
-def cgc_env() -> dict[str, str]:
-    """Return the process env with the KuzuDB backend + path forced and a writable HOME (CLI + MCP)."""
-    return {**os.environ, **CGC_DB_ENV, "HOME": CGC_HOME}
+def kuzudb_path_for(repo_dir: str | None) -> str:
+    """Per-run KuzuDB path derived from the unique clone dir (issue 078-A).
+
+    CGC's embedded KuzuDB is a single-writer store and its snapshot queries are NOT repo-scoped, so a
+    container-global path lets warm/concurrent Cloud Run runs contaminate one repo's graph with
+    another's (and risks write locks). ``repo_dir`` is a unique per-run clone dir, so a path derived
+    from it isolates each run. A sibling of the clone (not inside it) so ``cgc index`` doesn't index the
+    DB. Falls back to the global path when there is no clone (nothing to index anyway).
+    """
+    if not repo_dir:
+        return _GLOBAL_KUZUDB_PATH
+    return repo_dir.rstrip("/") + "-cgc-kuzudb"
+
+
+def cgc_env(db_path: str | None = None) -> dict[str, str]:
+    """Return the process env with the KuzuDB backend + path forced and a writable HOME (CLI + MCP).
+
+    ``db_path`` overrides the KuzuDB location for per-run isolation (issue 078-A); omitted → global.
+    """
+    env = {**os.environ, **CGC_DB_ENV, "HOME": CGC_HOME}
+    if db_path:
+        env["KUZUDB_PATH"] = db_path
+    return env
 
 
 async def build_graph(repo_dir: str) -> bool:
@@ -61,7 +83,7 @@ async def build_graph(repo_dir: str) -> bool:
             "cgc",
             "index",
             repo_dir,
-            env=cgc_env(),
+            env=cgc_env(kuzudb_path_for(repo_dir)),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -114,14 +136,14 @@ def _parse_cgc_rows(text: str) -> list | None:
     return None
 
 
-async def _cgc_query(cypher: str) -> list[dict]:
+async def _cgc_query(cypher: str, db_path: str | None = None) -> list[dict]:
     """Run one read-only ``cgc query`` (Cypher) and return its JSON rows (``[]`` on any failure)."""
     try:
         proc = await asyncio.create_subprocess_exec(
             "cgc",
             "query",
             cypher,
-            env=cgc_env(),
+            env=cgc_env(db_path),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -248,11 +270,14 @@ async def extract_snapshot(repo_dir: str) -> dict:
     """
     if not repo_dir:
         return {}
+    # Query the run's OWN KuzuDB (issue 078-A) so a warm/concurrent instance can't return another repo's
+    # nodes — the same per-run path build_graph indexed into.
+    q = functools.partial(_cgc_query, db_path=kuzudb_path_for(repo_dir))
     # The three layers are extracted INDEPENDENTLY: a repo can have intra-file functions (Level-3)
     # without any cross-file calls (Level-2 file_edges), and vice versa. Gating functions on file_edges
     # (the previous behaviour) meant small repos with no cross-file CALLS persisted nothing, so the map
     # never showed CGC structure. Persist whatever exists; return {} only when ALL three are empty.
-    edge_rows = await _cgc_query(
+    edge_rows = await q(
         "MATCH (af:File)-[:CONTAINS]->(:Function)-[:CALLS]->(:Function)<-[:CONTAINS]-(bf:File) "
         "WHERE af.relative_path <> bf.relative_path "
         f"RETURN DISTINCT af.relative_path AS source, bf.relative_path AS target LIMIT {_SNAPSHOT_EDGE_LIMIT}"
@@ -263,11 +288,11 @@ async def extract_snapshot(repo_dir: str) -> dict:
     # (File)-[:IMPORTS]->(Module) 形（Module=import の最終セグメント名）なので、リポジトリ内ファイルへ
     # basename-stem の一意一致で解決し、上の解決済みクロスファイル CALLS と和集合にする。CGC が解析する
     # 全言語（Python / TS / JS / …）が対象。これで file_edges が calls＋imports の CGC 主ソースになる。
-    import_rows = await _cgc_query(
+    import_rows = await q(
         "MATCH (f:File)-[:IMPORTS]->(m:Module) "
         f"RETURN DISTINCT f.relative_path AS source, m.name AS module LIMIT {_SNAPSHOT_EDGE_LIMIT}"
     )
-    file_rows = await _cgc_query(f"MATCH (f:File) RETURN DISTINCT f.relative_path AS path LIMIT {_SNAPSHOT_FN_LIMIT}")
+    file_rows = await q(f"MATCH (f:File) RETURN DISTINCT f.relative_path AS path LIMIT {_SNAPSHOT_FN_LIMIT}")
     file_paths = [r["path"] for r in file_rows if r.get("path")]
     seen_edges = {(e["source"], e["target"]) for e in edges}
     edges += _resolve_import_edges(import_rows, file_paths, seen_edges)
@@ -275,14 +300,14 @@ async def extract_snapshot(repo_dir: str) -> dict:
 
     # Level-3 (issue 240): per-file functions + intra-file call edges, for the on-demand file drilldown.
     # `<module>` is CGC's file-level pseudo-function — excluded so the graph shows real functions only.
-    fn_rows = await _cgc_query(
+    fn_rows = await q(
         "MATCH (f:File)-[:CONTAINS]->(fn:Function) WHERE fn.name <> '<module>' "
         f"RETURN DISTINCT f.relative_path AS file, fn.name AS name LIMIT {_SNAPSHOT_FN_LIMIT}"
     )
     # Function-level CALLS with BOTH endpoints' files (intra- AND cross-file), so the feature graph can
     # connect functions across files (issue 282). Cross-file calls used to be aggregated away into
     # `file_edges`; here we keep the function-level endpoints. Self-edges (same file + same name) dropped.
-    call_rows = await _cgc_query(
+    call_rows = await q(
         "MATCH (fa:File)-[:CONTAINS]->(a:Function)-[:CALLS]->(b:Function)<-[:CONTAINS]-(fb:File) "
         "WHERE a.name <> '<module>' AND b.name <> '<module>' "
         "AND NOT (fa.relative_path = fb.relative_path AND a.name = b.name) "

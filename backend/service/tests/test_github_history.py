@@ -9,9 +9,12 @@ authorship は ctx.session をモックして突合とフォールバックを�
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
+import pytest
+
 from service.services.authorship import AuthorIdentity, resolve_author_user_id
 from service.services.dependency_extraction import DependencyEdge, extract_dependencies
-from service.services.github_git_client import GitHubGitClient
+from service.services.github_git_client import GitHubGitClient, _InstallationTokenAuth
 
 
 def _client_with_response(json_data: object, *, method: str = "get") -> GitHubGitClient:
@@ -268,3 +271,52 @@ class TestGetFileContent:
         fc = await client.get_file_content("o", "r", "big.py")
         assert fc.content is not None
         assert "x = 1" in fc.content
+
+
+class TestInstallationTokenRefresh:
+    async def test_auth_refreshes_on_401_and_replays(self) -> None:
+        """078-D: a 401 re-mints the token and replays the request once with the fresh Bearer header."""
+        calls = {"n": 0}
+
+        async def provider() -> str:
+            calls["n"] += 1
+            return "fresh-token"
+
+        auth = _InstallationTokenAuth("stale-token", provider)
+        request = httpx.Request("GET", "https://api.github.com/x")
+        flow = auth.async_auth_flow(request)
+        req1 = await flow.__anext__()
+        assert req1.headers["Authorization"] == "Bearer stale-token"
+        req2 = await flow.asend(httpx.Response(401, request=request))  # 401 → refresh + replay
+        assert req2.headers["Authorization"] == "Bearer fresh-token"
+        assert calls["n"] == 1
+        with pytest.raises(StopAsyncIteration):
+            await flow.asend(httpx.Response(200, request=request))
+
+    async def test_auth_no_refresh_on_success(self) -> None:
+        """078-D: a non-401 response ends the flow without re-minting."""
+        calls = {"n": 0}
+
+        async def provider() -> str:
+            calls["n"] += 1
+            return "x"
+
+        auth = _InstallationTokenAuth("t", provider)
+        request = httpx.Request("GET", "https://api.github.com/x")
+        flow = auth.async_auth_flow(request)
+        await flow.__anext__()
+        with pytest.raises(StopAsyncIteration):
+            await flow.asend(httpx.Response(200, request=request))
+        assert calls["n"] == 0  # provider not called on success
+
+    def test_client_token_provider_installs_refresh_auth(self) -> None:
+        """078-D: a token_provider installs the refresh auth; without one, the static header is kept."""
+
+        async def provider() -> str:
+            return "t"
+
+        client = GitHubGitClient(access_token="init", token_provider=provider)
+        assert isinstance(client._client.auth, _InstallationTokenAuth)
+        assert "authorization" not in {k.lower() for k in client._client.headers}
+        plain = GitHubGitClient(access_token="init")  # no provider → static header (unchanged behaviour)
+        assert plain._client.headers.get("Authorization") == "Bearer init"

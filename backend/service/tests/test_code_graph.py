@@ -51,6 +51,35 @@ async def test_cgc_query_parses_decorated_stdout(monkeypatch: pytest.MonkeyPatch
     assert rows == [{"path": "a.py"}, {"path": "b.py"}]
 
 
+def test_kuzudb_path_for_is_per_run() -> None:
+    """078-A: the KuzuDB path is derived from the (unique) clone dir, not the container-global path."""
+    per_run = code_graph.kuzudb_path_for("/tmp/xyz/repo")
+    assert per_run != code_graph._GLOBAL_KUZUDB_PATH
+    assert per_run.startswith("/tmp/xyz/repo")  # sibling of the clone, outside the indexed tree
+    assert code_graph.kuzudb_path_for(None) == code_graph._GLOBAL_KUZUDB_PATH  # no clone → global
+
+
+def test_cgc_env_db_path_override() -> None:
+    """078-A: cgc_env(db_path) overrides KUZUDB_PATH for per-run isolation."""
+    assert code_graph.cgc_env("/custom/kuzu")["KUZUDB_PATH"] == "/custom/kuzu"
+    assert code_graph.cgc_env()["KUZUDB_PATH"] == code_graph._GLOBAL_KUZUDB_PATH
+
+
+async def test_build_graph_uses_per_run_kuzudb_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """078-A: `cgc index` runs against the run's own KuzuDB path (concurrent runs don't collide)."""
+    captured: dict[str, object] = {}
+
+    async def _fake_exec(*_args: object, **kwargs: object) -> object:
+        captured["env"] = kwargs.get("env")
+        return _FakeProc(0)
+
+    monkeypatch.setattr(code_graph.asyncio, "create_subprocess_exec", _fake_exec)
+    await code_graph.build_graph("/tmp/clone")
+    env = captured["env"]
+    assert env["KUZUDB_PATH"] == code_graph.kuzudb_path_for("/tmp/clone")
+    assert env["KUZUDB_PATH"] != code_graph._GLOBAL_KUZUDB_PATH
+
+
 async def test_build_graph_success(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_exec(monkeypatch, _FakeProc(0))
     assert await code_graph.build_graph("/tmp/repo") is True
@@ -74,7 +103,7 @@ async def test_build_graph_empty_repo_dir_returns_false() -> None:
 
 
 async def test_extract_snapshot_builds_file_and_function_graph(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def _fake_query(cypher: str) -> list[dict]:
+    async def _fake_query(cypher: str, db_path: str | None = None) -> list[dict]:
         if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # function calls with both files (issue 282)
             return [{"source_file": "mod.py", "source": "a", "target_file": "util.py", "target": "b"}]  # cross-file
         if "CONTAINS]->(fn:Function)" in cypher:  # per-file functions (Level-3 nodes)
@@ -99,7 +128,7 @@ async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeyp
     """A repo with intra-file functions but NO cross-file calls must still persist the Level-3 graph
     (functions/function_calls), not return {} — otherwise the map never shows CGC structure (issue 248)."""
 
-    async def _fake_query(cypher: str) -> list[dict]:
+    async def _fake_query(cypher: str, db_path: str | None = None) -> list[dict]:
         if "CONTAINS]->(a:Function)-[:CALLS]" in cypher:  # intra-file calls present
             return [{"source_file": "mod.py", "source": "a", "target_file": "mod.py", "target": "b"}]
         if "CONTAINS]->(fn:Function)" in cypher:  # functions present
@@ -114,7 +143,7 @@ async def test_extract_snapshot_keeps_functions_without_cross_file_edges(monkeyp
 
 
 async def test_extract_snapshot_empty_when_no_edges(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def _fake_query(_cypher: str) -> list[dict]:
+    async def _fake_query(_cypher: str, db_path: str | None = None) -> list[dict]:
         return []
 
     monkeypatch.setattr(code_graph, "_cgc_query", _fake_query)

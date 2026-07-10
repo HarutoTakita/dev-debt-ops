@@ -21,6 +21,17 @@ def test_build_code_graph_toolset_shape(monkeypatch: pytest.MonkeyPatch) -> None
     assert "PATH" in sp.env
 
 
+def test_build_code_graph_toolset_uses_per_run_kuzudb_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """078-A: with a clone dir, the MCP server reads the run's OWN KuzuDB (not the container-global path)."""
+    from service.services.code_graph import kuzudb_path_for
+
+    monkeypatch.setattr(code_graph_mcp.shutil, "which", lambda _cmd: "/usr/bin/codegraphcontext")
+    ts = code_graph_mcp.build_code_graph_toolset("/tmp/clone")
+    sp = ts._connection_params.server_params
+    assert sp.env["KUZUDB_PATH"] == kuzudb_path_for("/tmp/clone")
+    assert sp.env["KUZUDB_PATH"] != code_graph_mcp.CGC_DB_ENV["KUZUDB_PATH"]  # not the global path
+
+
 def test_build_code_graph_toolset_absent_when_binary_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     # Missing binary → None (graceful): a missing CGC MCP server must not crash the Base Analysis run.
     monkeypatch.setattr(code_graph_mcp.shutil, "which", lambda _cmd: None)
