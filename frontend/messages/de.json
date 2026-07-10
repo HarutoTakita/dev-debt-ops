@@ -539,6 +539,8 @@
   "tour_settings_body": "Konfiguriere das Projekt und seine Mitglieder.",
   "tour_analysis_title": "„Analysieren“ ausführen",
   "tour_analysis_body": "Diese eine Schaltfläche führt alles aus: Repository-Erkundung → Erkennung von Code-Schuld → Ordnen der Wissensschuld → Erzeugung von Quizzen & Lernen. Der Fortschritt wird in vier Blöcken bis zu jedem Schritt angezeigt. Beginne hier.",
+  "tour_unanalyzed_title": "Führe zuerst eine Analyse aus",
+  "tour_unanalyzed_body": "Dieses Projekt wurde noch nicht analysiert, daher gibt es keine Daten für die Führung. Führe zunächst über diese Schaltfläche eine Repository-Analyse aus (Erkennung von Code-Schuld, Ordnen der Wissensschuld sowie Erzeugung von Quizzen und Lernen). Sobald sie abgeschlossen ist, öffne diese Anleitung erneut, und wir führen dich durch jeden Bildschirm.",
   "tour_help_title": "Jederzeit Hilfe",
   "tour_help_body": "Spiele diesen Leitfaden jederzeit über das ? unten links in der Seitenleiste erneut ab.",
   "overview_load_error": "Der Überblick konnte nicht geladen werden.",

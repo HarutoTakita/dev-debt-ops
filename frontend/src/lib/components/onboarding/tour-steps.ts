@@ -129,6 +129,24 @@ export const noProjectSteps: TourStep[] = [
   },
 ];
 
+/** デモのデータ準備済みプロジェクト（EC デモ）の slug。backend `seed_demo.py` の DEMO_PROJECT_SLUG と一致。
+ *  デモモードのガイドは他プロジェクト（メタデータのみで解析データ無し）ではなく必ずこのプロジェクトで展開する。 */
+export const DEMO_PROJECT_SLUG = "sample-shop";
+
+// GitHub ログインで、まだ一度も解析していない（データが無い）プロジェクト用のガイド。通常ガイドは各画面の
+// 実データ（理解度マップ・コード品質マップ・学習プラン等）を前提とするため、未解析だと空/未生成で壊れる。
+// そこで「解析」パネルだけを案内し、解析完了後に再度ガイドを開くよう促す（body 文言）。id="analysis" にすることで
+// onboarding-tour.svelte の shellMenus 同期が解析ポップオーバーを開き、data-tour="analysis-panel" をハイライトする。
+export const analysisOnlySteps: TourStep[] = [
+  {
+    id: "analysis",
+    target: "analysis-panel",
+    title: m.tour_unanalyzed_title,
+    body: m.tour_unanalyzed_body,
+    placement: "left",
+  },
+];
+
 // モバイル版オンボーディング（issue 066 追補）。PC 版 tourSteps はサイドバーの nav 項目を対象にするが、
 // モバイルではサイドバーが Sheet（ドロワー）内で非表示のため機能しない（対象が見つからず 6s 空白 → 中央表示）。
 // そこでモバイルでは「各画面のページ内コンテンツ要素」（レスポンシブで常時可視。実機で可視を確認済み）を対象に、

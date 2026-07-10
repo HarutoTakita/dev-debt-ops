@@ -568,6 +568,8 @@
   "tour_settings_body": "Configure the project and its members.",
   "tour_analysis_title": "Run \"Analyze\"",
   "tour_analysis_body": "This single button runs it all: repository exploration → code-debt detection → knowledge-debt organization → quiz & learning generation. Progress is shown across four blocks, down to each step. Start here.",
+  "tour_unanalyzed_title": "First, run an analysis",
+  "tour_unanalyzed_body": "This project hasn't been analyzed yet, so there's no data to walk you through. Start by running a repository analysis from this button (code-debt detection, knowledge-debt organization, and quiz & learning generation). Once it finishes, reopen this guide and we'll walk you through each screen.",
   "tour_user_settings_title": "Settings & account",
   "tour_user_settings_body": "View your account, manage users (for admins), switch dark/light mode, change the language, and log out.",
   "tour_language_title": "Switch language",
