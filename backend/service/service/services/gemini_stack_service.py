@@ -122,10 +122,11 @@ def _build_client() -> genai.Client:
     )
 
 
-# HTTP statuses worth retrying with backoff: 429 (RESOURCE_EXHAUSTED / quota & rate limits) and the
-# transient 5xx (500 INTERNAL, 502 Bad Gateway, 503 UNAVAILABLE, 504 Gateway Timeout) — Google's own
-# 502 body says "try again in 30 seconds". 4xx other than 429 are caller bugs — don't retry.
-_RETRYABLE_STATUS: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+# HTTP statuses worth retrying with backoff: 408 (Request Timeout) + 429 (RESOURCE_EXHAUSTED / quota &
+# rate limits) and the transient 5xx (500 INTERNAL, 502 Bad Gateway, 503 UNAVAILABLE, 504 Gateway
+# Timeout) — Google's own 502 body says "try again in 30 seconds". Other 4xx are caller bugs — don't
+# retry. Kept identical to agents/model.py `_AGENT_RETRY_STATUS` (genai's default retriable set).
+_RETRYABLE_STATUS: frozenset[int] = frozenset({408, 429, 500, 502, 503, 504})
 _GENERATE_MAX_ATTEMPTS = 6
 _GENERATE_BASE_BACKOFF_SECONDS = 2.0
 _GENERATE_MAX_BACKOFF_SECONDS = 32.0
@@ -202,7 +203,7 @@ async def analyze_tech_stack(file_map: dict[str, str]) -> dict:
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return _empty_result()
     # Guard against valid-JSON-but-wrong-shape replies (e.g. a list/scalar) before save_stack
     # calls .get() on it — matches the dict guards in the sibling Gemini helpers (issue-045).
@@ -255,7 +256,7 @@ async def estimate_ai_generation(file_map: dict[str, str]) -> dict[str, float]:
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return probs
 
     if isinstance(raw, dict):
@@ -333,7 +334,7 @@ async def generate_refactor(path: str, content: str, notes: str) -> dict[str, st
 
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         raw = {}
     if not isinstance(raw, dict):
         raw = {}
@@ -409,7 +410,7 @@ async def generate_quiz(path: str, content: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"questions": [], "answer_key": {}}
     if not isinstance(raw, dict):
         return {"questions": [], "answer_key": {}}
@@ -428,7 +429,7 @@ async def grade_quiz(payload: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"score": 0.0, "understood": [], "gap_concepts": []}
     if not isinstance(raw, dict):
         return {"score": 0.0, "understood": [], "gap_concepts": []}
@@ -471,7 +472,7 @@ async def generate_external_resources(gap_concepts: list[str]) -> list[dict]:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     resources = raw.get("resources") if isinstance(raw, dict) else None
     return resources if isinstance(resources, list) else []
@@ -520,7 +521,7 @@ async def generate_code_learning_steps(
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     steps = raw.get("steps") if isinstance(raw, dict) else None
     return steps if isinstance(steps, list) else []
@@ -564,7 +565,7 @@ async def generate_code_walkthrough(path: str, content: str, *, max_steps: int =
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     steps = raw.get("steps") if isinstance(raw, dict) else None
     return steps if isinstance(steps, list) else []
@@ -600,7 +601,7 @@ async def generate_agent_narrative(kind: str, summary: str) -> dict:
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {"headline": "", "steps": []}
     if not isinstance(raw, dict):
         return {"headline": "", "steps": []}
@@ -665,7 +666,7 @@ async def cluster_features(paths: list[str], edges: list[tuple[str, str]]) -> li
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return []
     if not isinstance(raw, dict):
         return []

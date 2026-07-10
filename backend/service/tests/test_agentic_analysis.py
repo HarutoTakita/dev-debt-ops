@@ -80,6 +80,75 @@ class TestRunnerMcpLifecycle:
         assert trace == []
         assert base.is_empty()  # no save_base_analysis was called → empty base
 
+    async def test_analysis_agent_returns_partial_and_closes_on_run_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A run_async failure (e.g. 502) is not propagated: toolsets close and partial trace/base return (076-E)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        class _FailingRunner:
+            def __init__(self, **_kwargs: object) -> None:
+                pass
+
+            async def run_async(self, **_kwargs: object):
+                raise RuntimeError("502 Bad Gateway")
+                yield  # unreachable — makes this an async generator
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_analysis_agent", lambda **_kwargs: object())
+        monkeypatch.setattr(runner, "Runner", _FailingRunner)
+
+        trace, base = await runner.run_analysis_agent(
+            client=AsyncMock(),
+            owner="acme",
+            repo="rosetta",
+            branch="main",
+            budget=RunBudget(),
+            repo_dir="/tmp/x",
+            github_token="tok",
+        )
+        assert closed["n"] == 3  # toolsets still closed on failure
+        assert any("run failed" in line for line in trace)  # failure recorded, not discarded
+        assert base.is_empty()  # partial base returned (save never happened)
+
+    async def test_analysis_agent_closes_toolsets_on_setup_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A construction failure after toolsets are built still closes them (no leak, 076-F)."""
+        from service.agents import runner
+
+        closed = {"n": 0}
+
+        class _FakeToolset:
+            async def close(self) -> None:
+                closed["n"] += 1
+
+        def _boom(**_kwargs: object) -> object:
+            raise RuntimeError("agent build failed")
+
+        monkeypatch.setattr(runner, "build_serena_toolset", lambda _dir: _FakeToolset())
+        monkeypatch.setattr(runner, "build_code_graph_toolset", lambda: _FakeToolset())
+        monkeypatch.setattr(runner, "build_github_toolset", lambda _tok: _FakeToolset())
+        monkeypatch.setattr(runner, "build_analysis_agent", _boom)
+
+        with pytest.raises(RuntimeError, match="agent build failed"):
+            await runner.run_analysis_agent(
+                client=AsyncMock(),
+                owner="acme",
+                repo="rosetta",
+                branch="main",
+                budget=RunBudget(),
+                repo_dir="/tmp/x",
+                github_token="tok",
+            )
+        assert closed["n"] == 3  # all created toolsets closed despite the setup failure
+
 
 # --- repo tools (GitHub client mocked) -------------------------------------
 

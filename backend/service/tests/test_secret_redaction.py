@@ -186,6 +186,30 @@ async def test_plugin_handles_empty_contents() -> None:
     assert plugin.redacted == 0
 
 
+async def test_plugin_scans_only_new_contents_on_resend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Growing history: each model call scans only the newly-appended contents, not the whole history (076-G)."""
+    from service.agents import plugin as plugin_module
+
+    calls = {"n": 0}
+    real = plugin_module.deidentify
+
+    async def counting(text: str, *, allowlist: object) -> tuple[str, int]:
+        calls["n"] += 1
+        return await real(text, allowlist=allowlist)
+
+    monkeypatch.setattr(plugin_module, "deidentify", counting)
+
+    plugin = SecretRedactionPlugin()
+    request = _FakeLlmRequest([_FakeContent([_FakePart("password=supersecretvalue")])])
+    await plugin.before_model_callback(callback_context=object(), llm_request=request)
+    assert calls["n"] == 1  # scanned the one existing part
+
+    # The next model call resends the grown history (old content + one new content).
+    request.contents.append(_FakeContent([_FakePart("token ghp_" + "z" * 36)]))
+    await plugin.before_model_callback(callback_context=object(), llm_request=request)
+    assert calls["n"] == 2  # only the NEW content's part scanned — the old one is not re-scanned
+
+
 # --- PII (rule-based) + deidentify toggle/fallback (issue 296) --------------
 
 

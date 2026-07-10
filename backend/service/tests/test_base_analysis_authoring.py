@@ -30,6 +30,25 @@ class TestBuildAnalysisAgent:
         assert isinstance(agent, SequentialAgent)
         assert [a.name for a in agent.sub_agents] == ["analysis_explorer", "base_author"]
 
+    def test_author_stage_uses_independent_budget(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """explorer と author の before_model_callback は別 RunBudget にする（explorer が共有予算を使い切っても
+        author の save_base_analysis が予算超過で弾かれない, issue 076-C）。"""
+        from service.agents import base_analysis_tools as bat
+
+        seen: list[RunBudget] = []
+        real = bat.make_before_model_callback
+
+        def spy(budget: RunBudget):
+            seen.append(budget)
+            return real(budget)
+
+        monkeypatch.setattr(bat, "make_before_model_callback", spy)
+        main_budget = RunBudget()
+        build_analysis_agent(client=AsyncMock(), budget=main_budget, captured={})
+        assert len(seen) == 2  # explorer, then author
+        assert seen[0] is main_budget  # explorer uses the shared/main budget
+        assert seen[1] is not main_budget  # author has its own budget (headroom for the terminal save)
+
     def test_explorer_gets_exploration_mcp_only(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Explorer gets Serena + GitHub + CodeGraph toolsets; the author only gets the save tool."""
         from service.agents.code_graph_mcp import build_code_graph_toolset

@@ -10,6 +10,7 @@ Tests patch this function (the ADK Runner is never driven without a live model),
 """
 
 import contextlib
+import logging
 from typing import Any
 
 from google.adk.runners import Runner
@@ -24,6 +25,8 @@ from service.agents.plugin import SecretRedactionPlugin, TraceRecorderPlugin
 from service.agents.serena_mcp import build_serena_toolset
 from service.services.github_git_client import GitHubGitClient
 from shared.schemas.base_analysis import BaseAnalysis
+
+logger = logging.getLogger(__name__)
 
 _APP_NAME = "rosetta-analysis"
 
@@ -50,33 +53,47 @@ async def run_analysis_agent(
     recorder = TraceRecorderPlugin()
     redactor = SecretRedactionPlugin(allowlist={owner, repo, f"{owner}/{repo}", branch})
     captured: dict[str, Any] = {}
-    serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
-    github_toolset = build_github_toolset(github_token) if github_token else None
-    code_graph_toolset = build_code_graph_toolset() if repo_dir else None
-    toolsets = [t for t in (serena_toolset, github_toolset, code_graph_toolset) if t is not None]
-    root = build_analysis_agent(
-        client=client,
-        budget=budget,
-        captured=captured,
-        serena_toolset=serena_toolset,
-        github_toolset=github_toolset,
-        code_graph_toolset=code_graph_toolset,
-        repo_dir=repo_dir,
-    )
-    session_service = InMemorySessionService()
-    runner = Runner(
-        app_name=_APP_NAME,
-        agent=root,
-        session_service=session_service,
-        plugins=[recorder, redactor],
-    )
-    user_id = f"{owner}_{repo}"
-    adk_session = await session_service.create_session(app_name=_APP_NAME, user_id=user_id)
-    seed = f"リポジトリ {owner}/{repo} のブランチ {branch} を解析し、後続処理の元データを作成してください。"
-    message = Content(role="user", parts=[Part(text=seed)])
+    # 生成〜実行を単一の try/finally で囲む（issue 076-E/F）。toolset は生成のたびに逐次 append し、途中の構築失敗
+    # （build_*_toolset / build_analysis_agent / create_session）でも生成済み toolset を確実に close する。
+    toolsets: list[Any] = []
     try:
-        async for _event in runner.run_async(user_id=user_id, session_id=adk_session.id, new_message=message):
-            pass
+        serena_toolset = build_serena_toolset(repo_dir) if repo_dir else None
+        if serena_toolset is not None:
+            toolsets.append(serena_toolset)
+        github_toolset = build_github_toolset(github_token) if github_token else None
+        if github_toolset is not None:
+            toolsets.append(github_toolset)
+        code_graph_toolset = build_code_graph_toolset() if repo_dir else None
+        if code_graph_toolset is not None:
+            toolsets.append(code_graph_toolset)
+        root = build_analysis_agent(
+            client=client,
+            budget=budget,
+            captured=captured,
+            serena_toolset=serena_toolset,
+            github_toolset=github_toolset,
+            code_graph_toolset=code_graph_toolset,
+            repo_dir=repo_dir,
+        )
+        session_service = InMemorySessionService()
+        runner = Runner(
+            app_name=_APP_NAME,
+            agent=root,
+            session_service=session_service,
+            plugins=[recorder, redactor],
+        )
+        user_id = f"{owner}_{repo}"
+        adk_session = await session_service.create_session(app_name=_APP_NAME, user_id=user_id)
+        seed = f"リポジトリ {owner}/{repo} のブランチ {branch} を解析し、後続処理の元データを作成してください。"
+        message = Content(role="user", parts=[Part(text=seed)])
+        try:
+            async for _event in runner.run_async(user_id=user_id, session_id=adk_session.id, new_message=message):
+                pass
+        except Exception as exc:
+            # ベストエフォート: run 中の失敗（Gemini 502/timeout、ツール失敗等）でも、記録済み trace と author が
+            # save 済みの部分 captured を捨てず返す（issue 076-E）。決定的バックボーンは呼び出し側で続行される。
+            logger.exception("base analysis agent run failed; returning partial trace/base")
+            recorder.trace.append(f"[analysis_agent] run failed: {exc}")
     finally:
         for toolset in toolsets:
             with contextlib.suppress(Exception):
