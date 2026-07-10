@@ -82,6 +82,38 @@ async def build_graph(repo_dir: str) -> bool:
     return True
 
 
+def _parse_cgc_rows(text: str) -> list | None:
+    """Recover the JSON array of rows from ``cgc query`` stdout, tolerating decorated output.
+
+    The CLI is *meant* to print only a JSON array on stdout, but stray bracketed text (log prefixes like
+    ``[INFO]``, ANSI escapes, progress bars, footers) would corrupt a naive outermost-``[``…``]`` slice.
+    Try in order: (1) the whole output, (2) any single line that is itself a JSON array, (3) the
+    outermost-bracket slice. Return ``None`` when nothing parses (caller logs + treats as empty), so a
+    decorated/garbled stdout is surfaced rather than silently dropping the whole graph snapshot.
+    """
+
+    def _as_list(raw: str) -> list | None:
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            return None
+        return data if isinstance(data, list) else None
+
+    whole = _as_list(text)
+    if whole is not None:
+        return whole
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            rows = _as_list(stripped)
+            if rows is not None:
+                return rows
+    start, end = text.find("["), text.rfind("]")
+    if 0 <= start < end:
+        return _as_list(text[start : end + 1])
+    return None
+
+
 async def _cgc_query(cypher: str) -> list[dict]:
     """Run one read-only ``cgc query`` (Cypher) and return its JSON rows (``[]`` on any failure)."""
     try:
@@ -101,15 +133,12 @@ async def _cgc_query(cypher: str) -> list[dict]:
     except TimeoutError:
         proc.kill()
         return []
-    text = stdout.decode(errors="replace")
-    # The CLI prints the result as a JSON array on stdout (status/preamble go to stderr). Be tolerant
-    # of any stray leading text by slicing to the outermost brackets before parsing.
-    start, end = text.find("["), text.rfind("]")
-    if start < 0 or end <= start:
+    text = stdout.decode(errors="replace").strip()
+    if not text:
         return []
-    try:
-        rows = json.loads(text[start : end + 1])
-    except (json.JSONDecodeError, ValueError):
+    rows = _parse_cgc_rows(text)
+    if rows is None:
+        logger.warning("cgc query stdout not parseable as JSON rows (%d chars); treating as empty", len(text))
         return []
     return [r for r in rows if isinstance(r, dict)]
 

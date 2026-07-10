@@ -311,6 +311,24 @@ class TestProcess:
         scan.assert_awaited_once_with("/tmp/clone")
         assert code_debt_detection.process.call_args.kwargs["trivy_findings"] == [agg]
 
+    async def test_clone_cleaned_up_when_pre_analysis_step_raises(self, mocker) -> None:
+        """078-C: a failure in a pre-analysis step (Trivy/graph/persist) still cleans up the clone."""
+        self._mock_backbone(mocker)
+        mocker.patch.object(baseline_generation, "generate_learning_and_quizzes", AsyncMock(return_value=[]))
+        mocker.patch.object(agentic_analysis.repo_checkout, "shallow_clone", AsyncMock(return_value="/tmp/clone"))
+        mocker.patch.object(agentic_analysis.code_graph, "build_graph", AsyncMock(return_value=False))
+        mocker.patch.object(agentic_analysis.function_graph, "read_repo_sources", return_value={})
+        mocker.patch.object(agentic_analysis.function_graph, "build_snapshot", return_value={})
+        mocker.patch.object(agentic_analysis, "run_analysis_agent", AsyncMock(return_value=([], BaseAnalysis())))
+        # A pre-analysis step raises inside the (now guarded) block that previously leaked the clone.
+        mocker.patch.object(agentic_analysis.trivy_scan, "scan_repo", AsyncMock(side_effect=RuntimeError("trivy boom")))
+        rmtree = mocker.patch.object(agentic_analysis.shutil, "rmtree")
+
+        result = await agentic_analysis.process(_request(), PipelineContext(session=AsyncMock()))
+
+        assert result.status == ResultStatus.COMPLETED  # backbone still completes
+        rmtree.assert_called_once_with("/tmp/clone", ignore_errors=True)  # clone cleaned up despite the failure
+
     async def test_empty_base_analysis_not_persisted(self, mocker) -> None:
         """An empty base analysis (agent produced nothing) is NOT persisted; backbone still runs."""
         self._mock_backbone(mocker)

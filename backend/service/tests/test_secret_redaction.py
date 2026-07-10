@@ -73,6 +73,21 @@ def test_redact_secrets_masks_assignment_values(line: str) -> None:
     assert count == 1
 
 
+def test_assignment_pattern_requires_whole_token_keyword() -> None:
+    """078-H: the assignment regex only matches a secret keyword as a *whole token* in the key, not a
+    substring of an identifier (tested at the regex level to isolate it from the detect-secrets layer)."""
+    from service.services.secret_redaction import _ASSIGNMENT_PATTERN
+
+    # keyword mid-identifier (no separator boundary) → the assignment pattern must NOT match.
+    assert _ASSIGNMENT_PATTERN.search('tokenizer = "gpt2-large-model"') is None
+    assert _ASSIGNMENT_PATTERN.search('api_keyboard_layout = "qwerty-us-intl"') is None
+    assert _ASSIGNMENT_PATTERN.search('credentialsChecked = "somevalue"') is None
+    # whole-token secret keys are still matched.
+    assert _ASSIGNMENT_PATTERN.search('api_token = "s3cr3t_value_here"') is not None
+    assert _ASSIGNMENT_PATTERN.search("client_secret: abcdef123456") is not None
+    assert _ASSIGNMENT_PATTERN.search('password = "hunter2longvalue"') is not None
+
+
 def test_redact_secrets_leaves_non_secret_text_intact() -> None:
     """Ordinary prose / code without secrets is returned unchanged with a zero count."""
     text = "def add(a, b):\n    return a + b  # simple helper\n"
@@ -123,6 +138,20 @@ def test_detect_secrets_flags_owner_repo_slug_without_allowlist() -> None:
     redacted, count = redact_secrets(prompt)
     assert "HarutoTakita/cyber-tech" not in redacted
     assert count >= 1
+
+
+def test_is_allowlisted_short_token_does_not_spare_via_substring() -> None:
+    """078-G: a short allowlist token inside a value must NOT spare it (leak); long coords still spare."""
+    from service.services.secret_redaction import _is_allowlisted
+
+    # short generic token ("main") is a substring of a high-entropy value → NOT allowlisted.
+    assert not _is_allowlisted("AKIAmainDEADBEEF0123456789ABCD", frozenset({"main"}))
+    # exact match is still spared.
+    assert _is_allowlisted("main", frozenset({"main"}))
+    # the detected value being a fragment of an allowlisted coordinate is still spared (issue 225).
+    assert _is_allowlisted("HarutoTakita", frozenset({"HarutoTakita/cyber-tech"}))
+    # a long allowlisted coordinate wholly inside the value is still spared.
+    assert _is_allowlisted("HarutoTakita/cyber-tech@v2", frozenset({"HarutoTakita/cyber-tech"}))
 
 
 def test_allowlist_preserves_repo_coordinates() -> None:

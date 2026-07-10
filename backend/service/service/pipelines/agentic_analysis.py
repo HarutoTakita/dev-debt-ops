@@ -135,21 +135,26 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
     budget = RunBudget()
     token = await _mint_installation_token(request.github)
     client = GitHubGitClient(access_token=token)
-    repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
-    # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもグラフ無しで継続（graceful）。CGC スナップショット
-    # ＋ clone からの決定的スナップショット（issue 250）をマージし、CGC が索引失敗/関数 0 件でも理解度マップの
-    # L2/L3 が「どんな repo でも」表示される。マージ結果が空＝一時的失敗のときは上書きせず前回を温存。
-    cgc_snapshot: dict = {}
-    if repo_dir is not None and await code_graph.build_graph(repo_dir):
-        cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
-    det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
-    snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
-    if snapshot:
-        await _persist_code_graph(session, request.project_id, snapshot)
-    # Trivy SCA/secret/misconfig (issue 278): a deterministic scan over the SAME clone (no extra
-    # checkout). Runs regardless of the agent outcome; graceful []. Fed into the code-debt block below.
-    trivy_findings: list[trivy_scan.TrivyAggregate] = await trivy_scan.scan_repo(repo_dir) if repo_dir else []
+    # clone から run_analysis_agent までを 1 つの try/finally で囲む（issue 078-C）。以前は clone の後・try の前で
+    # グラフ構築 / _persist_code_graph(DB) / Trivy が未ガードに走り、そこで例外が出るとクローン＋git クライアントが
+    # 残留していた。repo_dir/trivy_findings は try 前に初期化し、finally が全経路で cleanup する。
+    repo_dir: str | None = None
+    trivy_findings: list[trivy_scan.TrivyAggregate] = []
     try:
+        repo_dir = await repo_checkout.shallow_clone(request.owner, request.repo, request.branch, token)
+        # マクロ俯瞰用のコードグラフを事前構築（issue 235）。失敗してもグラフ無しで継続（graceful）。CGC スナップ
+        # ショット＋clone からの決定的スナップショット（issue 250）をマージし、CGC が索引失敗/関数 0 件でも理解度
+        # マップの L2/L3 が「どんな repo でも」表示される。マージ結果が空＝一時的失敗のときは上書きせず前回を温存。
+        cgc_snapshot: dict = {}
+        if repo_dir is not None and await code_graph.build_graph(repo_dir):
+            cgc_snapshot = await code_graph.extract_snapshot(repo_dir)
+        det_snapshot = function_graph.build_snapshot(function_graph.read_repo_sources(repo_dir)) if repo_dir else {}
+        snapshot = code_graph.merge_snapshots(cgc_snapshot, det_snapshot)
+        if snapshot:
+            await _persist_code_graph(session, request.project_id, snapshot)
+        # Trivy SCA/secret/misconfig (issue 278): a deterministic scan over the SAME clone (no extra
+        # checkout). Runs regardless of the agent outcome; graceful []. Fed into the code-debt block below.
+        trivy_findings = await trivy_scan.scan_repo(repo_dir) if repo_dir else []
         agent_trace, base_analysis = await run_analysis_agent(
             client=client,
             owner=request.owner,
@@ -163,10 +168,10 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             await _persist_base_analysis(session, request.project_id, base_analysis)
         await reporter.complete("base_analysis")
     except Exception as exc:
-        # ベース解析エージェントはベストエフォート。Gemini の一時障害（502/503/500 等）やツール失敗で例外化しても、
-        # 決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失って解析全体を FAILED＝run_task が全 flush を
-        # ロールバック、にしてはならない。ログを残し、元データ無しで決定的バックボーンを実行して COMPLETED に確定する。
-        logger.exception("base analysis agent failed; continuing with the deterministic backbone")
+        # ベース解析（＋事前のグラフ/Trivy）はベストエフォート。Gemini の一時障害やツール/グラフ/クローン失敗で
+        # 例外化しても、決定的バックボーン（機能/コード負債/理解度/学習・クイズ）まで失わせない（run_task の全 flush
+        # ロールバック＝解析全体 FAILED を避ける）。ログを残し、元データ無しで続行し COMPLETED に確定する。
+        logger.exception("base analysis / pre-analysis step failed; continuing with the deterministic backbone")
         agent_trace = [f"[analysis_agent] failed: {exc}"]
         base_analysis = BaseAnalysis()
         await reporter.fail("base_analysis")

@@ -206,3 +206,65 @@ class TestDependencyExtraction:
         assert extract_dependencies("a.py", "import a\n", {"a.py"}) == []
         # 未対応言語（拡張子）は空。
         assert extract_dependencies("README.md", "import x from './y'", {"y.md"}) == []
+
+
+class TestGetRepositoryTree:
+    async def test_truncated_logs_warning(self, caplog: object) -> None:
+        """078-E: a truncated tree still returns its (partial) items and surfaces a warning."""
+        client = _client_with_response({"tree": [{"path": "a.py", "type": "blob", "size": 10}], "truncated": True})
+        with caplog.at_level("WARNING"):
+            items = await client.get_repository_tree("o", "r", "main")
+        assert [i.path for i in items] == ["a.py"]
+        assert any("truncated" in rec.message for rec in caplog.records)
+
+
+class TestGetFileContent:
+    async def test_recovers_non_utf8_text(self) -> None:
+        """078-F: non-UTF-8 text (latin-1) is recovered leniently, not dropped to None."""
+        import base64 as b64
+
+        raw = "café".encode("latin-1")  # 0xE9 is invalid UTF-8
+        client = _client_with_response(
+            {"path": "a.py", "sha": "s", "size": len(raw), "encoding": "base64", "content": b64.b64encode(raw).decode()}
+        )
+        fc = await client.get_file_content("o", "r", "a.py")
+        assert fc.content is not None
+
+    async def test_binary_returns_none(self) -> None:
+        """078-F: content with NUL bytes is treated as binary → None."""
+        import base64 as b64
+
+        raw = b"\x00\x01\x02binary"
+        client = _client_with_response(
+            {
+                "path": "a.bin",
+                "sha": "s",
+                "size": len(raw),
+                "encoding": "base64",
+                "content": b64.b64encode(raw).decode(),
+            }
+        )
+        fc = await client.get_file_content("o", "r", "a.bin")
+        assert fc.content is None
+
+    async def test_oversize_fetched_via_raw(self) -> None:
+        """078-F: a >1MB file (Contents API encoding='none') is fetched via the raw media type."""
+        contents_resp = MagicMock()
+        contents_resp.json.return_value = {
+            "path": "big.py",
+            "sha": "s",
+            "size": 2_000_000,
+            "type": "file",
+            "encoding": "none",
+            "content": "",
+        }
+        contents_resp.raise_for_status = MagicMock()
+        raw_resp = MagicMock()
+        raw_resp.content = b"x = 1\n" * 100
+        raw_resp.raise_for_status = MagicMock()
+        client = GitHubGitClient(access_token="t")
+        client._client = AsyncMock()
+        client._client.get.side_effect = [contents_resp, raw_resp]  # 1) contents (not inlined) 2) raw bytes
+        fc = await client.get_file_content("o", "r", "big.py")
+        assert fc.content is not None
+        assert "x = 1" in fc.content

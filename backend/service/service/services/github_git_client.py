@@ -1,13 +1,30 @@
 """GitHub REST API client authenticated with an installation access token."""
 
 import base64
+import logging
 from dataclasses import dataclass
 
 import httpx
 
 from shared.worker import TransientTaskError
 
+logger = logging.getLogger(__name__)
+
 API_BASE = "https://api.github.com"
+
+
+def _decode_text(raw: bytes) -> str | None:
+    """Decode file bytes to text, or ``None`` for genuinely binary content (issue 078-F).
+
+    NUL bytes ⇒ binary ⇒ ``None``. Otherwise decode UTF-8, falling back to a lenient replace so
+    non-UTF-8 text (latin-1 / UTF-16-ish) is recovered rather than silently dropped.
+    """
+    if b"\x00" in raw:
+        return None
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("utf-8", errors="replace")
 
 
 async def _raise_on_rate_limit(response: httpx.Response) -> None:
@@ -236,7 +253,7 @@ class GitHubGitClient:
         )
         resp.raise_for_status()
         data = resp.json()
-        return [
+        items = [
             TreeItem(
                 path=item["path"],
                 type=item["type"],
@@ -245,9 +262,40 @@ class GitHubGitClient:
             for item in data.get("tree", [])
             if item["type"] in ("blob", "tree")
         ]
+        # GitHub silently omits entries and sets truncated=true past ~100k entries / 7MB (issue 078-E).
+        # Surface it so a partial file list is visible rather than looking like "these files don't exist".
+        if data.get("truncated"):
+            logger.warning(
+                "GitHub tree truncated for %s/%s@%s — analysis sees a partial file list (%d entries)",
+                owner,
+                repo,
+                branch,
+                len(items),
+            )
+        return items
+
+    async def _fetch_raw_text(self, owner: str, repo: str, path: str, ref: str) -> str | None:
+        """Fetch a file's raw bytes (Contents API raw media type) and decode as text, or None if binary.
+
+        Used for files the JSON Contents API won't inline (>1MB come back with ``encoding: "none"``).
+        """
+        try:
+            resp = await self._client.get(
+                f"/repos/{owner}/{repo}/contents/{path}",
+                params={"ref": ref},
+                headers={"Accept": "application/vnd.github.raw"},
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError:
+            return None
+        return _decode_text(resp.content)
 
     async def get_file_content(self, owner: str, repo: str, path: str, ref: str = "main") -> FileContent:
-        """Return the decoded file content; binary files are returned with content=None."""
+        """Return the decoded file content; binary content is returned with content=None.
+
+        Recovers non-UTF-8 text (lenient decode) and >1MB files (which the Contents API returns with
+        ``encoding: "none"`` and empty content — fetched via the raw media type), issue 078-F.
+        """
         resp = await self._client.get(
             f"/repos/{owner}/{repo}/contents/{path}",
             params={"ref": ref},
@@ -257,10 +305,10 @@ class GitHubGitClient:
 
         content: str | None = None
         if data.get("encoding") == "base64" and data.get("content"):
-            try:
-                content = base64.b64decode(data["content"]).decode("utf-8")
-            except (UnicodeDecodeError, ValueError):
-                content = None
+            content = _decode_text(base64.b64decode(data["content"]))
+        elif data.get("type") == "file" and data.get("size", 0) > 0:
+            # Not inlined (oversize) → fetch the raw bytes instead of silently dropping the file.
+            content = await self._fetch_raw_text(owner, repo, path, ref)
 
         return FileContent(
             path=data["path"],

@@ -6,12 +6,13 @@ from service.services import code_graph
 
 
 class _FakeProc:
-    def __init__(self, returncode: int) -> None:
+    def __init__(self, returncode: int, stdout: bytes = b"") -> None:
         self.returncode = returncode
         self.killed = False
+        self._stdout = stdout
 
     async def communicate(self) -> tuple[bytes, bytes]:
-        return (b"", b"boom")
+        return (self._stdout, b"boom")
 
     def kill(self) -> None:
         self.killed = True
@@ -27,6 +28,27 @@ def _patch_exec(monkeypatch: pytest.MonkeyPatch, proc: object) -> None:
 def test_cgc_env_forces_kuzudb() -> None:
     """The shared env forces the embedded KuzuDB backend (no Neo4j)."""
     assert code_graph.cgc_env()["CGC_RUNTIME_DB_TYPE"] == "kuzudb"
+
+
+def test_parse_cgc_rows_whole_json() -> None:
+    assert code_graph._parse_cgc_rows('[{"path": "a.py"}]') == [{"path": "a.py"}]
+
+
+def test_parse_cgc_rows_recovers_from_bracketed_preamble() -> None:
+    """078-B: a stray bracketed preamble line doesn't corrupt the parse (the array line is recovered)."""
+    assert code_graph._parse_cgc_rows('[INFO] querying\n[{"path": "a.py"}]') == [{"path": "a.py"}]
+
+
+def test_parse_cgc_rows_unparseable_returns_none() -> None:
+    assert code_graph._parse_cgc_rows("no json here") is None
+    assert code_graph._parse_cgc_rows("[INFO] preamble only, no array") is None
+
+
+async def test_cgc_query_parses_decorated_stdout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """078-B: _cgc_query recovers the JSON rows even when stdout carries a bracketed preamble."""
+    _patch_exec(monkeypatch, _FakeProc(0, stdout=b'[INFO] querying\n[{"path": "a.py"}, {"path": "b.py"}]\n'))
+    rows = await code_graph._cgc_query("MATCH (f:File) RETURN f")
+    assert rows == [{"path": "a.py"}, {"path": "b.py"}]
 
 
 async def test_build_graph_success(monkeypatch: pytest.MonkeyPatch) -> None:
