@@ -304,23 +304,31 @@ async def process(request: KcAnalysisRequest, ctx: PipelineContext) -> KcAnalysi
         dev_ratios = aggregate_blame(blames.get(path, []))
         # 規模ベースの初期KC推定（極小/ボイラープレート=高い＝理解済み / 大=低い＝理解負債）。行シェアが
         # 一律でも spread が出る。旧仕様の 0.35 上限は撤廃（トリビアルなファイルは star 域まで上がる）。
-        init_kc = _initial_kc_factor(path, files.get(path, ""))
+        # 内容を取得できなかったファイル（大きすぎ/バイナリ/取得失敗＝`files` に不在）は、行数 0 → 極小扱いで
+        # 高 KC（理解済み）に誤反転させず floor（未理解ホットスポット）に倒す。空ファイル("")は `files` に有る。
+        init_kc = _initial_kc_factor(path, files[path]) if path in files else _KC_INITIAL_FLOOR
         dev_kcs: list[float] = []
         for identity, ratio in dev_ratios:
             dev_id = await resolve_author_user_id(session, identity)
             kc_auth = min(ratio, 1.0) * init_kc
+            dev_kcs.append(kc_auth)  # 集約 KC(max) には book するが、行の書き込みは表現可能な場合のみ。
+            handle = identity.login or None  # 空文字も None 扱い（handle 分岐の空ハンドル書き込みを避ける）。
+            if dev_id is None and handle is None:
+                # dev_id も handle も無い著者は per-dev 行として一意に表現できず、書くと集約行スロット
+                # （uq_file_kc_agg: dev_id IS NULL AND github_handle IS NULL）と衝突・相互上書きする。
+                # 集約 KC には上で反映済みなので、ここでは per-dev 行を書かない（count も加算しない）。
+                continue
             await _upsert_file_kc(
                 session,
                 run_id=run.id,
                 file_path=path,
                 module=module,
                 dev_id=dev_id,
-                github_handle=identity.login,
+                github_handle=handle,
                 kc=kc_auth,
                 mastery=mastery_from_kc(kc_auth, has_contact=True),
                 certified_via="authorship",
             )
-            dev_kcs.append(kc_auth)
             file_kc_count += 1
 
         has_contact = len(dev_ratios) > 0

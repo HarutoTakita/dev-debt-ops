@@ -18,8 +18,9 @@ from dataclasses import dataclass
 _PY_EXTS = (".py",)
 _TS_JS_EXTS = (".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs")
 
-# Python: ``import a.b.c`` / ``import a.b as x`` and ``from a.b import c`` / ``from . import x``.
-_PY_IMPORT = re.compile(r"^\s*import\s+([.\w]+)", re.MULTILINE)
+# Python: ``import a.b.c`` / ``import a.b as x`` / ``import a, b`` and ``from a.b import c`` / ``from . import x``.
+# import 文の tail 全体を捕捉し（カンマ区切りの複数モジュールを取りこぼさない）、_parse_import_names で分割する。
+_PY_IMPORT = re.compile(r"^\s*import\s+(.+)$", re.MULTILINE)
 _PY_FROM = re.compile(r"^\s*from\s+([.\w]*)\s+import\s+(.+)$", re.MULTILINE)
 
 # JS/TS: ``import ... from "x"`` / ``export ... from "x"`` / ``require("x")`` / ``import("x")``.
@@ -110,12 +111,13 @@ def _python_targets(content: str, src: str, repo: set[str]) -> list[str]:
     """Resolve every Python import in ``content`` to intra-repo file paths."""
     targets: list[str] = []
     for match in _PY_IMPORT.finditer(content):
-        token = match.group(1)
-        if token.startswith("."):
-            continue
-        resolved = _resolve_python(token, 0, src, repo)
-        if resolved is not None:
-            targets.append(resolved)
+        # ``import a, b`` / ``import a.b as x, c`` — tail をカンマ分割し各モジュールを解決する。
+        for token in _parse_import_names(match.group(1)):
+            if token.startswith("."):
+                continue
+            resolved = _resolve_python(token, 0, src, repo)
+            if resolved is not None:
+                targets.append(resolved)
     for match in _PY_FROM.finditer(content):
         raw = match.group(1)
         level = len(raw) - len(raw.lstrip("."))

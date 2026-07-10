@@ -103,6 +103,27 @@ class TestDetectors:
         assert cc >= code_analysis._COMPLEXITY_MIN
         assert 0.0 <= code_analysis.complexity_score(cc) <= 1.0
 
+    def test_complexity_ignores_comments_and_strings(self) -> None:
+        # 判定キーワードがコメント/文字列/docstring 内にしか無いファイルは分岐 0（過大カウントしない）。
+        content = (
+            "# if elif for while and or\n"
+            'x = "if and or while for case"\n'
+            "y = 'with assert'\n"
+            'z = """if for\nwhile and"""\n'
+            "a = 1\n"
+        )
+        assert code_analysis.cyclomatic_complexity(content, "python") == 1
+
+    def test_complexity_ts_optional_syntax_not_counted(self) -> None:
+        # TS の optional 型(`?:`) / optional chaining(`?.`) / nullish(`??`) は分岐ではない。genuine ternary のみ +1。
+        content = (
+            "function f(a?: string, b?: number) {\n"
+            "  const x = a?.length ?? 0;\n"
+            "  return x > 0 ? 1 : 2;\n"  # 唯一の本物の三項
+            "}\n"
+        )
+        assert code_analysis.cyclomatic_complexity(content, "ts_js") == 2
+
     def test_dead_file_detection(self) -> None:
         files = {
             "app/main.py": "from app import util\n",  # entrypoint, references util
@@ -341,6 +362,36 @@ async def test_ai_estimate_failure_is_graceful(
         debts = (await session.execute(select(CodeDebt).where(CodeDebt.run_id == run.id))).scalars().all()
         assert debts
         assert all(d.ai_generation_prob == 0.0 for d in debts)
+
+
+async def test_ai_estimate_survives_trivy_only_path(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """A Trivy finding on a manifest NOT in the fetched source set must not abort the AI-gen estimate
+    for the real source findings (regression: `files[p]` KeyError zeroed ai_generation_prob for all)."""
+    from service.services.trivy_scan import TrivyAggregate
+
+    _patch(monkeypatch, _FILES, {"app/main.py": 0.9})
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+    # requirements.txt は _FILES に無い（Trivy がよく flag するロックファイル/マニフェスト）。
+    trivy = [
+        TrivyAggregate(
+            file_path="requirements.txt", debt_type="security", score=0.9, notes="Trivy…", metrics={"trivy_vuln": 1}
+        )
+    ]
+
+    async with session_maker() as session:
+        await code_debt_detection.process(request, PipelineContext(session=session), trivy_findings=trivy)
+        await session.commit()
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(request.job_id)))
+        ).scalar_one()
+        debts = (await session.execute(select(CodeDebt).where(CodeDebt.run_id == run.id))).scalars().all()
+        by_path_type = {(d.file_path, d.type): d for d in debts}
+        assert by_path_type[("app/main.py", "complexity")].ai_generation_prob == pytest.approx(0.9)
 
 
 async def test_semgrep_findings_persisted(monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker) -> None:

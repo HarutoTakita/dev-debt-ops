@@ -56,8 +56,11 @@ def _age_days(authored_at: str, *, now: datetime) -> int:
         return 0
     try:
         dt = datetime.fromisoformat(authored_at.replace("Z", "+00:00"))
-    except ValueError:
+    except (ValueError, TypeError):
         return 0
+    # TZ 無し（date-only や offset 欠落）の場合、aware な now との減算が TypeError になるため UTC を補完する。
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
     return max(0, (now - dt).days)
 
 
@@ -73,6 +76,7 @@ async def _kc_by_file(session: AsyncSession, project_id: uuid.UUID) -> dict[str,
             .where(
                 AnalysisRun.project_id == project_id,  # ty: ignore[invalid-argument-type]
                 AnalysisRun.kind == JobType.KC_ANALYSIS.value,  # ty: ignore[invalid-argument-type]
+                AnalysisRun.status == JobStatus.COMPLETED.value,  # ty: ignore[invalid-argument-type]
             )
             .order_by(col(AnalysisRun.created_at).desc())
             .limit(1)

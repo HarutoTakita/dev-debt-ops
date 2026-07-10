@@ -124,7 +124,19 @@ def is_vendored_path(path: str) -> bool:
 
 # Decision-point keywords per language family (base complexity is 1).
 _PY_DECISION = re.compile(r"\b(if|elif|for|while|except|with|assert|and|or)\b|\bcase\b")
-_JS_DECISION = re.compile(r"\b(if|for|while|case|catch)\b|&&|\|\||\?\??")
+# 三項 `(?<!\?)\?(?![?.:])` は genuine ternary のみ計上（`?.` chaining / `??` nullish / `x?:` 型注釈は除外）。
+_JS_DECISION = re.compile(r"\b(if|for|while|case|catch)\b|&&|\|\||(?<!\?)\?(?![?.:])")
+
+# 複雑度カウント前に除去する「コード以外」（コメント・文字列・docstring）。これを剥がさないと、コメントや
+# 文字列内の if/and/or/`?` が判定ポイントとして誤カウントされ、単純なファイルが complexity 負債と誤検知される。
+_PY_NONCODE = re.compile(r"\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|#[^\n]*|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'")
+_JS_NONCODE = re.compile(r"/\*[\s\S]*?\*/|//[^\n]*|`(?:\\.|[^`\\])*`|\"(?:\\.|[^\"\\\n])*\"|'(?:\\.|[^'\\\n])*'")
+
+
+def _strip_noncode(content: str, language: str) -> str:
+    """Blank out comments / string / docstring literals so their keywords aren't miscounted as branches."""
+    return (_PY_NONCODE if language == "python" else _JS_NONCODE).sub(" ", content)
+
 
 # Files that are legitimately unreferenced by intra-repo imports (entrypoints / packaging).
 _ENTRYPOINT_NAMES = ("__init__.py", "__main__.py", "main.py", "conftest.py", "index", "setup.py")
@@ -142,7 +154,7 @@ def _language(path: str) -> str | None:
 def cyclomatic_complexity(content: str, language: str) -> int:
     """Approximate cyclomatic complexity = 1 + number of decision points."""
     pattern = _PY_DECISION if language == "python" else _JS_DECISION
-    return 1 + len(pattern.findall(content))
+    return 1 + len(pattern.findall(_strip_noncode(content, language)))
 
 
 def complexity_score(complexity: int) -> float:

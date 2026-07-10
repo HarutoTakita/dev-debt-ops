@@ -44,6 +44,17 @@ class TestPureDetectors:
         assert knowledge_analysis.reason_score("ai_generated", ai_prob=0.9, age_days=0) == 0.9
         assert knowledge_analysis.reason_score("no_review", ai_prob=0.0, age_days=0) == 0.6
 
+    def test_age_days_handles_naive_and_bad_input(self) -> None:
+        now = datetime(2026, 1, 11, tzinfo=UTC)
+        # TZ 無し（date-only / offset 欠落）でも TypeError で落ちず UTC 前提で日数を返す。
+        assert knowledge_debt_detection._age_days("2026-01-01", now=now) == 10
+        assert knowledge_debt_detection._age_days("2026-01-01T00:00:00", now=now) == 10
+        # aware（Z 付き）は従来どおり。
+        assert knowledge_debt_detection._age_days("2026-01-01T00:00:00Z", now=now) == 10
+        # 空 / 不正は 0。
+        assert knowledge_debt_detection._age_days("", now=now) == 0
+        assert knowledge_debt_detection._age_days("not-a-date", now=now) == 0
+
 
 # --- pipeline -------------------------------------------------------------
 
@@ -197,6 +208,50 @@ async def test_process_detects_each_reason_and_joins_kc(
         assert by_handle["carol"].certified_via == "authorship"
         assert by_handle["dave"].coverage == 0.31  # 形式レビューのみ: review / coverage<0.4
         assert by_handle["dave"].certified_via == "review"
+
+
+async def test_process_ignores_non_completed_kc_run(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """coverage は最新の COMPLETED KC run から join する。より新しい PROCESSING/FAILED run は無視する。"""
+    _patch(monkeypatch, {"pkg/ai.py": 0.9})
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+    await _seed_kc(session_maker, request.project_id)  # COMPLETED run: pkg/ai.py aggregate coverage 0.8
+
+    # 後から作られた「実行中(PROCESSING)」の KC run（別カバレッジ 0.1）。created_at は最新だが参照してはいけない。
+    async with session_maker() as session:
+        newer = AnalysisRun(
+            project_id=uuid.UUID(request.project_id),
+            commit_sha="kc2",
+            kind=JobType.KC_ANALYSIS.value,
+            status=JobStatus.PROCESSING,
+            created_at=_NOW + timedelta(days=1),
+        )
+        session.add(newer)
+        await session.flush()
+        session.add(FileKc(run_id=newer.id, file_path="pkg/ai.py", kc=0.1, mastery="black_hole"))
+        await session.commit()
+
+    async with session_maker() as session:
+        await knowledge_debt_detection.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(
+                select(AnalysisRun).where(
+                    AnalysisRun.job_id == uuid.UUID(request.job_id),
+                    AnalysisRun.kind == JobType.KNOWLEDGE_DEBT_DETECTION.value,
+                )
+            )
+        ).scalar_one()
+        ai_debt = (
+            await session.execute(
+                select(KnowledgeDebt).where(KnowledgeDebt.run_id == run.id, KnowledgeDebt.reason == "ai_generated")
+            )
+        ).scalar_one()
+        assert ai_debt.knowledge_coverage == 0.8  # COMPLETED run, not the newer PROCESSING run (0.1)
 
 
 def test_agent_notes_by_file_collapses_rationales() -> None:

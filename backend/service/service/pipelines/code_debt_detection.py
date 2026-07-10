@@ -380,7 +380,11 @@ async def process(
     ai_probs: dict[str, float] = {}
     if flagged_paths:
         try:
-            ai_probs = await gemini_stack_service.estimate_ai_generation({p: files[p] for p in flagged_paths})
+            # Trivy はロックファイル/マニフェスト（fetched source set に無いパス）を flag しうるため、
+            # `files` に有るパスだけを推定に渡す（`files[p]` の KeyError で全件の推定を捨てないため）。
+            ai_probs = await gemini_stack_service.estimate_ai_generation(
+                {p: files[p] for p in flagged_paths if p in files}
+            )
         except Exception:
             # AI 生成確率は補助的なエンリッチ。Gemini のクォータ超過(429)・一時障害(5xx)・認証/設定不備など
             # どんな失敗でも、決定的な静的解析（Semgrep/ヒューリスティック）の検知結果を捨てて step 全体を

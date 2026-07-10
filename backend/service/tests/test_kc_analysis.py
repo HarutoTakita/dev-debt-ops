@@ -208,3 +208,106 @@ def test_select_source_paths_is_language_fair() -> None:
 def test_select_source_paths_honours_limit_and_covers_all_when_small() -> None:
     paths = ["a.py", "b.ts", "c.svelte"]
     assert set(kc_analysis._select_source_paths(paths, 10)) == set(paths)  # all fit under the cap
+
+
+def _patch_custom(
+    monkeypatch: pytest.MonkeyPatch,
+    files: dict[str, str | None],
+    blames: dict[str, list],
+    resolve,
+) -> None:
+    """Patch kc_analysis I/O with a caller-supplied file/blame map (content may be None = unfetched)."""
+
+    class _C:
+        async def get_repository_tree(self, owner: str, repo: str, branch: str = "main") -> list[TreeItem]:
+            return [TreeItem(path=p, type="blob", size=len(c or "")) for p, c in files.items()]
+
+        async def get_file_content(self, owner: str, repo: str, path: str, branch: str = "main") -> FileContent:
+            return FileContent(path=path, content=files[path], sha="sha", size=len(files[path] or ""))
+
+        async def get_blame(self, owner: str, repo: str, path: str, ref: str = "main") -> list:
+            return blames.get(path, [])
+
+        async def list_commits(self, owner: str, repo: str, **kwargs: object) -> list[CommitInfo]:
+            return [CommitInfo("abc123", "alice", "a@x.com", 1, "2026-01-01T00:00:00Z", "msg")]
+
+        async def aclose(self) -> None:
+            pass
+
+    async def _mint(github: GitHubRef) -> str:
+        return "tok"
+
+    monkeypatch.setattr(kc_analysis, "_mint_installation_token", _mint)
+    monkeypatch.setattr(kc_analysis, "GitHubGitClient", lambda access_token: _C())
+    monkeypatch.setattr(kc_analysis, "resolve_author_user_id", resolve)
+
+
+async def test_unfetched_file_is_not_treated_as_understood(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """内容取得に失敗した（大きすぎ/バイナリ）ファイルは行数 0 → 高 KC(理解済み) に誤反転させず floor に倒す。"""
+
+    async def _resolve(session: object, identity: AuthorIdentity) -> uuid.UUID | None:
+        return _ALICE if identity.github_user_id == 1 else None
+
+    _patch_custom(
+        monkeypatch,
+        files={"pkg/big.py": None},  # content 取得不可
+        blames={"pkg/big.py": [BlameRange(1, 500, "s", "alice", "a@x.com", 1)]},
+        resolve=_resolve,
+    )
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+    async with session_maker() as session:
+        await kc_analysis.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(
+                select(kc_analysis.AnalysisRun).where(kc_analysis.AnalysisRun.job_id == uuid.UUID(request.job_id))
+            )
+        ).scalar_one()
+        rows = {
+            (r.file_path, r.dev_id, r.github_handle): r
+            for r in (await session.execute(select(FileKc).where(FileKc.run_id == run.id))).scalars().all()
+        }
+        alice = rows[("pkg/big.py", _ALICE, "alice")]
+        assert alice.kc == pytest.approx(1.0 * kc_analysis._KC_INITIAL_FLOOR, abs=1e-3)  # 0.9 ではなく floor
+        assert alice.mastery == "black_hole"  # 理解済み(star/dim_star)にならない
+
+
+async def test_login_less_author_folds_into_aggregate(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """dev_id も login も無い著者は per-dev 行を書かず（集約行スロットと衝突するため）、集約 KC にのみ反映する。"""
+
+    async def _resolve(session: object, identity: AuthorIdentity) -> uuid.UUID | None:
+        return None  # 未マッチ
+
+    _patch_custom(
+        monkeypatch,
+        files={"pkg/anon.py": "X = 1\n"},
+        blames={"pkg/anon.py": [BlameRange(1, 10, "s5", None, "d@x.com", None)]},  # login=None, id=None
+        resolve=_resolve,
+    )
+    request = _request()
+    await _seed_job(session_maker, request.job_id)
+    async with session_maker() as session:
+        result = await kc_analysis.process(request, PipelineContext(session=session))
+        await session.commit()
+
+    assert result.file_kc_count == 1  # 集約行のみ（衝突する per-dev 行は書かない・二重計上しない）
+
+    async with session_maker() as session:
+        run = (
+            await session.execute(
+                select(kc_analysis.AnalysisRun).where(kc_analysis.AnalysisRun.job_id == uuid.UUID(request.job_id))
+            )
+        ).scalar_one()
+        rows = (await session.execute(select(FileKc).where(FileKc.run_id == run.id))).scalars().all()
+        assert len(rows) == 1
+        agg = rows[0]
+        assert (agg.dev_id, agg.github_handle) == (None, None)
+        assert agg.kc > 0.0  # 著者の寄与が集約に反映（0 にクロバーされない）
+        assert agg.mastery != "unexplored"  # has_contact=True（コミット履歴あり）
