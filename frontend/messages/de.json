@@ -250,6 +250,7 @@
   "overview_matrix_title": "Wo das Lernen ansetzen sollte",
   "overview_stat_kc": "Verständnis",
   "overview_stat_danger": "Dateien niedriger Qualität",
+  "overview_stat_code_debt": "Code-Schuld",
   "overview_stat_repaid": "Diese Woche getilgt",
   "overview_check_quality": "Code-Qualität prüfen",
   "overview_improve_code": "Code verbessern",

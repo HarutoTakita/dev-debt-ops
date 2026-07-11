@@ -75,3 +75,6 @@ class OverviewOut(BaseModel):
     features: list[FeatureDebtOut] = []
     trend: list[DebtTrendPointOut]
     activity: WeeklyActivityOut
+    # コード負債 finding の総数（最新 code_debt_detection run）。ダッシュボードの「コード負債」スタットが
+    # コード改善一覧（list_debts, kind=code）と同じ件数を示すための値（両者とも同一 run の全 CodeDebt 行）。
+    code_debt_count: int = 0

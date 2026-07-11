@@ -250,6 +250,7 @@
   "overview_matrix_title": "학습을 우선할 영역",
   "overview_stat_kc": "이해도",
   "overview_stat_danger": "저품질 파일",
+  "overview_stat_code_debt": "코드 부채",
   "overview_stat_repaid": "이번 주 상환",
   "overview_check_quality": "코드 품질 확인",
   "overview_improve_code": "코드 개선",

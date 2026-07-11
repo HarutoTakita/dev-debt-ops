@@ -250,6 +250,7 @@
   "overview_matrix_title": "应优先学习的区域",
   "overview_stat_kc": "理解度",
   "overview_stat_danger": "低质量文件",
+  "overview_stat_code_debt": "代码债务",
   "overview_stat_repaid": "本周已偿还",
   "overview_check_quality": "查看代码质量",
   "overview_improve_code": "改进代码",

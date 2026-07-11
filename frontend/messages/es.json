@@ -250,6 +250,7 @@
   "overview_matrix_title": "Dónde enfocar el aprendizaje",
   "overview_stat_kc": "Comprensión",
   "overview_stat_danger": "Archivos de baja calidad",
+  "overview_stat_code_debt": "Deuda de código",
   "overview_stat_repaid": "Saldado esta semana",
   "overview_check_quality": "Comprobar la calidad del código",
   "overview_improve_code": "Mejorar el código",

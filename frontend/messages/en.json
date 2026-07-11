@@ -257,6 +257,7 @@
   "overview_matrix_title": "Where to focus learning",
   "overview_stat_kc": "Understanding",
   "overview_stat_danger": "Low-quality files",
+  "overview_stat_code_debt": "Code debt",
   "overview_stat_repaid": "Repaid this week",
   "overview_check_quality": "Check code quality",
   "overview_improve_code": "Improve code",

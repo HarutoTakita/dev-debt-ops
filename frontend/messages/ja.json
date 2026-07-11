@@ -257,6 +257,7 @@
   "overview_matrix_title": "学習を優先すべき領域",
   "overview_stat_kc": "理解度",
   "overview_stat_danger": "低品質ファイル",
+  "overview_stat_code_debt": "コード負債",
   "overview_stat_repaid": "今週の返済",
   "overview_check_quality": "コード品質を確認する",
   "overview_improve_code": "コードを改善する",

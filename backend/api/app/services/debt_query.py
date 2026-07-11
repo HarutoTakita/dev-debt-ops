@@ -261,8 +261,10 @@ async def build_overview(
     code_score: dict[str, float] = {}
     pr_set: set[str] = set()
     merged = 0
+    code_debt_count = 0  # コード負債 finding 総数（コード改善一覧 list_debts と同一集合＝同一 run の全 CodeDebt 行）
     if code_run is not None:
         code_rows = (await session.execute(select(CodeDebt).where(col(CodeDebt.run_id) == code_run))).scalars().all()
+        code_debt_count = len(code_rows)
         for r in code_rows:
             code_score[r.file_path] = max(code_score.get(r.file_path, 0.0), r.code_debt_score)
             if r.related_pr:
@@ -348,6 +350,7 @@ async def build_overview(
         features=features,
         trend=trend,
         activity=activity,
+        code_debt_count=code_debt_count,
     )
 
 

@@ -99,7 +99,8 @@
       >
     </div>
     <div class="relative">
-      <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`} />
+      <!-- コード改善一覧（list_debts, kind=code）と同じコード負債 finding 件数を表示して整合させる。 -->
+      <StatCard label={m.overview_stat_code_debt()} value={`${overview.code_debt_count}`} />
       <a href={matrixHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
         >{m.overview_check_quality()} →</a
       >
