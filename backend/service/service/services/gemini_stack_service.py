@@ -503,8 +503,13 @@ _CODE_LEARNING_PROMPT = """\
 構成ファイル:
 {files}
 
-この機能のコードを理解するための学習ステップを、読む順に作ってください。各ステップで対象ファイルの
-「何をするコードか」「理解のために注目すべき点」を日本語で簡潔に説明します。ONLY valid JSON（no markdown）:
+対象コード（主要ファイルの抜粋。=== path === で区切り。空のときはパス名から推測）:
+{code_blocks}
+
+この機能のコードを理解するための学習ステップを、読む順に作ってください。**実際のコード抜粋に基づき**、機能を
+構成する**主要な複数ファイルを横断**して説明します（主要ファイルごとに最低 1 ステップ設け、1 ファイルに偏らせ
+ない）。各ステップで対象ファイルの「何をするコードか」「理解のために注目すべき点」を日本語で簡潔に説明します。
+ONLY valid JSON（no markdown）:
 {{
   "steps": [
     {{"source_ref": "<上記の構成ファイルのいずれか>",
@@ -519,7 +524,7 @@ _CODE_LEARNING_PROMPT = """\
 
 
 async def generate_code_learning_steps(
-    feature_name: str, feature_description: str, file_paths: list[str], *, max_steps: int = 8
+    feature_name: str, feature_description: str, file_paths: list[str], *, max_steps: int = 8, code_blocks: str = ""
 ) -> list[dict]:
     """Generate code-understanding learning steps (with explanations) for a feature's files via Gemini (issue 068)."""
     if not file_paths:
@@ -530,6 +535,7 @@ async def generate_code_learning_steps(
         feature_name=feature_name,
         feature_description=feature_description or "（説明なし）",
         files=files_block,
+        code_blocks=code_blocks or "（コード抜粋なし）",
         max_steps=max_steps,
     )
     response = await _generate(

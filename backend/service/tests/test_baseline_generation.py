@@ -59,7 +59,7 @@ def _patch_stages(monkeypatch: pytest.MonkeyPatch, *, plan_persist=None, quiz_pe
     """
 
     async def _plan_prepare(session, ctx, *, feature, repo_full_name, branch, github, gap_concepts):
-        return learning_plan_generation.PlanInputs("n", "d", [], [], "acme", "rosetta")
+        return learning_plan_generation.PlanInputs("n", "d", [], "", [], "acme", "rosetta")
 
     async def _plan_generate(inputs):
         return learning_plan_generation.PlanGenerated([], [])

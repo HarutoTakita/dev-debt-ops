@@ -28,7 +28,7 @@ from sqlmodel import col
 
 from service import config
 from service.services import learning_authoring
-from service.services.code_analysis import is_vendored_path
+from service.services.code_analysis import implementation_excerpt, is_vendored_path
 from service.services.code_walkthrough import build_walkthrough
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
@@ -124,6 +124,33 @@ async def _feature_file_paths(session: AsyncSession, feature_id: uuid.UUID, *, l
         .all()
     )
     return [ff.file_path for ff in files]
+
+
+_MAX_LEARN_CODE_FILES = 6  # 学習ステップ生成の素材として内容（抜粋）を渡す主要ファイル数の上限
+_MAX_LEARN_CODE_CHARS = 2500  # 1 ファイルあたりの抜粋上限（プロンプト肥大を防ぐ）
+
+
+async def _code_blocks(client: GitHubGitClient, owner: str, repo: str, branch: str, paths: list[str]) -> str:
+    """Fetch the feature's main files and build ``=== path ===`` excerpt blocks for the authoring prompt.
+
+    Grounds the step author in **real code across the feature's main files** (not just path names), so the
+    plan explains the file group rather than restating filenames. Best-effort: unfetchable/empty files are
+    skipped. Mirrors the quiz's ``_feature_content`` material assembly (issue 054/068).
+    """
+    blocks: list[str] = []
+    for path in paths[:_MAX_LEARN_CODE_FILES]:
+        try:
+            fc = await client.get_file_content(owner, repo, path, branch)
+        except Exception:
+            continue
+        body = fc.content or ""
+        if not body.strip():
+            continue
+        excerpt = implementation_excerpt(body)
+        if len(excerpt) > _MAX_LEARN_CODE_CHARS:
+            excerpt = excerpt[:_MAX_LEARN_CODE_CHARS] + "\n... (truncated)"
+        blocks.append(f"=== {path} ===\n{excerpt}")
+    return "\n\n".join(blocks)
 
 
 # フロントの resourceKindSchema と一致させる許可 kind。LLM が想定外の値（例: priority の "hands_on"）を
@@ -318,6 +345,7 @@ class PlanInputs:
     code_name: str
     code_desc: str
     code_files: list[str]
+    code_blocks: str  # 主要ファイルのコード抜粋（=== path === 区切り）。ステップ生成の素材
     terms: list[str]
     owner: str
     repo: str
@@ -347,25 +375,27 @@ async def prepare_inputs(
     files from the repo tree. Safe to run before the concurrent ``generate`` step.
     """
     now = datetime.now(UTC)
-    if feature is not None:
-        code_files = await _feature_file_paths(session, feature.id)
-        code_name, code_desc = feature.name, feature.description
-    else:
-        shared_client = ctx.github_client
-        client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(github))
-        try:
-            assets = await _internal_assets(client, repo_full_name, branch, gap_concepts, now)
-        finally:
-            if shared_client is None:
-                await client.aclose()
-        code_files = [r["source_ref"] for r in assets if r.get("source_ref")]
-        code_name = gap_concepts[0] if gap_concepts else "コード理解"
-        code_desc = ""
-    # __init__.py / __main__.py を学習対象から除外（Gemini 入力・マッチング/フォールバック双方に効く）。
-    code_files = _learnable_code_files(code_files)
-    terms = await _stack_terms(session, repo_full_name)
     owner, _, repo = repo_full_name.partition("/")
-    return PlanInputs(code_name, code_desc, code_files, terms, owner, repo)
+    shared_client = ctx.github_client
+    client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(github))
+    try:
+        if feature is not None:
+            code_files = await _feature_file_paths(session, feature.id)
+            code_name, code_desc = feature.name, feature.description
+        else:
+            assets = await _internal_assets(client, repo_full_name, branch, gap_concepts, now)
+            code_files = [r["source_ref"] for r in assets if r.get("source_ref")]
+            code_name = gap_concepts[0] if gap_concepts else "コード理解"
+            code_desc = ""
+        # __init__.py / __main__.py を学習対象から除外（Gemini 入力・マッチング/フォールバック双方に効く）。
+        code_files = _learnable_code_files(code_files)
+        # ステップ生成 LLM に「パスだけでなく実コード抜粋」を渡し、機能の複数ファイルを横断して解説させる。
+        code_blocks = await _code_blocks(client, owner, repo, branch, code_files)
+    finally:
+        if shared_client is None:
+            await client.aclose()
+    terms = await _stack_terms(session, repo_full_name)
+    return PlanInputs(code_name, code_desc, code_files, code_blocks, terms, owner, repo)
 
 
 async def generate(inputs: PlanInputs) -> PlanGenerated:
@@ -375,7 +405,12 @@ async def generate(inputs: PlanInputs) -> PlanGenerated:
     """
     try:
         code_steps = await learning_authoring.generate_code_learning_steps_agentic(
-            inputs.code_name, inputs.code_desc, inputs.code_files, owner=inputs.owner, repo=inputs.repo
+            inputs.code_name,
+            inputs.code_desc,
+            inputs.code_files,
+            owner=inputs.owner,
+            repo=inputs.repo,
+            code_blocks=inputs.code_blocks,
         )
     except ValueError:
         logger.warning("Gemini code-learning unavailable; listing files without explanations")
