@@ -55,7 +55,9 @@ def _patch(monkeypatch: pytest.MonkeyPatch, clusters: list[dict]) -> None:
     async def _fake_mint(github: GitHubRef) -> str:
         return "tok"
 
-    async def _fake_cluster(paths: list[str], edges: list[tuple[str, str]], *, owner: str, repo: str) -> list[dict]:
+    async def _fake_cluster(
+        paths: list[str], edges: list[tuple[str, str]], *, owner: str, repo: str, descriptors: dict | None = None
+    ) -> list[dict]:
         return clusters
 
     monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
@@ -329,7 +331,9 @@ async def test_cluster_features_agentic_falls_back_when_agent_empty(monkeypatch:
     async def _noop_run(**_kwargs: object) -> list[str]:
         return []  # agent produced no save_features call → captured stays empty
 
-    async def _fake_direct(paths: list[str], edges: list[tuple[str, str]]) -> list[dict]:
+    async def _fake_direct(
+        paths: list[str], edges: list[tuple[str, str]], *, descriptors: dict[str, str] | None = None
+    ) -> list[dict]:
         return [{"key": "fallback", "name": "F", "description": "", "files": []}]
 
     monkeypatch.setattr(feature_authoring, "run_single_agent", _noop_run)

@@ -94,3 +94,22 @@ def test_duplicate_report_records_partner_files_and_block() -> None:
     assert report["c.py"].related_files == []
     # find_duplicate_ratios stays a thin ratio-only view over the same computation.
     assert code_analysis.find_duplicate_ratios(files)["a.py"] == a.ratio
+
+
+def test_file_purpose_from_python_docstring() -> None:
+    """file_purpose returns the module docstring's first line — the semantic signal for clustering."""
+    content = '"""code-debt detection pipeline (issue 028).\n\nMore detail.\n"""\nimport os\n'
+    assert code_analysis.file_purpose(content) == "code-debt detection pipeline (issue 028)."
+
+
+def test_file_purpose_from_leading_comment_for_non_python() -> None:
+    """Non-Python (no docstring) falls back to the first meaningful leading comment (svelte/ts/js)."""
+    assert code_analysis.file_purpose("// GitHub OAuth SSO login flow\nexport const x = 1;\n") == (
+        "GitHub OAuth SSO login flow"
+    )
+    assert code_analysis.file_purpose("<!-- onboarding tour steps -->\n<div></div>\n") == "onboarding tour steps"
+
+
+def test_file_purpose_empty_when_no_signal() -> None:
+    assert code_analysis.file_purpose("") == ""
+    assert code_analysis.file_purpose("export const x = 1;\n") == ""  # no docstring/comment

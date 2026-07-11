@@ -407,6 +407,35 @@ def select_source_paths(paths: list[str], limit: int) -> list[str]:
     return out
 
 
+_COMMENT_RE = re.compile(r"^(?:#|//|/\*+|\*|<!--|--)\s*(.+?)\s*(?:\*/|-->)?$")
+_PURPOSE_SKIP = ("!", "eslint", "@ts", "type:", "prettier", "-*-", "shellcheck", "noqa", "region")
+
+
+def file_purpose(content: str, *, limit: int = 140) -> str:
+    """One-line purpose hint for a source file (module docstring / leading comment).
+
+    Gives the feature-clustering model a *semantic* signal beyond the path so it assigns files by what
+    they DO, not by filename alone (e.g. ``code_debt_detection.py`` → コード分析, not a same-named mock).
+    Returns the first line of the Python module docstring, else the first meaningful leading comment,
+    else ``""``. Best-effort and dependency-light.
+    """
+    if not content:
+        return ""
+    try:
+        doc = ast.get_docstring(ast.parse(content))
+        if doc and doc.strip():
+            return doc.strip().splitlines()[0].strip()[:limit]
+    except (SyntaxError, ValueError):
+        pass
+    for line in content.splitlines()[:15]:
+        m = _COMMENT_RE.match(line.strip())
+        if m:
+            text = m.group(1).strip()
+            if len(text) > 3 and not text.lower().startswith(_PURPOSE_SKIP):
+                return text[:limit]
+    return ""
+
+
 def python_symbol_spans(content: str) -> list[tuple[int, int, int]]:
     """``(def_line, block_start, end_line)`` (1-based) for every function/class in a Python file.
 

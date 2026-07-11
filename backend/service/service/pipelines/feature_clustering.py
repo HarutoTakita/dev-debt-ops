@@ -36,6 +36,10 @@ from shared.schemas.stack_analysis import GitHubRef
 logger = logging.getLogger(__name__)
 
 _PROPAGATED_CONFIDENCE = 0.5  # confidence for files added by graph-community propagation (vs LLM-asserted)
+# グラフ伝播で 1 機能に追加できるファイル数の上限。密結合リポジトリでは import グラフが 1 塊になり、
+# ラベル伝播が backend 全体を（seed を持つ）1 機能へ流し込む（実測: 学習に 58 ファイル流入）。上限を設けて
+# その暴走を抑える。本来の割当は LLM（各ファイルの用途つき）に任せ、グラフは軽い補強に留める。
+_MAX_GRAPH_ADD = 6
 _BACKFILL_CONFIDENCE = 0.3  # confidence for files added by directory backfill (weakest signal)
 _MIN_FEATURE_FILES = 3  # 各機能に最低これだけ実ファイルを割り当てる（"複数" を保証。近傍で best-effort 補完）
 
@@ -273,8 +277,11 @@ async def process(
         trace.append(f"using {len(clusters)} features from base analysis")
     else:
         # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
+        # 各ファイルの用途（module docstring / 先頭コメント）を添えて渡し、パス名だけでなく「何をするコードか」で
+        # 機能へ割り当てさせる（例: code_debt_detection.py → コード分析。同名モックを掴む誤 seed を防ぐ）。
+        descriptors = {p: d for p, d in ((p, code_analysis.file_purpose(c)) for p, c in files.items()) if d}
         clusters = await feature_authoring.cluster_features_agentic(
-            source_paths, edges, owner=request.owner, repo=request.repo
+            source_paths, edges, owner=request.owner, repo=request.repo, descriptors=descriptors
         )
     valid_paths = set(source_paths)
 
@@ -321,10 +328,10 @@ async def process(
                 {"path": p, "confidence": _PROPAGATED_CONFIDENCE}
                 for p in sorted(communities.get(key, set()))
                 if p not in existing
-            ]
+            ][:_MAX_GRAPH_ADD]  # 1 機能への流入を上限化（blob を丸ごと吸収させない）
             if added:
                 c["files"] = members + added
-        trace.append(f"graph-community expansion over {len(effective_edges)} edges")
+        trace.append(f"graph-community expansion over {len(effective_edges)} edges (<= {_MAX_GRAPH_ADD}/feature)")
 
     # 各機能に最低 _MIN_FEATURE_FILES を保証（未割当の同一ディレクトリ・ファイルで best-effort 補完）。
     _backfill_features(clusters, source_paths)
