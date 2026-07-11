@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import kc_analysis
+from service.services import code_analysis
 from service.services.authorship import AuthorIdentity
 from service.services.github_git_client import BlameRange, CommitInfo, FileContent, TreeItem
 from shared.enums import JobStatus, JobType
@@ -197,17 +198,22 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
 
 def test_select_source_paths_is_language_fair() -> None:
     # Round-robin across language buckets so .py doesn't starve the cap and hide .ts/.svelte
-    # (fixes: 理解度マップに Python しか出ない).
-    paths = [f"backend/{i}.py" for i in range(10)] + ["frontend/a.ts", "frontend/b.svelte"]
-    picked = kc_analysis._select_source_paths(paths, 4)
+    # (fixes: 理解度マップに Python しか出ない). Vendored paths are filtered out.
+    paths = [f"backend/{i}.py" for i in range(10)] + [
+        "frontend/a.ts",
+        "frontend/b.svelte",
+        "frontend/node_modules/x.ts",
+    ]
+    picked = code_analysis.select_source_paths(paths, 4)
     assert len(picked) == 4
     assert any(p.endswith(".ts") for p in picked)
     assert any(p.endswith(".svelte") for p in picked)
+    assert all("node_modules" not in p for p in picked)  # vendored dropped
 
 
 def test_select_source_paths_honours_limit_and_covers_all_when_small() -> None:
     paths = ["a.py", "b.ts", "c.svelte"]
-    assert set(kc_analysis._select_source_paths(paths, 10)) == set(paths)  # all fit under the cap
+    assert set(code_analysis.select_source_paths(paths, 10)) == set(paths)  # all fit under the cap
 
 
 def _patch_custom(

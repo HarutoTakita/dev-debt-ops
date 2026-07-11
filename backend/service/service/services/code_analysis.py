@@ -355,6 +355,57 @@ def is_source_file(path: str) -> bool:
     return path.lower().endswith(_SOURCE_EXTS) and not is_vendored_path(path)
 
 
+# 理解度マップ / 機能クラスタリング / KC が対象にする「ソース」集合。静的コード品質解析（``is_source_file``、
+# cyclomatic complexity を測る py/ts/js のみ）より広く、フロントの .svelte / .vue も含める（マップに Python
+# 以外も出す）。この集合は色付け・機能ノードの母集合であり、静的解析の対象集合とは別。
+_FRONTEND_EXTS = (".svelte", ".vue")
+_SELECTABLE_SOURCE_EXTS = _SOURCE_EXTS + _FRONTEND_EXTS
+
+
+def is_selectable_source(path: str) -> bool:
+    """Whether a path belongs to the map/clustering/KC universe (broader than ``is_source_file``)."""
+    return path.lower().endswith(_SELECTABLE_SOURCE_EXTS) and not is_vendored_path(path)
+
+
+def _language_bucket(path: str) -> str:
+    """Coarse language bucket for fair selection (so one language doesn't starve the cap)."""
+    p = path.lower()
+    if p.endswith(".py"):
+        return "python"
+    if p.endswith(".svelte"):
+        return "svelte"
+    if p.endswith(".vue"):
+        return "vue"
+    return "ts_js"
+
+
+def select_source_paths(paths: list[str], limit: int) -> list[str]:
+    """Pick up to ``limit`` map/clustering source files from a repo tree, round-robin across languages.
+
+    **Shared by kc_analysis と feature_clustering** so both analyse an *identical* file set — otherwise the
+    galaxy projection unions two disjoint universes and feature files show up uncolored (未着手/灰). Filters
+    to selectable source (excludes vendored/generated) then round-robins across language buckets: a plain
+    ``sorted()[:limit]`` truncation starves later languages (Python sorts first → the cap is exhausted by
+    ``.py`` and no ``.ts`` / ``.svelte`` survive → 理解度マップに Python しか出ない). Deterministic given the
+    same input, so both pipelines converge on the same selection.
+    """
+    buckets: dict[str, list[str]] = {}
+    for p in paths:
+        if is_selectable_source(p):
+            buckets.setdefault(_language_bucket(p), []).append(p)
+    for b in buckets.values():
+        b.sort()
+    order = sorted(buckets)  # deterministic bucket order
+    out: list[str] = []
+    idx = 0
+    while len(out) < limit and any(buckets[b] for b in order):
+        bucket = buckets[order[idx % len(order)]]
+        if bucket:
+            out.append(bucket.pop(0))
+        idx += 1
+    return out
+
+
 def complexity_is_debt(complexity: int) -> bool:
     """Whether a cyclomatic-complexity count is high enough to record as a debt."""
     return complexity >= _COMPLEXITY_MIN

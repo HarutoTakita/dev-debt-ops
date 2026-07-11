@@ -91,6 +91,17 @@ def baseline_fanout_concurrency() -> int:
     return max(1, int(os.environ.get("BASELINE_FANOUT_CONCURRENCY", "3")))
 
 
+def analysis_max_files() -> int:
+    """Max source files selected per run for the理解度マップ (KC) と機能クラスタリング.
+
+    **kc_analysis と feature_clustering は必ず同じ上限を使う**（``code_analysis.select_source_paths`` と併せて
+    両者が同一ファイル集合を採点するため — 上限が食い違うと galaxy が別々の母集合を union し、機能ファイルが
+    KC 未採点＝未着手(灰)で表示される）。blame は 1 ファイル 1 GraphQL、クラスタリングは内容取得 + プロンプト
+    予算がかかるので既定は控えめ。より広いカバレッジが要るリポジトリは ``ANALYSIS_MAX_FILES`` で引き上げる。
+    """
+    return max(1, int(os.environ.get("ANALYSIS_MAX_FILES", "200")))
+
+
 def github_app_id() -> str:
     """GitHub App numeric id (method B: service mints installation tokens)."""
     return os.environ.get("GITHUB_APP_ID", "")

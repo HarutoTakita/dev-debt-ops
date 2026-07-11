@@ -35,7 +35,6 @@ from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
 
-_MAX_FILES = 200  # cap files fetched/clustered per run (REST + prompt budget; MVP)
 _PROPAGATED_CONFIDENCE = 0.5  # confidence for files added by graph-community propagation (vs LLM-asserted)
 _BACKFILL_CONFIDENCE = 0.3  # confidence for files added by directory backfill (weakest signal)
 _MIN_FEATURE_FILES = 3  # 各機能に最低これだけ実ファイルを割り当てる（"複数" を保証。近傍で best-effort 補完）
@@ -231,7 +230,12 @@ async def process(
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
-        source_paths = [t.path for t in tree if t.type == "blob" and code_analysis.is_source_file(t.path)][:_MAX_FILES]
+        # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
+        # 従来は is_source_file(py/ts/js のみ)+単純 [:N] 打ち切りで、KC とは別母集合（backend のみ）を
+        # クラスタリングしていたため、機能フィルタ時に KC 未採点＝未着手(灰)ばかりになっていた。
+        source_paths = code_analysis.select_source_paths(
+            [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
+        )
         files: dict[str, str] = {}
         if not from_base:
             # File contents are only needed to build the import graph that feeds the clustering model.
