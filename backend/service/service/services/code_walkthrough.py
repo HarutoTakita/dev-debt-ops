@@ -68,6 +68,7 @@ def clean_steps(raw: list[dict], lines: list[str], path: str = "") -> list[dict]
     stripped = [ln.strip() for ln in lines]
     symbols = code_analysis.python_symbol_spans("\n".join(lines)) if path.endswith(".py") else []
     out: list[dict] = []
+    fallback: list[dict] = []  # anchor 検証に失敗した step の claim ベース退避（out が空のときだけ採用）
     for item in raw:
         if not isinstance(item, dict):
             continue
@@ -85,39 +86,48 @@ def clean_steps(raw: list[dict], lines: list[str], path: str = "") -> list[dict]
             continue
         # Re-anchor by matching the exact start-line text to the real file (corrects LLM line drift).
         # 誤ったハイライトは欠落より有害なので、曖昧/未検証な anchor は行番号 claim を信じず step ごと drop
-        # する（issue 074-F）。防御的に残った ``N: `` プレフィックスは除去してから照合する。
+        # する（issue 074-F）。ただし全 step が drop されると解説が空＝行き止まりになるため、その step は
+        # 捨てずに fallback（claim ベース・行番号は不正確かも）へ退避し、out が空のときだけ採用する。
+        # 防御的に残った ``N: `` プレフィックスは除去してから照合する。
         anchor = re.sub(r"^\s*\d+:\s?", "", str(item.get("start_text") or "")).strip()
+        anchored = True
         if anchor:
             matches = [i + 1 for i, s in enumerate(stripped) if s and s == anchor]
             if len(matches) == 1:
                 best = matches[0]  # 一意一致 → テキストは行番号より確実。距離に依らず採用。
-            elif len(matches) > 1:
-                best = min(matches, key=lambda line_no: abs(line_no - start))
-                if abs(best - start) > _ANCHOR_WINDOW:
-                    continue  # 複数一致かつ claim が遠い → どれか判定できず drop。
+                end += best - start
+                start = best
+            elif len(matches) > 1 and abs(min(matches, key=lambda ln: abs(ln - start)) - start) <= _ANCHOR_WINDOW:
+                best = min(matches, key=lambda ln: abs(ln - start))
+                end += best - start
+                start = best
             else:
-                continue  # anchor が本文に存在しない → 検証不能につき drop。
-            end += best - start
-            start = best
-        start = max(1, min(start, n))
-        end = max(start, min(end, n))
+                anchored = False  # anchor が本文に無い / 複数一致で claim が遠い → 検証不能（fallback 行き）
+        cs = max(1, min(start, n))
+        ce = max(cs, min(end, n))
         if symbols:
-            start, end = _snap_range(start, end, symbols, stripped, n)
-        out.append(
-            {
-                "start_line": start,
-                "end_line": end,
-                "title": str(item.get("title") or "").strip(),
-                "explanation": explanation,
-            }
-        )
+            cs, ce = _snap_range(cs, ce, symbols, stripped, n)
+        step = {
+            "start_line": cs,
+            "end_line": ce,
+            "title": str(item.get("title") or "").strip(),
+            "explanation": explanation,
+        }
+        (out if anchored else fallback).append(step)
+
     # 先頭ステップが「モジュール docstring / import だけ」を指すと、学習画面の初期表示が実装コードではなく
     # 自然言語プロースになる。実装が始まる行より前で完結するステップは先頭から落とす（最低 1 つは残す）。
     boundary = code_analysis.leading_code_line("\n".join(lines))
-    if boundary > 1:
-        trimmed = [s for s in out if s["end_line"] >= boundary]
-        if trimmed:
-            out = trimmed
+
+    def _trim(steps: list[dict]) -> list[dict]:
+        if boundary <= 1:
+            return steps
+        return [s for s in steps if s["end_line"] >= boundary] or steps
+
+    out = _trim(out)
+    # アンカリングで全 step が落ちた場合のみ claim ベースの fallback を採用（空の解説にしない, issue 074-F 緩和）。
+    if not out and fallback:
+        out = _trim(fallback)
     return out
 
 

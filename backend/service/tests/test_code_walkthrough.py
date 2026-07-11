@@ -57,18 +57,33 @@ def test_clean_steps_drops_invalid_and_clamps() -> None:
     assert steps == [{"start_line": 1, "end_line": 3, "title": "", "explanation": "keep"}]
 
 
-def test_clean_steps_drops_ambiguous_far_anchor() -> None:
-    """start_text matching multiple lines, none within the window of the claim → dropped (issue 074-F)."""
+def test_clean_steps_falls_back_to_claim_when_all_anchors_ambiguous() -> None:
+    """If EVERY step's anchor is ambiguous-and-far, strict drop would empty the walkthrough — so keep the
+    clamped claim as a fallback instead of returning [] (issue 074-F relaxed: empty is a worse dead-end)."""
     lines = ["    return", "x = 1", "y = 2", "    return"]  # "return" at lines 1 and 4
     raw = [{"start_line": 20, "end_line": 21, "start_text": "    return", "title": "t", "explanation": "e"}]
-    assert clean_steps(raw, lines) == []  # nearest match (line 4) is >5 from claim 20 → ambiguous → dropped
+    steps = clean_steps(raw, lines)
+    assert len(steps) == 1  # not gutted to []
+    assert steps[0]["explanation"] == "e"
 
 
-def test_clean_steps_drops_unmatched_anchor() -> None:
-    """start_text that does not appear in the file is unverifiable → the step is dropped (issue 074-F)."""
+def test_clean_steps_falls_back_to_claim_when_all_anchors_unmatched() -> None:
+    """A start_text absent from the file is normally dropped, but when it is the ONLY step the clamped
+    claim is kept so the walkthrough is never empty (issue 074-F relaxed)."""
     lines = ["def a():", "    pass"]
     raw = [{"start_line": 1, "end_line": 2, "start_text": "nonexistent line", "title": "t", "explanation": "e"}]
-    assert clean_steps(raw, lines) == []
+    assert clean_steps(raw, lines) == [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
+
+
+def test_clean_steps_still_drops_bad_anchor_when_a_good_one_exists() -> None:
+    """074-F preserved for the mixed case: an unverifiable-anchor step is dropped when another step anchors
+    cleanly (the claim fallback only kicks in when EVERY step would otherwise be dropped)."""
+    lines = ["def a():", "    pass", "", "def target():", "    return 1"]
+    raw = [
+        {"start_line": 1, "end_line": 1, "start_text": "def target():", "title": "good", "explanation": "g"},
+        {"start_line": 1, "end_line": 2, "start_text": "nonexistent", "title": "bad", "explanation": "b"},
+    ]
+    assert [s["title"] for s in clean_steps(raw, lines)] == ["good"]
 
 
 def test_clean_steps_snaps_ambiguous_near_anchor() -> None:
