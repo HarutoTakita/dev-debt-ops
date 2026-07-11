@@ -55,6 +55,10 @@ Rules:
 """
 
 _MAX_FILE_CHARS = 5_000
+# 機能スコープのクイズ素材（複数の === path === ブロック）用の総量上限。単一ファイル用の _MAX_FILE_CHARS で
+# 再クリップすると後半ファイルが丸ごと落ちるため、代表ファイル群（quiz_generation の 5 × 3000 字）を収められる
+# 大きめの値にする。
+_MAX_QUIZ_CONTENT_CHARS = 16_000
 
 _AI_GENERATION_PROMPT = """\
 You are auditing source files for signs of AI/LLM generation (boilerplate-heavy structure, \
@@ -366,6 +370,8 @@ Japanese (日本語). Do NOT write questions or choices in English.
   要約的な設問は禁止。必ず該当コードの中身に踏み込むこと。
 - コードを指すときは「最初のコードブロック」等の曖昧な言い方をせず、具体的な関数名・クラス名・
   ファイル名（=== <path> === の <path>）で指すこと。
+- 設問は特定の1ファイルに偏らせず、`=== <path> ===` で示された**主要ファイル全体に分散**させること。複数
+  ファイルがある場合は、可能な限り**各主要ファイルから最低1問**出題し、機能全体の理解を測る。
 
 Every question MUST be objective and auto-gradable. Use ONLY these two kinds — never free text:
 - "multiple_choice": exactly ONE correct choice (rendered as radio buttons).
@@ -418,8 +424,12 @@ async def generate_quiz(label: str, content: str) -> dict:
     generic "purpose of the first code block" questions.
     """
     client = _build_client()
-    # 切り詰め時はマーカーを付け、続きがあることをモデルに伝える（_build_file_section と同様, issue 074-E）。
-    clipped = content[:_MAX_FILE_CHARS] + ("\n... (truncated)" if len(content) > _MAX_FILE_CHARS else "")
+    # 機能スコープの content は複数の === path === ブロック（各ファイルは _feature_content 側で個別に
+    # クリップ済み）。ここで全体を _MAX_FILE_CHARS(=単一ファイル用) で再クリップすると後半のファイルが丸ごと
+    # 落ち、設問が先頭ファイルに偏るため、複数ファイルを収められる専用の上限で切り詰める（issue 074-E）。
+    clipped = content[:_MAX_QUIZ_CONTENT_CHARS] + (
+        "\n... (truncated)" if len(content) > _MAX_QUIZ_CONTENT_CHARS else ""
+    )
     prompt = _QUIZ_GEN_PROMPT.format(label=label, content=clipped)
     response = await _generate(
         client,
