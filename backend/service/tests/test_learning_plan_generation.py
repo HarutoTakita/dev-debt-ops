@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.pipelines import learning_plan_generation
-from service.services.github_git_client import CommitInfo, TreeItem
+from service.services.github_git_client import CommitInfo, FileContent, TreeItem
 from shared.enums import JobType
 from shared.models import LearningPlan, LearningResource, LearningStep
 from shared.pipelines.context import PipelineContext
@@ -86,7 +86,13 @@ def _patch(monkeypatch: pytest.MonkeyPatch) -> None:
         return "tok"
 
     async def _fake_code_steps(
-        feature_name: str, feature_description: str, file_paths: list[str], *, owner: str = "", repo: str = ""
+        feature_name: str,
+        feature_description: str,
+        file_paths: list[str],
+        *,
+        owner: str = "",
+        repo: str = "",
+        code_blocks: str = "",
     ) -> list[dict]:
         # Section A: concept マッチで拾った 2 ファイルに説明つきステップを返す。
         return [
@@ -204,3 +210,20 @@ async def test_generation_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
             await session.execute(select(func.count()).select_from(LearningStep).where(LearningStep.plan_id == plan_id))
         ).scalar_one()
         assert count == 3  # not duplicated
+
+
+async def test_code_blocks_builds_excerpts_across_multiple_files() -> None:
+    """_code_blocks feeds the step author real code from the feature's main files (=== path === blocks),
+    skipping empty/unfetchable files, so the plan can span the file group instead of one file."""
+
+    class _C:
+        async def get_file_content(self, owner: str, repo: str, path: str, branch: str = "main") -> FileContent:
+            bodies = {"a.py": "def a():\n    return 1\n", "b.py": "def b():\n    return 2\n", "empty.py": ""}
+            return FileContent(path=path, content=bodies.get(path, ""), sha="s", size=0)
+
+    blocks = await learning_plan_generation._code_blocks(_C(), "o", "r", "main", ["a.py", "b.py", "empty.py"])
+    assert "=== a.py ===" in blocks
+    assert "=== b.py ===" in blocks
+    assert "empty.py" not in blocks  # empty body skipped
+    assert "def a()" in blocks
+    assert "def b()" in blocks

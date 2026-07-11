@@ -57,18 +57,33 @@ def test_clean_steps_drops_invalid_and_clamps() -> None:
     assert steps == [{"start_line": 1, "end_line": 3, "title": "", "explanation": "keep"}]
 
 
-def test_clean_steps_drops_ambiguous_far_anchor() -> None:
-    """start_text matching multiple lines, none within the window of the claim → dropped (issue 074-F)."""
+def test_clean_steps_falls_back_to_claim_when_all_anchors_ambiguous() -> None:
+    """If EVERY step's anchor is ambiguous-and-far, strict drop would empty the walkthrough — so keep the
+    clamped claim as a fallback instead of returning [] (issue 074-F relaxed: empty is a worse dead-end)."""
     lines = ["    return", "x = 1", "y = 2", "    return"]  # "return" at lines 1 and 4
     raw = [{"start_line": 20, "end_line": 21, "start_text": "    return", "title": "t", "explanation": "e"}]
-    assert clean_steps(raw, lines) == []  # nearest match (line 4) is >5 from claim 20 → ambiguous → dropped
+    steps = clean_steps(raw, lines)
+    assert len(steps) == 1  # not gutted to []
+    assert steps[0]["explanation"] == "e"
 
 
-def test_clean_steps_drops_unmatched_anchor() -> None:
-    """start_text that does not appear in the file is unverifiable → the step is dropped (issue 074-F)."""
+def test_clean_steps_falls_back_to_claim_when_all_anchors_unmatched() -> None:
+    """A start_text absent from the file is normally dropped, but when it is the ONLY step the clamped
+    claim is kept so the walkthrough is never empty (issue 074-F relaxed)."""
     lines = ["def a():", "    pass"]
     raw = [{"start_line": 1, "end_line": 2, "start_text": "nonexistent line", "title": "t", "explanation": "e"}]
-    assert clean_steps(raw, lines) == []
+    assert clean_steps(raw, lines) == [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
+
+
+def test_clean_steps_still_drops_bad_anchor_when_a_good_one_exists() -> None:
+    """074-F preserved for the mixed case: an unverifiable-anchor step is dropped when another step anchors
+    cleanly (the claim fallback only kicks in when EVERY step would otherwise be dropped)."""
+    lines = ["def a():", "    pass", "", "def target():", "    return 1"]
+    raw = [
+        {"start_line": 1, "end_line": 1, "start_text": "def target():", "title": "good", "explanation": "g"},
+        {"start_line": 1, "end_line": 2, "start_text": "nonexistent", "title": "bad", "explanation": "b"},
+    ]
+    assert [s["title"] for s in clean_steps(raw, lines)] == ["good"]
 
 
 def test_clean_steps_snaps_ambiguous_near_anchor() -> None:
@@ -84,6 +99,56 @@ def test_clean_steps_keeps_claim_when_no_anchor() -> None:
     lines = ["a", "b", "c"]
     raw = [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
     assert clean_steps(raw, lines) == [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
+
+
+# --- clean_steps: Python symbol-span snapping (fixes 関数冒頭数行 / コメントのみ の狭すぎるハイライト) ---
+
+_PY = [
+    '"""mod."""',  # 1
+    "",  # 2
+    "# CGC の HOME",  # 3
+    "# 環境から解決する",  # 4
+    'CGC_HOME = "/home/appuser"',  # 5
+    "",  # 6
+    "",  # 7
+    "def kuzudb_path_for(repo):",  # 8
+    '    """doc."""',  # 9
+    "    base = CGC_HOME",  # 10
+    "    return base + repo",  # 11
+]
+
+
+def test_clean_steps_snaps_to_whole_python_function() -> None:
+    """An under-counted 2-line highlight of a function is widened to the whole function (Python)."""
+    raw = [
+        {"start_line": 8, "end_line": 9, "start_text": "def kuzudb_path_for(repo):", "title": "t", "explanation": "e"}
+    ]
+    steps = clean_steps(raw, _PY, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (8, 11)
+
+
+def test_clean_steps_extends_comment_only_range_to_statement() -> None:
+    """A highlight landing on the comment block alone is extended to the line it documents."""
+    raw = [{"start_line": 3, "end_line": 4, "start_text": "# CGC の HOME", "title": "t", "explanation": "e"}]
+    steps = clean_steps(raw, _PY, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (3, 5)
+
+
+def test_clean_steps_snapping_skipped_for_non_python() -> None:
+    """The same under-counted range on a non-.py path is left as the anchored claim (no ast snapping)."""
+    raw = [
+        {"start_line": 8, "end_line": 9, "start_text": "def kuzudb_path_for(repo):", "title": "t", "explanation": "e"}
+    ]
+    steps = clean_steps(raw, _PY, "svc/x.ts")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (8, 9)
+
+
+def test_clean_steps_keeps_deep_sub_step_within_a_function() -> None:
+    """A step starting well inside a body (beyond the snap window from ``def``) stays granular."""
+    lines = ["def big(x):", "    a = 1", "    b = 2", "    c = 3", "    d = 4", "    e = 5", "    return e"]
+    raw = [{"start_line": 5, "end_line": 6, "start_text": "d = 4", "title": "t", "explanation": "e"}]
+    steps = clean_steps(raw, lines, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (5, 6)
 
 
 # --- walkthrough agent -----------------------------------------------------

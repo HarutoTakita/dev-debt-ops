@@ -5,9 +5,12 @@ The ADK ``Runner`` is never driven (no live Vertex AI) — ``run_analysis_agent`
 tested with GitHub + the agent run mocked.
 """
 
+import uuid
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from service.agents.budget import RunBudget
 from service.agents.plugin import TraceRecorderPlugin
@@ -22,7 +25,8 @@ from service.pipelines import (
     stack_analysis,
 )
 from service.services.github_git_client import FileContent, TreeItem
-from shared.enums import JobType, ResultStatus
+from shared.enums import JobStatus, JobType, ResultStatus
+from shared.models import AnalysisRun, CodeDebt, DebtTrendPoint, FileKc, Job
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest
 from shared.schemas.base_analysis import BaseAnalysis, BaseCodeFinding, BaseFeature, BaseKnowledgeFinding
@@ -168,21 +172,22 @@ class TestRepoTools:
         assert "app/main.py" in result
         assert "node_modules/x/index.js" not in result
 
-    async def test_list_repo_source_files_prioritises_and_is_language_fair(self) -> None:
-        """077-B: selection is language-fair (round-robin by extension) and prefers larger files."""
+    async def test_list_repo_source_files_is_area_fair(self) -> None:
+        """機能網羅性: selection round-robins across module areas (directories), not by language, so no
+        subsystem is starved (アーキ層でなく製品機能で分類させるための入力網羅性)."""
         client = AsyncMock()
         client.get_repository_tree.return_value = [
-            TreeItem(path="a.py", type="blob", size=10),
-            TreeItem(path="b.py", type="blob", size=90),  # bigger .py → before a.py
-            TreeItem(path="c.ts", type="blob", size=20),
+            TreeItem(path="backend/api/app/a.py", type="blob", size=10),
+            TreeItem(path="backend/api/app/b.py", type="blob", size=10),  # same area as a.py
+            TreeItem(path="frontend/src/routes/c.ts", type="blob", size=10),  # different area
         ]
         list_repo_source_files, _read, _assess = build_repo_tools(
             client, RunBudget(), owner="acme", repo="rosetta", branch="main"
         )
         result = await list_repo_source_files()
-        assert set(result) == {"a.py", "b.py", "c.ts"}
-        assert result.index("b.py") < result.index("a.py")  # size desc within the .py bucket
-        assert result[1] == "c.ts"  # round-robin: biggest .py, then the .ts (not both .py first)
+        assert set(result) == {"backend/api/app/a.py", "backend/api/app/b.py", "frontend/src/routes/c.ts"}
+        # the lone frontend area appears 2nd (not buried behind both backend files) — area round-robin.
+        assert result.index("frontend/src/routes/c.ts") == 1
 
     async def test_read_file_uses_bound_branch(self) -> None:
         """077-C: read_file takes only a path; the client is called with the bound owner/repo/branch."""
@@ -387,3 +392,103 @@ class TestProcess:
     async def test_process_requires_session(self) -> None:
         with pytest.raises(RuntimeError, match="requires a DB session"):
             await agentic_analysis.process(_request(), PipelineContext(session=None))
+
+
+def _trend_request(project_id: uuid.UUID, job_id: uuid.UUID) -> AgenticAnalysisRequest:
+    return AgenticAnalysisRequest(
+        job_id=str(job_id),
+        job_type=JobType.AGENTIC_ANALYSIS,
+        owner="acme",
+        repo="rosetta",
+        project_id=str(project_id),
+        github=GitHubRef(installation_id=123),
+        requested_by="user-1",
+    )
+
+
+async def test_record_trend_point_writes_mean_aggregates(session_maker: async_sessionmaker) -> None:
+    """Server-side trend recording (issue 067): mean code_debt_score (max finding/file) + mean KC over
+    the KC file universe, keyed by this run's (job_id, kind) runs — no browser orchestration."""
+    project_id = uuid.uuid4()
+    job_id = uuid.uuid4()
+    async with session_maker() as session:
+        # analysis_runs.job_id has a FK to jobs — seed the parent job first (flush before the runs).
+        session.add(Job(id=job_id, job_type=JobType.AGENTIC_ANALYSIS, status=JobStatus.PROCESSING, payload={}))
+        await session.flush()
+        cd_run = AnalysisRun(
+            project_id=project_id,
+            commit_sha="",
+            branch="main",
+            kind=JobType.CODE_DEBT_DETECTION.value,
+            job_id=job_id,
+            status=JobStatus.COMPLETED,
+        )
+        kc_run = AnalysisRun(
+            project_id=project_id,
+            commit_sha="",
+            branch="main",
+            kind=JobType.KC_ANALYSIS.value,
+            job_id=job_id,
+            status=JobStatus.COMPLETED,
+        )
+        session.add(cd_run)
+        session.add(kc_run)
+        await session.flush()
+        # KC universe = {a.py: 0.8, b.py: 0.2} (aggregate rows: dev_id/handle NULL).
+        session.add(FileKc(run_id=kc_run.id, file_path="a.py", module=".", kc=0.8, mastery="star"))
+        session.add(FileKc(run_id=kc_run.id, file_path="b.py", module=".", kc=0.2, mastery="black_hole"))
+        # a.py has two findings (0.9, 0.4 → max 0.9); b.py has none (→ 0.0).
+        session.add(
+            CodeDebt(
+                project_id=project_id,
+                run_id=cd_run.id,
+                file_path="a.py",
+                type="complexity",
+                severity="high",
+                code_debt_score=0.9,
+            )
+        )
+        session.add(
+            CodeDebt(
+                project_id=project_id,
+                run_id=cd_run.id,
+                file_path="a.py",
+                type="duplicate",
+                severity="low",
+                code_debt_score=0.4,
+            )
+        )
+        await session.commit()
+
+    request = _trend_request(project_id, job_id)
+    async with session_maker() as session:
+        await agentic_analysis._record_trend_point(session, request)
+        await session.commit()  # run_task owns the commit in production
+
+    async with session_maker() as session:
+        pts = (
+            (await session.execute(select(DebtTrendPoint).where(DebtTrendPoint.project_id == project_id)))
+            .scalars()
+            .all()
+        )
+    assert len(pts) == 1
+    # universe {a.py, b.py}: code = mean(0.9, 0.0) = 0.45; kc = mean(0.8, 0.2) = 0.5.
+    assert pts[0].code_debt_score == pytest.approx(0.45)
+    assert pts[0].knowledge_coverage == pytest.approx(0.5)
+
+
+async def test_record_trend_point_noop_when_nothing_analysed(session_maker: async_sessionmaker) -> None:
+    """No KC / code-debt run for this job → no point recorded (dashboard stays in the empty state)."""
+    project_id = uuid.uuid4()
+    job_id = uuid.uuid4()
+    request = _trend_request(project_id, job_id)
+    async with session_maker() as session:
+        await agentic_analysis._record_trend_point(session, request)
+        await session.commit()
+    async with session_maker() as session:
+        pts = (
+            (await session.execute(select(DebtTrendPoint).where(DebtTrendPoint.project_id == project_id)))
+            .scalars()
+            .all()
+        )
+    assert pts == []

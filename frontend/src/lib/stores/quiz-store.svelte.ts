@@ -7,7 +7,7 @@ class QuizStore {
   availableCount = $state<number>(0); // サイドバー pill 用
   quizzes = $state<QuizListItem[]>([]);
   draftAnswers = $state<Record<string, QuizAnswer>>({});
-  saveStatus = $state<"idle" | "saving" | "saved">("idle");
+  saveStatus = $state<"idle" | "saving" | "saved" | "error">("idle");
   savedAt = $state<string | null>(null);
   // 途中保存先のセッション文脈（session ページ入室時に setContext で確定）。
   #ctx: { orgSlug: string; projectSlug: string; sessionId: string } | null = null;
@@ -30,7 +30,9 @@ class QuizStore {
     this.draftAnswers = { ...this.draftAnswers, [answer.question_id]: answer };
     this.savedAt = answer.saved_at;
     if (!this.#ctx) {
-      this.saveStatus = "saved";
+      // コンテキスト未設定では保存できない → 「保存済み」と偽らずエラーにする（通常は到達しない防御的分岐）。
+      console.error("quiz saveDraft: session context not set; answer was not persisted");
+      this.saveStatus = "error";
       return;
     }
     try {
@@ -38,7 +40,9 @@ class QuizStore {
       this.savedAt = saved.saved_at;
       this.saveStatus = "saved";
     } catch {
-      this.saveStatus = "idle"; // 保存失敗時はドラフトは保持しつつ未保存に戻す
+      // 保存失敗（採点済みの 409・ネットワーク等）はドラフトを保持しつつ明示的にエラー表示する
+      // （黙って「未保存」に戻すと、保存できていないことにユーザーが気づけない）。
+      this.saveStatus = "error";
     }
   }
 

@@ -25,18 +25,50 @@ from service.services.github_git_client import GitHubGitClient
 logger = logging.getLogger(__name__)
 
 _ANCHOR_WINDOW = 5  # 複数一致時に LLM の claim をどれだけ信じて最近傍を選ぶか（行数）。超過は曖昧として drop。
+_SYMBOL_SNAP_WINDOW = 3  # step が def の直下から始まる ⇒ その関数/クラス全体を指すと見なす許容行数
 
 
-def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
+def _snap_range(
+    start: int, end: int, symbols: list[tuple[int, int, int]], stripped: list[str], n: int
+) -> tuple[int, int]:
+    """Widen an anchored highlight so it isn't misleadingly narrow. Only ever *widens* the range.
+
+    1. If the step begins at/just-below a symbol's ``def`` line, snap to the whole symbol (incl. its
+       leading comment/decorator block) — a step about a function should highlight the whole function,
+       not its first line. Genuinely granular sub-steps (start well inside a body) are left as-is.
+    2. If the range covers only comment/blank lines, extend down to the first real statement (a
+       documenting comment on its own is not a useful highlight).
+    """
+    best: tuple[int, int, int] | None = None
+    for def_line, block_start, end_line in symbols:
+        if def_line <= start <= def_line + _SYMBOL_SNAP_WINDOW and (best is None or def_line > best[0]):
+            best = (def_line, block_start, end_line)
+    if best is not None:
+        _, block_start, end_line = best
+        start, end = min(start, block_start), max(end, end_line)
+    if all((not stripped[i - 1]) or stripped[i - 1].startswith("#") for i in range(start, end + 1)):
+        j = end  # 0-based index of 1-based line (end + 1); scan for the first real statement below
+        while j < n and ((not stripped[j]) or stripped[j].startswith("#")):
+            j += 1
+        if j < n:
+            end = j + 1
+    return start, end
+
+
+def clean_steps(raw: list[dict], lines: list[str], path: str = "") -> list[dict]:
     """Validate steps, re-anchor line numbers to the real file via ``start_text``, clamp, keep order.
 
     LLMs miscount line numbers, so we snap ``start_line`` to the file line whose content matches the
     returned ``start_text`` (closest occurrence to the claim) and shift ``end_line`` by the same delta.
-    This keeps the highlighted range aligned with the explanation. Falls back to the clamped claim.
+    For Python files (``path`` ends with ``.py``) we additionally widen the range to the whole enclosing
+    symbol and extend comment-only ranges to the statement they document (see ``_snap_range``) — this fixes
+    highlights that landed on 関数冒頭数行 / コメントのみ. Falls back to the clamped claim otherwise.
     """
     n = len(lines)
     stripped = [ln.strip() for ln in lines]
+    symbols = code_analysis.python_symbol_spans("\n".join(lines)) if path.endswith(".py") else []
     out: list[dict] = []
+    fallback: list[dict] = []  # anchor 検証に失敗した step の claim ベース退避（out が空のときだけ採用）
     for item in raw:
         if not isinstance(item, dict):
             continue
@@ -54,37 +86,48 @@ def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
             continue
         # Re-anchor by matching the exact start-line text to the real file (corrects LLM line drift).
         # 誤ったハイライトは欠落より有害なので、曖昧/未検証な anchor は行番号 claim を信じず step ごと drop
-        # する（issue 074-F）。防御的に残った ``N: `` プレフィックスは除去してから照合する。
+        # する（issue 074-F）。ただし全 step が drop されると解説が空＝行き止まりになるため、その step は
+        # 捨てずに fallback（claim ベース・行番号は不正確かも）へ退避し、out が空のときだけ採用する。
+        # 防御的に残った ``N: `` プレフィックスは除去してから照合する。
         anchor = re.sub(r"^\s*\d+:\s?", "", str(item.get("start_text") or "")).strip()
+        anchored = True
         if anchor:
             matches = [i + 1 for i, s in enumerate(stripped) if s and s == anchor]
             if len(matches) == 1:
                 best = matches[0]  # 一意一致 → テキストは行番号より確実。距離に依らず採用。
-            elif len(matches) > 1:
-                best = min(matches, key=lambda line_no: abs(line_no - start))
-                if abs(best - start) > _ANCHOR_WINDOW:
-                    continue  # 複数一致かつ claim が遠い → どれか判定できず drop。
+                end += best - start
+                start = best
+            elif len(matches) > 1 and abs(min(matches, key=lambda ln: abs(ln - start)) - start) <= _ANCHOR_WINDOW:
+                best = min(matches, key=lambda ln: abs(ln - start))
+                end += best - start
+                start = best
             else:
-                continue  # anchor が本文に存在しない → 検証不能につき drop。
-            end += best - start
-            start = best
-        start = max(1, min(start, n))
-        end = max(start, min(end, n))
-        out.append(
-            {
-                "start_line": start,
-                "end_line": end,
-                "title": str(item.get("title") or "").strip(),
-                "explanation": explanation,
-            }
-        )
+                anchored = False  # anchor が本文に無い / 複数一致で claim が遠い → 検証不能（fallback 行き）
+        cs = max(1, min(start, n))
+        ce = max(cs, min(end, n))
+        if symbols:
+            cs, ce = _snap_range(cs, ce, symbols, stripped, n)
+        step = {
+            "start_line": cs,
+            "end_line": ce,
+            "title": str(item.get("title") or "").strip(),
+            "explanation": explanation,
+        }
+        (out if anchored else fallback).append(step)
+
     # 先頭ステップが「モジュール docstring / import だけ」を指すと、学習画面の初期表示が実装コードではなく
     # 自然言語プロースになる。実装が始まる行より前で完結するステップは先頭から落とす（最低 1 つは残す）。
     boundary = code_analysis.leading_code_line("\n".join(lines))
-    if boundary > 1:
-        trimmed = [s for s in out if s["end_line"] >= boundary]
-        if trimmed:
-            out = trimmed
+
+    def _trim(steps: list[dict]) -> list[dict]:
+        if boundary <= 1:
+            return steps
+        return [s for s in steps if s["end_line"] >= boundary] or steps
+
+    out = _trim(out)
+    # アンカリングで全 step が落ちた場合のみ claim ベースの fallback を採用（空の解説にしない, issue 074-F 緩和）。
+    if not out and fallback:
+        out = _trim(fallback)
     return out
 
 
@@ -102,7 +145,7 @@ async def build_walkthrough(client: GitHubGitClient, owner: str, repo: str, path
     except ValueError:
         logger.warning("Gemini code-walkthrough unavailable for %s", path)
         return []
-    return clean_steps(raw, file.content.split("\n"))
+    return clean_steps(raw, file.content.split("\n"), path)
 
 
 def _numbered(content: str) -> str:
@@ -172,4 +215,4 @@ async def build_walkthrough_agentic(
             logger.warning("Gemini code-walkthrough unavailable for %s", path)
             return []
 
-    return clean_steps(raw, file.content.split("\n"))
+    return clean_steps(raw, file.content.split("\n"), path)

@@ -23,6 +23,8 @@ class LearningResourceOut(BaseModel):
     estimated_minutes: int | None
     priority: str
     dormant_days: int | None
+    # code セクションのウォークスルー手順数。0 = 未生成/空。フロントは空の code 解説カードを非表示にする。
+    walkthrough_steps: int = 0
 
 
 class LearningStepOut(BaseModel):

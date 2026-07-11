@@ -12,6 +12,7 @@ export const mockLearningPlan: LearningPlan = {
       completed: true,
       resource: {
         id: "r1",
+        walkthrough_steps: 5,
         origin: "team",
         section: "code",
         kind: "adr",
@@ -29,6 +30,7 @@ export const mockLearningPlan: LearningPlan = {
       completed: true,
       resource: {
         id: "r2",
+        walkthrough_steps: 6,
         origin: "team",
         section: "code",
         kind: "code",
@@ -46,6 +48,7 @@ export const mockLearningPlan: LearningPlan = {
       completed: false,
       resource: {
         id: "r3",
+        walkthrough_steps: 4,
         origin: "team",
         section: "code",
         kind: "code",
@@ -63,6 +66,7 @@ export const mockLearningPlan: LearningPlan = {
       completed: false,
       resource: {
         id: "r4",
+        walkthrough_steps: 0,
         origin: "external",
         section: "stack",
         kind: "docs",
@@ -80,6 +84,7 @@ export const mockLearningPlan: LearningPlan = {
       completed: false,
       resource: {
         id: "r5",
+        walkthrough_steps: 0,
         origin: "external",
         section: "stack",
         kind: "book",

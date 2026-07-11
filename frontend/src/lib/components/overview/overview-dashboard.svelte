@@ -34,9 +34,20 @@
   const dangerCount = $derived(
     overview.files.filter((f) => f.code_debt_score > 0.5 && f.knowledge_coverage < 0.5).length,
   );
-  const firstKc = $derived(Math.round((overview.trend.at(0)?.knowledge_coverage ?? 0) * 100));
-  const latestKc = $derived(Math.round((overview.trend.at(-1)?.knowledge_coverage ?? 0) * 100));
-  const kcChange = $derived(latestKc - firstKc);
+  // 理解度カードの現在値は trend 末尾（最新スナップショット）ではなく、解析済みファイルの平均 KC から出す。
+  // trend はサーバー側で記録されないケースがあり、末尾参照だと実データ（file_kc）があっても 0% に見えてしまう。
+  const currentKc = $derived(
+    overview.files.length
+      ? Math.round((overview.files.reduce((sum, f) => sum + f.knowledge_coverage, 0) / overview.files.length) * 100)
+      : 0,
+  );
+  // 週次デルタは trend が 2 点以上あるときだけ実データから算出。1 点以下は「±0」ではなく非表示にする
+  // （履歴が無いのに増減を捏造しない）。
+  const kcChange = $derived.by(() => {
+    const t = overview.trend;
+    if (t.length < 2) return null;
+    return Math.round((t[t.length - 1].knowledge_coverage - t[0].knowledge_coverage) * 100);
+  });
 </script>
 
 <div class="mx-auto flex max-w-6xl flex-col gap-4 p-4">
@@ -76,9 +87,11 @@
   <!-- stat-card（負債系は減少=緑に反転） -->
   <div class="grid gap-3 sm:grid-cols-3" data-tour="overview-stats">
     <div class="relative">
-      <StatCard label={m.overview_stat_kc()} value={`${latestKc}%`}>
+      <StatCard label={m.overview_stat_kc()} value={`${currentKc}%`}>
         {#snippet trend()}
-          <TrendIndicator change={kcChange} trendStyle="asc" suffix="pt" />
+          {#if kcChange !== null}
+            <TrendIndicator change={kcChange} trendStyle="asc" suffix="pt" />
+          {/if}
         {/snippet}
       </StatCard>
       <a href={galaxyHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
@@ -86,21 +99,14 @@
       >
     </div>
     <div class="relative">
-      <StatCard label={m.overview_stat_danger()} value={`${dangerCount}`}>
-        {#snippet trend()}
-          <TrendIndicator change={-4} trendStyle="desc" suffix={m.count_suffix()} />
-        {/snippet}
-      </StatCard>
+      <!-- コード改善一覧（list_debts, kind=code）と同じコード負債 finding 件数を表示して整合させる。 -->
+      <StatCard label={m.overview_stat_code_debt()} value={`${overview.code_debt_count}`} />
       <a href={matrixHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
         >{m.overview_check_quality()} →</a
       >
     </div>
     <div class="relative">
-      <StatCard label={m.overview_stat_repaid()} value={`${overview.activity.code_agent_merged}`}>
-        {#snippet trend()}
-          <TrendIndicator change={3} trendStyle="asc" suffix={m.count_suffix()} />
-        {/snippet}
-      </StatCard>
+      <StatCard label={m.overview_stat_repaid()} value={`${overview.activity.code_agent_merged}`} />
       <a href={reposHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"
         >{m.overview_improve_code()} →</a
       >

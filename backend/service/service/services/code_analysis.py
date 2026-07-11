@@ -11,6 +11,7 @@ file in the repo, so these are the product-decision values, chosen to line up wi
 ``derivePriority`` bands and the mock data's 0..1 ranges.
 """
 
+import ast
 import re
 from typing import NamedTuple
 
@@ -353,6 +354,117 @@ def derive_priority(code: float, knowledge_coverage: float) -> str:
 def is_source_file(path: str) -> bool:
     """Whether a path is a source file this analysis considers (vendored/generated paths excluded)."""
     return path.lower().endswith(_SOURCE_EXTS) and not is_vendored_path(path)
+
+
+# 理解度マップ / 機能クラスタリング / KC が対象にする「ソース」集合。静的コード品質解析（``is_source_file``、
+# cyclomatic complexity を測る py/ts/js のみ）より広く、フロントの .svelte / .vue も含める（マップに Python
+# 以外も出す）。この集合は色付け・機能ノードの母集合であり、静的解析の対象集合とは別。
+_FRONTEND_EXTS = (".svelte", ".vue")
+_SELECTABLE_SOURCE_EXTS = _SOURCE_EXTS + _FRONTEND_EXTS
+
+
+def is_selectable_source(path: str) -> bool:
+    """Whether a path belongs to the map/clustering/KC universe (broader than ``is_source_file``)."""
+    return path.lower().endswith(_SELECTABLE_SOURCE_EXTS) and not is_vendored_path(path)
+
+
+def _area_key(path: str) -> str:
+    """The file's *module area* (top-3 directory segments) — the unit of fair selection.
+
+    e.g. ``backend/service/service/pipelines/x.py`` → ``backend/service/service`` and
+    ``frontend/src/routes/…`` → ``frontend/src/routes``. Round-robin across areas (not just languages)
+    keeps every part of the codebase represented under the cap.
+    """
+    parts = path.split("/")
+    if len(parts) >= 4:
+        return "/".join(parts[:3])
+    return "/".join(parts[:-1]) or "(root)"
+
+
+def select_source_paths(paths: list[str], limit: int) -> list[str]:
+    """Pick up to ``limit`` map/clustering source files, round-robin across **module areas** (directories).
+
+    **Shared by kc_analysis と feature_clustering** so both analyse an *identical* file set — otherwise the
+    galaxy projection unions two disjoint universes and feature files show up uncolored (未着手/灰). Filters
+    to selectable source (excludes vendored/generated) then round-robins across top-3 directory areas: a
+    plain ``sorted()[:limit]`` — or even a language-only round-robin — lets the alphabetically-first area
+    monopolise its bucket and **starve whole subsystems** (実測: `backend/api/*` が Python 枠を占有し
+    `backend/service/*`=パイプライン/エージェント/コードグラフ本体が 1 件も選ばれず、機能クラスタリングが
+    製品の中核コードを一切見られていなかった). Area round-robin keeps the mix representative across the tree.
+    Deterministic given the same input, so both pipelines converge on the same selection.
+    """
+    buckets: dict[str, list[str]] = {}
+    for p in paths:
+        if is_selectable_source(p):
+            buckets.setdefault(_area_key(p), []).append(p)
+    for b in buckets.values():
+        b.sort()
+    order = sorted(buckets)  # deterministic bucket order
+    out: list[str] = []
+    idx = 0
+    while len(out) < limit and any(buckets[b] for b in order):
+        bucket = buckets[order[idx % len(order)]]
+        if bucket:
+            out.append(bucket.pop(0))
+        idx += 1
+    return out
+
+
+_COMMENT_RE = re.compile(r"^(?:#|//|/\*+|\*|<!--|--)\s*(.+?)\s*(?:\*/|-->)?$")
+_PURPOSE_SKIP = ("!", "eslint", "@ts", "type:", "prettier", "-*-", "shellcheck", "noqa", "region")
+
+
+def file_purpose(content: str, *, limit: int = 140) -> str:
+    """One-line purpose hint for a source file (module docstring / leading comment).
+
+    Gives the feature-clustering model a *semantic* signal beyond the path so it assigns files by what
+    they DO, not by filename alone (e.g. ``code_debt_detection.py`` → コード分析, not a same-named mock).
+    Returns the first line of the Python module docstring, else the first meaningful leading comment,
+    else ``""``. Best-effort and dependency-light.
+    """
+    if not content:
+        return ""
+    try:
+        doc = ast.get_docstring(ast.parse(content))
+        if doc and doc.strip():
+            return doc.strip().splitlines()[0].strip()[:limit]
+    except (SyntaxError, ValueError):
+        pass
+    for line in content.splitlines()[:15]:
+        m = _COMMENT_RE.match(line.strip())
+        if m:
+            text = m.group(1).strip()
+            if len(text) > 3 and not text.lower().startswith(_PURPOSE_SKIP):
+                return text[:limit]
+    return ""
+
+
+def python_symbol_spans(content: str) -> list[tuple[int, int, int]]:
+    """``(def_line, block_start, end_line)`` (1-based) for every function/class in a Python file.
+
+    ``block_start`` extends ``def_line`` upward over decorators and a contiguous ``#`` comment block
+    directly above the definition (a documenting comment belongs with the symbol). ``end_line`` is the
+    node's ``end_lineno``. Used to snap walkthrough/quiz highlights to a whole symbol instead of the
+    LLM's under-counted range. Empty list when ``content`` is not valid Python — non-Python callers then
+    skip snapping and fall back to the anchored claim.
+    """
+    try:
+        tree = ast.parse(content)
+    except (SyntaxError, ValueError):
+        return []
+    src = content.split("\n")
+    spans: list[tuple[int, int, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        def_line = node.lineno
+        block_start = min([def_line, *(d.lineno for d in node.decorator_list)])
+        i = block_start - 2  # 0-based index of the line directly above block_start
+        while i >= 0 and src[i].strip().startswith("#"):
+            block_start = i + 1
+            i -= 1
+        spans.append((def_line, block_start, node.end_lineno or def_line))
+    return spans
 
 
 def complexity_is_debt(complexity: int) -> bool:

@@ -81,6 +81,29 @@ def gemini_timeout_ms() -> int:
     return int(os.environ.get("GEMINI_TIMEOUT_MS", "120000"))
 
 
+def baseline_fanout_concurrency() -> int:
+    """Max features whose learning plan / quiz are *generated* concurrently in the baseline fan-out.
+
+    Only the session-free Gemini authoring runs in parallel (DB reads/writes stay serial on the job's
+    single session). Each Gemini call already retries 429/5xx with jittered backoff, so a modest cap
+    keeps concurrent quota pressure — and the DB connection pool — comfortably in bounds. Clamped to ≥1.
+    """
+    return max(1, int(os.environ.get("BASELINE_FANOUT_CONCURRENCY", "3")))
+
+
+def analysis_max_files() -> int:
+    """Max source files selected per run for the理解度マップ (KC) と機能クラスタリング.
+
+    **kc_analysis と feature_clustering は必ず同じ上限を使う**（``code_analysis.select_source_paths`` と併せて
+    両者が同一ファイル集合を採点するため — 上限が食い違うと galaxy が別々の母集合を union し、機能ファイルが
+    KC 未採点＝未着手(灰)で表示される）。blame は 1 ファイル 1 GraphQL、クラスタリングは内容取得 + プロンプト
+    予算がかかるが、200 では中規模リポジトリの中核サブシステムがまるごと選外になり機能検出が破綻するため
+    既定を 400 に引き上げた（``code_analysis.select_source_paths`` の area 公平選定と併用）。さらに広い/狭い
+    カバレッジが要るリポジトリは ``ANALYSIS_MAX_FILES`` で調整する。
+    """
+    return max(1, int(os.environ.get("ANALYSIS_MAX_FILES", "400")))
+
+
 def github_app_id() -> str:
     """GitHub App numeric id (method B: service mints installation tokens)."""
     return os.environ.get("GITHUB_APP_ID", "")

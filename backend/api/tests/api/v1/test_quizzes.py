@@ -95,6 +95,20 @@ async def test_get_session_strips_answer_key_and_normalizes(authenticated_client
     assert q["code_snippet"] is None  # normalized to satisfy the contract
 
 
+async def test_list_excludes_grading_and_completed(authenticated_client: AsyncClient) -> None:
+    """受験可能一覧は回答可能な状態（not_started / in_progress）のみ。
+
+    grading / completed は回答がロックされ、保存 PATCH が 409 になるため一覧から除外する
+    (さもないと回答画面に入っても全保存が失敗し「未回答」に見える)。
+    """
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    open_sid = await _seed_session(project_id, user_id, status="not_started")
+    await _seed_session(project_id, user_id, status="grading")
+    await _seed_session(project_id, user_id, status="completed")
+    body = (await authenticated_client.get(f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes")).json()
+    assert {q["session_id"] for q in body["quizzes"]} == {str(open_sid)}
+
+
 async def test_save_answer_upsert_and_status(authenticated_client: AsyncClient) -> None:
     org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
     sid = await _seed_session(project_id, user_id)

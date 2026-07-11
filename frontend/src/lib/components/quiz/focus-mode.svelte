@@ -67,6 +67,8 @@
             {m.quiz_save_saved({ time: savedTime() })}
           </span>
         {/key}
+      {:else if quiz.saveStatus === "error"}
+        <span class="text-destructive">⚠ {m.quiz_save_failed()}</span>
       {/if}
     </span>
     <div class="flex items-center gap-1">

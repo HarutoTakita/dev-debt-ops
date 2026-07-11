@@ -127,4 +127,5 @@ export const overviewMock: Overview = {
     knowledge_agent_quizzes: 23,
     knowledge_agent_passed: 17,
   },
+  code_debt_count: 18,
 };

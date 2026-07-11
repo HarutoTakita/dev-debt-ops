@@ -29,8 +29,10 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col
 
 from service import config
 from service.agents.budget import RunBudget
@@ -48,7 +50,7 @@ from service.services import code_graph, function_graph, repo_checkout, trivy_sc
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import CachingGitHubGitClient, GitHubGitClient, LocalCloneGitHubClient
 from shared.enums import JobType, ResultStatus
-from shared.models import BaseAnalysisSnapshot, CodeGraph
+from shared.models import AnalysisRun, BaseAnalysisSnapshot, CodeDebt, CodeGraph, DebtTrendPoint, FileKc
 from shared.pipelines.context import PipelineContext
 from shared.schemas.agentic_analysis import AgenticAnalysisRequest, AgenticAnalysisResult
 from shared.schemas.base_analysis import BaseAnalysis
@@ -87,6 +89,75 @@ async def _persist_base_analysis(session: AsyncSession, project_id: str, base: B
     stmt = pg_insert(BaseAnalysisSnapshot).values(id=uuid.uuid4(), project_id=pid, computed_at=now, payload=payload)
     stmt = stmt.on_conflict_do_update(
         constraint="uq_base_analysis_snapshots_project", set_={"computed_at": now, "payload": payload}
+    )
+    await session.execute(stmt)
+    await session.flush()
+
+
+async def _run_id_for_job(session: AsyncSession, job_id: str, kind: str) -> uuid.UUID | None:
+    """The ``analysis_run`` this job created for ``kind`` (runs are keyed by ``(job_id, kind)``)."""
+    row = (
+        await session.execute(
+            select(AnalysisRun).where(col(AnalysisRun.job_id) == uuid.UUID(job_id), col(AnalysisRun.kind) == kind)
+        )
+    ).scalar_one_or_none()
+    return row.id if row is not None else None
+
+
+async def _record_trend_point(session: AsyncSession, request: AgenticAnalysisRequest) -> None:
+    """Append one debt-trend point from THIS run's aggregates (issue 067). Flush only; run_task commits.
+
+    サーバー側でブラウザ非依存に記録する。従来はフロントの fire-and-forget（POST /trend-snapshot、タブ
+    依存）だけが記録していたため、タブを閉じる / API 起点の解析だと推移が 1 点も残らず、ダッシュボードが
+    常に空状態（「解析を実行すると…」）を表示していた。
+
+    集計は api ``debt_query.build_overview`` / ``record_trend_snapshot`` の母集合セマンティクスに合わせる:
+    KC が採点した全ファイルを母集合とし（KC 未実行時のみ code-debt ファイル集合にフォールバック）、その平均
+    ``code_debt_score``（ファイルごとの最大 finding スコア、無ければ 0）と平均 ``knowledge_coverage``。
+    """
+    pid = uuid.UUID(request.project_id)
+    code_run = await _run_id_for_job(session, request.job_id, JobType.CODE_DEBT_DETECTION.value)
+    kc_run = await _run_id_for_job(session, request.job_id, JobType.KC_ANALYSIS.value)
+
+    code_score: dict[str, float] = {}
+    if code_run is not None:
+        rows = (await session.execute(select(CodeDebt).where(col(CodeDebt.run_id) == code_run))).scalars().all()
+        for r in rows:
+            code_score[r.file_path] = max(code_score.get(r.file_path, 0.0), r.code_debt_score)
+
+    kc_map: dict[str, float] = {}
+    if kc_run is not None:
+        rows = (
+            (
+                await session.execute(
+                    select(FileKc).where(
+                        col(FileKc.run_id) == kc_run,
+                        col(FileKc.dev_id).is_(None),
+                        col(FileKc.github_handle).is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in rows:
+            kc_map[r.file_path] = r.kc
+
+    # 母集合は KC 採点ファイル（各点が実 KC を持つ）。KC 未実行時のみ code-debt ファイルにフォールバック。
+    universe = sorted(kc_map) if kc_map else sorted(code_score)
+    if not universe:
+        return  # 何も解析されていない → 記録しない（空状態のまま）
+    n = len(universe)
+    code = sum(code_score.get(p, 0.0) for p in universe) / n
+    kc = sum(kc_map.get(p, 0.0) for p in universe) / n
+    # 解析実行ごとに 1 点（ISO タイムスタンプをキー兼ラベルに）。同一 project×week の再実行は upsert。
+    week = datetime.now(UTC).isoformat()
+    stmt = pg_insert(DebtTrendPoint).values(
+        id=uuid.uuid4(), project_id=pid, week=week, code_debt_score=code, knowledge_coverage=kc
+    )
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_debt_trend_points_project_week",
+        set_={"code_debt_score": code, "knowledge_coverage": kc},
     )
     await session.execute(stmt)
     await session.flush()
@@ -303,6 +374,13 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             await baseline_generation.generate_learning_and_quizzes(request, ctx, on_progress=_on_baseline_progress)
         )
         await reporter.complete("baseline")
+
+        # 2c) 推移点をサーバー側で記録（ブラウザ非依存, issue 067）。内部の永続化なのでトレースには出さない。
+        # 失敗しても解析全体は止めない（推移が 1 点欠けるだけ）。
+        try:
+            await _record_trend_point(session, request)
+        except Exception:
+            logger.exception("trend snapshot recording failed (non-fatal)")
     finally:
         # 共有クライアントを必ず閉じ、clone / per-run KuzuDB（issue 078-A）をここで片付ける（バックボーンの
         # ローカル読み取りが終わるまで clone を生存させるため、cleanup をエージェントブロックから最終へ移動）。

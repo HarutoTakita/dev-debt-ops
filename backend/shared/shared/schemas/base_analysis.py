@@ -25,7 +25,7 @@ class BaseFeatureFile(BaseModel):
 
 
 class BaseFeature(BaseModel):
-    """A semantic product capability (auth / billing / analysis pipeline …), not a folder."""
+    """A user-facing product capability (認証 / リポジトリ解析 / 理解度クイズ …), NOT a folder or layer."""
 
     key: str  # short, stable, lowercase kebab/snake slug — trackable across runs
     name: str

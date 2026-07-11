@@ -26,7 +26,7 @@ async def test_code_steps_agentic_falls_back(monkeypatch: pytest.MonkeyPatch) ->
     async def _noop_run(**_kwargs: object) -> list[str]:
         return []
 
-    async def _fake_direct(name: str, desc: str, files: list[str]) -> list[dict]:
+    async def _fake_direct(name: str, desc: str, files: list[str], *, code_blocks: str = "") -> list[dict]:
         return [{"source_ref": files[0], "title": "fallback"}]
 
     monkeypatch.setattr(learning_authoring, "run_single_agent", _noop_run)

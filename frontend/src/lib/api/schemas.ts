@@ -261,6 +261,7 @@ export const overviewSchema = z.object({
   features: z.array(featureDebtSchema).default([]), // 機能/フォルダ単位ノード（issue 055）
   trend: z.array(debtTrendPointSchema), // 地層グラフ
   activity: weeklyActivitySchema, // 今週の活動
+  code_debt_count: z.number().default(0), // コード負債 finding 総数（コード改善一覧と同じ件数）
 });
 
 // 解析ステージごとの最新ジョブ状態（リロード後の状態復元用）。JobType 値でキー。
@@ -525,6 +526,8 @@ export const learningResourceSchema = z.object({
   priority: resourcePrioritySchema,
   // 死蔵バッジ: 最後に閲覧されてからの経過（チーム資産の再活性化を可視化）
   dormant_days: z.number().nullable().optional(),
+  // code セクションのウォークスルー手順数。0 = 空。空の code 解説カードは一覧に出さない。
+  walkthrough_steps: z.number().default(0),
 });
 
 export const learningStepSchema = z.object({

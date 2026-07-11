@@ -7,6 +7,7 @@ receives ``{questions, answer_key}``.
 """
 
 import logging
+import re
 from typing import Any
 
 from service.agents.budget import RunBudget
@@ -17,6 +18,13 @@ from service.services import gemini_stack_service, repo_checkout
 
 logger = logging.getLogger(__name__)
 
+# ``=== <path> ===`` file markers the quiz prompt uses (quiz_generation._feature_content). Slash-separated
+# repo paths look like high-entropy strings to detect-secrets, so without allowlisting them the redaction
+# masks the path to «REDACTED» and the model then emits ``code_snippet.path = "«REDACTED».py"`` (issue: quiz
+# snippet titles). Paths are coordinates, not secrets (file *contents* are still redacted), so allowlisting
+# the exact path strings is safe and mirrors the owner/repo/branch coordinates already allowlisted.
+_PATH_MARKER = re.compile(r"^=== (.+?) ===$", re.MULTILINE)
+
 
 async def _run_quiz_agent(owner: str, repo: str, ref: str, label: str, content: str, token: str) -> dict[str, Any]:
     """Drive the quiz agent over one target; return the quiz it saved (``{}`` if none)."""
@@ -25,13 +33,16 @@ async def _run_quiz_agent(owner: str, repo: str, ref: str, label: str, content: 
     captured: dict[str, Any] = {}
     agent = build_quiz_agent(label=label, budget=RunBudget(), captured=captured, serena_toolset=serena)
     prompt = f"対象「{label}」のコード:\n\n{content}"
+    # Spare the source paths (the ``=== <path> ===`` markers + the single-file label) from redaction so the
+    # model sees real filenames and the quiz's code_snippet.path is the actual source file, not «REDACTED».
+    allowlist = [owner, repo, f"{owner}/{repo}", ref, label, *_PATH_MARKER.findall(content)]
     try:
         await run_single_agent(
             agent=agent,
             prompt=prompt,
             user_id=f"{owner}_{repo}",
             toolsets=[serena] if serena else None,
-            redaction_allowlist=[owner, repo, f"{owner}/{repo}", ref, label],
+            redaction_allowlist=allowlist,
         )
     finally:
         if repo_dir:

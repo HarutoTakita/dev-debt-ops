@@ -12,39 +12,12 @@ Two kinds live here:
 from collections.abc import Callable
 from typing import Any
 
+from service import config
 from service.agents.budget import RunBudget
 from service.services import code_analysis
-from service.services.github_git_client import GitHubGitClient, TreeItem
+from service.services.github_git_client import GitHubGitClient
 
-_MAX_AGENT_FILES = 40
 _MAX_FILE_CHARS = 6_000
-
-
-def _select_agent_files(tree: list[TreeItem], limit: int) -> list[str]:
-    """Pick up to ``limit`` source files, prioritised (issue 077-B).
-
-    A bare ``tree[:limit]`` slice is git-tree-order-biased and starves later languages/dirs. Instead
-    bucket source blobs by extension, order each bucket by size desc (bigger files ≈ more substance),
-    then round-robin across buckets so no single language/extension dominates the agent's evidence.
-    Content-free (uses ``TreeItem.size`` only), deterministic.
-    """
-    buckets: dict[str, list[tuple[int, str]]] = {}
-    for item in tree:
-        if item.type != "blob" or not code_analysis.is_source_file(item.path):
-            continue
-        ext = item.path.rsplit(".", 1)[-1].lower() if "." in item.path else ""
-        buckets.setdefault(ext, []).append((item.size or 0, item.path))
-    for entries in buckets.values():
-        entries.sort(key=lambda t: (-t[0], t[1]))  # size desc, then path (deterministic)
-    out: list[str] = []
-    keys = sorted(buckets)
-    while len(out) < limit and any(buckets[k] for k in keys):
-        for k in keys:
-            if buckets[k]:
-                out.append(buckets[k].pop(0)[1])
-                if len(out) >= limit:
-                    break
-    return out
 
 
 def list_source_files(paths: list[str]) -> list[str]:
@@ -111,14 +84,17 @@ def build_repo_tools(
     async def list_repo_source_files() -> list[str]:
         """List analysable source files in the repository under analysis (excludes vendored/config).
 
-        Call this first to decide which files are worth reading. Prioritised (language-fair, larger
-        files first) and capped to keep the run bounded.
+        Call this first to map the repo before deciding which files to read. Selection round-robins
+        across module areas (directories) so every subsystem is represented — the SAME selection kc /
+        feature clustering use — instead of a language-biased slice that starves whole subsystems and
+        makes the agent cluster by layer. Capped by ``ANALYSIS_MAX_FILES`` to keep the run bounded.
 
         Returns:
-            Source file paths (at most the per-run cap).
+            Source file paths (area-fair, at most the per-run cap).
         """
         tree = await client.get_repository_tree(owner, repo, branch)
-        return _select_agent_files(tree, _MAX_AGENT_FILES)
+        paths = [item.path for item in tree if item.type == "blob"]
+        return code_analysis.select_source_paths(paths, config.analysis_max_files())
 
     async def read_file(path: str) -> str:
         """Read one file's text content (truncated) from the repository under analysis.

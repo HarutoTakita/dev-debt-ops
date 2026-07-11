@@ -93,6 +93,7 @@ async def test_overview_empty_returns_200(authenticated_client: AsyncClient) -> 
     assert body["org"] == org_slug
     assert body["files"] == []
     assert body["trend"] == []
+    assert body["code_debt_count"] == 0  # no code-debt run yet
     assert body["activity"] == {
         "code_agent_prs": 0,
         "code_agent_merged": 0,
@@ -114,6 +115,7 @@ async def test_overview_aggregates_files(authenticated_client: AsyncClient) -> N
     assert files["src/a.py"]["language"] == "Python"
     assert body["activity"]["code_agent_prs"] == 1  # one related_pr
     assert body["activity"]["code_agent_merged"] == 1  # status in_pr
+    assert body["code_debt_count"] == 1  # matches the コード改善 list (list_debts, kind=code) for this run
 
 
 async def test_overview_universe_is_kc_set(authenticated_client: AsyncClient) -> None:

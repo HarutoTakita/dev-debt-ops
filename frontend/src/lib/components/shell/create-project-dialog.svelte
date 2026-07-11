@@ -2,6 +2,7 @@
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import FolderGit2 from "@lucide/svelte/icons/folder-git-2";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
+  import Loader from "@lucide/svelte/icons/loader-circle";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
@@ -26,6 +27,7 @@
   let name = $state("");
   let branch = $state("");
   let branches = $state<Branch[]>([]);
+  let branchesLoading = $state(false);
   let submitting = $state(false);
   let error = $state<string | null>(null);
 
@@ -40,16 +42,31 @@
     name = "";
     branch = "";
     branches = [];
+    branchesLoading = false;
     error = null;
   }
 
   // リポジトリ選択後、解析対象ブランチを選べるようブランチ一覧を取得する（settings と同パターン）。
+  // 取得中は branchesLoading=true にして、一覧が揃うまで「main だけ」→「全ブランチ」のフラッシュを出さず
+  // ローディング表示にする（取得完了で初めから全件が並ぶ）。repo 切替時は前回の取得結果を破棄する。
   $effect(() => {
     const r = selectedRepo;
     if (!r) return;
+    branchesLoading = true;
+    let cancelled = false;
     void listBranches(r.owner, r.name)
-      .then((res) => (branches = res.branches))
-      .catch(() => (branches = []));
+      .then((res) => {
+        if (!cancelled) branches = res.branches;
+      })
+      .catch(() => {
+        if (!cancelled) branches = [];
+      })
+      .finally(() => {
+        if (!cancelled) branchesLoading = false;
+      });
+    return () => {
+      cancelled = true;
+    };
   });
 
   const defaultBranchName = $derived(branches.find((b) => b.is_default)?.name ?? "");
@@ -66,6 +83,7 @@
       name = "";
       branch = "";
       branches = [];
+      branchesLoading = false;
       error = null;
       submitting = false;
     }
@@ -129,16 +147,28 @@
               class="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <span class="truncate">{branch}{defaultBranchName === branch ? " (default)" : ""}</span>
-              <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+              {#if branchesLoading}
+                <Loader class="size-4 shrink-0 animate-spin opacity-50" />
+              {:else}
+                <ChevronsUpDown class="size-4 shrink-0 opacity-50" />
+              {/if}
             </DropdownMenu.Trigger>
             <DropdownMenu.Content align="start" class="max-h-72 min-w-56 overflow-y-auto">
-              <DropdownMenu.RadioGroup bind:value={branch}>
-                {#each branchNames as b (b)}
-                  <DropdownMenu.RadioItem value={b}
-                    >{b}{defaultBranchName === b ? " (default)" : ""}</DropdownMenu.RadioItem
-                  >
-                {/each}
-              </DropdownMenu.RadioGroup>
+              {#if branchesLoading}
+                <!-- 取得完了まではローディング表示。中途半端な「main だけ」の一覧は出さない。 -->
+                <div class="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+                  <Loader class="size-4 animate-spin" />
+                  {m.common_loading()}
+                </div>
+              {:else}
+                <DropdownMenu.RadioGroup bind:value={branch}>
+                  {#each branchNames as b (b)}
+                    <DropdownMenu.RadioItem value={b}
+                      >{b}{defaultBranchName === b ? " (default)" : ""}</DropdownMenu.RadioItem
+                    >
+                  {/each}
+                </DropdownMenu.RadioGroup>
+              {/if}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         </div>

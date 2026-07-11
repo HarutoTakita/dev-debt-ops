@@ -17,14 +17,22 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_code_learning_steps_agentic(
-    feature_name: str, feature_description: str, file_paths: list[str], *, owner: str, repo: str
+    feature_name: str, feature_description: str, file_paths: list[str], *, owner: str, repo: str, code_blocks: str = ""
 ) -> list[dict]:
-    """Generate code-learning steps via an ADK agent, falling back to the direct Gemini path."""
+    """Generate code-learning steps via an ADK agent, falling back to the direct Gemini path.
+
+    ``code_blocks`` (=== path === 区切りの実コード抜粋) を渡すと、パス名だけでなく実際のコードに基づき、
+    機能の主要な複数ファイルを横断した学習ステップを生成させられる（空なら従来どおりパス一覧のみ）。
+    """
     if not file_paths:
         return []
     captured: dict[str, Any] = {}
     files_block = "\n".join(f"- {p}" for p in file_paths)
-    prompt = f"機能名: {feature_name}\n説明: {feature_description or '（説明なし）'}\n構成ファイル:\n{files_block}"
+    code_section = f"\n\n対象コード（主要ファイルの抜粋・=== path === 区切り）:\n{code_blocks}" if code_blocks else ""
+    prompt = (
+        f"機能名: {feature_name}\n説明: {feature_description or '（説明なし）'}\n"
+        f"構成ファイル:\n{files_block}{code_section}"
+    )
     try:
         agent = build_learning_steps_agent(budget=RunBudget(), captured=captured)
         await run_single_agent(
@@ -35,7 +43,9 @@ async def generate_code_learning_steps_agentic(
     steps = captured.get("steps") or []
     if steps:
         return steps
-    return await gemini_stack_service.generate_code_learning_steps(feature_name, feature_description, file_paths)
+    return await gemini_stack_service.generate_code_learning_steps(
+        feature_name, feature_description, file_paths, code_blocks=code_blocks
+    )
 
 
 async def generate_external_resources_agentic(gap_concepts: list[str], *, owner: str, repo: str) -> list[dict]:

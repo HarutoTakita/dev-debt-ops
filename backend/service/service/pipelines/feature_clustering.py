@@ -27,6 +27,7 @@ from service.services import code_analysis, feature_authoring, feature_communiti
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
+from shared.analysis_scope import is_learnable_path
 from shared.enums import JobStatus, JobType, ResultStatus
 from shared.models import AnalysisRun, Feature, FeatureFile
 from shared.pipelines.context import PipelineContext
@@ -35,8 +36,11 @@ from shared.schemas.stack_analysis import GitHubRef
 
 logger = logging.getLogger(__name__)
 
-_MAX_FILES = 200  # cap files fetched/clustered per run (REST + prompt budget; MVP)
 _PROPAGATED_CONFIDENCE = 0.5  # confidence for files added by graph-community propagation (vs LLM-asserted)
+# グラフ伝播で 1 機能に追加できるファイル数の上限。密結合リポジトリでは import グラフが 1 塊になり、
+# ラベル伝播が backend 全体を（seed を持つ）1 機能へ流し込む（実測: 学習に 58 ファイル流入）。上限を設けて
+# その暴走を抑える。本来の割当は LLM（各ファイルの用途つき）に任せ、グラフは軽い補強に留める。
+_MAX_GRAPH_ADD = 6
 _BACKFILL_CONFIDENCE = 0.3  # confidence for files added by directory backfill (weakest signal)
 _MIN_FEATURE_FILES = 3  # 各機能に最低これだけ実ファイルを割り当てる（"複数" を保証。近傍で best-effort 補完）
 
@@ -231,7 +235,12 @@ async def process(
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
-        source_paths = [t.path for t in tree if t.type == "blob" and code_analysis.is_source_file(t.path)][:_MAX_FILES]
+        # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
+        # 従来は is_source_file(py/ts/js のみ)+単純 [:N] 打ち切りで、KC とは別母集合（backend のみ）を
+        # クラスタリングしていたため、機能フィルタ時に KC 未採点＝未着手(灰)ばかりになっていた。
+        source_paths = code_analysis.select_source_paths(
+            [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
+        )
         files: dict[str, str] = {}
         if not from_base:
             # File contents are only needed to build the import graph that feeds the clustering model.
@@ -268,9 +277,14 @@ async def process(
         # Format/persist the Base Analysis Agent's features (no model call).
         trace.append(f"using {len(clusters)} features from base analysis")
     else:
-        # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
-        clusters = await feature_authoring.cluster_features_agentic(
-            source_paths, edges, owner=request.owner, repo=request.repo
+        # capability-first クラスタリング: LLM が能力名を列挙 → ファイルをバッチで固定能力へ割当（多重可）。
+        # 単発クラスタリングが 400 ファイルを割り当てきれずカバレッジ 6% になる問題への対策。各ファイルの用途
+        # （module docstring / 先頭コメント）を添えて渡し「何をするコードか」で割り当てさせる。ボイラープレート
+        # （__init__.py / __main__.py）は学習/機能の対象外なので候補から除外する。
+        descriptors = {p: d for p, d in ((p, code_analysis.file_purpose(c)) for p, c in files.items()) if d}
+        cluster_paths = [p for p in source_paths if is_learnable_path(p)]
+        clusters = await feature_authoring.cluster_features_capability_first(
+            cluster_paths, edges, owner=request.owner, repo=request.repo, descriptors=descriptors
         )
     valid_paths = set(source_paths)
 
@@ -288,8 +302,11 @@ async def process(
     # code (fixes "the filter leaves only 1–2 files"). Uses the CGC file_edges passed by the agentic
     # orchestrator (from_base), else the locally-built import graph (standalone). LLM labels/names are
     # kept; propagated files are added at a lower confidence.
-    effective_edges = graph_edges if graph_edges is not None else edges
-    if effective_edges:
+    # グラフコミュニティ再整列は **base-agent が疎な機能を返したとき（from_base）だけ** 効かせる。
+    # capability-first 経路（from_base=False）は LLM がバッチ割当で全ファイルをカバー済みで、伝播は無関係
+    # ファイルを引き込むノイズにしかならないためスキップする（CGC 空時はローカル import グラフにフォールバック）。
+    effective_edges = graph_edges or edges
+    if from_base and effective_edges:
         seeds: dict[str, set[str]] = {}
         for c in clusters:
             if not isinstance(c, dict):
@@ -315,10 +332,10 @@ async def process(
                 {"path": p, "confidence": _PROPAGATED_CONFIDENCE}
                 for p in sorted(communities.get(key, set()))
                 if p not in existing
-            ]
+            ][:_MAX_GRAPH_ADD]  # 1 機能への流入を上限化（blob を丸ごと吸収させない）
             if added:
                 c["files"] = members + added
-        trace.append(f"graph-community expansion over {len(effective_edges)} edges")
+        trace.append(f"graph-community expansion over {len(effective_edges)} edges (<= {_MAX_GRAPH_ADD}/feature)")
 
     # 各機能に最低 _MIN_FEATURE_FILES を保証（未割当の同一ディレクトリ・ファイルで best-effort 補完）。
     _backfill_features(clusters, source_paths)

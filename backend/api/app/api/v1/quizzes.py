@@ -197,7 +197,13 @@ async def list_quizzes(
     service: ProjectServiceDep,
     session: SASessionDep,
 ) -> QuizListOut:
-    """Return this developer's not-yet-completed quiz sessions for the project."""
+    """Return this developer's *answerable* quiz sessions for the project.
+
+    Only ``not_started`` / ``in_progress`` are offered — ``grading`` and ``completed`` sessions have
+    their answers locked (the save endpoint 409s), so listing them as "受験可能" would drop the user
+    into an answering screen where every save silently fails. Completed sessions are reached via their
+    result page instead (see the ``[sessionId]`` route guard).
+    """
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     rows = (
@@ -206,7 +212,7 @@ async def list_quizzes(
                 select(QuizSession).where(
                     col(QuizSession.project_id) == project.id,
                     col(QuizSession.developer_id) == current_user.id,
-                    col(QuizSession.status) != "completed",
+                    col(QuizSession.status).in_(["not_started", "in_progress"]),
                 )
             )
         )

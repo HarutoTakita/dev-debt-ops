@@ -4,7 +4,7 @@
   import Loader from "@lucide/svelte/icons/loader-circle";
   import { resolve } from "$app/paths";
   import type { ResolvedPathname } from "$app/types";
-  import { getFileContent } from "$lib/api/client";
+  import { generateCodeWalkthrough, getCodeWalkthrough, getFileContent, getJob } from "$lib/api/client";
   import { repo } from "$lib/stores/repo-store.svelte";
   import CodeWalkthrough from "$lib/components/learning/code-walkthrough.svelte";
   import * as m from "$lib/paraglide/messages";
@@ -16,6 +16,8 @@
   let content = $state<string | null>(null);
   let busy = $state(true);
   let error = $state(false);
+  let generating = $state(false);
+  let genError = $state(false);
 
   const backHref = $derived(
     data.planId
@@ -44,6 +46,31 @@
       busy = false;
     }
   });
+
+  // 空の解説（事前生成が transient に欠けた等）をユーザー起点で再生成する。issue 298 は「表示のみ」だが、
+  // 事前生成が欠けると恒久的な行き止まりになり、再解析も既存プランを重複回避でスキップするため復旧できない。
+  // そこで空のときだけ明示操作での復旧導線を用意する（自動生成ではないので毎表示のコストは発生しない）。
+  async function regenerate() {
+    generating = true;
+    genError = false;
+    try {
+      const { job_id, status } = await generateCodeWalkthrough(data.orgSlug, data.projectSlug, data.resourceId);
+      let s = status;
+      // job が返れば terminal まで軽くポーリング（最大 ~2 分）。既に生成済み（ready）なら再取得のみ。
+      for (let i = 0; job_id && (s === "QUEUED" || s === "PROCESSING") && i < 60; i++) {
+        await new Promise((resolvePoll) => {
+          setTimeout(resolvePoll, 2000);
+        });
+        s = (await getJob(job_id)).status;
+      }
+      if (s === "FAILED" || s === "CANCELLED") throw new Error("walkthrough generation failed");
+      wt = await getCodeWalkthrough(data.orgSlug, data.projectSlug, data.resourceId);
+    } catch {
+      genError = true;
+    } finally {
+      generating = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -77,6 +104,24 @@
   {:else if error || content === null}
     <p class="py-16 text-center text-sm text-muted-foreground">{m.walkthrough_error()}</p>
   {:else}
+    {#if wt.steps.length === 0}
+      <!-- 事前生成が欠けた空の解説: 行き止まりにせず、ユーザー起点の再生成導線を出す。 -->
+      <div class="flex flex-col items-center gap-3 rounded-lg border border-dashed bg-card/50 py-8 text-center">
+        <p class="text-sm text-muted-foreground">{m.walkthrough_empty()}</p>
+        {#if genError}
+          <p class="text-xs text-destructive">{m.walkthrough_error()}</p>
+        {/if}
+        <button
+          type="button"
+          onclick={regenerate}
+          disabled={generating}
+          class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {#if generating}<Loader class="size-4 animate-spin" />{/if}
+          {generating ? m.walkthrough_generating() : m.walkthrough_generate_cta()}
+        </button>
+      </div>
+    {/if}
     <CodeWalkthrough {content} path={wt.source_ref ?? ""} steps={wt.steps} />
   {/if}
 </div>
