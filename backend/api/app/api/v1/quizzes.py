@@ -487,6 +487,8 @@ async def _retest_question_ids(
     (「全回間違えた問題だけ」). The chain is the source's origin (or itself) plus all its retests.
     """
     all_qids = [str(q.get("id")) for q in source.questions if isinstance(q, dict) and q.get("id") is not None]
+    if mode == "all":
+        return all_qids  # 全問を再受験（同じ設問セットの新しい試行）
     if mode == "flagged":
         flagged = await _flagged_qids(db, session_id=source.id, developer_id=developer_id)
         return [qid for qid in all_qids if qid in flagged]
@@ -545,8 +547,8 @@ async def create_retest(
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     source = await _owned_session(session, session_id=session_id, project_id=project.id, user=current_user)
-    if body.mode not in ("flagged", "wrong"):
-        raise HTTPException(status_code=400, detail="mode は flagged または wrong を指定してください")
+    if body.mode not in ("flagged", "wrong", "all"):
+        raise HTTPException(status_code=400, detail="mode は all / flagged / wrong を指定してください")
 
     qids = await _retest_question_ids(session, source=source, mode=body.mode, developer_id=current_user.id)
     if not qids:
@@ -657,4 +659,5 @@ async def get_quiz_result(
         kc_after=result.kc_after,
         learning_plan_id=str(result.learning_plan_id) if result.learning_plan_id else None,
         review=review,
+        is_retake=qs.origin_session_id is not None,
     )

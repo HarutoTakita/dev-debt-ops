@@ -477,6 +477,7 @@ export const quizResultSchema = z.object({
   kc_after: z.number(), // 例: 0.47
   learning_plan_id: z.string().nullable(),
   review: z.array(quizReviewItemSchema).default([]), // 全設問の正誤レビュー（#4）
+  is_retake: z.boolean().default(false), // 再受験のみ KC 差分を表示（初回は前回値が無く紛らわしいため非表示）
 });
 
 export const quizListItemSchema = z.object({
@@ -526,8 +527,9 @@ export const learningResourceSchema = z.object({
   priority: resourcePrioritySchema,
   // 死蔵バッジ: 最後に閲覧されてからの経過（チーム資産の再活性化を可視化）
   dormant_days: z.number().nullable().optional(),
-  // code セクションのウォークスルー手順数。0 = 空。空の code 解説カードは一覧に出さない。
-  walkthrough_steps: z.number().default(0),
+  // code セクションのウォークスルー手順数。0 = 空。未定義（旧 API 等でフィールド欠落）は「不明」として
+  // 扱い、非表示にはしない（fail-open）。空の code 解説カードだけを一覧から除外する。
+  walkthrough_steps: z.number().optional(),
 });
 
 export const learningStepSchema = z.object({

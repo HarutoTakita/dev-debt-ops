@@ -157,6 +157,7 @@ const RESULT: QuizResult = {
   kc_before: 0.23,
   kc_after: 0.47,
   learning_plan_id: "plan-001",
+  is_retake: true, // モックは差分表示を確認できるよう再受験扱い
   review: [
     {
       question_id: "q3",

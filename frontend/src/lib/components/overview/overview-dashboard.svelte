@@ -41,11 +41,11 @@
       ? Math.round((overview.files.reduce((sum, f) => sum + f.knowledge_coverage, 0) / overview.files.length) * 100)
       : 0,
   );
-  // 週次デルタは trend が 2 点以上あるときだけ実データから算出。1 点以下は「±0」ではなく非表示にする
-  // （履歴が無いのに増減を捏造しない）。
+  // 週次デルタは trend が 2 点以上あるときだけ実データから算出。履歴が無い初回（1 点以下）は
+  // 非表示ではなく「±0」で明示する（増減が無いことを誠実に見せる。KcMeter の ±0% と同じ流儀）。
   const kcChange = $derived.by(() => {
     const t = overview.trend;
-    if (t.length < 2) return null;
+    if (t.length < 2) return 0;
     return Math.round((t[t.length - 1].knowledge_coverage - t[0].knowledge_coverage) * 100);
   });
 </script>
@@ -89,9 +89,7 @@
     <div class="relative">
       <StatCard label={m.overview_stat_kc()} value={`${currentKc}%`}>
         {#snippet trend()}
-          {#if kcChange !== null}
-            <TrendIndicator change={kcChange} trendStyle="asc" suffix="pt" />
-          {/if}
+          <TrendIndicator change={kcChange} trendStyle="asc" suffix="%" />
         {/snippet}
       </StatCard>
       <a href={galaxyHref} class="absolute top-3 right-3 text-xs font-medium text-primary hover:underline"

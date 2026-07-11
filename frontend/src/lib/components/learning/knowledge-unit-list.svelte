@@ -1,8 +1,9 @@
 <script lang="ts">
   import { resolve } from "$app/paths";
+  import { goto } from "$app/navigation";
   import { localizeDemoContent } from "$lib/i18n/demo-content";
   import type { ResolvedPathname } from "$app/types";
-  import { getKnowledgeUnits, setUnitFlag } from "$lib/api/client";
+  import { createRetest, getKnowledgeUnits, setUnitFlag } from "$lib/api/client";
   import type { KnowledgeUnit } from "$lib/api/schemas";
   import { cn } from "$lib/utils";
   import Flag from "@lucide/svelte/icons/flag";
@@ -68,6 +69,20 @@
   };
   function statusOf(s: string) {
     return STATUS[s] ?? STATUS.unstarted;
+  }
+
+  // 提出済みクイズの「理解度を確認する」= 同じ設問セットでの再受験（新セッションを作って問題画面へ）。
+  // 完了セッションを直接開くと結果画面へリダイレクトされ回答もロック(409)されるため、新しい試行を作る。
+  let retakingId = $state<string | null>(null);
+  async function retake(sessionId: string | null) {
+    if (!sessionId || retakingId) return;
+    retakingId = sessionId;
+    try {
+      const { session_id } = await createRetest(orgSlug, projectSlug, sessionId, "all");
+      await goto(resolve(`/${orgSlug}/${projectSlug}/quizzes/${session_id}`));
+    } catch {
+      retakingId = null; // 失敗時はボタンを戻す（画面はそのまま）
+    }
   }
 
   // 苦手単元フィルタ（#4）: 確認クイズで低スコアだった単元（needs_review）だけに絞り込む。
@@ -170,13 +185,32 @@
               <span class="text-xs text-muted-foreground">{m.unit_pending()}</span>
             {/if}
             {#if u.quiz_session_id}
-              <a
-                href={resolve(`/${orgSlug}/${projectSlug}/quizzes/${u.quiz_session_id}`)}
-                data-tour="unit-confirm"
-                class="rounded-md border px-2.5 py-1 text-xs font-medium text-debt-knowledge hover:bg-accent/40"
-              >
-                {m.unit_confirm()}
-              </a>
+              {#if u.quiz_status === "completed"}
+                <!-- 提出済み: 「理解度を確認する」は同じ設問の再受験（新セッション）へ。前回結果は別リンク。 -->
+                <button
+                  type="button"
+                  onclick={() => retake(u.quiz_session_id)}
+                  disabled={retakingId === u.quiz_session_id}
+                  data-tour="unit-confirm"
+                  class="rounded-md border px-2.5 py-1 text-xs font-medium text-debt-knowledge hover:bg-accent/40 disabled:opacity-50"
+                >
+                  {m.unit_confirm()}
+                </button>
+                <a
+                  href={resolve(`/${orgSlug}/${projectSlug}/quizzes/${u.quiz_session_id}/result`)}
+                  class="rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent/40"
+                >
+                  {m.unit_view_result()}
+                </a>
+              {:else}
+                <a
+                  href={resolve(`/${orgSlug}/${projectSlug}/quizzes/${u.quiz_session_id}`)}
+                  data-tour="unit-confirm"
+                  class="rounded-md border px-2.5 py-1 text-xs font-medium text-debt-knowledge hover:bg-accent/40"
+                >
+                  {m.unit_confirm()}
+                </a>
+              {/if}
             {/if}
           </div>
         </li>

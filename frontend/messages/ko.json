@@ -108,6 +108,7 @@
   "unit_learn_create": "학습 계획 만들기",
   "unit_learn_open": "학습 열기",
   "unit_confirm": "이해도 확인",
+  "unit_view_result": "지난 결과 보기",
   "unit_pending": "‘분석’으로 생성됨",
   "unit_prepare_quizzes": "확인 퀴즈 준비",
   "unit_back": "← 목록으로",
