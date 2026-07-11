@@ -270,8 +270,10 @@ async def _pregenerate_walkthroughs(
     """Pre-generate + persist line-anchored walkthroughs for the plan's code files (concurrent, capped).
 
     Network/Gemini work runs concurrently (semaphore-capped); the session is only touched serially after.
-    Per-file failures are swallowed (the resource keeps an empty walkthrough; the on-demand path can retry).
-    Reuses ``shared_client`` (the job's read-caching client) when given, else mints its own.
+    A file that comes back empty — a transient Gemini rate-limit during the concurrent burst, a fetch
+    error, or genuinely no steps — is **retried once serially**; the burst is over by then, so a calmer
+    pass usually recovers it, and a still-empty walkthrough is **logged** (never silently swallowed) so it
+    is diagnosable rather than an invisible dead-end. Reuses ``shared_client`` when given, else mints its own.
     """
     if not code_to_walk:
         return
@@ -283,10 +285,25 @@ async def _pregenerate_walkthroughs(
 
     async def _walk(resource: LearningResource, path: str) -> None:
         async with sem:
-            resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
+            try:
+                resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
+            except Exception:  # build_walkthrough degrades to [] internally; guard only the unexpected
+                logger.exception("code-walkthrough pre-generation errored for %s", path)
+                resource.walkthrough = []
 
     try:
-        await asyncio.gather(*(_walk(res, path) for res, path in code_to_walk), return_exceptions=True)
+        await asyncio.gather(*(_walk(res, path) for res, path in code_to_walk))
+        # Retry (serially, in a calmer window) the files that came back empty — most empties are transient
+        # Gemini rate-limits during the concurrent burst. A genuinely empty file simply stays empty.
+        for resource, path in [(res, p) for res, p in code_to_walk if not res.walkthrough]:
+            try:
+                resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
+            except Exception:
+                logger.exception("code-walkthrough retry errored for %s", path)
+            if not resource.walkthrough:
+                logger.warning(
+                    "code-walkthrough still empty after retry: %s/%s@%s %s", owner, repo, request.branch, path
+                )
     finally:
         if shared_client is None:
             await client.aclose()

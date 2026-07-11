@@ -441,6 +441,7 @@
   "walkthrough_back": "학습 계획으로 돌아가기",
   "walkthrough_error": "코드 워크스루를 불러오지 못했습니다.",
   "walkthrough_empty": "이 파일에는 아직 워크스루가 없습니다.",
+  "walkthrough_generate_cta": "설명 생성",
   "stack_title": "기술 스택",
   "stack_analyze": "분석",
   "stack_reanalyze": "재분석",

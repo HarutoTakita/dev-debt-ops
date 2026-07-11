@@ -441,6 +441,7 @@
   "walkthrough_back": "Zurück zum Lernplan",
   "walkthrough_error": "Der Code-Walkthrough konnte nicht geladen werden.",
   "walkthrough_empty": "Für diese Datei gibt es noch keinen Walkthrough.",
+  "walkthrough_generate_cta": "Walkthrough generieren",
   "stack_title": "Tech-Stack",
   "stack_analyze": "Analysieren",
   "stack_reanalyze": "Erneut analysieren",

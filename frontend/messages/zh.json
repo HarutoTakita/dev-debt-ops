@@ -441,6 +441,7 @@
   "walkthrough_back": "返回学习计划",
   "walkthrough_error": "无法加载代码讲解。",
   "walkthrough_empty": "该文件尚无代码讲解。",
+  "walkthrough_generate_cta": "生成讲解",
   "stack_title": "技术栈",
   "stack_analyze": "分析",
   "stack_reanalyze": "重新分析",

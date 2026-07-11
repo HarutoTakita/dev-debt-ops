@@ -462,6 +462,7 @@
   "walkthrough_back": "Back to learning plan",
   "walkthrough_error": "Couldn't load the code walkthrough.",
   "walkthrough_empty": "No walkthrough for this file yet.",
+  "walkthrough_generate_cta": "Generate walkthrough",
   "stack_title": "Tech stack",
   "stack_analyze": "Analyze",
   "stack_reanalyze": "Re-analyze",

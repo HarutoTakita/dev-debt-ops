@@ -441,6 +441,7 @@
   "walkthrough_back": "Volver al plan de aprendizaje",
   "walkthrough_error": "No se pudo cargar el recorrido del código.",
   "walkthrough_empty": "Aún no hay recorrido para este archivo.",
+  "walkthrough_generate_cta": "Generar recorrido",
   "stack_title": "Stack tecnológico",
   "stack_analyze": "Analizar",
   "stack_reanalyze": "Reanalizar",
