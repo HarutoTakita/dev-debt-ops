@@ -27,6 +27,7 @@ from service.services import code_analysis, feature_authoring, feature_communiti
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
+from shared.analysis_scope import is_learnable_path
 from shared.enums import JobStatus, JobType, ResultStatus
 from shared.models import AnalysisRun, Feature, FeatureFile
 from shared.pipelines.context import PipelineContext
@@ -276,12 +277,14 @@ async def process(
         # Format/persist the Base Analysis Agent's features (no model call).
         trace.append(f"using {len(clusters)} features from base analysis")
     else:
-        # 機能クラスタリングはエージェント経由（保存ツール＋直呼びフォールバック, issue 263）。1 モデル呼び出し。
-        # 各ファイルの用途（module docstring / 先頭コメント）を添えて渡し、パス名だけでなく「何をするコードか」で
-        # 機能へ割り当てさせる（例: code_debt_detection.py → コード分析。同名モックを掴む誤 seed を防ぐ）。
+        # capability-first クラスタリング: LLM が能力名を列挙 → ファイルをバッチで固定能力へ割当（多重可）。
+        # 単発クラスタリングが 400 ファイルを割り当てきれずカバレッジ 6% になる問題への対策。各ファイルの用途
+        # （module docstring / 先頭コメント）を添えて渡し「何をするコードか」で割り当てさせる。ボイラープレート
+        # （__init__.py / __main__.py）は学習/機能の対象外なので候補から除外する。
         descriptors = {p: d for p, d in ((p, code_analysis.file_purpose(c)) for p, c in files.items()) if d}
-        clusters = await feature_authoring.cluster_features_agentic(
-            source_paths, edges, owner=request.owner, repo=request.repo, descriptors=descriptors
+        cluster_paths = [p for p in source_paths if is_learnable_path(p)]
+        clusters = await feature_authoring.cluster_features_capability_first(
+            cluster_paths, edges, owner=request.owner, repo=request.repo, descriptors=descriptors
         )
     valid_paths = set(source_paths)
 
@@ -299,10 +302,11 @@ async def process(
     # code (fixes "the filter leaves only 1–2 files"). Uses the CGC file_edges passed by the agentic
     # orchestrator (from_base), else the locally-built import graph (standalone). LLM labels/names are
     # kept; propagated files are added at a lower confidence.
-    # CGC が file_edges を出せず graph_edges=[] のときも、ローカルで構築した import グラフ(edges)で
-    # コミュニティ再整列を効かせる（`[] is not None` で空集合が採用され拡張が無効化されるのを防ぐ）。
+    # グラフコミュニティ再整列は **base-agent が疎な機能を返したとき（from_base）だけ** 効かせる。
+    # capability-first 経路（from_base=False）は LLM がバッチ割当で全ファイルをカバー済みで、伝播は無関係
+    # ファイルを引き込むノイズにしかならないためスキップする（CGC 空時はローカル import グラフにフォールバック）。
     effective_edges = graph_edges or edges
-    if effective_edges:
+    if from_base and effective_edges:
         seeds: dict[str, set[str]] = {}
         for c in clusters:
             if not isinstance(c, dict):

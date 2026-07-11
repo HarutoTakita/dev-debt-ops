@@ -63,7 +63,7 @@ def _patch(monkeypatch: pytest.MonkeyPatch, clusters: list[dict]) -> None:
     monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
     monkeypatch.setattr(feature_clustering, "GitHubGitClient", lambda access_token: _FakeClient(_FILES))
     # 機能クラスタリングはエージェント経由（issue 263）。パイプラインテストでは orchestrator を直接差し替える。
-    monkeypatch.setattr(feature_clustering.feature_authoring, "cluster_features_agentic", _fake_cluster)
+    monkeypatch.setattr(feature_clustering.feature_authoring, "cluster_features_capability_first", _fake_cluster)
 
 
 async def _seed_job(session_maker: async_sessionmaker, job_id: str) -> None:
@@ -344,3 +344,43 @@ async def test_cluster_features_agentic_falls_back_when_agent_empty(monkeypatch:
 
 async def test_cluster_features_agentic_empty_paths_is_noop() -> None:
     assert await feature_authoring.cluster_features_agentic([], [], owner="o", repo="r") == []
+
+
+async def test_capability_first_builds_multi_membership_clusters(monkeypatch: pytest.MonkeyPatch) -> None:
+    """capability-first: LLM が能力を列挙し、バッチ割当を集約して多重所属クラスタを構築する。"""
+
+    async def _caps(fwp: list[tuple[str, str]]) -> list[dict]:
+        return [
+            {"key": "auth", "name": "認証", "description": ""},
+            {"key": "quiz", "name": "クイズ", "description": ""},
+        ]
+
+    async def _assign(caps: list[dict], batch: list[tuple[str, str]]) -> dict[str, list[str]]:
+        m = {"a.py": ["auth"], "b.py": ["auth", "quiz"], "c.py": ["quiz"]}  # b.py は多重所属
+        return {p: m.get(p, []) for p, _ in batch}
+
+    monkeypatch.setattr(gemini_stack_service, "propose_capabilities", _caps)
+    monkeypatch.setattr(gemini_stack_service, "assign_files_to_capabilities", _assign)
+    clusters = await feature_authoring.cluster_features_capability_first(
+        ["a.py", "b.py", "c.py"], [], owner="o", repo="r", descriptors={"a.py": "auth stuff"}
+    )
+    by_key = {c["key"]: [f["path"] for f in c["files"]] for c in clusters}
+    assert by_key["auth"] == ["a.py", "b.py"]
+    assert by_key["quiz"] == ["b.py", "c.py"]  # b.py は auth と quiz の両方に登場（多重所属）
+
+
+async def test_capability_first_falls_back_when_no_capabilities(monkeypatch: pytest.MonkeyPatch) -> None:
+    """能力提案が空なら単発クラスタリングへフォールバック（挙動を後退させない）。"""
+
+    async def _empty(fwp: list[tuple[str, str]]) -> list[dict]:
+        return []
+
+    async def _fallback(
+        paths: list[str], edges: list[tuple[str, str]], *, owner: str, repo: str, descriptors: dict | None = None
+    ) -> list[dict]:
+        return [{"key": "fb", "name": "F", "description": "", "files": []}]
+
+    monkeypatch.setattr(gemini_stack_service, "propose_capabilities", _empty)
+    monkeypatch.setattr(feature_authoring, "cluster_features_agentic", _fallback)
+    out = await feature_authoring.cluster_features_capability_first(["a.py"], [], owner="o", repo="r")
+    assert [c["key"] for c in out] == ["fb"]
