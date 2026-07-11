@@ -1,8 +1,9 @@
 """Shared ``Feature`` ORM model — AI-clustered product feature for one analysis run (issue 052).
 
-A *feature* is a semantic grouping of files (e.g. 認証 / 課金 / 解析パイプライン) above the
-directory level, derived by Gemini clustering. It is the coarsest measurement granularity
-(``Granularity.FEATURE``) and is independent of folder structure. Results are snapshotted per
+A *feature* is a user-facing product capability grouping files (e.g. 認証 / リポジトリ解析 / 理解度クイズ)
+above the directory level, derived by Gemini clustering — named by capability, NOT by folder/layer. It is
+the coarsest measurement granularity (``Granularity.FEATURE``) and is independent of folder structure.
+Results are snapshotted per
 ``run_id`` so the non-deterministic clustering is a fixed value within a run. ``api`` owns the
 Alembic migration; ``service`` only DMLs this table from the clustering pipeline.
 

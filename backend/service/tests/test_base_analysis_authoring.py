@@ -90,12 +90,12 @@ class TestBuildAnalysisAgent:
         full = _explorer_instruction(has_serena=True, has_github=True, has_code_graph=True)
         assert "analyze_code_relationships" in full
         assert "Serena" in full
-        assert "GitHub" in full
+        assert "list_pull_requests" in full  # GitHub ツール手順の目印（本文の "GitHub 連携" 例と区別）
 
         # CGC/GitHub 未接続なら、それらのツールを使う手順は本文から消える。
         minimal = _explorer_instruction(has_serena=True, has_github=False, has_code_graph=False)
         assert "analyze_code_relationships" not in minimal
-        assert "GitHub" not in minimal
+        assert "list_pull_requests" not in minimal  # GitHub ツール手順は消える（機能例の "GitHub 連携" は残ってよい）
         assert "Serena" in minimal
         assert "list_repo_source_files" in minimal
 
