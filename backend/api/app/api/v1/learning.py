@@ -87,6 +87,7 @@ async def _plan_out(db, plan: LearningPlan) -> LearningPlanOut:
                     estimated_minutes=r.estimated_minutes,
                     priority=r.priority,
                     dormant_days=r.dormant_days,
+                    walkthrough_steps=len(r.walkthrough) if isinstance(r.walkthrough, list) else 0,
                 ),
             )
         )
@@ -332,6 +333,7 @@ async def patch_learning_step(
             estimated_minutes=resource.estimated_minutes,
             priority=resource.priority,
             dormant_days=resource.dormant_days,
+            walkthrough_steps=len(resource.walkthrough) if isinstance(resource.walkthrough, list) else 0,
         ),
     )
 

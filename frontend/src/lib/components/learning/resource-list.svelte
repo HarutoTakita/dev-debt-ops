@@ -7,7 +7,13 @@
   type Props = { steps: LearningStep[]; ontoggle?: (order: number, completed: boolean) => void };
   const { steps, ontoggle }: Props = $props();
 
-  const codeSteps = $derived(steps.filter((s) => s.resource.section === "code").sort((a, b) => a.order - b.order));
+  // 空のウォークスルー（walkthrough_steps === 0）の code 解説カードは出さない。開いても「解説はまだありません」に
+  // なるだけで見栄えが悪いため、生成済み（手順あり）のものだけ一覧する。stack（外部リンク）は対象外。
+  const codeSteps = $derived(
+    steps
+      .filter((s) => s.resource.section === "code" && s.resource.walkthrough_steps > 0)
+      .sort((a, b) => a.order - b.order),
+  );
   const stackSteps = $derived(steps.filter((s) => s.resource.section === "stack").sort((a, b) => a.order - b.order));
 </script>
 

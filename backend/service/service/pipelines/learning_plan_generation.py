@@ -128,6 +128,8 @@ async def _feature_file_paths(session: AsyncSession, feature_id: uuid.UUID, *, l
 
 _MAX_LEARN_CODE_FILES = 6  # 学習ステップ生成の素材として内容（抜粋）を渡す主要ファイル数の上限
 _MAX_LEARN_CODE_CHARS = 2500  # 1 ファイルあたりの抜粋上限（プロンプト肥大を防ぐ）
+_WALKTHROUGH_CONCURRENCY = 3  # 同時 Gemini walkthrough 呼び出し数。burst を抑えレート制限由来の空を減らす
+_WALKTHROUGH_RETRIES = 2  # 空で返ったファイルの直列リトライ回数（落ち着いた窓で再試行し空を減らす）
 
 
 async def _code_blocks(client: GitHubGitClient, owner: str, repo: str, branch: str, paths: list[str]) -> str:
@@ -298,9 +300,10 @@ async def _pregenerate_walkthroughs(
 
     Network/Gemini work runs concurrently (semaphore-capped); the session is only touched serially after.
     A file that comes back empty — a transient Gemini rate-limit during the concurrent burst, a fetch
-    error, or genuinely no steps — is **retried once serially**; the burst is over by then, so a calmer
-    pass usually recovers it, and a still-empty walkthrough is **logged** (never silently swallowed) so it
-    is diagnosable rather than an invisible dead-end. Reuses ``shared_client`` when given, else mints its own.
+    error, or genuinely no steps — is **retried serially** (up to ``_WALKTHROUGH_RETRIES`` calmer passes);
+    the burst is over by then so recovery is likely, and a still-empty walkthrough is **logged**. Burst
+    pressure is kept low (``_WALKTHROUGH_CONCURRENCY``) to minimise rate-limit-induced empties in the first
+    place. Reuses ``shared_client`` when given, else mints its own.
     """
     if not code_to_walk:
         return
@@ -308,7 +311,7 @@ async def _pregenerate_walkthroughs(
     if not owner or not repo:
         return
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
-    sem = asyncio.Semaphore(5)
+    sem = asyncio.Semaphore(_WALKTHROUGH_CONCURRENCY)
 
     async def _walk(resource: LearningResource, path: str) -> None:
         async with sem:
@@ -320,17 +323,19 @@ async def _pregenerate_walkthroughs(
 
     try:
         await asyncio.gather(*(_walk(res, path) for res, path in code_to_walk))
-        # Retry (serially, in a calmer window) the files that came back empty — most empties are transient
-        # Gemini rate-limits during the concurrent burst. A genuinely empty file simply stays empty.
-        for resource, path in [(res, p) for res, p in code_to_walk if not res.walkthrough]:
-            try:
-                resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
-            except Exception:
-                logger.exception("code-walkthrough retry errored for %s", path)
-            if not resource.walkthrough:
-                logger.warning(
-                    "code-walkthrough still empty after retry: %s/%s@%s %s", owner, repo, request.branch, path
-                )
+        # Serial retries in a calmer window for files still empty — most empties are transient Gemini
+        # rate-limits during the concurrent burst; a genuinely empty file simply stays empty.
+        for _attempt in range(_WALKTHROUGH_RETRIES):
+            empties = [(res, p) for res, p in code_to_walk if not res.walkthrough]
+            if not empties:
+                break
+            for resource, path in empties:
+                try:
+                    resource.walkthrough = await build_walkthrough(client, owner, repo, path, request.branch)
+                except Exception:
+                    logger.exception("code-walkthrough retry errored for %s", path)
+        for _res, path in [(res, p) for res, p in code_to_walk if not res.walkthrough]:
+            logger.warning("code-walkthrough still empty after retries: %s/%s@%s %s", owner, repo, request.branch, path)
     finally:
         if shared_client is None:
             await client.aclose()

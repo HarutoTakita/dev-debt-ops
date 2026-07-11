@@ -526,6 +526,8 @@ export const learningResourceSchema = z.object({
   priority: resourcePrioritySchema,
   // 死蔵バッジ: 最後に閲覧されてからの経過（チーム資産の再活性化を可視化）
   dormant_days: z.number().nullable().optional(),
+  // code セクションのウォークスルー手順数。0 = 空。空の code 解説カードは一覧に出さない。
+  walkthrough_steps: z.number().default(0),
 });
 
 export const learningStepSchema = z.object({
