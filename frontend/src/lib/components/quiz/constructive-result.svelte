@@ -61,7 +61,7 @@
   }
 </script>
 
-<div class="mx-auto max-w-2xl space-y-5 p-4">
+<div class="mx-auto max-w-3xl space-y-5 p-4">
   <div class="rounded-lg border bg-card p-6 text-center">
     <h1 class="font-display text-xl font-semibold">{m.quiz_result_title()}</h1>
     <div class="mt-4">
@@ -69,14 +69,17 @@
     </div>
   </div>
 
-  <div class="grid gap-4 sm:grid-cols-2">
+  <div class="grid gap-4 sm:grid-cols-2 sm:items-start">
     <div class="rounded-lg border bg-card p-4">
       <div class="flex items-center gap-1.5 text-sm font-medium text-success">
         <Check class="size-4" />
         {m.quiz_result_understood()}
       </div>
-      <ul class="mt-2 space-y-1 text-sm text-muted-foreground">
-        {#each result.understood as c (c.id)}<li>・{c.label}</li>{/each}
+      <!-- 他の一覧ブロックと同じ rounded-md のリスト項目。長い設問文でもはみ出さず折り返す。 -->
+      <ul class="mt-2 space-y-1.5">
+        {#each result.understood as c (c.id)}
+          <li class="rounded-md border bg-card px-2.5 py-1.5 text-sm break-words">{c.label}</li>
+        {/each}
       </ul>
     </div>
     <div class="rounded-lg border bg-card p-4">
@@ -84,18 +87,20 @@
         <Sprout class="size-4" />
         {m.quiz_result_gap()}
       </div>
-      <div class="mt-2 flex flex-wrap gap-1.5">
+      <ul class="mt-2 space-y-1.5">
         {#each result.gap_concepts as c (c.id)}
-          <a
-            href={galaxyHref}
-            title={m.gap_concept_learn({ concept: c.label })}
-            aria-label={m.gap_concept_learn({ concept: c.label })}
-            class="inline-flex items-center rounded-full border bg-card px-2 py-0.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/40"
-          >
-            {c.label}
-          </a>
+          <li>
+            <a
+              href={galaxyHref}
+              title={m.gap_concept_learn({ concept: c.label })}
+              aria-label={m.gap_concept_learn({ concept: c.label })}
+              class="block rounded-md border bg-card px-2.5 py-1.5 text-sm break-words text-foreground transition-colors hover:bg-accent/40"
+            >
+              {c.label}
+            </a>
+          </li>
         {/each}
-      </div>
+      </ul>
     </div>
   </div>
 
