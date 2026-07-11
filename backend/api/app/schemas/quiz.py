@@ -61,6 +61,9 @@ class QuizResultOut(BaseModel):
     kc_after: float
     learning_plan_id: str | None
     review: list[QuizReviewItemOut] = []  # 全設問の正誤レビュー（#4）
+    # 再受験（retest）か。初回受験は前回値が無く差分が「クイズ結果 vs 著作推定」で紛らわしいため、
+    # フロントは再受験（2回目以降）のときだけ KC 差分を表示する。
+    is_retake: bool = False
 
 
 class QuizListItemOut(BaseModel):

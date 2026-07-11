@@ -65,7 +65,7 @@
   <div class="rounded-lg border bg-card p-6 text-center">
     <h1 class="font-display text-xl font-semibold">{m.quiz_result_title()}</h1>
     <div class="mt-4">
-      <KcMeter before={result.kc_before} after={result.kc_after} />
+      <KcMeter before={result.kc_before} after={result.kc_after} showDelta={result.is_retake} />
     </div>
   </div>
 

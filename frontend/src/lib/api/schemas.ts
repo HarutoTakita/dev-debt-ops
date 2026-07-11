@@ -477,6 +477,7 @@ export const quizResultSchema = z.object({
   kc_after: z.number(), // 例: 0.47
   learning_plan_id: z.string().nullable(),
   review: z.array(quizReviewItemSchema).default([]), // 全設問の正誤レビュー（#4）
+  is_retake: z.boolean().default(false), // 再受験のみ KC 差分を表示（初回は前回値が無く紛らわしいため非表示）
 });
 
 export const quizListItemSchema = z.object({

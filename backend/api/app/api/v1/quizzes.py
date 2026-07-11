@@ -659,4 +659,5 @@ async def get_quiz_result(
         kc_after=result.kc_after,
         learning_plan_id=str(result.learning_plan_id) if result.learning_plan_id else None,
         review=review,
+        is_retake=qs.origin_session_id is not None,
     )
