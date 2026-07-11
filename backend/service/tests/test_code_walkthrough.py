@@ -86,6 +86,56 @@ def test_clean_steps_keeps_claim_when_no_anchor() -> None:
     assert clean_steps(raw, lines) == [{"start_line": 1, "end_line": 2, "title": "t", "explanation": "e"}]
 
 
+# --- clean_steps: Python symbol-span snapping (fixes 関数冒頭数行 / コメントのみ の狭すぎるハイライト) ---
+
+_PY = [
+    '"""mod."""',  # 1
+    "",  # 2
+    "# CGC の HOME",  # 3
+    "# 環境から解決する",  # 4
+    'CGC_HOME = "/home/appuser"',  # 5
+    "",  # 6
+    "",  # 7
+    "def kuzudb_path_for(repo):",  # 8
+    '    """doc."""',  # 9
+    "    base = CGC_HOME",  # 10
+    "    return base + repo",  # 11
+]
+
+
+def test_clean_steps_snaps_to_whole_python_function() -> None:
+    """An under-counted 2-line highlight of a function is widened to the whole function (Python)."""
+    raw = [
+        {"start_line": 8, "end_line": 9, "start_text": "def kuzudb_path_for(repo):", "title": "t", "explanation": "e"}
+    ]
+    steps = clean_steps(raw, _PY, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (8, 11)
+
+
+def test_clean_steps_extends_comment_only_range_to_statement() -> None:
+    """A highlight landing on the comment block alone is extended to the line it documents."""
+    raw = [{"start_line": 3, "end_line": 4, "start_text": "# CGC の HOME", "title": "t", "explanation": "e"}]
+    steps = clean_steps(raw, _PY, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (3, 5)
+
+
+def test_clean_steps_snapping_skipped_for_non_python() -> None:
+    """The same under-counted range on a non-.py path is left as the anchored claim (no ast snapping)."""
+    raw = [
+        {"start_line": 8, "end_line": 9, "start_text": "def kuzudb_path_for(repo):", "title": "t", "explanation": "e"}
+    ]
+    steps = clean_steps(raw, _PY, "svc/x.ts")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (8, 9)
+
+
+def test_clean_steps_keeps_deep_sub_step_within_a_function() -> None:
+    """A step starting well inside a body (beyond the snap window from ``def``) stays granular."""
+    lines = ["def big(x):", "    a = 1", "    b = 2", "    c = 3", "    d = 4", "    e = 5", "    return e"]
+    raw = [{"start_line": 5, "end_line": 6, "start_text": "d = 4", "title": "t", "explanation": "e"}]
+    steps = clean_steps(raw, lines, "svc/x.py")
+    assert (steps[0]["start_line"], steps[0]["end_line"]) == (5, 6)
+
+
 # --- walkthrough agent -----------------------------------------------------
 
 

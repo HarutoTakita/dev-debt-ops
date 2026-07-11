@@ -41,7 +41,9 @@ _INSTRUCTION = """\
 - questions[]: {{"id": "q1", "kind": "multiple_choice|multiple_select",
   "prompt": "（日本語の設問文）",
   "code_snippet": {{"language": "<言語>", "path": "<引用元パス>",
-    "content": "<対象コードから該当箇所を数行そのままコピー（最大25行・プレースホルダ禁止）>"}},
+    "content": "<対象コードから該当箇所を数行そのままコピー（最大25行・プレースホルダ禁止）。設問文・選択肢・
+      採点基準が参照する識別子の定義（関数・定数・モジュールレベルのグローバル変数。例: しきい値定数
+      `_MAX_SNIPPET_LINES = 20`）は必ずこの content に含め、この抜粋だけで解答できる自己完結した内容にする>"}},
   "choices": [{{"id": "a", "label": "（日本語の選択肢）"}}], "difficulty": "L1|L2|L3|L4|L5"}}
 - answer_key: {{"q1": {{"answer": "正解の choice id（複数可）", "rubric": "採点基準"}}}}
 

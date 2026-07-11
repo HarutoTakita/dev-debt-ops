@@ -11,6 +11,7 @@ file in the repo, so these are the product-decision values, chosen to line up wi
 ``derivePriority`` bands and the mock data's 0..1 ranges.
 """
 
+import ast
 import re
 from typing import NamedTuple
 
@@ -404,6 +405,34 @@ def select_source_paths(paths: list[str], limit: int) -> list[str]:
             out.append(bucket.pop(0))
         idx += 1
     return out
+
+
+def python_symbol_spans(content: str) -> list[tuple[int, int, int]]:
+    """``(def_line, block_start, end_line)`` (1-based) for every function/class in a Python file.
+
+    ``block_start`` extends ``def_line`` upward over decorators and a contiguous ``#`` comment block
+    directly above the definition (a documenting comment belongs with the symbol). ``end_line`` is the
+    node's ``end_lineno``. Used to snap walkthrough/quiz highlights to a whole symbol instead of the
+    LLM's under-counted range. Empty list when ``content`` is not valid Python — non-Python callers then
+    skip snapping and fall back to the anchored claim.
+    """
+    try:
+        tree = ast.parse(content)
+    except (SyntaxError, ValueError):
+        return []
+    src = content.split("\n")
+    spans: list[tuple[int, int, int]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            continue
+        def_line = node.lineno
+        block_start = min([def_line, *(d.lineno for d in node.decorator_list)])
+        i = block_start - 2  # 0-based index of the line directly above block_start
+        while i >= 0 and src[i].strip().startswith("#"):
+            block_start = i + 1
+            i -= 1
+        spans.append((def_line, block_start, node.end_lineno or def_line))
+    return spans
 
 
 def complexity_is_debt(complexity: int) -> bool:

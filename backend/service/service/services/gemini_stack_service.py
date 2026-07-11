@@ -384,7 +384,9 @@ Return ONLY a valid JSON object — no markdown — with this exact schema:
   "answer_key": {{"q1": {{"answer": "correct id(s)", "rubric": "grading criteria"}}}}
 }}
 各設問には必ず "code_snippet" を付け、"content" には設問が対象とする該当コードをそのまま（最大 25 行程度に）
-コピーすること。プレースホルダ（"..." 等）や空文字は禁止。"path" は該当コードの実ファイルパス（=== <path> ===
+コピーすること。設問文・選択肢・採点基準が参照する識別子の定義（関数・定数・モジュールレベルのグローバル変数。
+例: しきい値定数 `_MAX_SNIPPET_LINES = 20`）は必ず content に含め、この抜粋だけで解答できる自己完結した内容に
+すること。プレースホルダ（"..." 等）や空文字は禁止。"path" は該当コードの実ファイルパス（=== <path> ===
 の <path>。対象が単一ファイルなら {label}）。"language" はファイル拡張子に対応する言語。
 For "answer": multiple_choice = the single correct choice id (e.g. a); multiple_select = a
 comma-separated list of correct ids (e.g. a,c).

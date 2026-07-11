@@ -25,17 +25,48 @@ from service.services.github_git_client import GitHubGitClient
 logger = logging.getLogger(__name__)
 
 _ANCHOR_WINDOW = 5  # 複数一致時に LLM の claim をどれだけ信じて最近傍を選ぶか（行数）。超過は曖昧として drop。
+_SYMBOL_SNAP_WINDOW = 3  # step が def の直下から始まる ⇒ その関数/クラス全体を指すと見なす許容行数
 
 
-def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
+def _snap_range(
+    start: int, end: int, symbols: list[tuple[int, int, int]], stripped: list[str], n: int
+) -> tuple[int, int]:
+    """Widen an anchored highlight so it isn't misleadingly narrow. Only ever *widens* the range.
+
+    1. If the step begins at/just-below a symbol's ``def`` line, snap to the whole symbol (incl. its
+       leading comment/decorator block) — a step about a function should highlight the whole function,
+       not its first line. Genuinely granular sub-steps (start well inside a body) are left as-is.
+    2. If the range covers only comment/blank lines, extend down to the first real statement (a
+       documenting comment on its own is not a useful highlight).
+    """
+    best: tuple[int, int, int] | None = None
+    for def_line, block_start, end_line in symbols:
+        if def_line <= start <= def_line + _SYMBOL_SNAP_WINDOW and (best is None or def_line > best[0]):
+            best = (def_line, block_start, end_line)
+    if best is not None:
+        _, block_start, end_line = best
+        start, end = min(start, block_start), max(end, end_line)
+    if all((not stripped[i - 1]) or stripped[i - 1].startswith("#") for i in range(start, end + 1)):
+        j = end  # 0-based index of 1-based line (end + 1); scan for the first real statement below
+        while j < n and ((not stripped[j]) or stripped[j].startswith("#")):
+            j += 1
+        if j < n:
+            end = j + 1
+    return start, end
+
+
+def clean_steps(raw: list[dict], lines: list[str], path: str = "") -> list[dict]:
     """Validate steps, re-anchor line numbers to the real file via ``start_text``, clamp, keep order.
 
     LLMs miscount line numbers, so we snap ``start_line`` to the file line whose content matches the
     returned ``start_text`` (closest occurrence to the claim) and shift ``end_line`` by the same delta.
-    This keeps the highlighted range aligned with the explanation. Falls back to the clamped claim.
+    For Python files (``path`` ends with ``.py``) we additionally widen the range to the whole enclosing
+    symbol and extend comment-only ranges to the statement they document (see ``_snap_range``) — this fixes
+    highlights that landed on 関数冒頭数行 / コメントのみ. Falls back to the clamped claim otherwise.
     """
     n = len(lines)
     stripped = [ln.strip() for ln in lines]
+    symbols = code_analysis.python_symbol_spans("\n".join(lines)) if path.endswith(".py") else []
     out: list[dict] = []
     for item in raw:
         if not isinstance(item, dict):
@@ -70,6 +101,8 @@ def clean_steps(raw: list[dict], lines: list[str]) -> list[dict]:
             start = best
         start = max(1, min(start, n))
         end = max(start, min(end, n))
+        if symbols:
+            start, end = _snap_range(start, end, symbols, stripped, n)
         out.append(
             {
                 "start_line": start,
@@ -102,7 +135,7 @@ async def build_walkthrough(client: GitHubGitClient, owner: str, repo: str, path
     except ValueError:
         logger.warning("Gemini code-walkthrough unavailable for %s", path)
         return []
-    return clean_steps(raw, file.content.split("\n"))
+    return clean_steps(raw, file.content.split("\n"), path)
 
 
 def _numbered(content: str) -> str:
@@ -172,4 +205,4 @@ async def build_walkthrough_agentic(
             logger.warning("Gemini code-walkthrough unavailable for %s", path)
             return []
 
-    return clean_steps(raw, file.content.split("\n"))
+    return clean_steps(raw, file.content.split("\n"), path)
