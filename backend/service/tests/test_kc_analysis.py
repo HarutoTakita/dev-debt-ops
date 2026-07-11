@@ -317,3 +317,14 @@ async def test_login_less_author_folds_into_aggregate(
         assert (agg.dev_id, agg.github_handle) == (None, None)
         assert agg.kc > 0.0  # 著者の寄与が集約に反映（0 にクロバーされない）
         assert agg.mastery != "unexplored"  # has_contact=True（コミット履歴あり）
+
+
+def test_select_source_paths_is_area_fair_not_starving_subsystems() -> None:
+    # 大きい area（backend/api）がアルファベット順で言語枠を独占し、別サブシステム（backend/service）が
+    # まるごと選外になる回帰を防ぐ（実測バグ: backend/service が 1 件も選ばれなかった）。
+    paths = [f"backend/api/app/mod{i}.py" for i in range(60)] + [
+        f"backend/service/service/pipelines/p{i}.py" for i in range(10)
+    ]
+    picked = code_analysis.select_source_paths(paths, 20)
+    assert any(p.startswith("backend/service/") for p in picked)  # service サブシステムが選ばれる
+    assert any(p.startswith("backend/api/") for p in picked)

@@ -368,32 +368,35 @@ def is_selectable_source(path: str) -> bool:
     return path.lower().endswith(_SELECTABLE_SOURCE_EXTS) and not is_vendored_path(path)
 
 
-def _language_bucket(path: str) -> str:
-    """Coarse language bucket for fair selection (so one language doesn't starve the cap)."""
-    p = path.lower()
-    if p.endswith(".py"):
-        return "python"
-    if p.endswith(".svelte"):
-        return "svelte"
-    if p.endswith(".vue"):
-        return "vue"
-    return "ts_js"
+def _area_key(path: str) -> str:
+    """The file's *module area* (top-3 directory segments) — the unit of fair selection.
+
+    e.g. ``backend/service/service/pipelines/x.py`` → ``backend/service/service`` and
+    ``frontend/src/routes/…`` → ``frontend/src/routes``. Round-robin across areas (not just languages)
+    keeps every part of the codebase represented under the cap.
+    """
+    parts = path.split("/")
+    if len(parts) >= 4:
+        return "/".join(parts[:3])
+    return "/".join(parts[:-1]) or "(root)"
 
 
 def select_source_paths(paths: list[str], limit: int) -> list[str]:
-    """Pick up to ``limit`` map/clustering source files from a repo tree, round-robin across languages.
+    """Pick up to ``limit`` map/clustering source files, round-robin across **module areas** (directories).
 
     **Shared by kc_analysis と feature_clustering** so both analyse an *identical* file set — otherwise the
     galaxy projection unions two disjoint universes and feature files show up uncolored (未着手/灰). Filters
-    to selectable source (excludes vendored/generated) then round-robins across language buckets: a plain
-    ``sorted()[:limit]`` truncation starves later languages (Python sorts first → the cap is exhausted by
-    ``.py`` and no ``.ts`` / ``.svelte`` survive → 理解度マップに Python しか出ない). Deterministic given the
-    same input, so both pipelines converge on the same selection.
+    to selectable source (excludes vendored/generated) then round-robins across top-3 directory areas: a
+    plain ``sorted()[:limit]`` — or even a language-only round-robin — lets the alphabetically-first area
+    monopolise its bucket and **starve whole subsystems** (実測: `backend/api/*` が Python 枠を占有し
+    `backend/service/*`=パイプライン/エージェント/コードグラフ本体が 1 件も選ばれず、機能クラスタリングが
+    製品の中核コードを一切見られていなかった). Area round-robin keeps the mix representative across the tree.
+    Deterministic given the same input, so both pipelines converge on the same selection.
     """
     buckets: dict[str, list[str]] = {}
     for p in paths:
         if is_selectable_source(p):
-            buckets.setdefault(_language_bucket(p), []).append(p)
+            buckets.setdefault(_area_key(p), []).append(p)
     for b in buckets.values():
         b.sort()
     order = sorted(buckets)  # deterministic bucket order
