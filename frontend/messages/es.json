@@ -108,6 +108,7 @@
   "unit_learn_create": "Crear plan de aprendizaje",
   "unit_learn_open": "Abrir aprendizaje",
   "unit_confirm": "Comprobar comprensión",
+  "unit_view_result": "Ver resultado anterior",
   "unit_pending": "Generado por el análisis",
   "unit_prepare_quizzes": "Preparar cuestionarios de confirmación",
   "unit_back": "← Volver a la lista",

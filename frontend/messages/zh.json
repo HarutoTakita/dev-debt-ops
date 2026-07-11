@@ -108,6 +108,7 @@
   "unit_learn_create": "创建学习计划",
   "unit_learn_open": "打开学习",
   "unit_confirm": "检验理解度",
+  "unit_view_result": "查看上次结果",
   "unit_pending": "由“分析”生成",
   "unit_prepare_quizzes": "准备确认测验",
   "unit_back": "← 返回列表",

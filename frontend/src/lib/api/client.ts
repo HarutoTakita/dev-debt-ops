@@ -731,7 +731,7 @@ export async function createRetest(
   orgSlug: string,
   projectSlug: string,
   sessionId: string,
-  mode: "flagged" | "wrong",
+  mode: "flagged" | "wrong" | "all",
 ): Promise<{ session_id: string; question_count: number }> {
   const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/quizzes/${sessionId}/retest`, {
     method: "POST",

@@ -295,6 +295,24 @@ async def test_retest_wrong_only_copies_incorrect_questions(authenticated_client
         assert set(retest.answer_key.keys()) == {"q2"}
 
 
+async def test_retest_all_copies_every_question(authenticated_client: AsyncClient) -> None:
+    """mode=all creates a fresh not-started session with ALL questions (full re-take, same set)."""
+    org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
+    sid = await _seed_graded_mc(project_id, user_id)
+    resp = await authenticated_client.post(
+        f"/api/v1/orgs/{org_slug}/projects/{project_slug}/quizzes/{sid}/retest", json={"mode": "all"}
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["question_count"] == 2  # both questions retained
+    async with app_db.async_session_maker() as session:
+        retest = await session.get(QuizSession, uuid.UUID(data["session_id"]))
+        assert {q["id"] for q in retest.questions} == {"q1", "q2"}
+        assert retest.status == "not_started"
+        assert retest.origin_session_id == sid
+        assert retest.retest_mode == "all"
+
+
 async def test_retest_flagged_only_and_empty_is_400(authenticated_client: AsyncClient) -> None:
     """#6: retest mode=flagged uses flagged questions; an empty subset is a 400."""
     org_slug, project_slug, project_id, user_id = await _project(authenticated_client)
