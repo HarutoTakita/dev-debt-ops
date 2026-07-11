@@ -292,7 +292,9 @@ async def process(
     # code (fixes "the filter leaves only 1–2 files"). Uses the CGC file_edges passed by the agentic
     # orchestrator (from_base), else the locally-built import graph (standalone). LLM labels/names are
     # kept; propagated files are added at a lower confidence.
-    effective_edges = graph_edges if graph_edges is not None else edges
+    # CGC が file_edges を出せず graph_edges=[] のときも、ローカルで構築した import グラフ(edges)で
+    # コミュニティ再整列を効かせる（`[] is not None` で空集合が採用され拡張が無効化されるのを防ぐ）。
+    effective_edges = graph_edges or edges
     if effective_edges:
         seeds: dict[str, set[str]] = {}
         for c in clusters:

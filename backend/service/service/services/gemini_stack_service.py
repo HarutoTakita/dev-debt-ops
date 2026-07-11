@@ -659,7 +659,12 @@ Rules:
   names, class names, or "~ API" style labels. Only ``key`` may be English.
 - Only use file paths that appear in the list above. A file may belong to more than one feature.
 - ``confidence`` is in [0,1]: how strongly the file belongs to that feature.
-- Prefer a handful of meaningful features over many tiny ones.
+- Assign (nearly) EVERY listed file to at least one feature — do not leave most files unclustered, and
+  do not cluster only config/glue files while dropping the core implementation.
+- Name each feature by its PRODUCT CAPABILITY (認証, 学習プラン生成, 理解負債検知, クイズ生成, コードグラフ,
+  エージェント基盤, CI/デプロイ), NOT by layer/folder/category (設定, ユーティリティ, テスト, フレームワーク連携).
+- Produce enough features to reflect the repository's real scope (roughly 8–15 for a large repo) — do not
+  collapse everything into a few generic buckets, and do not spawn trivial 1-file features either.
 """
 
 
