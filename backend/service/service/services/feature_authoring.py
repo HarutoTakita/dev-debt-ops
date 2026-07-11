@@ -17,7 +17,7 @@ from service.services import gemini_stack_service
 
 logger = logging.getLogger(__name__)
 
-_ASSIGN_BATCH = 40  # files per assignment LLM call — small enough to stay accurate AND complete
+_ASSIGN_BATCH = 30  # files per assignment LLM call — small enough to stay accurate + avoid output truncation
 _ASSIGN_CONCURRENCY = 4  # concurrent assignment calls (Gemini retries handle rate limits)
 _ASSIGN_CONFIDENCE = 0.8  # confidence for LLM batch-assigned files (vs the single-shot 1.0)
 
@@ -96,7 +96,18 @@ async def cluster_features_capability_first(
     if not caps:
         return await cluster_features_agentic(paths, edges, owner=owner, repo=repo, descriptors=descriptors)
 
-    valid_keys = {str(c["key"]) for c in caps}
+    # assign が返す識別子が key 完全一致でなくても（name を返す・大小/記号違い等）canonical key に解決する。
+    # これを怠ると 1 件も一致せず全機能が空になり得る（実測: capability-first で 0 機能に退行した原因）。
+    def _norm(s: str) -> str:
+        return "".join(ch for ch in str(s).lower() if ch.isalnum())
+
+    resolve: dict[str, str] = {}
+    for c in caps:
+        k = str(c["key"])
+        resolve[_norm(k)] = k
+        if c.get("name"):
+            resolve.setdefault(_norm(c["name"]), k)
+
     batches = [fwp[i : i + _ASSIGN_BATCH] for i in range(0, len(fwp), _ASSIGN_BATCH)]
     sem = asyncio.Semaphore(_ASSIGN_CONCURRENCY)
 
@@ -110,11 +121,21 @@ async def cluster_features_capability_first(
 
     results = await asyncio.gather(*(_assign(b) for b in batches))
     files_by_key: dict[str, list[str]] = defaultdict(list)
+    total_assigned = 0
     for res in results:
         for path, keys in res.items():
             for k in keys:
-                if k in valid_keys:
-                    files_by_key[k].append(path)
+                canon = resolve.get(_norm(k))
+                if canon:
+                    files_by_key[canon].append(path)
+                    total_assigned += 1
+    logger.info(
+        "capability-first: %d capabilities, %d file-assignments for %s/%s", len(caps), total_assigned, owner, repo
+    )
+    # 割当が 1 件も取れないときは 0 機能へ退行させず、単発クラスタリングにフォールバックする（安全網）。
+    if total_assigned == 0:
+        logger.warning("capability-first produced no assignments for %s/%s; falling back to single-shot", owner, repo)
+        return await cluster_features_agentic(paths, edges, owner=owner, repo=repo, descriptors=descriptors)
 
     clusters: list[dict] = []
     for c in caps:

@@ -384,3 +384,40 @@ async def test_capability_first_falls_back_when_no_capabilities(monkeypatch: pyt
     monkeypatch.setattr(feature_authoring, "cluster_features_agentic", _fallback)
     out = await feature_authoring.cluster_features_capability_first(["a.py"], [], owner="o", repo="r")
     assert [c["key"] for c in out] == ["fb"]
+
+
+async def test_capability_first_falls_back_when_assignment_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """propose は成功したが全バッチが 1 件も割り当てない → 0 機能へ退行させず単発クラスタリングへフォールバック。"""
+
+    async def _caps(fwp: list[tuple[str, str]]) -> list[dict]:
+        return [{"key": "auth", "name": "認証", "description": ""}]
+
+    async def _assign(caps: list[dict], batch: list[tuple[str, str]]) -> dict[str, list[str]]:
+        return {}
+
+    async def _fallback(
+        paths: list[str], edges: list[tuple[str, str]], *, owner: str, repo: str, descriptors: dict | None = None
+    ) -> list[dict]:
+        return [{"key": "fb", "name": "F", "description": "", "files": [{"path": "a.py", "confidence": 0.9}]}]
+
+    monkeypatch.setattr(gemini_stack_service, "propose_capabilities", _caps)
+    monkeypatch.setattr(gemini_stack_service, "assign_files_to_capabilities", _assign)
+    monkeypatch.setattr(feature_authoring, "cluster_features_agentic", _fallback)
+    out = await feature_authoring.cluster_features_capability_first(["a.py"], [], owner="o", repo="r")
+    assert [c["key"] for c in out] == ["fb"]  # 退行せずフォールバック結果
+
+
+async def test_capability_first_resolves_name_when_key_not_echoed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """assign が key でなく能力名を返しても、正規化して canonical key に解決し割り当てる。"""
+
+    async def _caps(fwp: list[tuple[str, str]]) -> list[dict]:
+        return [{"key": "auth", "name": "認証", "description": ""}]
+
+    async def _assign(caps: list[dict], batch: list[tuple[str, str]]) -> dict[str, list[str]]:
+        return {p: ["認証"] for p, _ in batch}  # returns the NAME, not the key slug
+
+    monkeypatch.setattr(gemini_stack_service, "propose_capabilities", _caps)
+    monkeypatch.setattr(gemini_stack_service, "assign_files_to_capabilities", _assign)
+    clusters = await feature_authoring.cluster_features_capability_first(["a.py"], [], owner="o", repo="r")
+    by_key = {c["key"]: [f["path"] for f in c["files"]] for c in clusters}
+    assert by_key["auth"] == ["a.py"]  # name→key 解決で割当が成立

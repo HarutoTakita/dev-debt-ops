@@ -807,13 +807,21 @@ async def assign_files_to_capabilities(
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
     except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
         return {}
-    rows = raw.get("assignments") if isinstance(raw, dict) else None
     out: dict[str, list[str]] = {}
-    for r in rows if isinstance(rows, list) else []:
-        if not isinstance(r, dict):
-            continue
-        path = r.get("path")
-        keys = r.get("keys")
-        if isinstance(path, str) and isinstance(keys, list):
-            out[path] = [str(k) for k in keys if isinstance(k, str)]
+
+    def _keys(v: object) -> list[str]:
+        if isinstance(v, str):  # モデルが単一キーを配列でなく文字列で返すことがある
+            return [v]
+        return [str(k) for k in v if isinstance(k, str)] if isinstance(v, list) else []
+
+    rows = raw.get("assignments") if isinstance(raw, dict) else None
+    if isinstance(rows, list):
+        for r in rows:
+            if isinstance(r, dict) and isinstance(r.get("path"), str):
+                out[r["path"]] = _keys(r.get("keys"))
+    elif isinstance(raw, dict):
+        # フォールバック: {path: [keys]} / {path: "key"} 形をそのまま受ける（assignments 配列でない返り）。
+        for path, v in raw.items():
+            if isinstance(path, str) and path != "assignments":
+                out[path] = _keys(v)
     return out
