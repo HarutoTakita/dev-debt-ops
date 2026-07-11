@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import random
+from collections.abc import Iterable
 
 import google.auth
 import google.auth.exceptions
@@ -146,7 +147,12 @@ def _is_retryable_generate_error(exc: Exception) -> bool:
 
 
 async def _generate(
-    client: genai.Client, *, model: str, contents: str, config: types.GenerateContentConfig
+    client: genai.Client,
+    *,
+    model: str,
+    contents: str,
+    config: types.GenerateContentConfig,
+    allowlist: Iterable[str] = (),
 ) -> types.GenerateContentResponse:
     """Call Gemini generate_content with exponential backoff on transient / rate-limit errors.
 
@@ -158,7 +164,10 @@ async def _generate(
     """
     # LLM 送信前に秘密情報/PII をマスク（issue 296）。直呼び(ADK 非経由)経路の唯一のチョークポイントで、
     # 全 public 関数がここを通る。DLP は有効時のみ呼ばれ、失敗時はローカルのルールベースへフォールバック。
-    contents, _ = await deidentify(contents)
+    # allowlist: 秘密でないと分かっている既知トークン（例: 機能クラスタリングのファイルパス）を redaction から
+    # 免除する。これが無いと detect-secrets がスラッシュの多いパスを高エントロピー秘密と誤判定して «REDACTED»
+    # にマスクし、LLM がパスを出力に返せず割当が全滅する（capability-first が 0 機能になった原因）。
+    contents, _ = await deidentify(contents, allowlist=frozenset(allowlist))
     last: Exception | None = None
     for attempt in range(_GENERATE_MAX_ATTEMPTS):
         try:
@@ -710,6 +719,7 @@ async def cluster_features(
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2),
+        allowlist=paths,  # ファイルパスを redaction から免除（LLM がパスを features に返せるように）
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
@@ -774,6 +784,7 @@ async def propose_capabilities(files_with_purpose: list[tuple[str, str]]) -> lis
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.2),
+        allowlist=[p for p, _ in files_with_purpose],  # パスを redaction 免除
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
@@ -802,6 +813,8 @@ async def assign_files_to_capabilities(
         model=config.gemini_model(),
         contents=prompt,
         config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.1),
+        # パス＋能力キーを redaction 免除（LLM が assignments でパス/キーをそのまま返せるように）。
+        allowlist=[p for p, _ in files_with_purpose] + [str(c.get("key")) for c in capabilities if c.get("key")],
     )
     try:
         raw = json.loads(response.text)  # ty: ignore[invalid-argument-type]
