@@ -44,6 +44,9 @@ _MAX_GRAPH_ADD = 6
 _BACKFILL_CONFIDENCE = 0.3  # confidence for files added by directory backfill (weakest signal)
 _MIN_FEATURE_FILES = 3  # 各機能に最低これだけ実ファイルを割り当てる（"複数" を保証。近傍で best-effort 補完）
 _INCREMENTAL_CONFIDENCE = 0.8  # 増分再解析で既存機能へ割り当て直したファイルの confidence（LLM 割当）
+# フル再クラスタで新クラスタが前 run のどの機能と「同一」かを判定する閾値（小さい方の集合に対する重なり率）。
+# これ以上重なれば前 run の key を再利用し、feature_key を安定させる（クイズ/学習を維持）。
+_KEY_REUSE_CONTAINMENT = 0.5
 
 
 def _norm(s: object) -> str:
@@ -280,6 +283,51 @@ async def _feature_memberships(session: AsyncSession, run_id: uuid.UUID) -> dict
     return members
 
 
+def _reconcile_keys(clusters: list, prior_members: dict[str, set[str]]) -> int:
+    """Reuse a prior feature's key for a new cluster that covers mostly the same files (in place).
+
+    A full re-cluster mints fresh keys, which would orphan/regenerate quizzes/learning (resolved by
+    ``feature_key``). Match each new cluster to a prior feature by file overlap (containment vs the
+    smaller set) and, greedily 1:1 above ``_KEY_REUSE_CONTAINMENT``, adopt the prior key so dedup and
+    the hub keep the existing quiz/plan. Genuinely-new clusters (no overlap) keep their fresh key.
+    Returns the number of keys remapped. Expects each cluster's ``files`` to be canonical repo paths.
+    """
+    if not prior_members:
+        return 0
+    cluster_files: list[set[str]] = []
+    for c in clusters:
+        files: set[str] = set()
+        if isinstance(c, dict):
+            for f in c.get("files") or []:
+                if isinstance(f, dict) and f.get("path"):
+                    files.add(str(f["path"]))
+        cluster_files.append(files)
+    scored: list[tuple[float, int, str]] = []
+    for ci, files in enumerate(cluster_files):
+        if not files:
+            continue
+        for pkey, pfiles in prior_members.items():
+            inter = len(files & pfiles)
+            if inter:
+                scored.append((inter / min(len(files), len(pfiles)), ci, pkey))
+    scored.sort(key=lambda t: t[0], reverse=True)
+    used_cluster: set[int] = set()
+    used_prior: set[str] = set()
+    remapped = 0
+    for score, ci, pkey in scored:
+        if score < _KEY_REUSE_CONTAINMENT:
+            break
+        if ci in used_cluster or pkey in used_prior:
+            continue
+        c = clusters[ci]
+        if isinstance(c, dict) and c.get("key") != pkey:
+            c["key"] = pkey
+            remapped += 1
+        used_cluster.add(ci)
+        used_prior.add(pkey)
+    return remapped
+
+
 async def _mark_features_stale(session: AsyncSession, *, project_id: uuid.UUID, feature_keys: set[str]) -> None:
     """Flag every quiz/learning-plan of the given feature keys as ``stale`` (files changed → 要再受験).
 
@@ -509,6 +557,13 @@ async def process(
         if isinstance(c, dict):
             resolved = _canonical_members(c, resolve)
             c["files"] = [{"path": p, "confidence": conf} for p, conf in resolved.items()]
+
+    # フル再クラスタでも、前 run と大部分のファイルが重なる機能は前 run の key を再利用して feature_key を
+    # 安定させる（→ クイズ/学習が dedup で維持され、全再生成/orphan にならない）。LLM 割当の canonical members
+    # を使い、グラフ拡張/バックフィルでノイズが乗る前に判定する。
+    reused = _reconcile_keys(clusters, prior_members)
+    if reused:
+        trace.append(f"reused {reused} prior feature keys (key stabilization on full re-cluster)")
 
     # Graph-community re-alignment (issue 293, 方針A): grow each feature along the repo call graph so
     # memberships match hub-centered communities and each feature covers a connected region of related

@@ -556,3 +556,25 @@ async def test_incremental_assigns_new_file_and_marks_stale(
         ).scalar_one()
         assert auth_q.stale is True  # auth's file set changed → 要再受験
         assert billing_q.stale is False  # billing unchanged
+
+
+def test_reconcile_keys_reuses_prior_key_by_file_overlap() -> None:
+    """A full re-cluster's fresh-keyed cluster adopts the prior feature's key when it covers mostly the
+    same files (so quizzes/learning resolved by feature_key survive); a genuinely-new cluster keeps its
+    key; and it never maps two clusters to the same prior key."""
+    prior = {"auth": {"a1.py", "a2.py", "a3.py"}, "billing": {"b1.py", "b2.py"}}
+    clusters = [
+        {"key": "authentication", "name": "認証", "files": [{"path": p} for p in ["a1.py", "a2.py", "a3.py"]]},
+        {"key": "payments", "name": "決済", "files": [{"path": "b1.py"}, {"path": "b2.py"}]},
+        {"key": "brand-new", "name": "新機能", "files": [{"path": "n1.py"}, {"path": "n2.py"}]},
+    ]
+    remapped = feature_clustering._reconcile_keys(clusters, prior)
+    assert remapped == 2
+    keys = [c["key"] for c in clusters]
+    assert keys == ["auth", "billing", "brand-new"]  # matched→prior key, new→unchanged
+
+
+def test_reconcile_keys_noop_without_prior() -> None:
+    clusters = [{"key": "x", "files": [{"path": "a.py"}]}]
+    assert feature_clustering._reconcile_keys(clusters, {}) == 0
+    assert clusters[0]["key"] == "x"
