@@ -1,0 +1,294 @@
+<!doctype html>
+<!--
+  ProtoPedia 提出用 HTML 版（docs/protopedia-submission-draft.md の「システム構成」「ストーリー」を装飾したもの）
+
+  使い方:
+  - このファイルはブラウザで開くと見た目を確認できます（下のプレビュー用の枠・帯は貼り付け対象外）。
+  - ProtoPedia は Markdown に加え HTML に対応しています（公式ヘルプ自身が <mark style="color:red"> を使用）。
+    <div>/<table> + インライン style も一般に通りますが、まれにサニタイズされ得るため、
+    確定前に ProtoPedia のプレビューで一度表示を確認してください。
+  - 各フィールドには「▼ ここから ▼」〜「▲ ここまで ▲」で挟まれた <section> の中身を貼り付けてください。
+  - 画像は ProtoPedia にアップロード済みの実パス（/pic/<uuid>.png）を <img> で参照しています。
+    もし <img> が表示されない場合は、同じ位置に Markdown 記法 ![説明](/pic/<uuid>.png) で置き換えてください。
+-->
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>DevDebtOps — ProtoPedia 提出（システム構成 / ストーリー）</title>
+    <style>
+      /* ↓ プレビュー用の見た目だけ。ProtoPedia には貼り付けません。 */
+      body { max-width: 860px; margin: 24px auto; padding: 0 16px; font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; line-height: 1.75; color: #1f2933; background: #fff; }
+      .paste-banner { background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; padding: 8px 12px; border-radius: 6px; font-size: 0.85em; margin: 40px 0 8px; font-weight: bold; }
+      section { border: 1px dashed #cbd5e1; border-radius: 8px; padding: 4px 18px 18px; }
+    </style>
+  </head>
+  <body>
+
+    <!-- ============================================================= -->
+    <p class="paste-banner">▼ ここから ▼ ProtoPedia「システム構成 〔必須〕」にそのまま貼り付け</p>
+    <section>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:24px 0 14px;">1. インフラ構成 — スケーラブルかつセキュアなサーバーレス基盤</div>
+
+<p>Google Cloud を活用した、フルスタック・サーバーレス構成です。コンテナ化したアプリを <strong>Cloud Run</strong> で自動スケールさせ、負荷の高い解析は <strong>Cloud Tasks</strong> で非同期ワーカーへ切り出し、シークレットや通信は <strong>Secret Manager・Cloud Armor・Workload Identity Federation</strong> で保護、インフラ全体は <strong>Terraform</strong> でコード化しています。<strong>スケーラビリティ・セキュリティ・可用性</strong>を高い水準で両立した構成を実現しています。</p>
+
+<table style="border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95em;">
+  <thead>
+    <tr>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;width:34%;">技術</th>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;">役割</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Cloud Run</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">API コンテナ・Worker コンテナの実行基盤。自動スケールで負荷分散</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Cloud Tasks</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">重いリポジトリ解析を非同期ワーカーへディスパッチし、リクエスト集中時も安定処理</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Cloud SQL</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">アプリケーションデータ・解析ジョブの状態を保存（本番は Private IP＋自動バックアップ）</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Google ADK / Gemini</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">リポジトリ解析エージェントの構築（ADK）と推論エンジン（Gemini）</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Serena / CodeGraphContext / Semgrep / GitHub（MCP）</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">コード構造・依存グラフ・品質&脆弱性・リポジトリ操作を多角的に解析</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Secret Manager</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">API キー・DB 認証情報などのシークレットを一元管理し実行時に安全に注入（平文の環境変数を排除）</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Cloud Armor</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">ロードバランサの手前でレート制限し、乱用・過負荷を防止</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Workload Identity Federation</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">GitHub Actions から Google Cloud へキーレス認証（長期の SA キーを発行せず鍵漏洩リスクを排除）</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Terraform</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">インフラ全体を IaC 化</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>GitHub Actions</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">CI/CD の自動化（テスト→デプロイ、Gemini による自動コードレビュー）</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Trivy / gitleaks / lefthook</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">コンテナ脆弱性スキャン・シークレット流出検出・ローカルフック</td></tr>
+  </tbody>
+</table>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">アプリケーション</div>
+<ul>
+  <li><strong>フロントエンド（SPA）</strong> — SvelteKit で構築した UI を SPA としてビルドし、API コンテナに同梱して同一オリジンで配信。CORS 設定が不要になり配信もシンプルに。</li>
+  <li><strong>バックエンド（API / Worker）</strong> — FastAPI で構築。ユーザー操作に即応する <strong>API コンテナ</strong> と、リポジトリ解析などの重い処理を担う <strong>Worker コンテナ</strong> に分離。時間のかかる処理は Cloud Tasks 経由で Worker へ非同期ディスパッチし、リクエストが集中しても安定処理。</li>
+</ul>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">AI エージェント基盤</div>
+<ul>
+  <li><strong>Google ADK</strong> でリポジトリ解析エージェントを構築し、推論エンジンに <strong>Gemini</strong> を利用。</li>
+  <li>コード構造に <strong>Serena MCP</strong>、依存グラフに <strong>CodeGraphContext MCP</strong>、品質・脆弱性に <strong>Semgrep MCP</strong>、リポジトリ操作に <strong>GitHub MCP</strong> の 4 つを活用。</li>
+</ul>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">2. 実運用を見据えたデプロイ戦略 — 安全かつゼロダウンタイムのリリース</div>
+
+<p><strong>ステージング環境と本番環境の分離・ブルーグリーンデプロイ・段階的カナリアリリース</strong>を組み合わせ、デプロイ作業も DevOps のプラクティスに基づき設計。変更はまずステージング環境で検証してから本番へ段階的に広げ、異常を検知した場合は旧リビジョンへ即座にロールバックできます。</p>
+<ul>
+  <li><strong>ステージング環境と本番環境の分離</strong> — <code>develop</code> マージで<strong>ステージング環境</strong>へ自動デプロイし本番に近い構成で統合検証、<code>v*.*.*</code> タグ push で<strong>本番環境</strong>へリリース。</li>
+  <li><strong>ブルーグリーンデプロイメント</strong> — 現行（blue）と新（green）の 2 リビジョンを Cloud Run 上に並存させ、ヘルスチェック通過後にトラフィックを切り替え。障害時は旧リビジョンへ即座にロールバックでき、ダウンタイムなし。</li>
+  <li><strong>段階的カナリアリリース</strong> — 新リビジョンへ少量トラフィックから段階配分し、エラー率・レイテンシを監視。異常を検知したら旧リビジョンに切り戻せるため、リリースの影響範囲を最小化。</li>
+</ul>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">3. AI 時代の DevOps</div>
+
+<p>開発フローに AI 自動化を組み込み、<strong>コミットからデプロイまでの各段階で品質を自動的に担保</strong>。コーディングエージェントのスラッシュコマンド、ローカル（lefthook）とリモート（GitHub Actions）の二段構えの CI/CD、そして <strong>Gemini による自動コードレビュー</strong>で、高い品質とリリース速度を両立します。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">AI 駆動開発の進め方</div>
+<ol>
+  <li><a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/issue/SKILL.md"><code>/issue</code></a> で GitHub Issue を作成 → 担当者にアサインして開発。</li>
+  <li><a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/commit/SKILL.md"><code>/commit</code></a> でコミット（<strong>pre-commit フック</strong>がリンター・フォーマッターとシークレット流出チェックを自動実行）。</li>
+  <li><a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/push/SKILL.md"><code>/push</code></a> で feature ブランチへ push（<strong>pre-push フック</strong>が型チェック ty / svelte-check をローカル実行）。</li>
+  <li><a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/pr/SKILL.md"><code>/pr</code></a> で Pull Request を作成 → <strong>GitHub Actions</strong> がリンター・フォーマッター／型チェック／ユニットテスト／<strong>Gemini によるコードレビュー</strong>を実行。</li>
+  <li>指摘があれば修正し、develop へマージ。</li>
+</ol>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">CI / CD</div>
+<ul>
+  <li><strong>ローカル CI（lefthook）</strong> — pre-commit：ruff（Python）・Prettier/ESLint（TS/Svelte）＋ gitleaks でシークレット流出チェック。pre-push：ty・svelte-check の型チェックを CI 到達前にローカル検出。</li>
+  <li><strong>リモート CI（GitHub Actions / PR・push 時）</strong> — バックエンドは ruff・ty・pytest、フロントエンドは Prettier/ESLint・svelte-check・vitest。さらに Gemini が PR を自動レビュー。</li>
+  <li><strong>CD</strong> — develop 更新でステージングへ自動デプロイ、<code>v*.*.*</code> タグで本番へ。デプロイ時に Trivy でコンテナ脆弱性スキャンし、CRITICAL / HIGH の CVE はデプロイをブロック。</li>
+</ul>
+
+    </section>
+    <p class="paste-banner">▲ ここまで ▲ 「システム構成 〔必須〕」</p>
+    <!-- ============================================================= -->
+
+
+    <!-- ============================================================= -->
+    <p class="paste-banner">▼ ここから ▼ ProtoPedia「ストーリー 〔必須〕」にそのまま貼り付け</p>
+    <section>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:24px 0 14px;">1. 本作品で解決したい課題とその背景</div>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">AI 時代に急速に蓄積する「理解負債」</div>
+<p>Claude Code や Codex、Gemini CLI をはじめとする AI コーディングツールの普及により、DevOps における「開発」と「運用」のサイクルがかつてないほど加速しています。しかし今、ソフトウェア開発の本質を揺るがす深刻な問題が浮き彫りになっています。それが <strong>「理解負債」</strong> です。</p>
+<p>理解負債とは、従来の技術負債のような「設計の甘さを自覚している状態」とは異なり、<strong>「AI が生成したコードが何をしているのか、なぜ動いているのか、なぜそう書かれているのかを説明できない状態」</strong>を指します。人間は AI が出力した「もっともらしいコード」を無意識に信頼してしまうことが原因として指摘されています。</p>
+<p>実際に Anthropic 社が発表した研究「<a href="https://www.anthropic.com/research/AI-assistance-coding-skills">How AI assistance impacts the formation of coding skills</a>」では、AI の支援を受けた開発者は自力で書いたグループに比べて「コード理解度テスト」のスコアが <strong>17% 低い</strong>という結果が出ました。コードは期日通りにデプロイされる一方で、開発者の「理解」だけが置き去りにされていることが実証されています。こうした AI への過信と実装過程における思考のスキップも相まって、理解負債が現代のソフトウェア開発において急速に蓄積しています。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">既存ツールの限界と本プロダクトの強み</div>
+<p>ソフトウェアは「動くこと」と「理解されていること」が別物です。既存の技術負債検知ソリューションは、複雑度や参照関係から「おそらく危ない場所」を推測できても、<strong>「人が実際にそのコードを理解しているか」は測れません</strong>。コードは動くのに、その意図やリスクを誰も把握していない——この理解負債を放置すれば、属人化・オンボーディングの遅延・レビューの形骸化・改修工数の増大を招きます。</p>
+<p>DevDebtOps は、既存ツールがアプローチできていない理解負債を、AI エージェントがリポジトリ解析を通して作成した<strong>学習プランとクイズで能動的に実測</strong>し、AI エージェントが<strong>「解消まで伴走する」</strong>ことで解決します。加速し続ける DevOps のサイクルの中に、AI エージェントを通じて「人間の確かな理解」を取り戻し、見えない理解負債を可視化・解消可能にする全く新しいアプローチです。</p>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">2. 想定する利用ユーザー</div>
+
+<p>DevDebtOps は、<strong>“自分たちのコードを確かに理解した状態で開発・運用したいすべてのチーム・開発者”</strong> をターゲットにしています。代表的な利用シーンを 2 つ紹介します。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">例① 新しくチームに参画したエンジニア：巨大なコードベースを体系的に理解する</div>
+<p>新しくチームに加わったとき最初に立ちはだかるのが「どこから読めばいいのか分からない」巨大な既存コードベースです。ドキュメントは断片的で、肝心な部分は先輩の頭の中にしかないことも珍しくありません。DevDebtOps では AI エージェントがリポジトリを解析し、コードを<strong>機能単位に整理</strong>したうえで、機能ごとの<strong>学習プランと確認クイズ</strong>をあらかじめ生成。新メンバーは「まずどの機能から理解すべきか」を優先度つきで示され、学習プランを読み、クイズで理解度を測りながら進められます。理解度マップ上では理解できた機能が明るく、手つかずの機能が暗く表示され、<strong>オンボーディングの進捗が一目で分かります</strong>。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">例② テックリード / マネージャー：チームの「理解の空白地帯」を把握する</div>
+<p>チームを預かる立場になると「このコード、実は誰も中身を分かっていないのでは？」という不安がついて回ります。とくに AI が書いたコードが増えるほど、動いてはいるが誰も説明できない箇所が静かに広がります。DevDebtOps のダッシュボードはファイルを <strong>「コード品質 × 理解度」の二軸</strong>で整理し、どちらも低い左下領域を「最優先で対応すべきホットスポット」として浮かび上がらせます。レビューや学習を割り当て、担当者をアサインして Issue 化も可能。理解度の推移も記録されるため、<strong>チームの理解が育っているかを継続的に確認</strong>しながら、限られたレビュー工数を最も効くところへ配分できます。</p>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">3. プロダクトの特徴</div>
+
+<p>DevDebtOps は、<strong>3 つのコア機能</strong>を軸に、それを支える<strong>自律的な AI エージェント</strong>、さらに<strong>サービスとしての実運用・拡張性への配慮</strong>で構成されます。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">コア機能</div>
+<table style="border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95em;">
+  <thead>
+    <tr>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;width:38%;">コア機能</th>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;">内容</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>① AI エージェントによる高度なリポジトリ解析</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">エージェントが自律的に探索し、機能ごとの学習プランとクイズを生成、品質の低いソースコードの検知と修正計画までを自動で組み立てる</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>② 理解負債の可視化 — クイズと学習による改善</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">ソースコードを機能単位でクラスタリングし、機能ごとに学習プランと理解度確認テストを生成。グラフビューで機能・ファイル別の理解度を可視化する</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>③ 低品質コードへの推奨提案と自動修正</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">解析で検出した低品質コードに対し、推奨事項を GitHub Issue として作成し、自動修正の PR 作成まで行える</td></tr>
+  </tbody>
+</table>
+<img src="/pic/5ad7c4f4-5439-4cc7-945f-fd29facef719.png" alt="3 つのコア機能" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=39">0:39〜0:49</a></div>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">ユーザージャーニー</div>
+
+<p>DevDebtOps は、対話や設定に時間をかけることなく <strong>「ログインして解析するだけ」で、自分のリポジトリが“理解できる教材”に変わる</strong> ように設計されています。実際の画面に沿って利用の流れを紹介します。</p>
+
+<div style="margin:16px 0 6px;font-weight:bold;font-size:1.03em;"><span style="display:inline-block;background:#0f766e;color:#fff;border-radius:6px;padding:2px 10px;margin-right:6px;">①</span> はじめ方：ログインして、解析を回すだけ</div>
+<p>ユーザーは GitHub アカウントでログインします（アカウントがなくても「お試しはこちら」からデモを体験できます）。解析したいリポジトリとブランチを選んでプロジェクトを作成し、あとは右上の解析ボタンを押すだけ。AI エージェントがリポジトリを自律的に探索し、技術負債の検知・理解負債の整理・クイズと学習の生成までを自動で組み立てます。</p>
+<img src="/pic/40c5ef53-47ac-471c-b282-f4e18206078f.png" alt="新規プロジェクト作成" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<p>解析の進捗はリアルタイムに表示され、完了すると結果がアプリ全体に反映されます。</p>
+<img src="/pic/0ec13cca-e712-4941-aac3-1ea3c6514f17.png" alt="解析ステータス" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=50">0:50〜1:20</a></div>
+
+<div style="margin:16px 0 6px;font-weight:bold;font-size:1.03em;"><span style="display:inline-block;background:#0f766e;color:#fff;border-radius:6px;padding:2px 10px;margin-right:6px;">②</span> ダッシュボード：どこから手をつけるべきかが一目で分かる</div>
+<p>解析が終わると、まずダッシュボードでリポジトリの全体像を把握できます。中心にあるのは、ファイルを <strong>「コード品質 × 理解度」の二軸</strong>で整理したマトリクス。どちらも低い左下の領域が「最優先で対応すべきホットスポット」として浮かび上がります。理解度・低品質ファイル数・修正済み件数の推移や、優先対応リストもここで確認できます。</p>
+<img src="/pic/c94b1145-6a80-4ad5-96d8-399a4f1e0ea2.png" alt="ダッシュボード" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=87">1:27〜1:53</a></div>
+
+<div style="margin:16px 0 6px;font-weight:bold;font-size:1.03em;"><span style="display:inline-block;background:#0f766e;color:#fff;border-radius:6px;padding:2px 10px;margin-right:6px;">③</span> 理解度マップ：理解度を可視化する</div>
+<p>理解度マップでは、機能・ファイル別の理解度をグラフで可視化します。各ノードがファイル、線が依存関係を表し、ノードの色が理解度を示します。「どの機能を理解していないのか」が直感的に分かり、機能チップで関心のある領域だけに絞り込むこともできます。</p>
+<img src="/pic/cd988a0f-ea49-4584-a40d-5d6e99d1eee8.png" alt="理解度マップ" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=116">1:56〜2:24</a></div>
+
+<div style="margin:16px 0 6px;font-weight:bold;font-size:1.03em;"><span style="display:inline-block;background:#0f766e;color:#fff;border-radius:6px;padding:2px 10px;margin-right:6px;">④</span> クイズと学習：理解を“能動的に測り”、埋める</div>
+<p>機能ごとに生成された学習プランで、そのリポジトリ固有の実装や関連技術を学べます。</p>
+<img src="/pic/ab00af6e-1748-47c7-8313-6779ca059600.png" alt="クイズと学習" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<p>学んだあとは確認クイズを受験します。この時、理解が不十分で後から復習したい問題にフラグをつけることもできます。</p>
+<img src="/pic/c5d4042c-7ad5-4a7a-8992-a2c17b174f70.png" alt="クイズ受験" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<p>採点結果はその場で理解度に反映され、間違えた問題やフラグを付けた問題だけに絞って再受験することも可能です。<strong>「測って → 学んで → もう一度測る」</strong>の閉ループで、理解負債を着実に解消していきます。</p>
+<img src="/pic/5568b4a4-fc22-48d0-a228-43be433e77db.png" alt="クイズ採点結果" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=148">2:28〜3:16</a></div>
+
+<div style="margin:16px 0 6px;font-weight:bold;font-size:1.03em;"><span style="display:inline-block;background:#0f766e;color:#fff;border-radius:6px;padding:2px 10px;margin-right:6px;">⑤</span> コード品質マップ／コード改善：低品質コードを見つけ、AI が直す</div>
+<p>技術負債に対しては、コード品質マップでファイル単位に閲覧できます。改善余地のあるファイルにはバッジが付き、指摘箇所がソースコード上でハイライトされます。</p>
+<img src="/pic/72906ca7-ac2a-4e40-9743-be5bdb8dc074.png" alt="コード品質マップ" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<p>コード改善画面では、品質が低い理由・優先度・推定工数を確認したうえで、<strong>AI に修正 PR の自動作成を依頼</strong>するか、担当者を割り当てて <strong>Issue を作成</strong>するかを選べます。見つけて終わりではなく、直すところまでを一気通貫で扱えます。</p>
+<img src="/pic/53a40651-0f57-461e-9b40-f1cbd77d08c1.png" alt="コード改善" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=202">3:22〜4:16</a></div>
+
+<p>こうして DevDebtOps は、<strong>理解を測って・学んで埋め、低品質コードを見つけて直す</strong> という一連の流れを、AI エージェントとともに開発・運用のサイクルへ自然に組み込みます。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">差分再解析による継続的な運用 — 開発中のプロジェクトにも組み込める</div>
+<p>DevDebtOps の解析は<strong>一度きりではなく、繰り返し回す</strong>ことを前提に設計しています。2 回目以降の再解析では、前回解析したコミットと現在の差分を取り、<strong>変更・追加・リネームされたファイルだけを再解析</strong>。変わっていないファイルの理解度・コード品質・機能割り当ては前回結果を引き継ぐため、大規模リポジトリでも<strong>低コスト・短時間で再解析</strong>でき、活発に開発が進むプロジェクトにもそのまま導入できます。</p>
+<ul>
+  <li><strong>差分だけを再計算</strong> — 前回コミットと HEAD を比較し、影響を受けたファイル（変更ファイル＋依存の近傍＋重複の相手）だけを再検知。未変更ファイルの結果は保持し、差分が大きすぎる場合は安全に全解析へフォールバックします。</li>
+  <li><strong>学習の進捗が消えない</strong> — 機能を安定した識別子（key）で解決するため、再解析しても学習プラン・クイズ・理解度がリセットされず引き継がれます。</li>
+  <li><strong>変わった機能は「再確認」を促す</strong> — ファイルが変更された機能には <strong>「再確認」</strong> の目印を付け、コードの変化に合わせて理解度を測り直すよう促します。コードと理解のズレを継続的に埋められます。</li>
+</ul>
+<p>この差分再解析により、初回だけでなく<strong>日々の開発サイクルに組み込んで継続的に運用</strong>できます。コードが変わるたびに理解度と技術負債の状態を最新に保ち、DevOps のループの中で理解負債・技術負債の解消を回し続けられます。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">自律的な Agentic アーキテクチャ</div>
+
+<p><strong>オーケストレーターエージェント・サブエージェント・MCP・Hooks</strong> を組み合わせた Agentic アーキテクチャを据えています。採用理由は <strong>解析の道筋を事前に決め打ちできない</strong>から。対象リポジトリは言語・規模・ディレクトリ構成が千差万別で、どのファイルをどこまで深掘りすべきかを固定手順では決められず、探索範囲と深さを<strong>エージェント自身が判断しながら網羅的に探索</strong>する必要があります。加えてコード構造・依存関係・変更履歴といった複数の観点を横断してツールを切り替え、学習プランやクイズはそのリポジトリ固有の実装・用語に適応して生成しなければなりません。「探索範囲を自ら決め、多角的に解析し、結果から次の一手を判断する」——この高度な探索と解析を Agentic アーキテクチャで実現しています。</p>
+<img src="/pic/963fa76a-9cf4-49cf-8cde-68b55f2030f2.png" alt="AI エージェントによる高度なリポジトリ解析（オーケストレーター × サブエージェント × MCP × Hooks）" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<div style="color:#64748b;font-size:0.88em;margin:-4px 0 12px;">▶ デモ動画 <a href="https://youtu.be/j3r0Ybvz9Js?t=284">4:44〜5:22</a></div>
+
+<table style="border-collapse:collapse;width:100%;margin:12px 0;font-size:0.95em;">
+  <thead>
+    <tr>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;width:32%;">構成要素</th>
+      <th style="background:#0f766e;color:#fff;text-align:left;padding:8px 10px;border:1px solid #cbd5e1;">役割</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>オーケストレーター × サブエージェント</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">オーケストレーターが役割の異なるサブエージェントを協調。構造化スキーマ（機能／コード所見／理解所見／技術スタック）を整理し、機能分析・学習プラン作成・クイズ生成・コード改善など用途特化のサブエージェントが各出力を生成</td></tr>
+    <tr style="background:#f8fafc;"><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>MCP</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">LSP ベース探索に Serena、グラフ化に CodeGraphContext、品質・脆弱性検出に Semgrep、変更/レビュー/PR 履歴取得に GitHub を活用し多角的に解析</td></tr>
+    <tr><td style="padding:8px 10px;border:1px solid #cbd5e1;"><strong>Hooks</strong></td><td style="padding:8px 10px;border:1px solid #cbd5e1;">行動前後に必ず実行し、予算ガード（ツール・モデル・ファイル呼び出し上限）、行動トレース、<strong>LLM 送信前のシークレット／個人情報（PII）マスキング</strong>を実施</td></tr>
+  </tbody>
+</table>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">実運用・サービス化を見据えた作り込み</div>
+
+<p>個人が使うツールで終わらせず、チーム・組織に提供するサービスとしての完成度を追求しています。</p>
+<ul>
+  <li><strong>認証・ユーザー管理</strong> — GitHub SSO による認証・認可、アカウント設定、管理者によるユーザー管理。管理ダッシュボードでメンバー管理と解析クレジット付与を一元化。</li>
+</ul>
+<img src="/pic/485e0cbc-7264-4b43-890a-453112b6d35b.png" alt="管理ダッシュボード（ユーザー管理・クレジット付与）" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<ul>
+  <li><strong>多言語対応（i18n）</strong> — Paraglide による <strong>6 言語</strong>（日本語・英語・中国語・韓国語・スペイン語・ドイツ語）対応。右上のメニューから言語やテーマをいつでも切替。</li>
+</ul>
+<img src="/pic/ec2d60f7-8b98-4bd2-b86b-d85b522dc6b2.png" alt="言語メニュー（英語 UI に切り替えた状態）" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<ul>
+  <li><strong>プロジェクト運用</strong> — プロジェクト管理、オンボーディングガイド、充実したショートカット、課金機能を管理者のクレジット付与で制御、リリースバージョンの履歴確認。初めてのユーザーにはガイド付きツアーで主要機能を案内。</li>
+</ul>
+<img src="/pic/03c424dc-a5e1-4054-93e7-8e8f8625c508.png" alt="オンボーディングガイド" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<p style="color:#334155;">リリースごとの変更点は、アプリ内の変更履歴からいつでも確認できます。</p>
+<img src="/pic/ca6a6d7d-a248-41e6-9c08-cd5b4b0d9a97.png" alt="変更履歴（リリースバージョンの記録）" style="display:block;max-width:100%;height:auto;border:1px solid #e5e7eb;border-radius:6px;margin:12px 0;" />
+<ul>
+  <li><strong>公開に耐える体裁</strong> — <a href="https://stg.devdebtops.harutotakita.dev/lp">ランディングページ</a>・プライバシーポリシー・利用規約を整備し、外部公開・サービス提供の要件を満たす。</li>
+  <li><strong>可観測性</strong> — Cloud Monitoring / Logging で 5xx エラー率やサービスの稼働状況を継続監視。</li>
+  <li><strong>ユーザーの声を集める仕組み</strong> — LP に使い方アシスタント（チャット）を設置し、質問対応や改善要望の収集を継続的改善へつなげる。</li>
+</ul>
+
+<p style="color:#334155;font-weight:bold;margin:18px 0 6px;">▶ ランディングページ紹介動画</p>
+<!-- YouTube 自動埋め込み用。URL は必ず「単独行・HTML タグで囲まない」で置くこと。
+     もし埋め込まれない場合は、この 1 行をストーリー本文の先頭または末尾（HTML の外側の単独行）へ移動してください。 -->
+
+https://youtu.be/x-Q1rroLc9s
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">拡張性・保守性 — ドキュメントの自動整備</div>
+
+<p><a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/.claude/skills/release-version/SKILL.md"><code>/release-version</code></a> で新バージョンを切ると、次のドキュメントが自動で最新化されます。</p>
+<ul>
+  <li><strong>API ドキュメント</strong>（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/openapi.json"><code>openapi.json</code></a>、OpenAPI 3.1）</li>
+  <li><strong>ER 図</strong>（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/reference/schema.dbml"><code>schema.dbml</code></a>、DBML）</li>
+  <li><strong>取扱説明書</strong>（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/user-guide/README.md"><code>README.md</code></a>）</li>
+  <li><strong>チェンジログ</strong>（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/CHANGELOG.md"><code>CHANGELOG.md</code></a>）</li>
+</ul>
+<p>ドキュメントが常にコードへ追従するため、機能追加やチーム拡大にも耐える保守性・拡張性を確保します。加えて、運用手順書（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/operations.md"><code>operations.md</code></a>）・シーケンス図（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/sequence-diagrams.md"><code>sequence-diagrams.md</code></a>）・アーキテクチャ構成図（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/infrastructure.png"><code>infrastructure.png</code></a>）・ユースケース図（<a href="https://github.com/HarutoTakita/dev-debt-ops/blob/main/docs/infra/use-cases.md"><code>use-cases.md</code></a>）など、デプロイ・障害対応から解析パイプラインの内部フロー、システム構成、機能全体像までを示すドキュメントも体系的に整備しています。</p>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">4. 制作背景</div>
+
+<p>このアプリは「自分がずっと困っていたこと」から生まれました。私はプロジェクト型の仕事をしていて、1 年以上続くものもあれば、3 ヶ月だけ関わって離れるものもあります。そのたびに、初めて見る大きなコードベースを短期間でキャッチアップしなければならない。毎回それが大変で、「このコードを自分がどこまで理解できているかをわかりやすく確認できたら嬉しい」と思っていました。</p>
+<p>マネージャーを務めた際には、新しく入ったメンバーのオンボーディングで、ソースコードの説明にかなりの時間を取られました。「どこから読めばいいか」「この機能は何をしているのか」を口頭で何度も説明する。属人化した知識を、毎回人力で受け渡している感覚がありました。</p>
+<p>そして最近、AI 駆動開発を進める中で、一番気になり始めたのは自分自身のことでした。締切やクライアントの期待に追われ、AI が出したコードを「なんとなく動くから」と、理解しきらないまま進めてしまう。気づけば、詳細な実装内容を自分の言葉では説明できない箇所が増えていました。</p>
+<p>この「理解負債」を、感覚ではなくちゃんと測って、学習とクイズで埋め、必要なら AI に直させる。<strong>自分が一番ほしかったものを、そのまま形にしたのが DevDebtOps です。</strong></p>
+
+<div style="background:#0f766e;color:#ffffff;padding:10px 16px;border-radius:8px;font-size:1.15em;font-weight:bold;margin:28px 0 14px;">5. 今後の応用可能性</div>
+
+<p>DevDebtOps の本質は、<strong>「動いているか」ではなく「本当に理解されているか」を、推測ではなく能動的に実測し、学習と修正で閉じる</strong>ことにあります。この基盤（<strong>AI エージェント × MCP × 理解度の実測</strong>）は現状のリポジトリ解析にとどまらず、理解負債の検知を日々の PR・レビューのゲートに組み込む<strong>「DevOps へのさらなる統合」</strong>、個人とチームに最適化する<strong>「学習の最適化」</strong>、定期スキャンと通知で継続的に監視する<strong>「運用連携・定期監視」</strong>という 3 方向へ自然に拡張できます。</p>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">① DevOpsへのさらなる統合</div>
+<p>理解負債の検知を「解析して終わり」にせず、日々の PR・レビューのゲートに組み込む。</p>
+<ul>
+  <li>PR で変更された機能・ファイルの理解度を自動チェックし、閾値を下回る変更には「理解負債」ラベルを付けて <strong>GitHub の Status Check</strong> としてマージ前に警告する。</li>
+  <li>「その領域を最も理解している人」をレビュアーに推薦。逆に、誰も理解していないホットスポットは学習ユニットへのリンクを提示してから通す。</li>
+</ul>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">② 学習の最適化</div>
+<p>一律のクイズ・学習プランから、個人とチームに最適化された学習へ進化させる。</p>
+<ul>
+  <li><strong>間隔反復と適応的な難易度調整</strong> — 忘却曲線に沿ってクイズを再出題したり、正答率に応じて難易度を変えたりするなど、長期定着を狙う。</li>
+  <li><strong>チーム学習の推奨</strong> — チーム全体で理解が薄い機能を検出し、勉強会のテーマを提案する。</li>
+</ul>
+
+<div style="border-left:5px solid #0f766e;background:#f0fdfa;padding:7px 12px;font-weight:bold;margin:18px 0 8px;border-radius:0 4px 4px 0;">③ 運用連携・定期監視</div>
+<p>手動の解析から、理解負債を継続的に監視・通知する運用へ広げる。</p>
+<ul>
+  <li><strong>定期スキャン</strong> — Cloud Scheduler などで差分解析を定期実行し、理解負債・技術負債のトレンドを自動更新する。</li>
+  <li><strong>チャット通知・レポート</strong> — 負債の増加や低品質ホットスポットの発生を Slack へ通知する。</li>
+</ul>
+
+    </section>
+    <p class="paste-banner">▲ ここまで ▲ 「ストーリー 〔必須〕」</p>
+    <!-- ============================================================= -->
+
+  </body>
+</html>
