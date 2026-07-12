@@ -1,10 +1,7 @@
-# DevDebtOps — 理解負債を「実測して返済」する Knowledge Debt Twin Agent
+# DevDebtOps — 技術負債・理解負債の解消を DevOps に組み込む AI エージェント
 
-**理解負債（Knowledge / Understanding Debt）** — “コードは動くが、誰もその中身を本当には理解していない” 状態 —
-を主役に据えたプラットフォーム。理解度を `git blame` から*推測*するのではなく **クイズで能動的に実測**し
-（blame 非依存。単独開発でも、コードを書かない PM でも計測可）、**学習プラン → クイズ再受験で返済する閉ループ**を回す。
-解析の中核は **Google ADK の AI エージェント**。技術負債（コード負債）の検知・二軸マトリクスも備え、
-**「どの理解ギャップが緊急かを示すホットスポット（リスク信号）」**として位置づける。
+DevDebtOps は、技術負債と理解負債を見える化し、その解消を開発・運用サイクルに組み込む AI エージェント基盤です。
+ADK エージェントが解析し、学習・クイズ・修正 PR を提案します。
 
 > Findy「**DevOps × AI Agent Hackathon**」提出作品。Google Cloud（Cloud Run）+ Gemini / ADK を中核に、
 > AI エージェントとフルサイクル DevOps を実装している。
