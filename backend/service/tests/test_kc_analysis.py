@@ -196,6 +196,126 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
         assert deps == 1
 
 
+def _request_for(project_id: str) -> KcAnalysisRequest:
+    """A KC request pinned to a specific project (so two runs share a project for carry-forward)."""
+    return KcAnalysisRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.KC_ANALYSIS,
+        owner="acme",
+        repo="rosetta",
+        branch="main",
+        github=GitHubRef(installation_id=42),
+        requested_by="user",
+        project_id=project_id,
+    )
+
+
+async def _quizify(session_maker: async_sessionmaker, run_id: uuid.UUID, file_path: str) -> None:
+    """Simulate a quiz measurement on ``run_id``: bump alice's dev row + aggregate to certified quiz KC."""
+    async with session_maker() as session:
+        dev = (
+            await session.execute(
+                select(FileKc).where(FileKc.run_id == run_id, FileKc.file_path == file_path, FileKc.dev_id == _ALICE)
+            )
+        ).scalar_one()
+        dev.kc, dev.certified_via, dev.mastery = 0.95, "quiz", "star"
+        agg = (
+            await session.execute(
+                select(FileKc).where(
+                    FileKc.run_id == run_id,
+                    FileKc.file_path == file_path,
+                    FileKc.dev_id.is_(None),
+                    FileKc.github_handle.is_(None),
+                )
+            )
+        ).scalar_one()
+        agg.kc, agg.mastery = 0.95, "star"
+        await session.commit()
+
+
+async def _run_id(session_maker: async_sessionmaker, job_id: str) -> uuid.UUID:
+    async with session_maker() as session:
+        run = (
+            await session.execute(
+                select(kc_analysis.AnalysisRun).where(kc_analysis.AnalysisRun.job_id == uuid.UUID(job_id))
+            )
+        ).scalar_one()
+        return run.id
+
+
+@pytest.mark.parametrize("changed", [{"pkg/a.py"}, None], ids=["incremental", "full"])
+async def test_carry_forward_preserves_quiz_kc(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker, changed: set[str] | None
+) -> None:
+    """Re-analysis must not reset quiz-measured KC. pkg/b.py is quizzed on run1; after re-analysis its
+    dev+aggregate KC survive — both when only pkg/a.py changed (incremental) and on a full re-blame."""
+    _patch(monkeypatch)
+    project_id = str(uuid.uuid4())
+
+    req1 = _request_for(project_id)
+    await _seed_job(session_maker, req1.job_id)
+    async with session_maker() as session:
+        await kc_analysis.process(req1, PipelineContext(session=session))
+        await session.commit()
+    run1 = await _run_id(session_maker, req1.job_id)
+    await _quizify(session_maker, run1, "pkg/b.py")
+
+    req2 = _request_for(project_id)
+    await _seed_job(session_maker, req2.job_id)
+    async with session_maker() as session:
+        await kc_analysis.process(req2, PipelineContext(session=session), changed_paths=changed, head_sha="def456")
+        await session.commit()
+
+    run2 = await _run_id(session_maker, req2.job_id)
+    async with session_maker() as session:
+        # New run records the orchestrator's HEAD sha (consistent diff base for the next run).
+        run2_row = (
+            await session.execute(select(kc_analysis.AnalysisRun).where(kc_analysis.AnalysisRun.id == run2))
+        ).scalar_one()
+        assert run2_row.commit_sha == "def456"
+
+        # pkg/b.py (unchanged/quizzed): quiz KC carried forward, not reset to authorship.
+        b_dev = (
+            await session.execute(
+                select(FileKc).where(FileKc.run_id == run2, FileKc.file_path == "pkg/b.py", FileKc.dev_id == _ALICE)
+            )
+        ).scalar_one()
+        assert b_dev.certified_via == "quiz"
+        assert b_dev.kc == pytest.approx(0.95)
+        b_agg = (
+            await session.execute(
+                select(FileKc).where(
+                    FileKc.run_id == run2,
+                    FileKc.file_path == "pkg/b.py",
+                    FileKc.dev_id.is_(None),
+                    FileKc.github_handle.is_(None),
+                )
+            )
+        ).scalar_one()
+        assert b_agg.kc == pytest.approx(0.95)
+
+        # pkg/a.py is (re)computed from authorship in both modes.
+        a_dev = (
+            await session.execute(
+                select(FileKc).where(FileKc.run_id == run2, FileKc.file_path == "pkg/a.py", FileKc.dev_id == _ALICE)
+            )
+        ).scalar_one()
+        assert a_dev.certified_via == "authorship"
+
+        # Prior run pruned — the latest run is the single self-contained snapshot readers use.
+        run_count = (
+            await session.execute(
+                select(func.count())
+                .select_from(kc_analysis.AnalysisRun)
+                .where(
+                    kc_analysis.AnalysisRun.project_id == uuid.UUID(project_id),
+                    kc_analysis.AnalysisRun.kind == JobType.KC_ANALYSIS.value,
+                )
+            )
+        ).scalar_one()
+        assert run_count == 1
+
+
 def test_select_source_paths_is_language_fair() -> None:
     # Round-robin across language buckets so .py doesn't starve the cap and hide .ts/.svelte
     # (fixes: 理解度マップに Python しか出ない). Vendored paths are filtered out.
