@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
@@ -330,7 +330,8 @@ async def generate_baseline_quizzes(
                 sm_select(QuizSession).where(
                     col(QuizSession.project_id) == project.id,
                     col(QuizSession.developer_id) == current_user.id,
-                    col(QuizSession.feature_id) == feat.id,
+                    # 再解析で id が変わるため stable な feature_key で dedup（旧行は feature_id フォールバック）。
+                    or_(col(QuizSession.feature_key) == feat.key, col(QuizSession.feature_id) == feat.id),
                     col(QuizSession.is_baseline).is_(True),
                     col(QuizSession.status) != "completed",
                 )
@@ -353,6 +354,7 @@ async def generate_baseline_quizzes(
             repo_full_name=project.repo_full_name,
             granularity="feature",
             feature_id=feat.id,
+            feature_key=feat.key,  # 再解析をまたいで解決する stable key
             is_baseline=True,
             status="not_started",
         )

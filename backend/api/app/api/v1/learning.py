@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlmodel import col
 from sqlmodel import select as sm_select
 
@@ -217,7 +217,8 @@ async def generate_baseline_plans(
                 sm_select(LearningPlan).where(
                     col(LearningPlan.project_id) == project.id,
                     col(LearningPlan.developer_id) == current_user.id,
-                    col(LearningPlan.feature_id) == feat.id,
+                    # 再解析で id が変わるため stable な feature_key で dedup（旧行は feature_id フォールバック）。
+                    or_(col(LearningPlan.feature_key) == feat.key, col(LearningPlan.feature_id) == feat.id),
                 )
             )
         ).first()
@@ -227,6 +228,7 @@ async def generate_baseline_plans(
             project_id=project.id,
             developer_id=current_user.id,
             feature_id=feat.id,
+            feature_key=feat.key,  # 再解析をまたいで解決する stable key
             gap_concepts=[],
         )
         session.add(plan)

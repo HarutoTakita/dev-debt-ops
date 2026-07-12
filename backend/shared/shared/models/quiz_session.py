@@ -26,6 +26,10 @@ class QuizSession(SQLModel, table=True):
     # default ``file`` で既存のファイル単位受験は後方互換。
     granularity: str = Field(default="file", nullable=False)
     feature_id: uuid.UUID | None = Field(default=None)  # granularity="feature" のとき features.id
+    # 機能の stable slug（features.key）。features.id は run 毎に再生成されるため、再解析をまたいで
+    # クイズを機能に結び付ける解決/dedup はこの key で行う（FeatureFlag と同じ流儀）。旧行は None で
+    # feature_id フォールバック。
+    feature_key: str | None = Field(default=None, index=True)
     is_baseline: bool = Field(default=False, nullable=False)  # 初回ベースライン受験フラグ（自動生成 / 集計用）
     # 再テスト系譜（#6）。フィルタ再テストで生成されたセッションは元セッションの id を指す（chain の根）。
     origin_session_id: uuid.UUID | None = Field(default=None, index=True)

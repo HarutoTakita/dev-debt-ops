@@ -36,6 +36,33 @@ def _client_with_response(json_data: object, *, method: str = "get") -> GitHubGi
     return client
 
 
+class TestCompare:
+    async def test_maps_statuses_to_changed_removed_renamed(self) -> None:
+        client = _client_with_response(
+            {
+                "files": [
+                    {"filename": "src/a.py", "status": "modified"},
+                    {"filename": "src/new.py", "status": "added"},
+                    {"filename": "src/gone.py", "status": "removed"},
+                    {"filename": "src/moved.py", "status": "renamed", "previous_filename": "src/old.py"},
+                    {"filename": "src/copy.py", "status": "copied"},
+                ]
+            }
+        )
+        diff = await client.compare("o", "r", "base", "head")
+        assert diff.changed == {"src/a.py", "src/new.py", "src/moved.py", "src/copy.py"}
+        assert diff.removed == {"src/gone.py", "src/old.py"}  # renamed-from folds into removed
+        assert diff.renamed_from == {"src/moved.py": "src/old.py"}
+        assert diff.truncated is False
+
+    async def test_empty_diff(self) -> None:
+        client = _client_with_response({"files": []})
+        diff = await client.compare("o", "r", "base", "head")
+        assert diff.changed == set()
+        assert diff.removed == set()
+        assert diff.truncated is False
+
+
 class TestListCommits:
     async def test_maps_git_and_github_author(self) -> None:
         client = _client_with_response(

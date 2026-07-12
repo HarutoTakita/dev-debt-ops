@@ -204,6 +204,61 @@ async def _upsert_feature_file(
     await session.execute(stmt)
 
 
+async def _prior_completed_feature_run(session: AsyncSession, project_id: uuid.UUID) -> AnalysisRun | None:
+    """The project's latest COMPLETED feature_clustering run (the carry-forward source)."""
+    return (
+        (
+            await session.execute(
+                select(AnalysisRun)
+                .where(
+                    col(AnalysisRun.project_id) == project_id,
+                    col(AnalysisRun.kind) == JobType.FEATURE_CLUSTERING.value,
+                    col(AnalysisRun.status) == JobStatus.COMPLETED,
+                )
+                .order_by(col(AnalysisRun.created_at).desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+
+async def _carry_forward_features(
+    session: AsyncSession, *, prior_run_id: uuid.UUID, new_run_id: uuid.UUID, project_id: uuid.UUID
+) -> tuple[int, int]:
+    """Copy the prior run's features + memberships into the new run, preserving each feature's key.
+
+    ``key`` stays stable (new per-run ``id``) so quizzes/learning resolved by ``feature_key`` stay
+    attached across re-analysis instead of orphaning. Returns ``(feature_count, file_count)``.
+    """
+    prior_features = (await session.execute(select(Feature).where(col(Feature.run_id) == prior_run_id))).scalars().all()
+    feature_count = 0
+    file_count = 0
+    for pf in prior_features:
+        new_id = await _upsert_feature(
+            session, run_id=new_run_id, project_id=project_id, key=pf.key, name=pf.name, description=pf.description
+        )
+        feature_count += 1
+        ff_rows = (
+            (
+                await session.execute(
+                    select(FeatureFile).where(
+                        col(FeatureFile.run_id) == prior_run_id, col(FeatureFile.feature_id) == pf.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for ff in ff_rows:
+            await _upsert_feature_file(
+                session, run_id=new_run_id, feature_id=new_id, file_path=ff.file_path, confidence=ff.confidence
+            )
+            file_count += 1
+    return feature_count, file_count
+
+
 async def process(
     request: FeatureClusteringRequest,
     ctx: PipelineContext,
@@ -230,30 +285,39 @@ async def process(
     trace: list[str] = []
     from_base = clusters is not None
 
+    # 差分再解析（Phase 1）: 前 COMPLETED feature run があれば再クラスタせず持ち越す（key を保つ → クイズ/
+    # 学習が剥がれない）。フル再クラスタは初回（prior 無し）のみ。[Phase 2: diff 駆動の増分割当＋閾値/手動フル]
+    project_id = uuid.UUID(request.project_id)
+    job_id = uuid.UUID(request.job_id)
+    prior_feature_run = await _prior_completed_feature_run(session, project_id)
+    carry_forward = prior_feature_run is not None
+
     # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
     shared_client = ctx.github_client
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
+    source_paths: list[str] = []
+    files: dict[str, str] = {}
     try:
-        tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
-        # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
-        # 従来は is_source_file(py/ts/js のみ)+単純 [:N] 打ち切りで、KC とは別母集合（backend のみ）を
-        # クラスタリングしていたため、機能フィルタ時に KC 未採点＝未着手(灰)ばかりになっていた。
-        source_paths = code_analysis.select_source_paths(
-            [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
-        )
-        files: dict[str, str] = {}
-        if not from_base:
-            # File contents are only needed to build the import graph that feeds the clustering model.
-            for path in source_paths:
-                fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
-                if fc.content is not None:
-                    files[path] = fc.content
+        if not carry_forward:
+            tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
+            # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
+            # 従来は is_source_file(py/ts/js のみ)+単純 [:N] 打ち切りで、KC とは別母集合（backend のみ）を
+            # クラスタリングしていたため、機能フィルタ時に KC 未採点＝未着手(灰)ばかりになっていた。
+            source_paths = code_analysis.select_source_paths(
+                [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
+            )
+            if not from_base:
+                # File contents are only needed to build the import graph that feeds the clustering model.
+                for path in source_paths:
+                    fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
+                    if fc.content is not None:
+                        files[path] = fc.content
         commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
         commit_sha = commits[0].sha if commits else ""
     finally:
         if shared_client is None:
             await client.aclose()
-    trace.append(f"fetched {len(source_paths)} source files")
+    trace.append("carry-forward (prior feature run)" if carry_forward else f"fetched {len(source_paths)} files")
 
     # Intra-repo import graph (main clustering signal) — only when we run the clustering model.
     edges: list[tuple[str, str]] = []
@@ -267,11 +331,41 @@ async def process(
                     seen.add(key)
                     edges.append(key)
 
-    project_id = uuid.UUID(request.project_id)
-    job_id = uuid.UUID(request.job_id)
     run = await _get_or_create_run(
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
+
+    if carry_forward:
+        # 前 run の機能セットをそのまま新 run へ複製（key は不変 → クイズ/学習が feature_key で解決され続ける）。
+        feature_count, file_count = await _carry_forward_features(
+            session, prior_run_id=prior_feature_run.id, new_run_id=run.id, project_id=project_id
+        )
+        trace.append(f"carried forward {feature_count} features / {file_count} memberships (incremental)")
+        run.status = JobStatus.COMPLETED
+        session.add(run)
+        await session.flush()
+        await prune_superseded_runs(
+            session, project_id=run.project_id, kind=JobType.FEATURE_CLUSTERING.value, keep_run_id=run.id
+        )
+        logger.info(
+            "feature_clustering: carried forward %s features / %s memberships for %s/%s@%s",
+            feature_count,
+            file_count,
+            request.owner,
+            request.repo,
+            commit_sha,
+        )
+        return FeatureClusteringResult(
+            job_id=request.job_id,
+            job_type=JobType.FEATURE_CLUSTERING,
+            status=ResultStatus.COMPLETED,
+            owner=request.owner,
+            repo=request.repo,
+            branch=request.branch,
+            feature_count=feature_count,
+            file_count=file_count,
+            trace=trace,
+        )
 
     if from_base:
         # Format/persist the Base Analysis Agent's features (no model call).

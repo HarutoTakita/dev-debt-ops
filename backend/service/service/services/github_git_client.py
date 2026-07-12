@@ -198,6 +198,22 @@ class ReviewInfo:
     submitted_at: str | None
 
 
+@dataclass
+class RepoDiff:
+    """File-level diff between two commits (GitHub ``compare``), for incremental re-analysis.
+
+    ``changed`` = paths needing fresh analysis (added / modified / renamed-to / copied); ``removed`` =
+    dropped paths (removed / renamed-from); ``renamed_from`` maps new_path -> old_path so callers can
+    carry a renamed file's prior results forward. ``truncated`` is True when GitHub capped the file
+    list (very large diff) — callers should then fall back to a full re-analysis.
+    """
+
+    changed: set[str]
+    removed: set[str]
+    renamed_from: dict[str, str]
+    truncated: bool
+
+
 # GraphQL blame query — REST exposes no blame endpoint, so history attribution at the
 # line level must go through the GraphQL ``object(expression).blame(path)`` field.
 _BLAME_QUERY = """
@@ -502,6 +518,37 @@ class GitHubGitClient:
                 )
             )
         return reviews
+
+    async def compare(self, owner: str, repo: str, base: str, head: str) -> RepoDiff:
+        """File-level diff between two commits via ``GET /repos/{owner}/{repo}/compare/{base}...{head}``.
+
+        Maps GitHub per-file ``status`` to a changed/removed split so incremental re-analysis can
+        re-compute only what changed and carry the rest forward. GitHub caps the ``files`` list (~300);
+        when hit, ``truncated=True`` signals the caller to do a full re-analysis instead.
+        """
+        resp = await self._client.get(f"/repos/{owner}/{repo}/compare/{base}...{head}")
+        resp.raise_for_status()
+        files = resp.json().get("files") or []
+        changed: set[str] = set()
+        removed: set[str] = set()
+        renamed_from: dict[str, str] = {}
+        for f in files:
+            path = f.get("filename") or ""
+            if not path:
+                continue
+            status = f.get("status") or ""
+            if status == "removed":
+                removed.add(path)
+            elif status == "renamed":
+                changed.add(path)
+                prev = f.get("previous_filename")
+                if prev:
+                    removed.add(prev)
+                    renamed_from[path] = prev
+            else:  # added / modified / changed / copied
+                changed.add(path)
+        # GitHub caps the compare file list at 300; a full page means the diff may be truncated.
+        return RepoDiff(changed=changed, removed=removed, renamed_from=renamed_from, truncated=len(files) >= 300)
 
     async def list_commit_pulls(self, owner: str, repo: str, sha: str) -> list[int]:
         """Return the PR numbers that contain a given commit (for review attribution).

@@ -49,6 +49,10 @@ class LearningPlan(SQLModel, table=True):
     developer_id: uuid.UUID | None = Field(default=None, index=True)
     # 機能（feature）単元に紐付くプラン（issue 063）。index-only・FK 無し。概念ベースの旧プランは None。
     feature_id: uuid.UUID | None = Field(default=None, index=True)
+    # 機能の stable slug（features.key）。features.id は run 毎に再生成されるため、再解析をまたいで
+    # プランを機能に結び付ける解決/dedup はこの key で行う（FeatureFlag と同じ流儀）。旧行は None で
+    # feature_id フォールバック。
+    feature_key: str | None = Field(default=None, index=True)
     gap_concepts: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))  # list[str]
     estimated_total_minutes: int = Field(default=0, nullable=False)
     quiz_session_id: uuid.UUID | None = Field(default=None)
