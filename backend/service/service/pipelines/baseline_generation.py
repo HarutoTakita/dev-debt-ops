@@ -25,7 +25,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -72,23 +72,34 @@ async def _latest_feature_run(session: AsyncSession, project_id: uuid.UUID) -> A
 
 
 async def _plan_exists(session: AsyncSession, feature: Feature, developer_id: uuid.UUID) -> bool:
-    """The requester already has a learning plan for this feature (skip regeneration)."""
+    """The requester already has a learning plan for this feature (skip regeneration).
+
+    Dedup by the stable ``feature_key`` (features are re-created every run, so the per-run ``feature_id``
+    would never match across re-analysis) with a ``feature_id`` fallback for pre-migration rows.
+    """
     existing = (
-        await session.execute(
-            select(LearningPlan).where(
-                col(LearningPlan.project_id) == feature.project_id,
-                col(LearningPlan.developer_id) == developer_id,
-                col(LearningPlan.feature_id) == feature.id,
+        (
+            await session.execute(
+                select(LearningPlan)
+                .where(
+                    col(LearningPlan.project_id) == feature.project_id,
+                    col(LearningPlan.developer_id) == developer_id,
+                    or_(col(LearningPlan.feature_key) == feature.key, col(LearningPlan.feature_id) == feature.id),
+                )
+                .limit(1)
             )
         )
-    ).scalar_one_or_none()
+        .scalars()
+        .first()
+    )
     return existing is not None
 
 
 async def _quiz_exists(session: AsyncSession, feature: Feature, developer_id: uuid.UUID) -> bool:
     """The requester already has a baseline quiz for this feature (any status) — dedup (issue 075-B).
 
-    ``limit(1).first()`` so a pre-existing duplicate (from an old bug) doesn't raise MultipleResultsFound.
+    Dedup by the stable ``feature_key`` (with ``feature_id`` fallback) so re-analysis does not
+    regenerate. ``limit(1).first()`` so a pre-existing duplicate doesn't raise MultipleResultsFound.
     """
     existing = (
         (
@@ -97,7 +108,7 @@ async def _quiz_exists(session: AsyncSession, feature: Feature, developer_id: uu
                 .where(
                     col(QuizSession.project_id) == feature.project_id,
                     col(QuizSession.developer_id) == developer_id,
-                    col(QuizSession.feature_id) == feature.id,
+                    or_(col(QuizSession.feature_key) == feature.key, col(QuizSession.feature_id) == feature.id),
                     col(QuizSession.is_baseline).is_(True),
                 )
                 .limit(1)
@@ -121,7 +132,11 @@ async def _persist_plan(
     if work.plan_inputs is None or work.plan_generated is None:
         return
     plan = LearningPlan(
-        project_id=feature.project_id, developer_id=developer_id, feature_id=feature.id, gap_concepts=[]
+        project_id=feature.project_id,
+        developer_id=developer_id,
+        feature_id=feature.id,
+        feature_key=feature.key,  # 再解析をまたいで解決する stable key
+        gap_concepts=[],
     )
     session.add(plan)
     await session.flush()
@@ -169,6 +184,7 @@ async def _persist_quiz(
         repo_full_name=repo_full,
         granularity="feature",
         feature_id=feature.id,
+        feature_key=feature.key,  # 再解析をまたいで解決する stable key
         is_baseline=True,
         status="not_started",
     )

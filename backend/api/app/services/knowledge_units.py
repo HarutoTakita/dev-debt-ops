@@ -7,7 +7,7 @@ derives a unit status so the frontend can show 学習 → 確認クイズ → �
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
@@ -66,30 +66,40 @@ async def build_knowledge_units(
     units: list[KnowledgeUnitOut] = []
     for feat in features:
         node = node_by_key.get(feat.key)
+        # 機能は再解析で id が変わるため、stable な feature_key で紐付ける（旧行は feature_id フォールバック）。
+        # これにより再解析後も既存のクイズ/学習プランが hub に残る（新 id で突き合わせると orphan になる）。
         plan = (
-            await session.execute(
-                select(LearningPlan)
-                .where(
-                    col(LearningPlan.project_id) == project.id,
-                    col(LearningPlan.feature_id) == feat.id,
-                    col(LearningPlan.developer_id) == developer_id,
+            (
+                await session.execute(
+                    select(LearningPlan)
+                    .where(
+                        col(LearningPlan.project_id) == project.id,
+                        or_(col(LearningPlan.feature_key) == feat.key, col(LearningPlan.feature_id) == feat.id),
+                        col(LearningPlan.developer_id) == developer_id,
+                    )
+                    .order_by(col(LearningPlan.created_at).desc())
+                    .limit(1)
                 )
-                .order_by(col(LearningPlan.created_at).desc())
-                .limit(1)
             )
-        ).scalar_one_or_none()
+            .scalars()
+            .first()
+        )
         qs = (
-            await session.execute(
-                select(QuizSession)
-                .where(
-                    col(QuizSession.project_id) == project.id,
-                    col(QuizSession.feature_id) == feat.id,
-                    col(QuizSession.developer_id) == developer_id,
+            (
+                await session.execute(
+                    select(QuizSession)
+                    .where(
+                        col(QuizSession.project_id) == project.id,
+                        or_(col(QuizSession.feature_key) == feat.key, col(QuizSession.feature_id) == feat.id),
+                        col(QuizSession.developer_id) == developer_id,
+                    )
+                    .order_by(col(QuizSession.started_at).desc().nulls_last())
+                    .limit(1)
                 )
-                .order_by(col(QuizSession.started_at).desc().nulls_last())
-                .limit(1)
             )
-        ).scalar_one_or_none()
+            .scalars()
+            .first()
+        )
         # 学習プランの進捗（完了/総ステップ数）。一覧のプログレスバー用（steps は少数なので Python 集計）。
         steps_done = steps_total = 0
         if plan is not None:
