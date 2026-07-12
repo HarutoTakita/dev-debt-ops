@@ -325,3 +325,55 @@ async def test_process_is_idempotent(monkeypatch: pytest.MonkeyPatch, session_ma
             )
         ).scalar_one()
         assert assigned == 2  # carol + dave, not duplicated
+
+
+async def test_incremental_carries_forward_unchanged_debts(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """Phase 2b: with changed_paths, only changed files are re-probed; unchanged files' debts are
+    carried forward from the prior run (not re-probed away)."""
+    project_id = str(uuid.uuid4())
+
+    def _req() -> KnowledgeDebtDetectionRequest:
+        return KnowledgeDebtDetectionRequest(
+            job_id=str(uuid.uuid4()),
+            job_type=JobType.KNOWLEDGE_DEBT_DETECTION,
+            owner="acme",
+            repo="rosetta",
+            branch="main",
+            github=GitHubRef(installation_id=42),
+            requested_by="user",
+            project_id=project_id,
+        )
+
+    # Run 1 (full): pkg/ai.py flagged ai_generated (prob 0.9), old.py author_left, unreviewed.py no_review.
+    _patch(monkeypatch, {"pkg/ai.py": 0.9})
+    req1 = _req()
+    await _seed_job(session_maker, req1.job_id)
+    await _seed_kc(session_maker, project_id)
+    async with session_maker() as session:
+        await knowledge_debt_detection.process(req1, PipelineContext(session=session))
+        await session.commit()
+
+    # Run 2 (incremental): only pkg/old.py changed; AI now returns nothing — so if pkg/ai.py were
+    # re-probed its ai_generated finding would vanish. It must instead be CARRIED forward.
+    _patch(monkeypatch, {})
+    req2 = _req()
+    await _seed_job(session_maker, req2.job_id)
+    async with session_maker() as session:
+        await knowledge_debt_detection.process(
+            req2, PipelineContext(session=session), changed_paths={"pkg/old.py"}, head_sha="h2"
+        )
+        await session.commit()
+
+    async with session_maker() as session:
+        run2 = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(req2.job_id)))
+        ).scalar_one()
+        assert run2.commit_sha == "h2"
+        rows = (await session.execute(select(KnowledgeDebt).where(KnowledgeDebt.run_id == run2.id))).scalars().all()
+        keys = {(r.file_path, r.reason) for r in rows}
+    # ai.py + unreviewed.py carried (not re-probed); old.py re-detected. Only latest run survives (prune).
+    assert ("pkg/ai.py", "ai_generated") in keys
+    assert ("pkg/unreviewed.py", "no_review") in keys
+    assert ("pkg/old.py", "author_left") in keys

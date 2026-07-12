@@ -22,6 +22,8 @@ class AgenticAnalysisRequest(JobRequestBase):
     project_id: str
     github: GitHubRef
     requested_by: str  # current_user.id (audit only)
+    # 手動フル再解析（差分を無視して全再計算＝機能をフル再クラスタし、新機能もここで発生）。既定は差分再解析。
+    full: bool = False
 
 
 class AgenticAnalysisResult(JobResultBase):

@@ -31,6 +31,9 @@ class QuizSession(SQLModel, table=True):
     # feature_id フォールバック。
     feature_key: str | None = Field(default=None, index=True)
     is_baseline: bool = Field(default=False, nullable=False)  # 初回ベースライン受験フラグ（自動生成 / 集計用）
+    # 要再受験（stale）。機能のファイル集合が再解析で変わると true にし、UI が再受験を促す（返済ループ駆動）。
+    # 新しい retest セッションは既定 false でリセットされる。
+    stale: bool = Field(default=False, nullable=False)
     # 再テスト系譜（#6）。フィルタ再テストで生成されたセッションは元セッションの id を指す（chain の根）。
     origin_session_id: uuid.UUID | None = Field(default=None, index=True)
     retest_mode: str | None = Field(default=None)  # None=通常 / "flagged"=フラグのみ / "wrong"=全回誤答のみ

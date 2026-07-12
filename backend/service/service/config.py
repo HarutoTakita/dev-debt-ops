@@ -104,6 +104,18 @@ def analysis_max_files() -> int:
     return max(1, int(os.environ.get("ANALYSIS_MAX_FILES", "400")))
 
 
+def feature_recluster_churn_threshold() -> float:
+    """Churn ratio above which re-analysis does a FULL feature re-cluster instead of incremental assign.
+
+    Incremental clustering (Phase 2a) assigns only changed/new files to the existing feature set. When a
+    re-analysis changes a large fraction of the prior feature file set — ``(|changed| + |removed|) /
+    |prior feature files|`` — the capability taxonomy itself is likely stale, so we re-derive it from
+    scratch (which is also where genuinely-new features appear). Default 0.3; tune via
+    ``FEATURE_RECLUSTER_CHURN_THRESHOLD``.
+    """
+    return max(0.0, float(os.environ.get("FEATURE_RECLUSTER_CHURN_THRESHOLD", "0.3")))
+
+
 def github_app_id() -> str:
     """GitHub App numeric id (method B: service mints installation tokens)."""
     return os.environ.get("GITHUB_APP_ID", "")

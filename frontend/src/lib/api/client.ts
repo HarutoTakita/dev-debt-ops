@@ -390,8 +390,14 @@ export async function detectKnowledgeDebts(orgSlug: string, projectSlug: string)
 }
 
 // agentic 解析（issue 069）: ADK Twin Agent を起動。202 {job_id} を返し、getJob でポーリングする。
-export async function runAgenticAnalysis(orgSlug: string, projectSlug: string): Promise<AnalyzeStackJob> {
-  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agentic-analysis`, {
+// full=true で差分を無視したフル再解析（機能をフル再クラスタ。KC のクイズ実測値は保持される）。
+export async function runAgenticAnalysis(
+  orgSlug: string,
+  projectSlug: string,
+  full = false,
+): Promise<AnalyzeStackJob> {
+  const query = full ? "?full=true" : "";
+  const response = await apiFetch(`/api/v1/orgs/${orgSlug}/projects/${projectSlug}/agentic-analysis${query}`, {
     method: "POST",
   });
   if (!response.ok) throw new Error(await errorDetail(response, "解析の開始に失敗しました"));

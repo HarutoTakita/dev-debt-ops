@@ -9,7 +9,7 @@ trace. Same issue-018 enqueue pattern as ``detect-debts``; method B keeps the Gi
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.api.deps import CurrentUser, OrgScope, SessionDep
 from app.api.v1.github import InstallationIdDep
@@ -39,8 +39,13 @@ async def trigger_agentic_analysis(
     session: SessionDep,
     dispatcher: Annotated[TaskDispatcher, Depends(get_task_dispatcher)],
     blob: Annotated[BlobClient, Depends(get_blob_client)],
+    full: Annotated[bool, Query(description="Full re-analysis: ignore the diff and recompute everything.")] = False,
 ) -> JobEnqueuedOut:
-    """Enqueue an ``agentic_analysis`` job for the project's repository and return ``202``."""
+    """Enqueue an ``agentic_analysis`` job for the project's repository and return ``202``.
+
+    ``full=true`` forces a non-incremental re-analysis (fresh feature clustering, full re-blame — KC's
+    quiz-measured values are still preserved). Default is incremental (diff since the last run).
+    """
     org, _ = org_membership
     project = await service.get_by_slug(org, project_slug)
     # Consume one analysis credit before enqueuing (issue 298). No-op unless ANALYSIS_CREDITS_ENABLED;
@@ -53,6 +58,7 @@ async def trigger_agentic_analysis(
         "requested_by": str(current_user.id),  # audit only
         "project_id": str(project.id),
         "github": {"installation_id": installation_id},
+        "full": full,
     }
     job = await enqueue_job(
         session=session,

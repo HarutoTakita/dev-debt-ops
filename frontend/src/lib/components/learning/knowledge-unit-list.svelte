@@ -166,6 +166,15 @@
             <span class={cn("shrink-0 text-xs font-medium", statusOf(u.status).tone)}
               >{statusOf(u.status).label()}</span
             >
+            {#if u.stale}
+              <!-- 要再受験: 再解析でこの機能のファイルが変わった。既存の「理解度を確認する」で再受験できる。 -->
+              <span
+                class="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning"
+                title={m.unit_stale_hint()}
+              >
+                {m.unit_stale_badge()}
+              </span>
+            {/if}
             <span class="shrink-0 text-xs text-muted-foreground">{m.kc_label()} {kcPct(u.knowledge_coverage)}%</span>
             <span class="hidden shrink-0 text-xs text-muted-foreground sm:inline"
               >{m.unit_files_count({ count: u.file_count })}</span

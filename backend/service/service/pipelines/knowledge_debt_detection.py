@@ -215,23 +215,101 @@ def _agent_notes_by_file(base_findings: list[dict] | None) -> dict[str, str]:
     return {path: " / ".join(dict.fromkeys(rs)) for path, rs in notes.items()}
 
 
+async def _prior_completed_kd_run(session: AsyncSession, project_id: uuid.UUID) -> AnalysisRun | None:
+    """The project's latest COMPLETED knowledge_debt run (the carry-forward source)."""
+    return (
+        (
+            await session.execute(
+                select(AnalysisRun)
+                .where(
+                    col(AnalysisRun.project_id) == project_id,
+                    col(AnalysisRun.kind) == JobType.KNOWLEDGE_DEBT_DETECTION.value,
+                    col(AnalysisRun.status) == JobStatus.COMPLETED,
+                )
+                .order_by(col(AnalysisRun.created_at).desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+
+async def _carry_forward_knowledge_debts(
+    session: AsyncSession,
+    *,
+    prior_run_id: uuid.UUID,
+    new_run_id: uuid.UUID,
+    keep_files: set[str],
+    kc_by_file: dict[str, dict],
+) -> set[tuple[str, str]]:
+    """Copy the prior run's KnowledgeDebt rows for unchanged files into the new run.
+
+    Re-derives assigned developers from the current KC. Returns the carried ``(file_path, reason)`` keys
+    so the stale-delete keeps them. Knowledge findings are per-file (no cross-file coupling) — exact.
+    """
+    rows = (
+        (await session.execute(select(KnowledgeDebt).where(col(KnowledgeDebt.run_id) == prior_run_id))).scalars().all()
+    )
+    carried: set[tuple[str, str]] = set()
+    for r in rows:
+        if r.file_path not in keep_files:
+            continue
+        new = KnowledgeDebt(
+            id=uuid.uuid4(),
+            project_id=r.project_id,
+            run_id=new_run_id,
+            file_path=r.file_path,
+            repo=r.repo,
+            reason=r.reason,
+            severity=r.severity,
+            status=r.status,
+            related_adr=r.related_adr,
+            code_snippet=r.code_snippet,
+            code_debt_score=r.code_debt_score,
+            knowledge_coverage=r.knowledge_coverage,
+            ai_generation_prob=r.ai_generation_prob,
+            estimated_repay_hours=r.estimated_repay_hours,
+            detection_notes=r.detection_notes,
+            metrics=r.metrics,
+            detected_at=r.detected_at,
+            created_at=r.created_at,
+        )
+        session.add(new)
+        await session.flush()
+        for handle, dev_kc, certified_via in kc_by_file.get(r.file_path, {}).get("devs", []):
+            await _upsert_assigned(session, debt_id=new.id, handle=handle, coverage=dev_kc, certified_via=certified_via)
+        carried.add((r.file_path, r.reason))
+    return carried
+
+
 async def process(
     request: KnowledgeDebtDetectionRequest,
     ctx: PipelineContext,
     *,
     base_findings: list[dict] | None = None,
+    changed_paths: set[str] | None = None,
+    head_sha: str | None = None,
 ) -> KnowledgeDebtDetectionResult:
     """Detect knowledge debts and upsert knowledge_debts / assigned_developers.
 
     ``base_findings`` (issue 273, agent-first): when provided — the Base Analysis Agent's
     ``BaseAnalysis.knowledge_findings`` — the agent's rationale for a file is appended to that file's
     ``detection_notes``. KC / coverage / scores stay deterministic. ``None`` → behaviour unchanged.
+
+    ``changed_paths`` (Phase 2b incremental): when a prior run exists and ``changed_paths`` is not None,
+    only changed files run the (expensive per-file) signal probe + AI estimate; unchanged files' debts
+    are carried forward from the prior run. Findings are per-file, so this is exact (no neighbor
+    expansion needed). ``None`` → full recompute.
     """
     if ctx.session is None:
         raise RuntimeError("knowledge_debt_detection pipeline requires a DB session in the pipeline context")
     session = ctx.session
     now = datetime.now(UTC)
     trace: list[str] = []
+    project_id = uuid.UUID(request.project_id)
+    prior_run = await _prior_completed_kd_run(session, project_id)
+    do_incremental = prior_run is not None and changed_paths is not None
 
     # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
     shared_client = ctx.github_client
@@ -239,10 +317,14 @@ async def process(
     # per-file signals: {path: {content, age_days, no_review}}
     signals: dict[str, dict] = {}
     commit_sha = ""
+    source_paths: list[str] = []
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
         source_paths = [t.path for t in tree if t.type == "blob" and _is_source(t.path)][:_MAX_FILES]
-        for path in source_paths:
+        # 差分再解析（Phase 2b）: 変更ファイルだけ高価な signal 収集（PR レビュー API + AI）を回す。未変更は
+        # 前 run から持ち越す。findings は per-file 完結なので近傍拡張は不要。
+        to_process = [p for p in source_paths if p in changed_paths] if do_incremental else source_paths
+        for path in to_process:
             fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
             commits = await client.list_commits(request.owner, request.repo, path=path, sha=request.branch, per_page=1)
             latest = commits[0] if commits else None
@@ -260,12 +342,15 @@ async def process(
                 "age_days": _age_days(latest.authored_at, now=now) if latest is not None else 0,
                 "no_review": no_review,
             }
-        head = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
-        commit_sha = head[0].sha if head else ""
+        if head_sha:
+            commit_sha = head_sha
+        else:
+            head = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
+            commit_sha = head[0].sha if head else ""
     finally:
         if shared_client is None:
             await client.aclose()
-    trace.append(f"fetched {len(signals)} source files")
+    trace.append(f"probed {len(signals)} files (incremental={do_incremental})")
 
     # AI-generation estimate for the fetched files.
     ai_probs: dict[str, float] = {}
@@ -280,7 +365,6 @@ async def process(
                 "Gemini AI-generation estimate unavailable; ai_generated reason disabled this run", exc_info=True
             )
 
-    project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
     agent_notes = _agent_notes_by_file(base_findings)  # agent-first (issue 273): notes enrichment
     kc_by_file = await _kc_by_file(session, project_id)
@@ -288,8 +372,18 @@ async def process(
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
 
+    # 差分再解析: 未変更ファイルの前 run debt を新 run へ持ち越す（assigned は現在 KC から再導出）。carried
+    # キーは stale-delete から守るため current_keys に seed する。
     reasons_count: dict[str, int] = {}
     current_keys: set[tuple[str, str]] = set()
+    if do_incremental and prior_run is not None:
+        current_keys = await _carry_forward_knowledge_debts(
+            session,
+            prior_run_id=prior_run.id,
+            new_run_id=run.id,
+            keep_files=set(source_paths) - {p for p in signals},
+            kc_by_file=kc_by_file,
+        )
     detected = 0
     for path, sig in signals.items():
         ai_prob = ai_probs.get(path, 0.0)

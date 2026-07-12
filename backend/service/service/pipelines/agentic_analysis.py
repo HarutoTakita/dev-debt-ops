@@ -190,20 +190,24 @@ async def _run_backbone_step(
 
 async def _compute_incremental_diff(
     session: AsyncSession, client: GitHubGitClient, request: AgenticAnalysisRequest
-) -> tuple[str | None, set[str] | None]:
-    """Return ``(head_sha, changed_paths)`` for incremental re-analysis (Phase 1).
+) -> tuple[str | None, set[str] | None, set[str] | None]:
+    """Return ``(head_sha, changed_paths, removed_paths)`` for incremental re-analysis.
 
-    ``changed_paths`` is the set of paths that changed since the prior KC run's commit; downstream
-    (kc_analysis) re-computes only those and carries the rest forward. ``changed_paths=None`` means
-    "analyze everything" (first run / no prior commit / unusable or too-large diff); ``set()`` means
-    the commit is unchanged (carry everything forward). Never raises — any failure degrades to a full
-    analysis (kc_analysis still preserves quiz-measured KC for files present in the tree).
+    ``changed_paths`` are paths added/modified/renamed-to since the prior KC run's commit; ``removed_paths``
+    are removed/renamed-from. Downstream re-computes only ``changed`` (+ neighbors, for debt) and carries
+    the rest forward; ``removed`` are dropped. ``changed_paths=None`` (with ``removed=None``) means
+    "analyze everything" — first run / no prior commit / unusable-or-too-large diff / manual ``full``
+    re-analysis. ``set()`` means the commit is unchanged (carry everything forward). Never raises — any
+    failure degrades to a full analysis (which still preserves quiz-measured KC for present files).
     """
     try:
         head_sha = await client.get_branch_sha(request.owner, request.repo, request.branch)
     except Exception:
         logger.warning("incremental: could not resolve HEAD sha; full analysis", exc_info=True)
-        return None, None
+        return None, None, None
+    if request.full:
+        logger.info("incremental: manual full re-analysis requested; recomputing everything")
+        return head_sha, None, None
     prior = (
         (
             await session.execute(
@@ -221,18 +225,18 @@ async def _compute_incremental_diff(
         .first()
     )
     if prior is None or not prior.commit_sha:
-        return head_sha, None  # first run / no base commit → full analysis
+        return head_sha, None, None  # first run / no base commit → full analysis
     if prior.commit_sha == head_sha:
-        return head_sha, set()  # unchanged commit → carry everything forward
+        return head_sha, set(), set()  # unchanged commit → carry everything forward
     try:
         diff = await client.compare(request.owner, request.repo, prior.commit_sha, head_sha)
     except Exception:
         logger.warning("incremental: compare failed; full analysis", exc_info=True)
-        return head_sha, None
+        return head_sha, None, None
     if diff.truncated:
         logger.info("incremental: diff too large (truncated); full analysis")
-        return head_sha, None
-    return head_sha, diff.changed
+        return head_sha, None, None
+    return head_sha, diff.changed, diff.removed
 
 
 async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> AgenticAnalysisResult:
@@ -322,10 +326,12 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
             )
         else:
             ctx.github_client = CachingGitHubGitClient(access_token=stack_token, token_provider=_refresh_token)
-        # Incremental re-analysis (Phase 1): diff the prior KC run's commit against HEAD once, so
-        # kc_analysis re-blames only changed files and carries unchanged files' KC (esp. quiz-measured)
-        # forward. None ⇒ full analysis (first run / unusable diff); empty set ⇒ nothing changed.
-        head_sha, changed_paths = await _compute_incremental_diff(session, ctx.github_client, request)
+        # Incremental re-analysis: diff the prior KC run's commit against HEAD once, and thread the
+        # changed/removed sets into every backbone block so each re-computes only what changed and
+        # carries the rest forward (kc: re-blame changed; features: incrementally re-assign changed/new;
+        # debt: re-detect changed + neighbors). None ⇒ full analysis (first run / unusable diff / manual
+        # full); empty set ⇒ nothing changed.
+        head_sha, changed_paths, removed_paths = await _compute_incremental_diff(session, ctx.github_client, request)
         fc_req = FeatureClusteringRequest(
             job_id=request.job_id,
             job_type=JobType.FEATURE_CLUSTERING,
@@ -349,7 +355,15 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         ]
         await _run_backbone_step(
             "feature_clustering",
-            lambda: feature_clustering.process(fc_req, ctx, clusters=base_clusters, graph_edges=fc_graph_edges),
+            lambda: feature_clustering.process(
+                fc_req,
+                ctx,
+                clusters=base_clusters,
+                graph_edges=fc_graph_edges,
+                changed_paths=changed_paths,
+                removed_paths=removed_paths,
+                head_sha=head_sha,
+            ),
             steps,
             reporter,
         )
@@ -369,7 +383,12 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         await _run_backbone_step(
             "code_debt_detection",
             lambda: code_debt_detection.process(
-                cd_req, ctx, base_findings=base_code_findings, trivy_findings=trivy_findings
+                cd_req,
+                ctx,
+                base_findings=base_code_findings,
+                trivy_findings=trivy_findings,
+                changed_paths=changed_paths,
+                head_sha=head_sha,
             ),
             steps,
             reporter,
@@ -405,7 +424,9 @@ async def process(request: AgenticAnalysisRequest, ctx: PipelineContext) -> Agen
         base_knowledge_findings = [f.model_dump() for f in base_analysis.knowledge_findings] or None
         await _run_backbone_step(
             "knowledge_debt_detection",
-            lambda: knowledge_debt_detection.process(kd_req, ctx, base_findings=base_knowledge_findings),
+            lambda: knowledge_debt_detection.process(
+                kd_req, ctx, base_findings=base_knowledge_findings, changed_paths=changed_paths, head_sha=head_sha
+            ),
             steps,
             reporter,
         )

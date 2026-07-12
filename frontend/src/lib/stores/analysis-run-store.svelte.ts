@@ -5,7 +5,8 @@ import type { JobProgress } from "$lib/api/schemas";
 // 「ステージ集合 + 依存順 + deep-link」へ一般化したもの。コックピットと各サブページが同一 store を参照する。
 export type StageStatus = "idle" | "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
 export type StageId = "agentic";
-export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string };
+// full: 差分を無視したフル再解析（機能をフル再クラスタ。KC のクイズ実測値は保持）。既定は差分再解析。
+export type RunContext = { orgSlug: string; projectSlug: string; owner: string; repo: string; full?: boolean };
 
 // job_id を返さないステージ（baseline-plans / baseline-quizzes は N 件ファンアウト）は enqueue 完了で COMPLETED 扱い。
 type EnqueueResult = { job_id?: string; link?: string };
@@ -29,7 +30,7 @@ export const STAGES: StageDef[] = [
     id: "agentic",
     labelKey: "analysis_stage_agentic",
     jobType: "agentic_analysis",
-    enqueue: (c) => runAgenticAnalysis(c.orgSlug, c.projectSlug),
+    enqueue: (c) => runAgenticAnalysis(c.orgSlug, c.projectSlug, c.full ?? false),
     dependsOn: [],
     deepLink: (c) => _path(c, "/matrix"),
   },

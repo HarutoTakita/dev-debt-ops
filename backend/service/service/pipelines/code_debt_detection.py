@@ -25,7 +25,7 @@ from service.services import code_analysis, gemini_stack_service, semgrep_scan, 
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.enums import JobStatus, JobType, ResultStatus
-from shared.models import AnalysisRun, CodeDebt
+from shared.models import AnalysisRun, CodeDebt, Dependency
 from shared.pipelines.context import PipelineContext
 from shared.schemas.code_debt_detection import CodeDebtDetectionRequest, CodeDebtDetectionResult
 from shared.schemas.stack_analysis import GitHubRef
@@ -345,12 +345,112 @@ async def _delete_stale_debts(session: AsyncSession, *, run_id: uuid.UUID, curre
     await session.execute(stmt)
 
 
+async def _prior_completed_run(session: AsyncSession, project_id: uuid.UUID, kind: str) -> AnalysisRun | None:
+    """The project's latest COMPLETED run of ``kind`` (carry-forward / dependency source)."""
+    return (
+        (
+            await session.execute(
+                select(AnalysisRun)
+                .where(
+                    col(AnalysisRun.project_id) == project_id,
+                    col(AnalysisRun.kind) == kind,
+                    col(AnalysisRun.status) == JobStatus.COMPLETED,
+                )
+                .order_by(col(AnalysisRun.created_at).desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+
+async def _affected_code_files(
+    session: AsyncSession, *, project_id: uuid.UUID, changed: set[str], source_set: set[str], prior_cd_run_id: uuid.UUID
+) -> set[str]:
+    """Expand ``changed`` to cross-file neighbors so duplication / dead-code stay correct on a subset.
+
+    Adds the prior KC run's ``Dependency`` neighbors (both directions — importers AND imported, so a
+    changed file's dead-code status re-evaluates against its real importers) and the partners recorded
+    in the prior code-debt run's ``duplication`` findings (``metrics.related_files``). Intersected with
+    the current selected source set. NOTE: a brand-new duplicate against an UNCHANGED, non-neighbor file
+    is only caught on a full re-analysis (churn threshold / manual ``full``).
+    """
+    affected = {p for p in changed if p in source_set}
+    kc_run = await _prior_completed_run(session, project_id, JobType.KC_ANALYSIS.value)
+    if kc_run is not None:
+        deps = (await session.execute(select(Dependency).where(col(Dependency.run_id) == kc_run.id))).scalars().all()
+        for d in deps:
+            if d.from_path in changed and d.to_path in source_set:
+                affected.add(d.to_path)
+            if d.to_path in changed and d.from_path in source_set:
+                affected.add(d.from_path)
+    dups = (
+        (
+            await session.execute(
+                select(CodeDebt).where(col(CodeDebt.run_id) == prior_cd_run_id, col(CodeDebt.type) == "duplicate")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for d in dups:
+        related = [r for r in (d.metrics.get("related_files") or []) if isinstance(r, str)]
+        if d.file_path in changed:
+            affected.update(r for r in related if r in source_set)
+        elif any(r in changed for r in related) and d.file_path in source_set:
+            affected.add(d.file_path)
+    return affected
+
+
+async def _carry_forward_code_debts(
+    session: AsyncSession, *, prior_run_id: uuid.UUID, new_run_id: uuid.UUID, keep_files: set[str]
+) -> set[tuple[str, str]]:
+    """Copy the prior run's CodeDebt rows for unchanged files into the new run.
+
+    Returns the carried ``(file_path, type)`` keys so the stale-delete keeps them.
+    """
+    rows = (await session.execute(select(CodeDebt).where(col(CodeDebt.run_id) == prior_run_id))).scalars().all()
+    carried: set[tuple[str, str]] = set()
+    for r in rows:
+        if r.file_path not in keep_files:
+            continue
+        session.add(
+            CodeDebt(
+                id=uuid.uuid4(),
+                project_id=r.project_id,
+                run_id=new_run_id,
+                file_path=r.file_path,
+                type=r.type,
+                severity=r.severity,
+                status=r.status,
+                related_pr=r.related_pr,
+                related_issue=r.related_issue,
+                related_issue_by=r.related_issue_by,
+                related_adr=r.related_adr,
+                archaeology_notes=r.archaeology_notes,
+                code_snippet=r.code_snippet,
+                code_debt_score=r.code_debt_score,
+                knowledge_coverage=r.knowledge_coverage,
+                ai_generation_prob=r.ai_generation_prob,
+                estimated_repay_hours=r.estimated_repay_hours,
+                metrics=r.metrics,
+                detected_at=r.detected_at,
+                created_at=r.created_at,
+            )
+        )
+        carried.add((r.file_path, r.type))
+    return carried
+
+
 async def process(
     request: CodeDebtDetectionRequest,
     ctx: PipelineContext,
     *,
     base_findings: list[dict] | None = None,
     trivy_findings: list[trivy_scan.TrivyAggregate] | None = None,
+    changed_paths: set[str] | None = None,
+    head_sha: str | None = None,
 ) -> CodeDebtDetectionResult:
     """Detect code debts for the repository and upsert them under an analysis run.
 
@@ -362,25 +462,48 @@ async def process(
     ``trivy_findings`` (issue 278): pre-computed Trivy SCA/secret/misconfig aggregates (the agentic
     pipeline runs Trivy on its existing clone and passes them in) — persisted as ``security``
     code-debt rows. ``None`` (standalone run) simply omits Trivy.
+
+    ``changed_paths`` (Phase 2b incremental): when a prior run exists and ``changed_paths`` is not None,
+    only the affected set — changed files plus their cross-file neighbors (import edges + duplication
+    partners, via ``_affected_code_files``) — is re-detected; unchanged files' debts are carried
+    forward. ``None`` → full recompute.
     """
     if ctx.session is None:
         raise RuntimeError("code_debt_detection pipeline requires a DB session in the pipeline context")
     session = ctx.session
+    project_id = uuid.UUID(request.project_id)
+    prior_cd_run = await _prior_completed_run(session, project_id, JobType.CODE_DEBT_DETECTION.value)
+    do_incremental = prior_cd_run is not None and changed_paths is not None
 
     # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own
     # for standalone invocation. Only close a client we created — the shared one is owned by the caller.
     shared_client = ctx.github_client
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
+    affected: set[str] = set()
+    source_paths: list[str] = []
     try:
         tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
         source_paths = [t.path for t in tree if t.type == "blob" and code_analysis.is_source_file(t.path)][:_MAX_FILES]
         files: dict[str, str] = {}
-        for path in source_paths:
+        # 差分再解析（Phase 2b）: 影響集合（変更ファイル＋依存近傍＋重複相手）だけ content を取得して再検知。
+        if do_incremental and prior_cd_run is not None and changed_paths is not None:
+            affected = await _affected_code_files(
+                session,
+                project_id=project_id,
+                changed=changed_paths,
+                source_set=set(source_paths),
+                prior_cd_run_id=prior_cd_run.id,
+            )
+        fetch_paths = [p for p in source_paths if p in affected] if do_incremental else source_paths
+        for path in fetch_paths:
             fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
             if fc.content is not None:
                 files[path] = fc.content
-        commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
-        commit_sha = commits[0].sha if commits else ""
+        if head_sha:
+            commit_sha = head_sha
+        else:
+            commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
+            commit_sha = commits[0].sha if commits else ""
     finally:
         if shared_client is None:
             await client.aclose()
@@ -420,11 +543,18 @@ async def process(
     # agent-first (issue 271): enrich deterministic findings with the agent's rationale (notes only).
     _enrich_findings(findings, _agent_notes_by_file(base_findings))
 
-    project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
     run = await _get_or_create_run(
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
+
+    # 差分再解析: 未変更（＝影響集合外）ファイルの前 run debt を新 run へ持ち越す。carried キーは stale-delete
+    # から守るため current_keys に含める。
+    carried_keys: set[tuple[str, str]] = set()
+    if do_incremental and prior_cd_run is not None:
+        carried_keys = await _carry_forward_code_debts(
+            session, prior_run_id=prior_cd_run.id, new_run_id=run.id, keep_files=set(source_paths) - affected
+        )
 
     by_type: dict[str, int] = {}
     by_severity: dict[str, int] = {}
@@ -434,7 +564,8 @@ async def process(
         sev = code_analysis.quantize_severity(finding.score)
         by_severity[sev] = by_severity.get(sev, 0) + 1
 
-    await _delete_stale_debts(session, run_id=run.id, current_keys={(f.file_path, f.type) for f in findings})
+    current_keys = {(f.file_path, f.type) for f in findings} | carried_keys
+    await _delete_stale_debts(session, run_id=run.id, current_keys=current_keys)
 
     run.status = JobStatus.COMPLETED
     session.add(run)

@@ -131,6 +131,8 @@ async def build_knowledge_units(
                 learning_steps_done=steps_done,
                 learning_steps_total=steps_total,
                 flagged=feat.key in flagged_keys,
+                # 再解析でこの機能のファイルが変わるとクイズ/学習に stale が立つ。どちらかが stale なら単元も stale。
+                stale=bool((qs is not None and qs.stale) or (plan is not None and plan.stale)),
             )
         )
     # フラグ付きを上部へ（同グループ内の元順序は保持＝安定ソート）。

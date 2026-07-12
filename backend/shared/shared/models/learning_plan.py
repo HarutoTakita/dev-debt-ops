@@ -53,6 +53,8 @@ class LearningPlan(SQLModel, table=True):
     # プランを機能に結び付ける解決/dedup はこの key で行う（FeatureFlag と同じ流儀）。旧行は None で
     # feature_id フォールバック。
     feature_key: str | None = Field(default=None, index=True)
+    # 要再受験（stale）。機能のファイル集合が再解析で変わると true にし、UI が再学習/再受験を促す。
+    stale: bool = Field(default=False, nullable=False)
     gap_concepts: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))  # list[str]
     estimated_total_minutes: int = Field(default=0, nullable=False)
     quiz_session_id: uuid.UUID | None = Field(default=None)
