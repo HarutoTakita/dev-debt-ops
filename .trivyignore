@@ -18,6 +18,10 @@ CVE-2026-39821
 CVE-2026-42502
 
 # --- trivy (gobinary / upstream prebuilt) ---
+# CVE-2026-39822: Go stdlib HIGH（os.Root symlink following）。trivy と github-mcp-server の
+# 両 prebuilt Go バイナリに存在（Go 1.25.12+ で修正済みだが upstream バイナリが未取り込み）。
+# 自前で再ビルド不可・service は内部 Cloud Run 限定のため、既存 gobinary CVE と同一根拠で受容。
+CVE-2026-39822
 CVE-2026-53488
 CVE-2026-53489
 CVE-2026-53492
