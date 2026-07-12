@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ResolvedPathname } from "$app/types";
   import { Button } from "$lib/components/ui/button";
+  import * as Tooltip from "$lib/components/ui/tooltip";
   import {
     analysisRun,
     AGENTIC_SUBSTEPS,
@@ -173,17 +174,27 @@
           </Button>
         {/if}
         {#if analysisRun.started && !analysisRun.running}
-          <!-- フル再解析: 既存 run がある時だけ。差分ではなく全体を再クラスタ（理解度は保持）。 -->
-          <Button
-            variant="ghost"
-            size="sm"
-            class="h-7 px-2 text-xs"
-            disabled={auth.isDemo || auth.analysisBlocked}
-            title={m.analysis_full_hint()}
-            onclick={runFullAnalysis}
-          >
-            {m.analysis_full_reanalyze()}
-          </Button>
+          <!-- フル再解析: 既存 run がある時だけ。差分ではなく全体を再クラスタ（理解度は保持）。UI は「再解析」
+               ボタンと同一（outline/sm）。説明はデフォルトの title 属性でなくアプリの Tooltip コンポーネントで出す。 -->
+          <Tooltip.Provider delayDuration={150}>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Button
+                    {...props}
+                    variant="outline"
+                    size="sm"
+                    class="h-7 px-2 text-xs"
+                    disabled={auth.isDemo || auth.analysisBlocked}
+                    onclick={runFullAnalysis}
+                  >
+                    {m.analysis_full_reanalyze()}
+                  </Button>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content side="top" class="max-w-xs">{m.analysis_full_hint()}</Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
         {/if}
         <Button
           variant="outline"
