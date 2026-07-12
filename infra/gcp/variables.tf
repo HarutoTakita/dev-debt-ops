@@ -189,7 +189,9 @@ variable "service_cpu" {
 variable "service_memory" {
   description = "Memory for the worker service."
   type        = string
-  default     = "2Gi"
+  # 4Gi: 大規模モノレポの agentic 解析（clone + グラフ + 400 ファイル読取 + Gemini コンテキスト）が
+  # 2Gi をわずかに超過して OOM → 503 → Cloud Tasks 無限リトライ（解析が終わらない）を起こしたため増強。
+  default = "4Gi"
 }
 
 variable "service_min_instances" {

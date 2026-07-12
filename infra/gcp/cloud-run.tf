@@ -263,6 +263,10 @@ resource "google_cloud_run_v2_service" "service" {
     service_account = google_service_account.service.email
     timeout         = var.service_timeout
 
+    # 重い agentic 解析ワーカーは 1 インスタンス = 1 リクエスト（1 解析）に固定する。高い並行数だと
+    # 複数解析が同一インスタンスに乗ってメモリが倍増し OOM するため。スケールは max_instance_count で行う。
+    max_instance_request_concurrency = 1
+
     scaling {
       min_instance_count = var.service_min_instances
       max_instance_count = var.service_max_instances
