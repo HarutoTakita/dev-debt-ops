@@ -16,20 +16,20 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col
 
 from service import config
 from service.pipelines.run_cleanup import prune_superseded_runs
-from service.services import code_analysis, feature_authoring, feature_communities
+from service.services import code_analysis, feature_authoring, feature_communities, gemini_stack_service
 from service.services.dependency_extraction import extract_dependencies
 from service.services.github_app import GitHubAppService
 from service.services.github_git_client import GitHubGitClient
 from shared.analysis_scope import is_learnable_path
 from shared.enums import JobStatus, JobType, ResultStatus
-from shared.models import AnalysisRun, Feature, FeatureFile
+from shared.models import AnalysisRun, Feature, FeatureFile, LearningPlan, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.feature_clustering import FeatureClusteringRequest, FeatureClusteringResult
 from shared.schemas.stack_analysis import GitHubRef
@@ -43,6 +43,12 @@ _PROPAGATED_CONFIDENCE = 0.5  # confidence for files added by graph-community pr
 _MAX_GRAPH_ADD = 6
 _BACKFILL_CONFIDENCE = 0.3  # confidence for files added by directory backfill (weakest signal)
 _MIN_FEATURE_FILES = 3  # 各機能に最低これだけ実ファイルを割り当てる（"複数" を保証。近傍で best-effort 補完）
+_INCREMENTAL_CONFIDENCE = 0.8  # 増分再解析で既存機能へ割り当て直したファイルの confidence（LLM 割当）
+
+
+def _norm(s: object) -> str:
+    """Collapse case/punctuation so an LLM-returned capability id resolves to a canonical feature key."""
+    return "".join(ch for ch in str(s).lower() if ch.isalnum())
 
 
 def _dir_of(path: str) -> str:
@@ -259,12 +265,51 @@ async def _carry_forward_features(
     return feature_count, file_count
 
 
+async def _feature_memberships(session: AsyncSession, run_id: uuid.UUID) -> dict[str, set[str]]:
+    """Return ``{feature_key: {file_path, ...}}`` for a run (Feature ⋈ FeatureFile)."""
+    rows = (
+        await session.execute(
+            select(col(Feature.key), col(FeatureFile.file_path))
+            .join(FeatureFile, col(FeatureFile.feature_id) == col(Feature.id))
+            .where(col(Feature.run_id) == run_id, col(FeatureFile.run_id) == run_id)
+        )
+    ).all()
+    members: dict[str, set[str]] = {}
+    for key, path in rows:
+        members.setdefault(key, set()).add(path)
+    return members
+
+
+async def _mark_features_stale(session: AsyncSession, *, project_id: uuid.UUID, feature_keys: set[str]) -> None:
+    """Flag every quiz/learning-plan of the given feature keys as ``stale`` (files changed → 要再受験).
+
+    A membership change is a property of the feature, so it fans out to all developers' rows for that
+    ``feature_key``. Fresh retest sessions default to ``stale=False``, so the flag naturally resets.
+    """
+    if not feature_keys:
+        return
+    keys = list(feature_keys)
+    await session.execute(
+        update(QuizSession)
+        .where(col(QuizSession.project_id) == project_id, col(QuizSession.feature_key).in_(keys))
+        .values(stale=True)
+    )
+    await session.execute(
+        update(LearningPlan)
+        .where(col(LearningPlan.project_id) == project_id, col(LearningPlan.feature_key).in_(keys))
+        .values(stale=True)
+    )
+
+
 async def process(
     request: FeatureClusteringRequest,
     ctx: PipelineContext,
     *,
     clusters: list[dict] | None = None,
     graph_edges: list[tuple[str, str]] | None = None,
+    changed_paths: set[str] | None = None,
+    removed_paths: set[str] | None = None,
+    head_sha: str | None = None,
 ) -> FeatureClusteringResult:
     """Cluster the repository's source files into features and upsert them under an analysis run.
 
@@ -278,6 +323,13 @@ async def process(
     supplied by the agentic orchestrator. When present it re-aligns feature memberships to graph
     communities (seeded label propagation) so each feature covers a connected, hub-centered region of
     related code. When ``None`` (standalone run) the locally-built import graph is used instead.
+
+    ``changed_paths`` / ``removed_paths`` (Phase 2a incremental): when a prior feature run exists, the
+    diff is small (churn ≤ ``config.feature_recluster_churn_threshold()``), and ``changed_paths`` is not
+    None, the feature set is carried forward (stable keys) and ONLY changed/new files are re-assigned to
+    existing features while removed files are dropped — cheap, and quizzes/learning stay attached. A
+    feature whose file set changes has its quizzes/plans flagged ``stale`` (要再受験). Otherwise (first
+    run / manual full / high churn) a FULL re-cluster runs — the only path that mints new features/keys.
     """
     if ctx.session is None:
         raise RuntimeError("feature_clustering pipeline requires a DB session in the pipeline context")
@@ -285,43 +337,70 @@ async def process(
     trace: list[str] = []
     from_base = clusters is not None
 
-    # 差分再解析（Phase 1）: 前 COMPLETED feature run があれば再クラスタせず持ち越す（key を保つ → クイズ/
-    # 学習が剥がれない）。フル再クラスタは初回（prior 無し）のみ。[Phase 2: diff 駆動の増分割当＋閾値/手動フル]
+    # 差分再解析（Phase 2a）: 前 feature run があり diff が使え churn が閾値内なら「増分」— 新規/変更ファイルだけを
+    # 既存機能（key 固定）へ割当し直し、他は持ち越す（クイズ/学習は feature_key で紐付いたまま）。前 run 無し /
+    # 手動フル(changed_paths=None) / churn 超過は「フル再クラスタ」（新 key/新機能が生まれる唯一の経路）。
     project_id = uuid.UUID(request.project_id)
     job_id = uuid.UUID(request.job_id)
     prior_feature_run = await _prior_completed_feature_run(session, project_id)
-    carry_forward = prior_feature_run is not None
+    prior_members: dict[str, set[str]] = {}
+    prior_files: set[str] = set()
+    if prior_feature_run is not None:
+        prior_members = await _feature_memberships(session, prior_feature_run.id)
+        for paths in prior_members.values():
+            prior_files |= paths
+    churn = len(changed_paths or set()) + len(removed_paths or set())
+    do_incremental = (
+        prior_feature_run is not None
+        and changed_paths is not None
+        and bool(prior_files)
+        and churn <= config.feature_recluster_churn_threshold() * len(prior_files)
+    )
 
     # Reuse the job's shared (read-caching) client when present (agentic backbone), else mint our own.
     shared_client = ctx.github_client
     client = shared_client or GitHubGitClient(access_token=await _mint_installation_token(request.github))
     source_paths: list[str] = []
     files: dict[str, str] = {}
+    affected: list[str] = []
     try:
-        if not carry_forward:
-            tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
-            # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
-            # 従来は is_source_file(py/ts/js のみ)+単純 [:N] 打ち切りで、KC とは別母集合（backend のみ）を
-            # クラスタリングしていたため、機能フィルタ時に KC 未採点＝未着手(灰)ばかりになっていた。
-            source_paths = code_analysis.select_source_paths(
-                [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
-            )
-            if not from_base:
-                # File contents are only needed to build the import graph that feeds the clustering model.
-                for path in source_paths:
-                    fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
-                    if fc.content is not None:
-                        files[path] = fc.content
-        commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
-        commit_sha = commits[0].sha if commits else ""
+        tree = await client.get_repository_tree(request.owner, request.repo, request.branch)
+        # kc_analysis と同じ選定（round-robin・.svelte/.vue 含む・同一上限）で同一ファイル集合を対象にする。
+        source_paths = code_analysis.select_source_paths(
+            [t.path for t in tree if t.type == "blob"], config.analysis_max_files()
+        )
+        if do_incremental:
+            # 影響ファイル: 学習対象のうち「変更された or 前 run の機能に無い（新規）」もの。content は descriptors 用。
+            affected = [
+                p for p in source_paths if is_learnable_path(p) and (p in changed_paths or p not in prior_files)
+            ]
+            for path in affected:
+                fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
+                if fc.content is not None:
+                    files[path] = fc.content
+        elif not from_base:
+            # フル（非 base）: import グラフ用に全 content を取得。
+            for path in source_paths:
+                fc = await client.get_file_content(request.owner, request.repo, path, request.branch)
+                if fc.content is not None:
+                    files[path] = fc.content
+        if head_sha:
+            commit_sha = head_sha
+        else:
+            commits = await client.list_commits(request.owner, request.repo, sha=request.branch, per_page=1)
+            commit_sha = commits[0].sha if commits else ""
     finally:
         if shared_client is None:
             await client.aclose()
-    trace.append("carry-forward (prior feature run)" if carry_forward else f"fetched {len(source_paths)} files")
+    trace.append(
+        f"incremental: {len(affected)} affected of {len(source_paths)} files"
+        if do_incremental
+        else f"fetched {len(source_paths)} files"
+    )
 
-    # Intra-repo import graph (main clustering signal) — only when we run the clustering model.
+    # Intra-repo import graph (main clustering signal) — only when we run the full clustering model.
     edges: list[tuple[str, str]] = []
-    if not from_base:
+    if not from_base and not do_incremental:
         repo_paths = set(files)
         seen: set[tuple[str, str]] = set()
         for path, content in files.items():
@@ -335,12 +414,51 @@ async def process(
         session, job_id=job_id, project_id=project_id, commit_sha=commit_sha, branch=request.branch
     )
 
-    if carry_forward:
-        # 前 run の機能セットをそのまま新 run へ複製（key は不変 → クイズ/学習が feature_key で解決され続ける）。
-        feature_count, file_count = await _carry_forward_features(
+    if do_incremental:
+        # 前 run の機能セット（key 固定）を新 run へ複製 → 変更/新規ファイルだけ既存機能へ割当し直す。
+        feature_count, _ = await _carry_forward_features(
             session, prior_run_id=prior_feature_run.id, new_run_id=run.id, project_id=project_id
         )
-        trace.append(f"carried forward {feature_count} features / {file_count} memberships (incremental)")
+        # 影響ファイル＋削除/選外ファイルの既存 membership を落とす（この後で影響ファイルを貼り直す）。
+        gone = set(removed_paths or set()) | (prior_files - set(source_paths))
+        drop = set(affected) | gone
+        if drop:
+            await session.execute(
+                delete(FeatureFile).where(col(FeatureFile.run_id) == run.id, col(FeatureFile.file_path).in_(list(drop)))
+            )
+        # 新 run の機能（key/name/description）を固定 capability として、影響ファイルを割り当て直す（多重可）。
+        new_features = (await session.execute(select(Feature).where(col(Feature.run_id) == run.id))).scalars().all()
+        key_to_id = {f.key: f.id for f in new_features}
+        resolve: dict[str, str] = {}
+        for f in new_features:
+            resolve[_norm(f.key)] = f.key
+            resolve[_norm(f.name)] = f.key
+        assignments: dict[str, list[str]] = {}
+        if affected and new_features:
+            caps = [{"key": f.key, "name": f.name, "description": f.description} for f in new_features]
+            fwp = [(p, code_analysis.file_purpose(files.get(p, ""))) for p in affected]
+            assignments = await gemini_stack_service.assign_files_to_capabilities(caps, fwp)
+        for path in affected:
+            raw = assignments.get(path) or []
+            canon: list[str] = []
+            for k in raw if isinstance(raw, list) else [raw]:
+                ck = resolve.get(_norm(k))
+                if ck and ck not in canon:
+                    canon.append(ck)
+            for ck in canon:
+                await _upsert_feature_file(
+                    session, run_id=run.id, feature_id=key_to_id[ck], file_path=path, confidence=_INCREMENTAL_CONFIDENCE
+                )
+        # stale 検知: 前 run と membership が変わった機能のクイズ/学習を「要再受験」にする（返済ループ駆動）。
+        new_members = await _feature_memberships(session, run.id)
+        changed_keys = {
+            k
+            for k in (set(prior_members) | set(new_members))
+            if prior_members.get(k, set()) != new_members.get(k, set())
+        }
+        await _mark_features_stale(session, project_id=project_id, feature_keys=changed_keys)
+        file_count = sum(len(v) for v in new_members.values())
+        trace.append(f"incremental: reassigned {len(affected)} files, {len(changed_keys)} features marked stale")
         run.status = JobStatus.COMPLETED
         session.add(run)
         await session.flush()
@@ -348,9 +466,10 @@ async def process(
             session, project_id=run.project_id, kind=JobType.FEATURE_CLUSTERING.value, keep_run_id=run.id
         )
         logger.info(
-            "feature_clustering: carried forward %s features / %s memberships for %s/%s@%s",
+            "feature_clustering: incremental — %s features / %s memberships, %s stale for %s/%s@%s",
             feature_count,
             file_count,
+            len(changed_keys),
             request.owner,
             request.repo,
             commit_sha,

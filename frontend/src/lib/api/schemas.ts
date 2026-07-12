@@ -284,6 +284,7 @@ export const knowledgeUnitSchema = z.object({
   learning_steps_done: z.number().default(0), // 学習プランの完了ステップ数（進捗バー用）
   learning_steps_total: z.number().default(0), // 学習プランの総ステップ数
   flagged: z.boolean().default(false), // フラグ付き単元（一覧上部にソート）
+  stale: z.boolean().default(false), // 要再受験（再解析でこの機能のファイルが変わった）
 });
 export const knowledgeUnitsSchema = z.object({ units: z.array(knowledgeUnitSchema) });
 

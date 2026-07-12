@@ -23,6 +23,11 @@
     await analysisRun.runAll(ctx);
     await auth.refreshUser(); // 1 クレジット消費後の残高を反映
   }
+  // フル再解析: 差分を無視して全体を再解析（機能をフル再クラスタ）。既存 run がある場合のみ意味を持つ。
+  async function runFullAnalysis() {
+    await analysisRun.runAll({ ...ctx, full: true });
+    await auth.refreshUser();
+  }
 
   // 解析ラン・コックピット。生成導線は単一の主 CTA に集約（issue 064/069）。モーダル上部の「リポジトリ解析」
   // タイトルと重複するため親ブロック見出しは置かず、4 ブロック（リポジトリ探索 / 技術負債の検知 / 理解負債の整理 /
@@ -165,6 +170,19 @@
         {#if analysisRun.running}
           <Button variant="outline" size="sm" class="h-7 px-2 text-xs" onclick={() => analysisRun.cancelRun(ctx)}>
             {m.common_cancel()}
+          </Button>
+        {/if}
+        {#if analysisRun.started && !analysisRun.running}
+          <!-- フル再解析: 既存 run がある時だけ。差分ではなく全体を再クラスタ（理解度は保持）。 -->
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-7 px-2 text-xs"
+            disabled={auth.isDemo || auth.analysisBlocked}
+            title={m.analysis_full_hint()}
+            onclick={runFullAnalysis}
+          >
+            {m.analysis_full_reanalyze()}
           </Button>
         {/if}
         <Button

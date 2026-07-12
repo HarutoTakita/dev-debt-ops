@@ -21,6 +21,8 @@ class KnowledgeUnitOut(BaseModel):
     learning_steps_done: int = 0
     learning_steps_total: int = 0
     flagged: bool = False  # このユーザーがフラグを付けた単元か（フラグ付きは一覧上部にソート）
+    # 要再受験（stale）: 再解析でこの機能のファイル集合が変わり、既存のクイズ/学習が陳腐化した可能性がある。
+    stale: bool = False
 
 
 class KnowledgeUnitsOut(BaseModel):

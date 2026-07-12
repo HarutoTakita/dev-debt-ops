@@ -16,7 +16,7 @@ from service.pipelines import feature_clustering
 from service.services import feature_authoring, gemini_stack_service
 from service.services.github_git_client import CommitInfo, FileContent, TreeItem
 from shared.enums import JobStatus, JobType
-from shared.models import AnalysisRun, Feature, FeatureFile, Job
+from shared.models import AnalysisRun, Feature, FeatureFile, Job, LearningPlan, QuizSession
 from shared.pipelines.context import PipelineContext
 from shared.schemas.feature_clustering import FeatureClusteringRequest
 from shared.schemas.stack_analysis import GitHubRef
@@ -421,3 +421,138 @@ async def test_capability_first_resolves_name_when_key_not_echoed(monkeypatch: p
     clusters = await feature_authoring.cluster_features_capability_first(["a.py"], [], owner="o", repo="r")
     by_key = {c["key"]: [f["path"] for f in c["files"]] for c in clusters}
     assert by_key["auth"] == ["a.py"]  # name→key 解決で割当が成立
+
+
+# --- Phase 2a: incremental assignment + staleness ---------------------------
+
+_V1_FILES = {f"src/auth/a{i}.py": "x = 1\n" for i in range(5)} | {f"src/billing/b{i}.py": "y = 2\n" for i in range(5)}
+_V1_CLUSTERS = [
+    {
+        "key": "auth",
+        "name": "認証",
+        "description": "Auth",
+        "files": [{"path": p, "confidence": 0.9} for p in _V1_FILES if "auth" in p],
+    },
+    {
+        "key": "billing",
+        "name": "課金",
+        "description": "Billing",
+        "files": [{"path": p, "confidence": 0.9} for p in _V1_FILES if "billing" in p],
+    },
+]
+_NEW_FILE = "src/auth/a_new.py"
+_V2_FILES = {**_V1_FILES, _NEW_FILE: "z = 3\n"}
+
+
+def _patch_incr(monkeypatch: pytest.MonkeyPatch, files: dict[str, str], assignments: dict[str, list[str]]) -> None:
+    async def _fake_mint(github: GitHubRef) -> str:
+        return "tok"
+
+    async def _fake_cluster(paths, edges, *, owner, repo, descriptors=None):
+        return _V1_CLUSTERS
+
+    async def _fake_assign(caps, fwp):
+        return dict(assignments)
+
+    monkeypatch.setattr(feature_clustering, "_mint_installation_token", _fake_mint)
+    monkeypatch.setattr(feature_clustering, "GitHubGitClient", lambda access_token: _FakeClient(files))
+    monkeypatch.setattr(feature_clustering.feature_authoring, "cluster_features_capability_first", _fake_cluster)
+    monkeypatch.setattr(feature_clustering.gemini_stack_service, "assign_files_to_capabilities", _fake_assign)
+
+
+def _request_for(project_id: str) -> FeatureClusteringRequest:
+    return FeatureClusteringRequest(
+        job_id=str(uuid.uuid4()),
+        job_type=JobType.FEATURE_CLUSTERING,
+        owner="acme",
+        repo="rosetta",
+        branch="main",
+        github=GitHubRef(installation_id=42),
+        project_id=project_id,
+        requested_by="user",
+    )
+
+
+async def _members(session_maker: async_sessionmaker, run_id: uuid.UUID) -> dict[str, set[str]]:
+    async with session_maker() as session:
+        rows = (
+            await session.execute(
+                select(Feature.key, FeatureFile.file_path).join(FeatureFile, FeatureFile.feature_id == Feature.id)
+            )
+        ).all()
+    out: dict[str, set[str]] = {}
+    for key, path in rows:
+        out.setdefault(key, set()).add(path)
+    return out
+
+
+async def test_incremental_assigns_new_file_and_marks_stale(
+    monkeypatch: pytest.MonkeyPatch, session_maker: async_sessionmaker
+) -> None:
+    """A small re-analysis assigns the new file to an existing feature (stable keys) and flags that
+    feature's quiz/plan stale; an untouched feature stays intact and not stale."""
+    project_id = str(uuid.uuid4())
+
+    # Run 1: full cluster (no prior) → 10 files across auth/billing.
+    _patch_incr(monkeypatch, _V1_FILES, {})
+    req1 = _request_for(project_id)
+    await _seed_job(session_maker, req1.job_id)
+    async with session_maker() as session:
+        await feature_clustering.process(req1, PipelineContext(session=session))
+        await session.commit()
+
+    # A developer already has a baseline quiz + plan for each feature (not stale).
+    dev = uuid.uuid4()
+    async with session_maker() as session:
+        for key in ("auth", "billing"):
+            session.add(
+                QuizSession(
+                    project_id=uuid.UUID(project_id),
+                    developer_id=dev,
+                    file_path="",
+                    feature_key=key,
+                    is_baseline=True,
+                    status="completed",
+                )
+            )
+            session.add(LearningPlan(project_id=uuid.UUID(project_id), developer_id=dev, feature_key=key))
+        await session.commit()
+
+    # Run 2: incremental — one new file, assigned to `auth`.
+    _patch_incr(monkeypatch, _V2_FILES, {_NEW_FILE: ["auth"]})
+    req2 = _request_for(project_id)
+    await _seed_job(session_maker, req2.job_id)
+    async with session_maker() as session:
+        await feature_clustering.process(
+            req2, PipelineContext(session=session), changed_paths={_NEW_FILE}, removed_paths=set(), head_sha="def456"
+        )
+        await session.commit()
+
+    async with session_maker() as session:
+        run2 = (
+            await session.execute(select(AnalysisRun).where(AnalysisRun.job_id == uuid.UUID(req2.job_id)))
+        ).scalar_one()
+        assert run2.commit_sha == "def456"
+    members = await _members(session_maker, run2.id)
+    assert set(members) == {"auth", "billing"}  # stable feature set (no re-cluster)
+    assert _NEW_FILE in members["auth"]  # new file assigned to the existing feature
+    assert len(members["auth"]) == 6
+    assert len(members["billing"]) == 5  # untouched feature intact
+
+    async with session_maker() as session:
+        auth_q = (
+            await session.execute(
+                select(QuizSession).where(
+                    QuizSession.project_id == uuid.UUID(project_id), QuizSession.feature_key == "auth"
+                )
+            )
+        ).scalar_one()
+        billing_q = (
+            await session.execute(
+                select(QuizSession).where(
+                    QuizSession.project_id == uuid.UUID(project_id), QuizSession.feature_key == "billing"
+                )
+            )
+        ).scalar_one()
+        assert auth_q.stale is True  # auth's file set changed → 要再受験
+        assert billing_q.stale is False  # billing unchanged
