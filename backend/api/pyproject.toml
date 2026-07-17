@@ -20,7 +20,7 @@ dependencies = [
     "sqlmodel>=0.0.39",
     "uuid-utils>=0.14.1",
     "google-cloud-tasks>=2.22.0",
-    "google-cloud-storage>=3.12.1",
+    "google-cloud-storage>=3.13.0",
 ]
 
 # Run from source (uvicorn app.main:app); deps installed, project not built as a wheel.
