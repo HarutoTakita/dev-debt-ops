@@ -18,7 +18,7 @@ dependencies = [
     "google-cloud-dlp>=3.0.0",                         # LLM 送信前の PII マスキング（DLP_ENABLED=true 時のみ、issue 296）
     "httpx>=0.28.1",
     "PyJWT>=2.8.0",
-    "cryptography>=42.0.0",
+    "cryptography>=50.0.0",
 ]
 
 # Run from source (uvicorn service.main:app); deps installed, project not built as a wheel.
