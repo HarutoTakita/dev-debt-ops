@@ -62,7 +62,7 @@ jobs:
       # frontend (package.json / bun.lock) dependency graphs. SLSA / EU CRA
       # increasingly require this artifact alongside releases.
       - name: Generate SBOM (CycloneDX)
-        uses: anchore/sbom-action@v0.24.0
+        uses: anchore/sbom-action@v0.24.2
         with:
           path: .
           format: cyclonedx-json
